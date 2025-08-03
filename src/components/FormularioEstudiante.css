@@ -1,0 +1,701 @@
+
+
+
+.formulario {
+  flex: 0 0 48%;
+  width: 100%;
+  margin: 0;
+  padding: 1rem 1rem;
+  background: radial-gradient(circle at top left, rgba(103, 169, 255, 0.4) 0%, transparent 40%),
+              radial-gradient(circle at bottom right, rgba(48, 104, 180, 0.45) 0%, transparent 50%),
+              linear-gradient(135deg, #b6d0ff, #6fa0dd, #2c3e75);
+  font-family: 'Poppins', sans-serif;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-radius: 1.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+
+
+.titulo-formulario {
+  width: 100%;
+  background: transparent;
+  color: #ffffff;
+  font-size: 1.7rem;
+  font-weight: 700;
+  text-align: center;
+  padding: 1.5rem 1rem;
+  border-bottom: 2px solid rgba(255, 255, 255, 0.2);
+  letter-spacing: 1px;
+  text-shadow: 0 2px 3px rgba(0, 0, 0, 0.3);
+
+}
+
+
+
+
+.buscador-estudiante {
+  position: relative;
+  width: 100%;
+  padding: 1rem;
+  margin-bottom: 1rem;
+  z-index: 1000;          /* ✅ añadido */
+}
+
+
+
+.input-busqueda {
+  width: 100%;
+  padding: 0.8rem 1.2rem;
+  font-size: 1rem;
+  border-radius: 0rem;
+  border: none;
+  outline: none;
+  background: #e0e5ec;
+  box-shadow: inset 6px 6px 10px #babecc, inset -6px -6px 10px #ffffff;
+  font-family: 'Poppins', sans-serif;
+  -webkit-text-fill-color: #2c2c2c;
+  color: #2c2c2c;
+  text-align: left;
+}
+
+
+.input-busqueda::placeholder {
+  color: #7a7a7a;
+}
+
+.input-busqueda:focus {
+  background: #f9fbff; /* blanco muy claro */
+  box-shadow:
+    0 0 0 3px rgba(90, 157, 249, 0.4), /* azul cielo suave alrededor */
+    0 6px 12px rgba(90, 157, 249, 0.2), /* luz externa elegante */
+    inset 2px 2px 4px rgba(0, 0, 0, 0.05), /* sombra interna tenue */
+    inset -2px -2px 4px rgba(255, 255, 255, 0.6); /* brillo interior */
+  border: none;
+  transition: box-shadow 0.3s ease, background 0.3s ease;
+}
+
+
+
+
+.lista-autocompletado {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0; /* ✅ importante para que el ancho no se pase */
+  margin-top: -1rem;
+  background: #ffffff;
+  border: 1px solid #ccc;
+  border-radius: 0 0 12px 12px;
+  z-index: 9999;
+  list-style: none;
+  padding: 0;
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
+  max-height: 220px;
+  overflow-y: auto;
+  overflow-x: hidden; /* ✅ bloquea el desborde horizontal */
+  width: 100%; /* asegúrate que el padre tenga width limitado */
+}
+
+
+
+.lista-autocompletado li {
+  padding: 0.75rem 1.1rem;
+  font-size: 1rem;
+  color: #2b2b2b;
+  cursor: pointer;
+  border-bottom: 1px solid #eee;
+  background-color: #f9f9f9; /* ✅ Fondo claro desde el inicio */
+  transition: background 0.2s ease;
+}
+
+
+
+
+.lista-autocompletado li:hover,
+.lista-autocompletado li.activo {
+  background-color: #e3eaff;
+  font-weight: 600;
+  color: #1e40af;
+}
+
+
+
+
+
+
+/* 🧱 CONTENEDOR GENERAL QUE DIVIDE LA PANTALLA EN DOS */
+.contenedor-dos-columnas {
+  display: flex;
+  width: 100vw;
+  height: 100vh;
+  box-sizing: border-box;
+}
+
+/* 📋 PANEL IZQUIERDO: FORMULARIO */
+.panel-formulario {
+  width: 50%;
+  padding: 1rem;
+  box-sizing: border-box;
+  background: transparent;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  position: relative;     /* ✅ añadido */
+  z-index: 1;              /* ✅ añadido */
+}
+
+
+/* ====================
+   🧩 Campos y etiquetas
+==================== */
+.grupo-campo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem; /* Aumentado ligeramente */
+}
+
+.etiqueta-campo {
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: #333;
+  padding-left: 0.3rem;
+}
+
+/* Icono + input */
+.campo-con-icono {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  background: #e0e0e0;
+  padding: 0.75rem 1rem;
+  border-radius: 12px;
+  box-shadow: inset 6px 6px 12px #bebebe,
+              inset -6px -6px 12px #ffffff;
+  transition: all 0.3s ease;
+  width: 100%; /* ✅ Asegúrate de tener esto */
+}
+.campo-con-icono:focus-within {
+  background: #f9f9f9;
+  box-shadow: 0 0 0 2px #a0a0ff;
+}
+
+.campo-input {
+  border: none;
+  background: transparent;
+  outline: none;
+  font-size: 1rem;
+  width: 100%;
+  color: #333;
+}
+
+
+/* =====================
+   🎨 Estilo para react-select neumorfismo blanco
+===================== */
+/* 🎯 CONTROL PRINCIPAL */
+.select-neu__control {
+  background: #f0f4fa;
+  border-radius: 14px;
+  box-shadow: inset 6px 6px 12px #d1d9e6, inset -6px -6px 12px #ffffff;
+  border: none;
+  padding: 4px 12px;
+  min-height: 48px;
+  color: #1e293b;
+  font-weight: 600;
+  transition: box-shadow 0.3s ease, background 0.3s ease;
+}
+
+/* 🎯 MENÚ DESPLEGABLE */
+.select-neu__menu {
+  background: #f0f4fa;
+  border-radius: 14px;
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.1);
+  padding: 0.5rem 0;
+  margin-top: 8px;
+  z-index: 100;
+}
+
+/* 🎯 OPCIONES DEL MENÚ */
+.select-input-neumo {
+  padding: 0.8rem 1rem;
+  font-size: 1rem;
+  border-radius: 12px;
+  border: none;
+  background: #e0e0e0;
+  box-shadow: inset 6px 6px 12px #bebebe,
+              inset -6px -6px 12px #ffffff;
+  font-weight: 600;
+  color: #1e293b;
+  transition: all 0.3s ease;
+  width: 100%;
+}
+
+.select-input-neumo:focus {
+  background: #f9f9f9;
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(110, 132, 247, 0.3);
+}
+select {
+  padding: 0.75rem 1rem;
+  font-size: 1rem;
+  border-radius: 12px;
+  background: #f1f5f9; /* gris azulado claro */
+  border: 2px solid #3b82f6; /* azul elegante */
+  color: #1e293b;
+  font-weight: 600;
+  appearance: none; /* quita la flecha nativa */
+  background-image: url('data:image/svg+xml;utf8,<svg fill="%231e293b" height="20" viewBox="0 0 24 24" width="20" xmlns="http://www.w3.org/2000/svg"><path d="M7 10l5 5 5-5z"/></svg>');
+  background-repeat: no-repeat;
+  background-position: right 1rem center;
+  background-size: 1rem;
+  cursor: pointer;
+}
+
+select:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3);
+  background-color: #fff;
+}
+
+/* Opciones dentro del select */
+option {
+  background: #ffffff;
+  color: #1e293b;
+  font-weight: 500;
+  padding: 10px;
+}
+
+
+
+/* ====================
+   📋 Dropdown personalizado
+==================== */
+.dropdown-serie {
+  position: relative;
+   color: #f1f1f1;
+}
+
+.dropdown-btn {
+  width: 100%;
+  padding: 0.7rem 1rem;
+  font-size: 1rem;
+  text-align: left;
+  color: #f1f1f1;
+  border: none;
+  border-radius: 12px;
+  background: #2b2e37; /* fondo base oscuro */
+  box-shadow:
+    inset 4px 4px 8px rgba(0, 0, 0, 0.4),   /* sombra interna (hundido) */
+    inset -4px -4px 8px rgba(70, 70, 80, 0.2), /* luz superior izquierda */
+    0 2px 4px rgba(0, 0, 0, 0.3); /* sombra externa sutil */
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+
+.dropdown-lista {
+  margin-top: 0.3rem;
+  background: #2b2e37;
+  border: 1px solid #ccc;
+  border-radius: 10px;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.08);
+  list-style: none;
+  padding: 0;
+  overflow: hidden;
+}
+
+.dropdown-lista li {
+  padding: 0.75rem 1rem;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.dropdown-lista li:hover {
+  background-color: #000000;  /* Fondo negro */
+  color: #ffffff;             /* Texto blanco */
+}
+
+
+
+
+
+
+
+/* ====================
+   🎓 Label de letra tipo grabado ...)
+==================== */
+.label-campo {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #ffffff; /* ✅ Letra blanca sólida */
+  margin-bottom: 0.4rem;
+  padding-left: 0.2rem;
+  display: block;
+  letter-spacing: 0.3px;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6); /* ✅ contraste elegante */
+  transition: color 0.3s ease;
+}
+
+
+
+
+.bloque-detalle-serie {
+  padding: 0;                /* ❌ Sin relleno interno */
+  margin: 0;                 /* ❌ Sin separación arriba o abajo */
+  background: none;          /* ❌ Sin color de fondo */
+  box-shadow: none;          /* ❌ Sin sombra de tarjeta */
+  border: none;              /* ❌ Sin borde */
+}
+
+
+/* Etiqueta "Nombre de la Serie", "Profesor", etc. */
+.label-campo {
+ font-size: 1.05rem;
+   font-weight: 600;
+   color: #2b2e37; /* gris oscuro elegante */
+   margin-bottom: 0.4rem;
+   padding-left: 0.2rem;
+   display: block;
+   letter-spacing: 0.4px;
+   text-shadow: 1px 1px 0 #ffffffaa, -1px -1px 1px rgba(0, 0, 0, 0.03);
+   filter: drop-shadow(0 0 1px rgba(0, 0, 0, 0.1));
+   transition: all 0.3s ease;
+}
+
+/* Cada bloque de valor tipo neumorfismo */
+.nombre-serie-box {
+  background: #e3edff;
+  border-radius: 12px;
+  padding: 0.75rem 1rem;
+  box-shadow: inset 6px 6px 12px #a6b8d6,
+              inset -6px -6px 12px #ffffff;
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: #1e293b;
+  margin-bottom: 1rem;
+  transition: all 0.3s ease;
+}
+
+.nombre-serie-box:hover {
+  box-shadow: inset 4px 4px 8px #a6b8d6,
+              inset -4px -4px 8px #ffffff;
+}
+
+
+
+
+
+
+
+
+
+
+
+/* 🧾 PANEL DERECHO: NOTAS */
+.panel-notas {
+  width: 50%;
+  padding: 1rem;
+  margin-top: 1rem; /* 💡 Espacio elegante hacia abajo */
+  box-sizing: border-box;
+  background: radial-gradient(circle at top left, rgba(30, 30, 30, 0.3) 0%, transparent 40%),
+              radial-gradient(circle at bottom right, rgba(60, 60, 60, 0.4) 0%, transparent 50%),
+              linear-gradient(135deg, #2c2c2c, #1a1a1a, #121212);
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
+  font-family: 'Poppins', sans-serif;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-radius: 1.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  display: flex;
+  flex-direction: column;
+  color: #f4f4f4;
+  box-shadow: inset 4px 4px 10px rgba(0, 0, 0, 0.5),
+              inset -4px -4px 10px rgba(255, 255, 255, 0.02),
+              0 8px 20px rgba(0, 0, 0, 0.3);
+}
+
+
+
+/* 🧾 FORMULARIO */
+.formulario {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+/* 🎯 FILA CON DOS COLUMNAS DENTRO DEL FORMULARIO */
+.fila-formulario {
+  display: flex;
+  justify-content: space-between;
+  gap: 1.5rem;
+}
+
+/* 📦 COLUMNAS DE CAMPOS */
+.columna-formulario {
+  flex: 1 1 50%;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+/* 🧩 GRUPOS DE CAMPOS */
+.grupo-campo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.etiqueta-campo {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.campo-con-icono {
+  display: flex;
+  align-items: center;
+  background: #e0e0e0;
+  padding: 0.75rem 1rem;
+  border-radius: 12px;
+  box-shadow: inset 6px 6px 12px #bebebe, inset -6px -6px 12px #ffffff;
+}
+
+.campo-input {
+  border: none;
+  background: transparent;
+  outline: none;
+  font-size: 1rem;
+  width: 230px;
+  color: #333;
+}
+
+.select-input {
+  padding: 0.7rem 1rem;
+  font-size: 1rem;
+  border-radius: 10px;
+  border: 1px solid #dcdcdc;
+  background: #f9f9f9;
+  color: #333;
+  width: 100%;
+}
+
+
+/* ====================
+   🔘 Botones
+==================== */
+.boton-principal,
+.boton-secundario {
+  padding: 0.75rem 1.5rem;
+  border: none;
+  border-radius: 10px;
+  font-size: 1rem;
+  font-weight: 600;
+  background-color: #6e84f7;
+  color: #fff;
+  cursor: pointer;
+  transition: background 0.3s, transform 0.2s;
+}
+
+.boton-principal:hover,
+.boton-secundario:hover {
+  background-color: #5c70e6;
+  transform: translateY(-1px);
+}
+
+.boton-principal {
+  padding: 0.8rem 1.5rem;
+  background: #2563eb;
+  color: white;
+  border: none;
+  border-radius: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+  transition: background 0.3s ease;
+}
+
+.boton-principal:hover {
+  background: #1e40af;
+}
+
+
+
+.titulo-notas-neumo {
+  width: 100%;
+  background: transparent;
+  color: #ffffff;
+  font-size: 1.7rem;
+  font-weight: 700;
+  text-align: center;
+  padding: 1.5rem 1rem;
+  border-bottom: 2px solid rgba(255, 255, 255, 0.2);
+  letter-spacing: 1px;
+  text-shadow: 0 2px 3px rgba(0, 0, 0, 0.3);
+  margin-bottom: 2.5rem;
+}
+
+
+
+/* 🗂️ TARJETAS DE NOTAS */
+.lista-notas {
+  display: flex;
+  flex-direction: row;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+
+.tarjeta-nota {
+ background: #1f1f1f;/* negro brillante tipo Mac */
+  border-radius: 1.2rem;
+  padding: 1rem 1.5rem;
+  color: #f1f1f1;
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.5); /* sombra intensa */
+  transition: transform 0.2s ease, box-shadow 0.3s ease;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border: 1px solid #333; /* sutil borde */
+}
+
+.tarjeta-nota:hover {
+  transform: translateY(-3px) scale(1.01);
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.4);
+}
+
+.tarjeta-nota h4 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-bottom: 0.4rem;
+  color: #ffffff;
+}
+
+.tarjeta-nota p {
+  font-size: 0.95rem;
+  color: #cccccc;
+  margin: 0.2rem 0;
+}
+
+.tarjeta-estudiante-horizontal {
+ width: 100%;
+   display: flex;
+   justify-content: space-between;
+   align-items: center;
+   background: #f1f1f1;
+   border-radius: 16px;
+   padding: 1rem 1.5rem;
+   margin-bottom: 1.5rem;
+   color: #1e293b;
+   font-size: 1rem;
+   font-weight: 600;
+   box-shadow:
+     inset 6px 6px 12px #d1d9e6,
+     inset -6px -6px 12px #ffffff,
+     0 8px 20px rgba(0, 0, 0, 0.05);
+   transition: all 0.3s ease;
+}
+
+.campo-horizontal {
+  flex: 1;
+  text-align: left;
+  padding: 0 1rem;
+}
+
+.filtros-secundarios {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+}
+.filtros-secundarios .grupo-campo {
+  flex: 1 1 48%;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/* 📱 RESPONSIVE PARA CELULARES */
+@media (max-width: 768px) {
+  .contenedor-dos-columnas {
+    flex-direction: column;
+    height: auto;
+    padding: 1rem;
+  }
+
+  .panel-formulario,
+  .panel-notas {
+    width: 100%;
+    padding: 1.5rem 1rem;
+  }
+
+  .fila-formulario {
+    flex-direction: column;
+    gap: 1.2rem;
+  }
+
+  .columna-formulario {
+    flex: 1 1 50%;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem; /* Aumentado: antes tenías 1rem */
+    padding-right: 1.2rem; /* 💡 Para dar más aire a la derecha */
+  }
+
+  .campo-input {
+    width: 100%; /* para que los campos se estiren bien */
+  }
+
+  .tarjeta-nota {
+    width: 100%;
+  }
+
+  .lista-notas {
+    flex-direction: column;
+  }
+
+  .boton-principal {
+    width: 100%;
+    text-align: center;
+  }
+}
+.tarjeta-pendiente-notas {
+  background: #fef6e6;
+  padding: 1rem 1.5rem;
+  border-radius: 1rem;
+  margin: 1.5rem auto 1rem;
+  width: fit-content;
+  box-shadow: 2px 2px 12px rgba(0, 0, 0, 0.1);
+  font-family: 'Poppins', sans-serif;
+  color: #333;
+}
+
+.titulo-pendiente {
+  font-size: 1.2rem;
+  font-weight: 600;
+  margin-bottom: 0.3rem;
+}
+
+.serie-pendiente {
+  font-size: 1rem;
+  font-weight: 500;
+  margin: 0.5rem 0;
+}
+
+.clases-pendientes {
+  font-size: 0.95rem;
+}
