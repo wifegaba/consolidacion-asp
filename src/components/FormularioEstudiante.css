@@ -634,7 +634,7 @@ option {
   .contenedor-dos-columnas {
     flex-direction: column;
 
-    padding: 1rem;
+
   }
 
   .panel-formulario,
