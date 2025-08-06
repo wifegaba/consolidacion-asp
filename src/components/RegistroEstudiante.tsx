@@ -30,7 +30,13 @@ export default function RegistroEstudiante() {
 
   return (
     <form className="registro-formulario" onSubmit={handleSubmit}>
-      <h2 className="registro-titulo-formulario">Registrar Estudiante</h2>
+      <img
+          src="/images/logo-n2ncu.png"
+          alt="Logo N2NCU"
+          className="registro-logo"
+      />
+
+
 
       <div className="registro-grupo-campo">
         <label htmlFor="nombre"></label>
@@ -88,6 +94,17 @@ export default function RegistroEstudiante() {
           Guardar Estudiante
         </button>
       </div>
+      <div className="registro-grupo-campo">
+        <button
+            type="button"
+            className="registro-btn-salir"
+            onClick={() => window.location.href = "/"}
+        >
+          Salir
+        </button>
+      </div>
+
+
     </form>
   );
 }
