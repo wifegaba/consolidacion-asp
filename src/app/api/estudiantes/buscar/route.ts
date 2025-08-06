@@ -1,10 +1,11 @@
+
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
 // 🔑 Inicializa Supabase correctamente
 const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
 export async function GET(req: NextRequest) {
@@ -17,11 +18,11 @@ export async function GET(req: NextRequest) {
     }
 
     const { data, error } = await supabase
-      .from('estudiantes')
-      .select('*')
-      .or(`nombre.ilike.%${query}%,telefono.ilike.%${query}%,cedula.ilike.%${query}%`)
-      .order('created_at', { ascending: false })
-      .limit(5);
+        .from('estudiantes')
+        .select('*')
+        .or(`nombre.ilike.%${query}%,telefono.ilike.%${query}%,cedula.ilike.%${query}%`)
+        .order('created_at', { ascending: false })
+        .limit(5);
 
     if (error) {
       console.error('Supabase error:', error.message);
@@ -29,8 +30,11 @@ export async function GET(req: NextRequest) {
     }
 
     return NextResponse.json({ estudiantes: data }, { status: 200 });
-  } catch (err: any) {
-    console.error('Server error:', err.message);
+  } catch (err: unknown) {
+    if (err instanceof Error) {
+      console.error('Server error:', err.message);
+      return NextResponse.json({ error: err.message }, { status: 500 });
+    }
     return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 });
   }
 }
