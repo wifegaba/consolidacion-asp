@@ -16,6 +16,22 @@
   border: 1px solid rgba(255, 255, 255, 0.15);
 }
 
+.toast {
+  position: fixed;
+  bottom: 1.5rem;
+  left: 1.5rem; /* 👈 cambia right por left */
+  z-index: 9999;
+  background: #333;
+  color: white;
+  padding: 1rem 1.5rem;
+  border-radius: 12px;
+  font-size: 1rem;
+  font-weight: 500;
+  font-family: 'Poppins', sans-serif;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+  animation: fadeInOut 3s ease forwards;
+}
+
 
 
 .titulo-formulario {

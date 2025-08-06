@@ -39,7 +39,7 @@ export default function FormularioEstudiante() {
     telefono: '',
     cedula: '',
     semestre: '1',
-    serie: 'Serie 1',
+    serie: '',
     serie_id: null,
     clase: '' as string | number,
     nota: '' as string | number
@@ -68,6 +68,7 @@ export default function FormularioEstudiante() {
   // ✅ Cargar notas reales al seleccionar estudiante
   useEffect(() => {
     if (!estudianteSeleccionado?.id || !form.serie_id || !semestreSeleccionado) return;
+
 
     const obtenerNotas = async () => {
       const { data, error } = await supabase
@@ -133,6 +134,15 @@ export default function FormularioEstudiante() {
   };
 
 
+  const mostrarMensajeTemporal = (mensaje: string): void => {
+    const toast = document.createElement('div');
+    toast.className = 'toast';
+    toast.textContent = mensaje;
+    document.body.appendChild(toast);
+    setTimeout(() => {
+      toast.remove();
+    }, 3000);
+  };
 
 
 
@@ -236,7 +246,9 @@ export default function FormularioEstudiante() {
     );
 
     if (!claseSeleccionada) {
-      alert('❌ Clase no encontrada para esta serie.');
+      mostrarMensajeTemporal('❌ Clase no encontrada para esta serie.');
+
+
       return;
     }
 
@@ -253,11 +265,11 @@ export default function FormularioEstudiante() {
 
     if (error) {
       console.error('❌ Error al guardar nota:', error);
-      alert('Error al guardar la nota.');
+      mostrarMensajeTemporal('Error al guardar la nota.');
       return;
     }
 
-    alert('✅ Nota guardada correctamente.');
+    mostrarMensajeTemporal('✅ Nota guardada correctamente.');
 
 
     // 🔁 Limpiar campo nota opcionalmente
@@ -303,7 +315,7 @@ export default function FormularioEstudiante() {
                           .eq('semestre_id', 1);
 
                       if (error || !series?.length) {
-                        alert('❌ No se pudieron cargar las series del semestre 1');
+                        mostrarMensajeTemporal('❌ No se pudieron cargar las series del semestre 1');
                         return;
                       }
 
@@ -351,7 +363,7 @@ export default function FormularioEstudiante() {
                                   .eq('semestre_id', 1);
 
                               if (error || !series?.length) {
-                                alert('❌ No se pudieron cargar las series del semestre 1');
+                                mostrarMensajeTemporal('❌ No se pudieron cargar las series del semestre 1');
                                 return;
                               }
 
@@ -462,7 +474,7 @@ export default function FormularioEstudiante() {
 
                   {/* Serie */}
                   <div className="grupo-campo" data-aos="fade-up" data-aos-delay="100">
-                    <label className="label-campo"></label>
+                    <label className="label-campo">Serie</label>
                     <div className="dropdown-serie">
                       <button type="button" className="dropdown-btn" onClick={() => setMostrarLista(!mostrarLista)}>
                         {form.serie || 'Selecciona una serie'}
@@ -580,17 +592,17 @@ export default function FormularioEstudiante() {
                         try {
                           // 🛑 Validación
                           if (!form.clase || !form.nota) {
-                            alert('⚠️ Debes seleccionar una clase y escribir una nota');
+                            mostrarMensajeTemporal('⚠️ Debes seleccionar la serie y una clase ');
                             return;
                           }
 
                           if (!estudianteSeleccionado || !estudianteSeleccionado.id) {
-                            alert('❌ No se ha seleccionado un estudiante válido');
+                            mostrarMensajeTemporal('❌ No se ha seleccionado un estudiante válido');
                             return;
                           }
 
                           if (!form.serie_id) {
-                            alert('⚠️ No se ha seleccionado una serie válida');
+                            mostrarMensajeTemporal('⚠️ No se ha seleccionado una serie válida');
                             return;
                           }
 
@@ -601,7 +613,7 @@ export default function FormularioEstudiante() {
                           );
 
                           if (!claseSeleccionada) {
-                            alert('❌ Clase no encontrada. Verifica la serie y la clase.');
+                            mostrarMensajeTemporal('❌ Clase no encontrada. Verifica la serie y la clase.');
                             return;
                           }
 
@@ -633,7 +645,7 @@ export default function FormularioEstudiante() {
                             }
                           ]);
 
-                          alert('✅ Nota guardada correctamente');
+                          mostrarMensajeTemporal('✅ Nota guardada correctamente');
 
                           // 🧹 Limpiar campos
                           setForm((prev) => ({
@@ -642,7 +654,7 @@ export default function FormularioEstudiante() {
                             nota: ''
                           }));
                         } catch (err: any) {
-                          alert('❌ Error al guardar nota: ' + err.message);
+                          mostrarMensajeTemporal('❌ Error al guardar nota: ' + err.message);
                         }
                       }}
                   >
