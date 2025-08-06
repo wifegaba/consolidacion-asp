@@ -633,7 +633,7 @@ option {
 @media (max-width: 768px) {
   .contenedor-dos-columnas {
     flex-direction: column;
-    height: auto;
+
     padding: 1rem;
   }
 

@@ -27,9 +27,9 @@
 }
 
 .logo-n2ncu {
-  width:500px;
- height: auto;
-   object-fit: contain;
+  width:1000px;
+  height: auto;
+  object-fit: contain;
 }
 
 /* Panel inferior: Tarjetas centradas */
@@ -45,8 +45,8 @@
 .tarjeta {
   width: 300px;
   height: 200px;
-      background: #850D16; /* Vinotinto real del logo */
-      color: white;
+  background: #850D16; /* Vinotinto real del logo */
+  color: white;
   backdrop-filter: blur(18px);
   -webkit-backdrop-filter: blur(18px);
   border-radius: 20px;
