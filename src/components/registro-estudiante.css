@@ -1,18 +1,18 @@
 body {
     margin: 0;
     height: 100vh;
+    overflow-x: hidden;
+    overflow-y: hidden;
     background: linear-gradient(120deg, #a1c4fd, #c2e9fb, #9be15d, #00d2ff);
     background-size: 400% 400%;
-
     display: flex;
     justify-content: center;
     align-items: center;
     font-family: 'Poppins', sans-serif;
 }
 
-/* Formulario principal */
 .registro-formulario {
-    width: 800px; /* Aumentado para que quepan 2 columnas */
+    width: 800px;
     max-width: 95vw;
     background: rgba(0, 0, 0, 0.6);
     backdrop-filter: blur(14px) saturate(200%);
@@ -22,12 +22,8 @@ body {
     color: #ffffff;
     box-shadow: 0 20px 40px rgba(0, 0, 0, 0.7);
     border: 1px solid rgba(255, 255, 255, 0.1);
-
-    /* Centrado absoluto */
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
+    margin: auto;
+    animation: fadeInUp 0.8s ease-out forwards; /* si deseas usar animación propia */
 }
 
 /* Animación */

@@ -1,20 +1,35 @@
 
 
 
+
 .formulario {
   flex: 0 0 48%;
   width: 100%;
   margin: 0;
   padding: 1rem 1rem;
+
   background: radial-gradient(circle at top left, rgba(103, 169, 255, 0.4) 0%, transparent 40%),
-              radial-gradient(circle at bottom right, rgba(48, 104, 180, 0.45) 0%, transparent 50%),
-              linear-gradient(135deg, #b6d0ff, #6fa0dd, #2c3e75);
+  radial-gradient(circle at bottom right, rgba(48, 104, 180, 0.45) 0%, transparent 50%),
+  linear-gradient(135deg, #b6d0ff, #6fa0dd, #2c3e75);
+
   font-family: 'Poppins', sans-serif;
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border-radius: 1.5rem;
   border: 1px solid rgba(255, 255, 255, 0.15);
+
+  /* ✅ Añadido para AOS */
+  overflow: visible;
+  height: auto;
+  min-height: 100%;
 }
+
+.scroll-wrapper {
+  overflow-y: auto;
+  overflow-x: hidden;
+  height: 100vh;
+}
+
 
 .toast {
   position: fixed;
