@@ -711,7 +711,7 @@ export default function FormularioEstudiante() {
                     >
                       <h4>Clase {n.clase}</h4>
                       <p>Nota: <strong>{n.valor}</strong></p>
-                      <p>Serie: {n.serieTitulo}</p>
+                      <p>{n.serieTitulo}</p>
                     </div>
                 ))}
           </div>

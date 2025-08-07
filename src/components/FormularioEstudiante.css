@@ -141,26 +141,33 @@
 
 
 
+
+
+/* 🧱 CONTENEDOR GENERAL QUE DIVIDE LA PANTALLA EN DOS */
 .contenedor-dos-columnas {
   display: flex;
   width: 100vw;
   height: 100vh;
   box-sizing: border-box;
+  align-items: flex-start;
 }
+
 
 
 /* 📋 PANEL IZQUIERDO: FORMULARIO */
 .panel-formulario {
   width: 50%;
-  padding: 1rem;
+  padding: 1.5rem;
   box-sizing: border-box;
-  background: transparent;
   display: flex;
   flex-direction: column;
-  justify-content: flex-start;
-  position: relative;     /* ✅ añadido */
-  z-index: 1;              /* ✅ añadido */
+  gap: 1.5rem;
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(12px);
+  border-radius: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
+
 
 
 /* ====================
@@ -585,7 +592,8 @@ option {
   border-radius: 1.2rem;
   padding: 1rem 1.5rem;
   color: #f1f1f1;
-  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.5); /* sombra intensa */
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.3); /* Menos exagerado */
+
   transition: transform 0.2s ease, box-shadow 0.3s ease;
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
@@ -655,14 +663,12 @@ option {
 
 
 
-
-
 /* 📱 RESPONSIVE PARA CELULARES */
 @media (max-width: 768px) {
   .contenedor-dos-columnas {
     flex-direction: column;
-
-
+    height: auto;
+    padding: 1rem;
   }
 
   .panel-formulario,
@@ -722,8 +728,4 @@ option {
   font-size: 1rem;
   font-weight: 500;
   margin: 0.5rem 0;
-}
-
-.clases-pendientes {
-  font-size: 0.95rem;
 }
