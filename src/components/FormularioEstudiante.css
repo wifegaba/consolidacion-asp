@@ -145,9 +145,11 @@
 .contenedor-dos-columnas {
   display: flex;
   width: 100vw;
-  height: 100vh;
+  min-height: 100vh; /* ✅ Altura base de la pantalla */
+  height: auto;       /* ✅ Permite crecer si hay más contenido */
   box-sizing: border-box;
 }
+
 
 /* 📋 PANEL IZQUIERDO: FORMULARIO */
 .panel-formulario {
@@ -408,31 +410,46 @@ option {
 
 
 
-
-/* 🧾 PANEL DERECHO: NOTAS */
 .panel-notas {
   width: 50%;
   padding: 1rem;
-  margin-top: 1rem; /* 💡 Espacio elegante hacia abajo */
+  margin-top: 1rem;
   box-sizing: border-box;
-  background: radial-gradient(circle at top left, rgba(30, 30, 30, 0.3) 0%, transparent 40%),
-              radial-gradient(circle at bottom right, rgba(60, 60, 60, 0.4) 0%, transparent 50%),
-              linear-gradient(135deg, #2c2c2c, #1a1a1a, #121212);
+
+  background:
+          radial-gradient(circle at 10% 10%, rgba(255, 255, 255, 0.05) 0%, transparent 40%),
+          radial-gradient(circle at 90% 90%, rgba(255, 255, 255, 0.04) 0%, transparent 50%),
+          linear-gradient(145deg, rgba(40, 40, 40, 0.95), rgba(20, 20, 20, 0.9));
+
+
   background-size: cover;
   background-position: center;
   background-attachment: fixed;
+
   font-family: 'Poppins', sans-serif;
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+
   border-radius: 1.5rem;
   border: 1px solid rgba(255, 255, 255, 0.05);
+
   display: flex;
   flex-direction: column;
   color: #f4f4f4;
-  box-shadow: inset 4px 4px 10px rgba(0, 0, 0, 0.5),
-              inset -4px -4px 10px rgba(255, 255, 255, 0.02),
-              0 8px 20px rgba(0, 0, 0, 0.3);
+
+  box-shadow:
+          inset 3px 3px 8px rgba(0, 0, 0, 0.4),
+          inset -3px -3px 8px rgba(255, 255, 255, 0.02),
+          0 6px 18px rgba(0, 0, 0, 0.25);
+
+  min-height: 100vh;
+  height: auto;
+  overflow: visible;
 }
+
+
+
 
 
 
@@ -547,7 +564,7 @@ option {
   font-size: 1.7rem;
   font-weight: 700;
   text-align: center;
-  padding: 1.5rem 1rem;
+  padding: 1rem 1rem;
   border-bottom: 2px solid rgba(255, 255, 255, 0.2);
   letter-spacing: 1px;
   text-shadow: 0 2px 3px rgba(0, 0, 0, 0.3);
@@ -577,10 +594,7 @@ option {
   border: 1px solid #333; /* sutil borde */
 }
 
-.tarjeta-nota:hover {
-  transform: translateY(-3px) scale(1.01);
-  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.4);
-}
+
 
 .tarjeta-nota h4 {
   font-size: 1.1rem;

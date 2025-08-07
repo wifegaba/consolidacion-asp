@@ -191,6 +191,11 @@ export default function FormularioEstudiante() {
   );
 
 
+  const getNotaColor = (nota: number): string => {
+    if (nota >= 9) return '#22c55e';      // Verde (excelente)
+    if (nota >= 6) return '#eab308';      // Amarillo (aceptable)
+    return '#ef4444';                    // Rojo (bajo)
+  };
 
 
 
@@ -697,16 +702,20 @@ export default function FormularioEstudiante() {
             )}
 
             {notas
-                .filter((n) => n.serieTitulo === nombreSerie) // ✅ solo muestra la serie actual
+                .filter((n) => n.serieTitulo === nombreSerie) // ✅ respeta el filtro actual
                 .map((n, i) => (
-                    <div key={i} className="tarjeta-nota">
+                    <div
+                        key={i}
+                        className="tarjeta-nota"
+                        style={{ borderLeft: `6px solid ${getNotaColor(n.valor)}` }} // 🎯 borde de color
+                    >
                       <h4>Clase {n.clase}</h4>
                       <p>Nota: <strong>{n.valor}</strong></p>
                       <p>Serie: {n.serieTitulo}</p>
                     </div>
                 ))}
-
           </div>
+
 
         </div>
 
