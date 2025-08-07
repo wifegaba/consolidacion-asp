@@ -141,12 +141,10 @@
 
 
 
-/* 🧱 CONTENEDOR GENERAL QUE DIVIDE LA PANTALLA EN DOS */
 .contenedor-dos-columnas {
   display: flex;
   width: 100vw;
-  min-height: 100vh; /* ✅ Altura base de la pantalla */
-  height: auto;       /* ✅ Permite crecer si hay más contenido */
+  height: 100vh;
   box-sizing: border-box;
 }
 
