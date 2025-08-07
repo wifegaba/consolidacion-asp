@@ -1,8 +1,7 @@
 body {
     margin: 0;
     height: 100vh;
-    overflow-x: hidden;
-    overflow-y: hidden;
+
     background: linear-gradient(120deg, #a1c4fd, #c2e9fb, #9be15d, #00d2ff);
     background-size: 400% 400%;
     display: flex;

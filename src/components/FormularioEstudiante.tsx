@@ -24,16 +24,13 @@ type Serie = {
 
 
 export default function FormularioEstudiante() {
+
   useEffect(() => {
-    AOS.init({ duration: 800, once: true });
-
-    // Fuerza reestilo en carga dinámica
-    document.body.classList.add('forzar-scroll-blanco');
-
-    return () => {
-      // Limpia al salir para evitar interferencias
-      document.body.classList.remove('forzar-scroll-blanco');
-    };
+    AOS.init({
+      duration: 300,
+      once: true,
+      offset: 80,
+    });
   }, []);
 
 
