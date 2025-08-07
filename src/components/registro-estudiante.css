@@ -10,12 +10,11 @@ body {
     font-family: 'Poppins', sans-serif;
 }
 
-
-
+/* Formulario principal */
 .registro-formulario {
-    width: 600px;
-    max-width: 90vw;
-    background: rgba(0, 0, 0, 0.6); /* Negro translúcido */
+    width: 800px; /* Aumentado para que quepan 2 columnas */
+    max-width: 95vw;
+    background: rgba(0, 0, 0, 0.6);
     backdrop-filter: blur(14px) saturate(200%);
     -webkit-backdrop-filter: blur(14px) saturate(200%);
     border-radius: 1.2rem;
@@ -31,8 +30,7 @@ body {
     transform: translate(-50%, -50%);
 }
 
-
-
+/* Animación */
 @keyframes fadeInUp {
     from {
         opacity: 0;
@@ -43,18 +41,32 @@ body {
         transform: translateY(0);
     }
 }
+
+/* Logo */
 .registro-logo {
     height: 120px;
     object-fit: contain;
-    margin: 0 auto 2rem auto; /* Centrado horizontal + separación abajo */
-    display: block; /* Necesario para que `margin: auto` funcione */
+    margin: 0 auto 2rem auto;
+    display: block;
 }
 
-
-.registro-grupo-campo {
+/* Fila de dos columnas */
+.registro-fila-doble {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.5rem;
+    justify-content: space-between;
     margin-bottom: 1.5rem;
 }
 
+/* Grupo de campo */
+.registro-grupo-campo {
+    flex: 1 1 48%;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Campo con ícono */
 .registro-campo-con-icono {
     position: relative;
 }
@@ -68,6 +80,7 @@ body {
     color: #aaa;
 }
 
+/* Input */
 .registro-campo-input {
     width: 100%;
     padding: 0.9rem 1rem 0.9rem 2.8rem;
@@ -88,10 +101,10 @@ body {
     background: rgba(255, 255, 255, 0.2);
 }
 
-/* Botón Guardar Estudiante */
+/* Botón Guardar */
 .registro-btn-guardar {
-    width: 70%;
-    max-width: 260px;
+    width: 100%;
+    max-width: none;
     padding: 0.9rem;
     font-weight: 600;
     font-size: 1rem;
@@ -100,8 +113,6 @@ body {
     background: #70eaff;
     color: #111;
     cursor: pointer;
-    margin: 1rem auto;
-    display: block;
     transition: all 0.3s ease;
 }
 
@@ -110,11 +121,10 @@ body {
     transform: scale(1.03);
 }
 
-
-/* Botón Salir moderno */
+/* Botón Salir */
 .registro-btn-salir {
-    width: 70%;
-    max-width: 260px;
+    width: 100%;
+    max-width: none;
     padding: 0.9rem;
     font-weight: 500;
     font-size: 1rem;
@@ -123,8 +133,6 @@ body {
     background: transparent;
     color: #f1f1f1;
     cursor: pointer;
-    margin: 0 auto;
-    display: block;
     transition: all 0.3s ease;
 }
 
@@ -132,4 +140,20 @@ body {
     background: rgba(255, 255, 255, 0.15);
     transform: scale(1.03);
     color: #fff;
+}
+
+/* Responsive para móviles */
+@media (max-width: 768px) {
+    .registro-fila-doble {
+        flex-direction: column;
+    }
+
+    .registro-grupo-campo {
+        flex: 1 1 100%;
+    }
+
+    .registro-btn-guardar,
+    .registro-btn-salir {
+        max-width: 100%;
+    }
 }

@@ -3,28 +3,46 @@ import { createClient } from '@supabase/supabase-js';
 
 // Cliente Supabase
 const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
 // POST: Guardar estudiante
 export async function POST(req: NextRequest) {
   try {
-    const { nombre, telefono, cedula } = await req.json();
+    const {
+      nombre,
+      telefono,
+      cedula,
+      pais,
+      ciudad,
+      direccion,
+      congregacion
+    } = await req.json();
 
-    // ✅ Validación de los 3 campos
-    if (!nombre || !telefono || !cedula) {
+    // ✅ Validación obligatoria de los campos mínimos requeridos
+    if (!nombre || !telefono || !cedula || !pais || !ciudad || !direccion || !congregacion) {
       return NextResponse.json(
-        { error: 'Todos los campos son obligatorios: nombre, teléfono y cédula' },
-        { status: 400 }
+          { error: 'Todos los campos son obligatorios' },
+          { status: 400 }
       );
     }
 
-    // Insertar en Supabase
+    // ✅ Insertar en Supabase
     const { data, error } = await supabase
-      .from('estudiantes')
-      .insert([{ nombre, telefono, cedula }])
-      .select();
+        .from('estudiantes')
+        .insert([
+          {
+            nombre,
+            telefono,
+            cedula,
+            pais,
+            ciudad,
+            direccion,
+            congregacion
+          }
+        ])
+        .select();
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
