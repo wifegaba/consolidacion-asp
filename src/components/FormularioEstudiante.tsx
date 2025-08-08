@@ -26,8 +26,7 @@ type Serie = {
 export default function FormularioEstudiante() {
 
   useEffect(() => {
-    // 🔥 Aplica clase para scroll y fondo blanco global
-    document.body.classList.add('forzar-scroll-blanco');
+
 
     // 🎯 Inicializa AOS al montar
     AOS.init({
@@ -36,10 +35,7 @@ export default function FormularioEstudiante() {
       offset: 80,
     });
 
-    // 🧼 Limpieza al desmontar el componente
-    return () => {
-      document.body.classList.remove('forzar-scroll-blanco');
-    };
+
   }, []);
 
 
