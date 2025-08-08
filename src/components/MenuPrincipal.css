@@ -1,51 +1,46 @@
-.fondo {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
-  background: linear-gradient(135deg, #cbdcf7, #94b7e0, #547bb9, #1c1f3b);
-  z-index: -1;
-}
 
-/* Contenedor general: dos paneles verticales */
+/* ✅ Cambiado: altura automática y scroll permitido */
 .pantalla {
   display: flex;
   flex-direction: column;
   align-items: center;
-  height: 100vh;
+  min-height: 100vh;
+  height: auto;
   padding: 2rem;
   box-sizing: border-box;
+  overflow-y: auto;         /* ✅ Scroll si es necesario */
+  width: 100%;
 }
 
 /* Panel superior: Logo centrado */
 .panel-logo {
-  height: 30%;
+  min-height: 30vh;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
 .logo-n2ncu {
-  width:500px;
+  width: 500px;
   height: auto;
   object-fit: contain;
 }
 
 /* Panel inferior: Tarjetas centradas */
 .panel-tarjetas {
-  height: 70%;
+  min-height: 40vh;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 3rem;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;           /* ✅ antes era nowrap, mejor wrap */
+  width: 100%;
 }
 
 .tarjeta {
   width: 300px;
   height: 200px;
-  background: #850D16; /* Vinotinto real del logo */
+  background: #850D16;
   color: white;
   backdrop-filter: blur(18px);
   -webkit-backdrop-filter: blur(18px);
@@ -58,20 +53,13 @@
   justify-content: center;
   transition: all 0.3s ease;
   cursor: pointer;
-
-}
-
-
-
-.tarjeta:hover {
-  transform: scale(1.05);
-  box-shadow: 0 18px 32px rgba(0, 0, 0, 0.35);
 }
 
 .tarjeta:hover {
   transform: scale(1.05);
   box-shadow: 12px 12px 24px rgba(0, 0, 0, 0.2), -6px -6px 12px rgba(255, 255, 255, 0.6);
 }
+
 .tarjeta svg {
   width: 60px;
   height: 60px;
@@ -79,21 +67,18 @@
 }
 
 .tarjeta h2 {
-  font-size: 1.4rem; /* antes era muy pequeño */
+  font-size: 1.4rem;
   font-weight: 600;
   margin: 0;
   text-align: center;
 }
 
-
 .creditos {
-  position: absolute;
-  bottom: 1rem;
-  left: 0;
-  right: 0;
+  position: relative;
+  margin-top: 2rem;
   text-align: center;
   font-size: 0.9rem;
-  color: #ffffffcc; /* blanco con opacidad */
+  color: #ffffffcc;
   font-weight: 300;
   z-index: 10;
 }
@@ -103,8 +88,7 @@
   font-weight: 600;
 }
 
-
-
+/* 📱 Responsive */
 @media (max-width: 768px) {
   .pantalla {
     padding: 1rem;
@@ -122,7 +106,7 @@
 
   .panel-tarjetas {
     flex-direction: column;
-    height: auto;
+    min-height: auto;
     gap: 2rem;
     margin-top: 2rem;
   }

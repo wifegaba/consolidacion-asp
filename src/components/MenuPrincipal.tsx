@@ -18,7 +18,7 @@ const MenuPrincipal: React.FC<MenuPrincipalProps> = ({ onRegistrarEstudiante }) 
 
   return (
     <>
-      <div className="fondo" />
+
 
       <div className="pantalla">
         {/* Logo arriba */}

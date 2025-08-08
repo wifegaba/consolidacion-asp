@@ -1,5 +1,15 @@
 
+body {
+  margin: 0;
+  height: 100vh;
 
+  background: linear-gradient(120deg, #a1c4fd, #c2e9fb, #9be15d, #00d2ff);
+  background-size: 400% 400%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-family: 'Poppins', sans-serif;
+}
 
 
 .formulario {
@@ -740,3 +750,4 @@ option {
   font-weight: 500;
   margin: 0.5rem 0;
 }
+
