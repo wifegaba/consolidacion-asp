@@ -5,12 +5,14 @@
 
 /* --------- Variables --------- */
 :root{
-    --altura-campo: 46px;
+    --altura-campo: 48px;      /* altura unificada */
     --radio: 10px;
     --borde: #e6eaf2;
     --bg: #f6f8fc;
     --brand: #1f2d5a;
     --accent: #2b5eff;
+    --shadow-soft: 0 6px 18px rgba(31,41,55,.06);
+    --shadow-strong: 0 10px 24px rgba(31,41,55,.10);
 }
 
 /* ---- Layout principal ---- */
@@ -24,7 +26,7 @@
 /* ---- Panel izquierdo (sin scroll propio) ---- */
 .est-card .panel-formulario{
     max-height: none;
-    overflow: visible;        /* solo scroll de la página */
+    overflow: visible;
     overscroll-behavior: contain;
     scrollbar-gutter: stable;
 }
@@ -35,8 +37,8 @@
     background: linear-gradient(180deg,#eaf1ff 0%,#dfe9ff 100%);
     border: 1px solid var(--borde);
     border-radius: 16px;
-    padding: 22px 22px 16px;
-    box-shadow: 0 6px 18px rgba(31,41,55,.06);
+    padding: 24px 24px 18px;
+    box-shadow: var(--shadow-soft);
     min-height: 650px;
 }
 
@@ -45,55 +47,61 @@
     display: flex;
     align-items: baseline;
     gap: 12px;
-    margin: 6px 0 16px;
+    margin: 4px 0 18px;
 }
 .est-card .registro-header__title{
-    font-size: 1.25rem;
+    font-size: 1.35rem;     /* + jerarquía */
     font-weight: 800;
     color: var(--brand);
     position: relative;
-    padding-bottom: 4px;
+    padding-bottom: 6px;
+    letter-spacing: .2px;
 }
 .est-card .registro-header__title::after{
     content: "";
     position: absolute;
     bottom: 0; left: 0;
-    width: 64px; height: 3px;
+    width: 72px; height: 3px;
     background: linear-gradient(90deg, var(--accent), #4b8dff);
     border-radius: 2px;
+}
+/* subtítulo opcional */
+.est-card .registro-header__sub{
+    font-size: .95rem;
+    color: #4b5563;
+    opacity: .9;
+    margin-left: 4px;
 }
 
 /* =======================================
    Buscador con autocompletado (online)
+   — estilo más limpio
    ======================================= */
 .est-card .buscador-estudiante{
     position: relative;
     z-index: 1000;
     padding: 0;
-    margin: 0 0 12px 0;
+    margin: 0 0 14px 0;
 }
 
 .est-card .input-busqueda{
     width: 100%;
     height: var(--altura-campo);
-    border: none;
+    border: 1px solid var(--borde);
     outline: none;
-    border-radius: 8px;
-    background: #e0e5ec;
-    box-shadow: inset 6px 6px 10px #babecc, inset -6px -6px 10px #ffffff;
-    padding: 0 .9rem;
+    border-radius: 10px;
+    background: #fff;                       /* limpio, sin neumo fuerte */
+    box-shadow: 0 2px 10px rgba(90,157,249,.08); /* halo suave */
+    padding: 0 1rem;
     font-size: 1rem;
-    color: #2c2c2c;
+    color: #1f2937;
     margin: 0;
 }
-.est-card .input-busqueda::placeholder{ color:#7a7a7a }
+.est-card .input-busqueda::placeholder{ color:#8a94a6 }
 .est-card .input-busqueda:focus{
-    background:#f9fbff;
-    box-shadow:
-            0 0 0 3px rgba(90,157,249,.4),
-            0 6px 12px rgba(90,157,249,.2),
-            inset 2px 2px 4px rgba(0,0,0,.05),
-            inset -2px -2px 4px rgba(255,255,255,.6);
+    background:#fff;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 4px rgba(43,94,255,.15), 0 6px 14px rgba(43,94,255,.18);
 }
 
 .est-card .lista-autocompletado{
@@ -107,7 +115,7 @@
     border-radius: 0 0 12px 12px;
     list-style: none;
     padding: 0;
-    box-shadow: 0 8px 16px rgba(0,0,0,.12);
+    box-shadow: 0 12px 24px rgba(0,0,0,.12);
     max-height: 220px;
     overflow-y: auto;
     overflow-x: hidden;
@@ -118,8 +126,8 @@
     cursor: pointer;
     color: #2b2b2b;
     border-bottom: 1px solid #f1f2f5;
-    background: #fafbff;
-    transition: background .18s ease;
+    background: #fff;
+    transition: background .18s ease, color .18s ease;
 }
 .est-card .lista-autocompletado li:hover,
 .est-card .lista-autocompletado li.activo{
@@ -155,29 +163,38 @@
 
 .est-card .campo-input,
 .est-card .select-input,
-.est-card .select-input-neumo{
+.est-card .select-input-neumo,
+.est-card textarea{
     width: 100%;
-    height: var(--altura-campo);
+    height: var(--altura-campo);     /* <-- UNIFICADO */
     background: var(--bg);
     border: 1px solid var(--borde);
     border-radius: var(--radio);
-    padding: 0 12px 0 38px;            /* espacio para icono */
+    padding: 0 12px 0 38px;          /* espacio para icono */
     font-size: .96rem;
     line-height: 1.2;
     outline: none;
     transition: border-color .2s, box-shadow .2s, background .2s;
     -webkit-appearance: none;
-    -moz-appearance: none;
     appearance: none;
 }
 
-/* selects sin icono a la izquierda */
+/* selects o campos sin icono a la izquierda */
 .est-card .select-input,
-.est-card .select-input-neumo{ padding-left: 12px }
+.est-card .select-input-neumo,
+.est-card .sin-icono { padding-left: 12px }
+
+/* textarea de Nota: misma estética + altura mínima */
+.est-card textarea{
+    min-height: 110px;
+    padding: 10px 12px;
+    height: auto;                      /* textarea crece */
+}
 
 .est-card .campo-input:focus,
 .est-card .select-input:focus,
-.est-card .select-input-neumo:focus{
+.est-card .select-input-neumo:focus,
+.est-card textarea:focus{
     background:#fff;
     border-color: var(--accent);
     box-shadow: 0 0 0 4px rgba(43,94,255,.15);
@@ -190,10 +207,11 @@
     border: 1px solid var(--borde); background:#fff; border-radius: var(--radio);
     padding: 0 12px; cursor: pointer; font-size: .96rem;
 }
+.est-card .dropdown-btn:focus{ border-color: var(--accent); box-shadow: 0 0 0 4px rgba(43,94,255,.15) }
 .est-card .dropdown-lista{
     position: absolute; left: 0; right: 0; margin-top: 6px;
     background:#fff; border: 1px solid var(--borde); border-radius: var(--radio);
-    box-shadow: 0 10px 20px rgba(31,41,55,.08);
+    box-shadow: var(--shadow-strong);
     max-height: 220px; overflow: auto; z-index: 10;
 }
 .est-card .dropdown-lista li{ padding: 10px 12px; cursor: pointer }
@@ -206,7 +224,7 @@
 }
 .est-card .nombre-serie-valor{ color:#1f2937; font-weight: 600 }
 
-/* ====== Acción: Botón Guardar (sin AOS) ====== */
+/* ====== Acción: Botón Guardar ====== */
 .est-card .acciones-form{
     grid-column: 1 / -1;
     position: sticky;
@@ -237,23 +255,97 @@
     transform: translateY(-1px);
 }
 
-/* ====== Panel derecho: Notas ====== */
+/* === Afinado visual del panel de notas (sin cambiar clases) === */
+
+/* contenedor y título */
 .est-card .panel-notas{
-    background:#fff; border:1px solid var(--borde); border-radius:16px; padding:18px;
-    box-shadow:0 6px 18px rgba(31,41,55,.06);
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
 }
-.est-card .titulo-notas-neumo{ margin:0 0 10px; color:#1f2d5a; font-size:1.15rem; font-weight:800 }
+
+/* título fijo para que no se pierda al hacer scroll */
+.est-card .titulo-notas-neumo{
+    font-size: 1.35rem;     /* + jerarquía */
+    font-weight: 800;
+    color: var(--brand);
+    position: relative;
+    padding-bottom: 6px;
+    letter-spacing: .2px;
+}
+
+/* lista con ritmo vertical consistente */
+.est-card .lista-notas{
+    display: grid;
+    gap: 12px;
+}
+
+/* tarjeta base: más aire, sombra suave y transición */
+.est-card .tarjeta-nota{
+    background:#fff;
+    border:1px solid #e6eaf2;
+    border-radius:12px;
+    padding:12px 14px;
+    box-shadow:0 4px 12px rgba(31,41,55,.05);
+    transition: box-shadow .18s ease, transform .12s ease, border-color .18s ease;
+}
+
+/* elevación sutil al pasar el mouse */
+.est-card .tarjeta-nota:hover{
+    transform: translateY(-1px);
+    box-shadow:0 8px 18px rgba(31,41,55,.12);
+    border-color:#e2e8f0;
+}
+
+/* tipografía interna sin cambiar HTML:
+   1ª línea (Clase X) más fuerte,
+   2ª línea (Nota: N) destacada,
+   Última línea (serie) más suave. */
+.est-card .tarjeta-nota > *:first-child{
+    font-weight: 700;
+    color:#0f172a;
+    margin-bottom: 2px;
+}
+.est-card .tarjeta-nota > *:nth-child(2){
+    font-size: 1.06rem;
+    font-weight: 800;
+    color:#0b2e8a;
+    margin-bottom: 2px;
+}
+.est-card .tarjeta-nota > *:last-child{
+    color:#475569;
+    font-size: .92rem;
+}
+
 .est-card .tarjeta-estudiante-horizontal{
     display:flex; gap:14px; flex-wrap:wrap;
     background:#f6f8fc; border:1px solid var(--borde); border-radius:10px; padding:10px 12px; margin-bottom:10px;
 }
-.est-card .campo-horizontal{ color:#334155 }
-.est-card .lista-notas{ display:grid; gap:10px }
-.est-card .tarjeta-nota{
-    background:#fff; border:1px solid var(--borde); border-radius:12px; padding:12px;
-    box-shadow:0 4px 12px rgba(31,41,55,.05);
+
+/* scroll independiente en desktop grande (no tapa el botón Guardar) */
+@media (min-width: 1025px){
+    .est-card .panel-notas{
+        max-height: calc(100vh - 140px);
+        overflow-y: auto;
+        overscroll-behavior: contain;
+        scrollbar-gutter: stable;
+    }
 }
-.est-card .tarjeta-nota h4{ margin:0 0 4px }
+
+/* scrollbars más discretos (opcional, soportados en navegadores modernos) */
+.est-card .panel-notas::-webkit-scrollbar{
+    width: 8px;
+}
+.est-card .panel-notas::-webkit-scrollbar-thumb{
+    background: #d8deea;
+    border-radius: 8px;
+}
+.est-card .panel-notas{
+    scrollbar-width: thin;
+    scrollbar-color: #d8deea transparent;
+}
+
 
 /* ====== Notificaciones tipo Toast ====== */
 .toast{
@@ -277,6 +369,21 @@
     90%{ opacity:1 }
     100%{ opacity:0; transform: translateY(20px) }
 }
+
+/* ====== Responsive ====== */
+@media (max-width: 1024px){
+    .est-card .contenedor-dos-columnas{
+        grid-template-columns: 1fr;    /* formulario arriba, notas abajo */
+    }
+    .est-card .panel-notas{ margin-top: 8px; }
+}
+@media (max-width: 600px){
+    .est-card .fila-formulario{
+        grid-template-columns: 1fr;    /* una columna en móvil */
+    }
+    .est-card .registro-header__title{ font-size: 1.25rem; }
+}
+
 
 /* ============ Responsive ============ */
 @media (max-width: 1024px){

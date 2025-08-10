@@ -22,14 +22,20 @@
 
 /* Items del menú */
 .menu-estudiantes__item {
+    display: flex;                /* para alinear icono y texto */
+    align-items: center;          /* centra verticalmente */
+    gap: 0.6rem;                   /* espacio entre icono y texto */
+
     padding: 0.5rem 1rem;
-    border-radius: 0.75rem; /* más redondeado estilo pill */
+    border-radius: 0.75rem;
     cursor: pointer;
     transition: all 0.2s ease;
     color: inherit;
     text-decoration: none;
     font-weight: 500;
+    white-space: nowrap;          /* evita que el texto se parta */
 }
+
 
 /* Hover */
 .menu-estudiantes__item:hover {
@@ -44,91 +50,84 @@
     font-weight: 700;
     box-shadow: 0 2px 6px rgba(0,0,0,0.15);
 }
-
-
-
-
-
-
-
-
-/* ===== MOBILE: barra arriba compacta con scroll ===== */
+/* ===== MOBILE (≤768px): barra superior con scroll ===== */
 @media (max-width: 768px) {
     .menu-estudiantes__sidebar {
+        /* anula medidas de desktop */
         flex: 0 0 auto;
         height: auto;
         width: 100%;
+
         position: sticky;
         top: 0;
         z-index: 50;
+
         padding: 0.5rem;
         display: flex;
         flex-direction: row;
-        align-items: center;       /* no estires en vertical */
+        align-items: center;
         gap: 0.5rem;
+
         overflow-x: auto;
         overflow-y: hidden;
         white-space: nowrap;
         -webkit-overflow-scrolling: touch;
+
         border-radius: 0 0 1rem 1rem;
+
+        /* fuerza repintado inmediato en iOS/Android */
+        transform: translateZ(0);
+        will-change: transform, background-color;
+        backface-visibility: hidden;
+        -webkit-backface-visibility: hidden;
+
+        /* mejora perf de pintura del carril */
+        contain: paint;
     }
 
     .menu-estudiantes__item {
-        position: relative;
-        flex: 0 0 auto;            /* no crecer/estirar */
-        height: auto;              /* altura por padding */
-        line-height: 1;
-
+        flex: 0 0 auto;            /* que no se estire */
         display: inline-flex;
         align-items: center;
         justify-content: center;
+        gap: 0.55rem;
 
         padding: 0.45rem 0.85rem;
-        border-radius: 0.5rem;     /* sin píldora gigante */
+        border-radius: 0.5rem;
         font-size: 0.92rem;
+        line-height: 1;            /* compacto */
         background: rgba(255,255,255,0.12);
         border: 1px solid rgba(255,255,255,0.18);
+        text-decoration: none;
 
-        -webkit-tap-highlight-color: transparent;
-        transition: background .2s ease, border-color .2s ease, box-shadow .2s ease, transform .12s ease;
+        -webkit-tap-highlight-color: transparent; /* quita flash azul en Android */
+        outline: none;
     }
 
-    /* Hover claro SOLO en elementos no activos */
-    .menu-estudiantes__item:not(.menu-estudiantes__item--active):hover {
-        background: rgba(255,255,255,0.30);
-        border-color: rgba(255,255,255,0.45);
-        box-shadow: 0 2px 6px rgba(0,0,0,0.28);
-        transform: translateY(-1px);
+    /* tamaño uniforme de iconos (svg o img) */
+    .menu-estudiantes__item svg,
+    .menu-estudiantes__item img {
+        width: 1.1rem;
+        height: 1.1rem;
+        flex-shrink: 0;
+        display: block;
     }
 
-    /* Feedback al toque (móvil) sin afectar el activo */
-    .menu-estudiantes__item:not(.menu-estudiantes__item--active):active {
-        background: rgba(255,255,255,0.26);
-        transform: scale(0.98);
-        box-shadow: inset 0 2px 8px rgba(0,0,0,0.22);
-        border-color: rgba(255,255,255,0.35);
-    }
-
-    /* Activo: contraste alto y sombra */
+    /* Activo real (por clase) */
     .menu-estudiantes__item--active {
-        background: linear-gradient(135deg, #2f5bff 0%, #1e3a8a 100%);
+        background: #2f5bff;
         color: #fff;
         border-color: transparent;
-        box-shadow: 0 3px 8px rgba(0,0,0,0.25);
+        box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+        font-weight: 700;
     }
 
-    /* Indicador sutil bajo el activo (opcional, elegante) */
-    /* Indicador elegante bajo el activo */
-    .menu-estudiantes__item--active::after {
-        content: "";
-        position: absolute;
-        left: 8px;
-        right: 8px;
-        bottom: -3px;
-        height: 4px;
-        border-radius: 999px;
-        background: linear-gradient(90deg, #6fb1fc, #2f5bff, #6fb1fc);
-        box-shadow: 0 0 8px rgba(47, 91, 255, 0.6); /* brillo */
+    /* Feedback inmediato al tocar/enfocar antes de que cambie la ruta */
+    .menu-estudiantes__item:active,
+    .menu-estudiantes__item:focus-visible {
+        background: #2f5bff;
+        color: #fff;
+        border-color: transparent;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.2);
     }
-
 }
