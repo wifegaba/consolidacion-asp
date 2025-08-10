@@ -1,49 +1,76 @@
-import React, { useEffect, useState } from "react";
-import AOS from "aos";
-import "aos/dist/aos.css";
+'use client';
+
+import React, { useState } from 'react';
+import './registro-estudiante.css';
 import {
   User,
   Phone,
   IdCard,
-  Globe,
+  Globe2,
   MapPin,
-  Map,
-  Users
-} from "lucide-react";
-import './registro-estudiante.css';
+  Home,
+  Church,
+} from 'lucide-react';
+import { useToast } from '@/components/ToastProvider';
+
+type FormData = {
+  nombre: string;
+  telefono: string;
+  cedula: string;
+  pais: string;
+  ciudad: string;
+  direccion: string;
+  congregacion: string;
+};
 
 export default function RegistroEstudiante() {
-  const [form, setForm] = useState({
+  const toast = useToast();
+
+  const [form, setForm] = useState<FormData>({
     nombre: '',
     telefono: '',
     cedula: '',
     pais: '',
     ciudad: '',
     direccion: '',
-    congregacion: ''
+    congregacion: '',
   });
 
-  useEffect(() => {
-    AOS.init({ duration: 800, once: true });
-  }, []);
+  const [loading, setLoading] = useState(false);
+  const [msg, setMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setForm(prev => ({ ...prev, [name]: value }));
+    setForm((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent): Promise<void> => {
     e.preventDefault();
+
+    // Validación simple
+    const faltantes = Object.entries(form).filter(([, v]) => String(v).trim() === '');
+    if (faltantes.length) {
+      const text = 'Completa todos los campos.';
+      setMsg({ type: 'err', text });
+      toast.error(text);
+      return;
+    }
+
+    setLoading(true);
+    setMsg(null);
+
     try {
       const res = await fetch('/api/estudiantes', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form)
+        body: JSON.stringify(form),
       });
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
-      alert("✅ Estudiante guardado correctamente");
+      if (!res.ok) throw new Error(data?.error || 'Error al registrar.');
+
+      setMsg({ type: 'ok', text: '✅ Estudiante registrado correctamente.' });
+      toast.success('Estudiante registrado correctamente ✅');
 
       setForm({
         nombre: '',
@@ -52,169 +79,168 @@ export default function RegistroEstudiante() {
         pais: '',
         ciudad: '',
         direccion: '',
-        congregacion: ''
+        congregacion: '',
       });
-    } catch (error: any) {
-      alert("❌ Error al guardar estudiante: " + error.message);
+    } catch (err: any) {
+      const text = `❌ ${err.message || 'Error al registrar.'}`;
+      setMsg({ type: 'err', text });
+      toast.error(err.message || 'No se pudo registrar');
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-      <form className="registro-formulario" onSubmit={handleSubmit} data-aos="zoom-in">
-        <img
-            src="/images/logo-n2ncu.png"
-            alt="Logo N2NCU"
-            className="registro-logo"
-            data-aos="fade-down"
-        />
+      <form className="registro-formulario" onSubmit={handleSubmit}>
 
-        {/* NOMBRE + TELÉFONO */}
-        <div className="registro-fila-doble" data-aos="fade-up">
+
+
+        {/* Header premium */}
+        <div className="registro-header">
+          <div className="registro-header__title">Crear Estudiante</div>
+          <div className="registro-header__sub">Datos básicos del perfil</div>
+        </div>
+
+
+
+        {/* Fila 1 */}
+        <div className="registro-fila-doble">
           <div className="registro-grupo-campo">
-            <label htmlFor="nombre"></label>
+            <label className="registro-label" htmlFor="nombre">Nombre</label>
             <div className="registro-campo-con-icono">
-              <User className="registro-icono-campo" />
+              <User aria-hidden className="registro-icono-svg" />
               <input
-                  type="text"
                   id="nombre"
                   name="nombre"
+                  type="text"
                   placeholder="Nombre completo"
                   className="registro-campo-input"
-                  required
                   value={form.nombre}
                   onChange={handleChange}
+                  autoComplete="off"
               />
             </div>
           </div>
 
           <div className="registro-grupo-campo">
-            <label htmlFor="telefono"></label>
+            <label className="registro-label" htmlFor="telefono">Teléfono</label>
             <div className="registro-campo-con-icono">
-              <Phone className="registro-icono-campo" />
+              <Phone aria-hidden className="registro-icono-svg" />
               <input
-                  type="text"
                   id="telefono"
                   name="telefono"
-                  placeholder="Teléfono"
+                  type="text"
+                  placeholder="Número de teléfono"
                   className="registro-campo-input"
-                  required
                   value={form.telefono}
                   onChange={handleChange}
+                  autoComplete="off"
               />
             </div>
           </div>
         </div>
 
-        {/* CÉDULA + PAÍS */}
-        <div className="registro-fila-doble" data-aos="fade-up" data-aos-delay="100">
+        {/* Fila 2 */}
+        <div className="registro-fila-doble">
           <div className="registro-grupo-campo">
-            <label htmlFor="cedula"></label>
+            <label className="registro-label" htmlFor="cedula">Cédula</label>
             <div className="registro-campo-con-icono">
-              <IdCard className="registro-icono-campo" />
+              <IdCard aria-hidden className="registro-icono-svg" />
               <input
-                  type="text"
                   id="cedula"
                   name="cedula"
+                  type="text"
                   placeholder="Cédula"
                   className="registro-campo-input"
-                  required
                   value={form.cedula}
                   onChange={handleChange}
+                  autoComplete="off"
               />
             </div>
           </div>
 
           <div className="registro-grupo-campo">
-            <label htmlFor="pais"></label>
+            <label className="registro-label" htmlFor="pais">País</label>
             <div className="registro-campo-con-icono">
-              <Globe className="registro-icono-campo" />
+              <Globe2 aria-hidden className="registro-icono-svg" />
               <input
-                  type="text"
                   id="pais"
                   name="pais"
+                  type="text"
                   placeholder="País"
                   className="registro-campo-input"
-                  required
                   value={form.pais}
                   onChange={handleChange}
+                  autoComplete="off"
               />
             </div>
           </div>
         </div>
 
-        {/* CIUDAD + DIRECCIÓN */}
-        <div className="registro-fila-doble" data-aos="fade-up" data-aos-delay="200">
+        {/* Fila 3 */}
+        <div className="registro-fila-doble">
           <div className="registro-grupo-campo">
-            <label htmlFor="ciudad"></label>
+            <label className="registro-label" htmlFor="ciudad">Ciudad</label>
             <div className="registro-campo-con-icono">
-              <MapPin className="registro-icono-campo" />
+              <MapPin aria-hidden className="registro-icono-svg" />
               <input
-                  type="text"
                   id="ciudad"
                   name="ciudad"
+                  type="text"
                   placeholder="Ciudad"
                   className="registro-campo-input"
-                  required
                   value={form.ciudad}
                   onChange={handleChange}
+                  autoComplete="off"
               />
             </div>
           </div>
 
           <div className="registro-grupo-campo">
-            <label htmlFor="direccion"></label>
+            <label className="registro-label" htmlFor="direccion">Dirección</label>
             <div className="registro-campo-con-icono">
-              <Map className="registro-icono-campo" />
+              <Home aria-hidden className="registro-icono-svg" />
               <input
-                  type="text"
                   id="direccion"
                   name="direccion"
+                  type="text"
                   placeholder="Dirección"
                   className="registro-campo-input"
-                  required
                   value={form.direccion}
                   onChange={handleChange}
+                  autoComplete="off"
               />
             </div>
           </div>
         </div>
 
-        {/* CONGREGACIÓN */}
-        <div className="registro-fila-doble" data-aos="fade-up" data-aos-delay="300">
+        {/* Fila 4 */}
+        <div className="registro-fila-doble">
           <div className="registro-grupo-campo" style={{ flex: '1 1 100%' }}>
-            <label htmlFor="congregacion"></label>
+            <label className="registro-label" htmlFor="congregacion">Congregación</label>
             <div className="registro-campo-con-icono">
-              <Users className="registro-icono-campo" />
+              <Church aria-hidden className="registro-icono-svg" />
               <input
-                  type="text"
                   id="congregacion"
                   name="congregacion"
-                  placeholder="Congregación"
+                  type="text"
+                  placeholder="Nombre de la congregación"
                   className="registro-campo-input"
-                  required
                   value={form.congregacion}
                   onChange={handleChange}
+                  autoComplete="off"
               />
             </div>
           </div>
         </div>
 
-        {/* BOTONES */}
-        <div className="registro-fila-doble" data-aos="fade-up" data-aos-delay="400">
-          <div className="registro-grupo-campo">
-            <button type="submit" className="registro-btn-guardar">
-              Guardar Estudiante
-            </button>
-          </div>
-          <div className="registro-grupo-campo">
-            <button
-                type="button"
-                className="registro-btn-salir"
-                onClick={() => window.location.href = "/"}
-            >
-              Salir
-            </button>
-          </div>
+        <div className="registro-acciones">
+          <button className="registro-btn-guardar" type="submit" disabled={loading}>
+            {loading ? 'Guardando…' : 'Guardar'}
+          </button>
+          <button className="registro-btn-salir" type="button" onClick={() => history.back()}>
+            Salir
+          </button>
         </div>
       </form>
   );

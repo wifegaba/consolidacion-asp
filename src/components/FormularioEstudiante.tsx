@@ -1,15 +1,12 @@
 'use client';
 
 import { User, IdCard, Phone } from 'lucide-react';
-
 import './FormularioEstudiante.css';
+
 import React, { useState, useEffect } from 'react';
 import AOS from 'aos';
 import 'aos/dist/aos.css';
-import Select from 'react-select';
 import { supabase } from '@/lib/supabase';
-
-
 
 type Serie = {
   id: number;
@@ -19,27 +16,10 @@ type Serie = {
   semestre_id: number;
 };
 
-
-
-
-
 export default function FormularioEstudiante() {
-
   useEffect(() => {
-
-
-    // 🎯 Inicializa AOS al montar
-    AOS.init({
-      duration: 300,
-      once: true,
-      offset: 80,
-    });
-
-
+    AOS.init({ duration: 300, once: true, offset: 80 });
   }, []);
-
-
-
 
   const [form, setForm] = useState({
     nombre: '',
@@ -47,52 +27,43 @@ export default function FormularioEstudiante() {
     cedula: '',
     semestre: '1',
     serie: '',
-    serie_id: null,
+    serie_id: null as number | null,
     clase: '' as string | number,
     nota: '' as string | number
   });
 
-
-
-
-
   const [clasesDisponibles, setClasesDisponibles] = useState<any[]>([]);
-
   const [terminoBusqueda, setTerminoBusqueda] = useState('');
   const [coincidencias, setCoincidencias] = useState<any[]>([]);
   const [indiceSugerido, setIndiceSugerido] = useState(0);
   const [estudianteSeleccionado, setEstudianteSeleccionado] = useState<any | null>(null);
-
   const [mostrarLista, setMostrarLista] = useState(false);
   const [nombreSerie, setNombreSerie] = useState('');
   const [profesor, setProfesor] = useState('');
   const [sesiones, setSesiones] = useState<number | string>('');
   const [semestreSeleccionado, setSemestreSeleccionado] = useState<number | null>(null);
   const [seriesDisponibles, setSeriesDisponibles] = useState<Serie[]>([]);
-
   const [notas, setNotas] = useState<any[]>([]);
 
-  // ✅ Cargar notas reales al seleccionar estudiante
   useEffect(() => {
     if (!estudianteSeleccionado?.id || !form.serie_id || !semestreSeleccionado) return;
-
 
     const obtenerNotas = async () => {
       const { data, error } = await supabase
           .from('notas')
           .select(`
-        nota,
-        clase_id,
-        clases (
-          numero,
-          series (
-            id,
-            titulo,
-            profesor,
-            semestre_id
+          nota,
+          clase_id,
+          clases (
+            numero,
+            series (
+              id,
+              titulo,
+              profesor,
+              semestre_id
+            )
           )
-        )
-      `)
+        `)
           .eq('estudiante_id', estudianteSeleccionado.id)
           .eq('clases.series.id', form.serie_id)
           .eq('clases.series.semestre_id', semestreSeleccionado);
@@ -116,105 +87,66 @@ export default function FormularioEstudiante() {
             };
           })
       );
-
-
-
     };
 
     obtenerNotas();
   }, [estudianteSeleccionado, form.serie_id, semestreSeleccionado]);
 
-
   const cargarSeriesDesdeSupabase = async (semestreId: number) => {
-    const { data, error } = await supabase
-        .from('series')
-        .select('*')
-        .eq('semestre_id', semestreId);
-
+    const { data, error } = await supabase.from('series').select('*').eq('semestre_id', semestreId);
     if (error) {
       console.error('Error cargando series:', error);
       setSeriesDisponibles([]);
       return;
     }
-
     setSeriesDisponibles(data || []);
   };
-
 
   const mostrarMensajeTemporal = (mensaje: string): void => {
     const toast = document.createElement('div');
     toast.className = 'toast';
     toast.textContent = mensaje;
     document.body.appendChild(toast);
-    setTimeout(() => {
-      toast.remove();
-    }, 3000);
+    setTimeout(() => toast.remove(), 3000);
   };
 
-
-
-  const seleccionarSerie = (serie: any) => {
+  const seleccionarSerie = (serie: Serie) => {
     if (!serie) return;
 
-    setForm(prev => ({
-      ...prev,
-      serie: serie.titulo,
-      serie_id: serie.id
-    }));
-
+    setForm(prev => ({ ...prev, serie: serie.titulo, serie_id: serie.id }));
     setNombreSerie(serie.titulo);
     setProfesor(serie.profesor);
     setSesiones(serie.sesiones);
     setMostrarLista(false);
 
     const cargarClasesDeSerie = async (serieId: number) => {
-      const { data, error } = await supabase
-          .from('clases')
-          .select('*')
-          .eq('serie_id', serieId);
-
-      if (!error) {
-        setClasesDisponibles(data || []);
-      }
+      const { data, error } = await supabase.from('clases').select('*').eq('serie_id', serieId);
+      if (!error) setClasesDisponibles(data || []);
     };
 
-    cargarClasesDeSerie(serie.id); // ✅ llama esto al seleccionar la serie
-
+    cargarClasesDeSerie(serie.id);
   };
 
   const totalSesiones = Number(sesiones || 0);
-
-// Array de números: [1, 2, 3, ..., sesiones]
   const clasesPorNumero = Array.from({ length: totalSesiones }, (_, i) => i + 1);
 
-// Filtrar solo las clases que aún no tienen nota registrada
   const clasesFiltradas = clasesPorNumero.filter(
       (numeroClase) =>
           !notas.some(
-              (n) =>
-                  parseInt(n.clase) === numeroClase &&
-                  n.serieTitulo === nombreSerie
+              (n) => parseInt(n.clase) === numeroClase && n.serieTitulo === nombreSerie
           )
   );
 
-
   const getNotaColor = (nota: number): string => {
-    if (nota >= 9) return '#22c55e';      // Verde (excelente)
-    if (nota >= 6) return '#eab308';      // Amarillo (aceptable)
-    return '#ef4444';                    // Rojo (bajo)
+    if (nota >= 9) return '#22c55e';
+    if (nota >= 6) return '#eab308';
+    return '#ef4444';
   };
-
-
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setForm(prev => ({ ...prev, [name]: value }));
   };
-
-
-
-
-
 
   const buscarEstudiantesLive = async (texto: string) => {
     setTerminoBusqueda(texto);
@@ -227,113 +159,87 @@ export default function FormularioEstudiante() {
     try {
       const res = await fetch(`/api/estudiantes/buscar?q=${encodeURIComponent(texto)}`);
       const data = await res.json();
-
-      if (res.ok && data.estudiantes) {
-        setCoincidencias(data.estudiantes);
-      } else {
-        setCoincidencias([]);
-      }
+      setCoincidencias(res.ok && data.estudiantes ? data.estudiantes : []);
     } catch (err) {
       console.error('Error al buscar estudiante:', err);
       setCoincidencias([]);
     }
   };
 
-
-
-
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!form.serie_id || !form.clase || !form.nota || !estudianteSeleccionado?.id) {
-      alert('Por favor completa todos los campos antes de guardar.');
+      mostrarMensajeTemporal('Completa serie, clase, nota y estudiante.');
       return;
     }
 
-    // 🟢 Buscar clase real según número y serie seleccionada
     const claseSeleccionada = clasesDisponibles.find(
-        (c) => c.numero === parseInt(String(form.clase))
-            && c.serie_id === form.serie_id
+        (c) => c.numero === parseInt(String(form.clase)) && c.serie_id === form.serie_id
     );
 
     if (!claseSeleccionada) {
       mostrarMensajeTemporal('❌ Clase no encontrada para esta serie.');
-
-
       return;
     }
 
-    // 📝 Insertar la nota en Supabase
-    const { error } = await supabase.from('notas').insert([
-      {
+    const res = await fetch('/api/notas', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
         estudiante_id: estudianteSeleccionado.id,
         clase_id: claseSeleccionada.id,
-        nota: parseFloat(String(form.nota)),
+        nota: parseFloat(String(form.nota))
+      })
+    });
 
-        fecha_registro: new Date().toISOString()
-      }
-    ]);
-
-    if (error) {
-      console.error('❌ Error al guardar nota:', error);
-      mostrarMensajeTemporal('Error al guardar la nota.');
+    const data = await res.json();
+    if (!res.ok) {
+      mostrarMensajeTemporal('❌ ' + (data.error || 'Error al guardar'));
       return;
     }
 
-    mostrarMensajeTemporal('✅ Nota guardada correctamente.');
+    setNotas(prev => [
+      ...prev,
+      { clase: form.clase, valor: form.nota, profesor, serieTitulo: nombreSerie }
+    ]);
 
+    mostrarMensajeTemporal('✅ Nota guardada correctamente');
 
-    // 🔁 Limpiar campo nota opcionalmente
-    setForm(prev => ({ ...prev, nota: '' }));
+    setForm(prev => ({ ...prev, clase: '', nota: '' }));
   };
-
 
   return (
       <div className="contenedor-dos-columnas">
         {/* Panel izquierdo: Formulario */}
         <div className="panel-formulario">
           <form className="formulario" onSubmit={handleSubmit}>
-            <div className="encabezado-formulario" data-aos="fade-down">
-              <h2 className="titulo-formulario">Asignacion de Notas</h2>
+            <div className="registro-header">
+              <div className="registro-header__title">Asignar Notas</div>
             </div>
 
-
-            <div className="buscador-estudiante" data-aos="fade-up" data-aos-delay="100">
+            <div className="buscador-estudiante" >
               <input
                   type="text"
                   className="input-busqueda"
                   placeholder="Buscar estudiante"
                   value={terminoBusqueda}
-                  onChange={(e) => {
-                    buscarEstudiantesLive(e.target.value);
-                    setIndiceSugerido(0);
-                  }}
+                  onChange={(e) => { buscarEstudiantesLive(e.target.value); setIndiceSugerido(0); }}
                   onKeyDown={async (e) => {
-                    if (e.key === 'ArrowDown') {
-                      e.preventDefault();
-                      setIndiceSugerido((prev) => Math.min(prev + 1, coincidencias.length - 1));
-                    } else if (e.key === 'ArrowUp') {
-                      e.preventDefault();
-                      setIndiceSugerido((prev) => Math.max(prev - 1, 0));
-                    } else if (e.key === 'Enter' && coincidencias.length > 0) {
+                    if (e.key === 'ArrowDown') { e.preventDefault(); setIndiceSugerido(prev => Math.min(prev + 1, coincidencias.length - 1)); }
+                    else if (e.key === 'ArrowUp') { e.preventDefault(); setIndiceSugerido(prev => Math.max(prev - 1, 0)); }
+                    else if (e.key === 'Enter' && coincidencias.length > 0) {
                       e.preventDefault();
                       const est = coincidencias[indiceSugerido];
 
-                      // 🟢 Cargar series reales desde Supabase para el semestre 1
                       const { data: series, error } = await supabase
-                          .from('series')
-                          .select('*')
-                          .eq('semestre_id', 1);
+                          .from('series').select('*').eq('semestre_id', 1);
 
-                      if (error || !series?.length) {
-                        mostrarMensajeTemporal('❌ No se pudieron cargar las series del semestre 1');
-                        return;
-                      }
+                      if (error || !series?.length) { mostrarMensajeTemporal('❌ No se pudieron cargar las series del semestre 1'); return; }
 
                       const primeraSerie = series[0];
 
-                      setForm((prev) => ({
+                      setForm(prev => ({
                         ...prev,
                         nombre: est.nombre,
                         telefono: est.telefono,
@@ -359,7 +265,6 @@ export default function FormularioEstudiante() {
                   autoComplete="off"
               />
 
-
               {coincidencias.length > 0 && (
                   <ul className="lista-autocompletado">
                     {coincidencias.map((est, i) => (
@@ -368,20 +273,14 @@ export default function FormularioEstudiante() {
                             className={i === indiceSugerido ? 'activo' : ''}
                             onMouseEnter={() => setIndiceSugerido(i)}
                             onClick={async () => {
-                              // 🟢 Cargar series reales desde Supabase para el semestre 1
                               const { data: series, error } = await supabase
-                                  .from('series')
-                                  .select('*')
-                                  .eq('semestre_id', 1);
+                                  .from('series').select('*').eq('semestre_id', 1);
 
-                              if (error || !series?.length) {
-                                mostrarMensajeTemporal('❌ No se pudieron cargar las series del semestre 1');
-                                return;
-                              }
+                              if (error || !series?.length) { mostrarMensajeTemporal('❌ No se pudieron cargar las series del semestre 1'); return; }
 
                               const primeraSerie = series[0];
 
-                              setForm((prev) => ({
+                              setForm(prev => ({
                                 ...prev,
                                 nombre: est.nombre,
                                 telefono: est.telefono,
@@ -404,52 +303,63 @@ export default function FormularioEstudiante() {
                         >
                           {est.nombre}
                         </li>
-
                     ))}
                   </ul>
               )}
             </div>
 
-
-
-
-
-
             <div className="fila-formulario">
               {/* Columna izquierda */}
               <div className="columna-formulario">
-                {/* Nombre */}
-                <div className="grupo-campo" data-aos="fade-up" data-aos-delay="100">
+                <div className="grupo-campo" >
                   <label htmlFor="nombre" className="label-campo"></label>
                   <div className="campo-con-icono">
                     <User className="icono-campo" />
-                    <input type="text" id="nombre" name="nombre" placeholder="Nombre completo"
-                           className="campo-input" value={form.nombre} onChange={handleChange} />
+                    <input
+                        type="text"
+                        id="nombre"
+                        name="nombre"
+                        placeholder="Nombre completo"
+                        className="campo-input"
+                        value={form.nombre}
+                        onChange={handleChange}
+                    />
                   </div>
                 </div>
 
-                {/* Teléfono */}
-                <div className="grupo-campo" data-aos="fade-up" data-aos-delay="200">
+                <div className="grupo-campo" >
                   <label htmlFor="telefono" className="label-campo"></label>
                   <div className="campo-con-icono">
                     <Phone className="icono-campo" />
-                    <input type="text" id="telefono" name="telefono" placeholder="Teléfono"
-                           className="campo-input" value={form.telefono} onChange={handleChange} />
+                    <input
+                        type="text"
+                        id="telefono"
+                        name="telefono"
+                        placeholder="Teléfono"
+                        className="campo-input"
+                        value={form.telefono}
+                        onChange={handleChange}
+                    />
                   </div>
                 </div>
 
-                {/* Cédula */}
-                <div className="grupo-campo" data-aos="fade-up" data-aos-delay="300">
+                <div className="grupo-campo" >
                   <label htmlFor="cedula" className="label-campo"></label>
                   <div className="campo-con-icono">
                     <IdCard className="icono-campo" />
-                    <input type="text" id="cedula" name="cedula" placeholder="Cédula"
-                           className="campo-input" value={form.cedula} onChange={handleChange} />
+                    <input
+                        type="text"
+                        id="cedula"
+                        name="cedula"
+                        placeholder="Cédula"
+                        className="campo-input"
+                        value={form.cedula}
+                        onChange={handleChange}
+                    />
                   </div>
                 </div>
 
-                {/* Semestre */}
-                <div className="grupo-campo" data-aos="fade-up" data-aos-delay="400">
+                <div className="grupo-campo" >
                   <label htmlFor="semestre" className="label-campo"></label>
                   <select
                       id="semestre"
@@ -458,34 +368,19 @@ export default function FormularioEstudiante() {
                       onChange={async (e) => {
                         const semestre = parseInt(e.target.value);
                         setSemestreSeleccionado(semestre);
+                        await cargarSeriesDesdeSupabase(semestre);
 
-                        await cargarSeriesDesdeSupabase(semestre); // ✅ llama la función correcta
-
-                        setForm(prev => ({
-                          ...prev,
-                          semestre: semestre.toString(),
-                          serie: '',
-                          serie_id: null
-                        }));
-
-                        setNombreSerie('');
-                        setProfesor('');
-                        setSesiones('');
+                        setForm(prev => ({ ...prev, semestre: semestre.toString(), serie: '', serie_id: null }));
+                        setNombreSerie(''); setProfesor(''); setSesiones('');
                       }}
-
                   >
                     <option value="">Selecciona semestre</option>
                     {[1, 2, 3, 4, 5].map((num) => (
-                        <option key={num} value={num}>
-                          Semestre {num}
-                        </option>
+                        <option key={num} value={num}>Semestre {num}</option>
                     ))}
                   </select>
 
-
-
-                  {/* Serie */}
-                  <div className="grupo-campo" data-aos="fade-up" data-aos-delay="100">
+                  <div className="grupo-campo" >
                     <label className="label-campo">Serie</label>
                     <div className="dropdown-serie">
                       <button type="button" className="dropdown-btn" onClick={() => setMostrarLista(!mostrarLista)}>
@@ -498,50 +393,32 @@ export default function FormularioEstudiante() {
                                 <li key={serie.id} onClick={() => seleccionarSerie(serie)}>
                                   📘 {serie.titulo}
                                 </li>
-
-
-
                             ))}
-
                           </ul>
                       )}
                     </div>
-
                   </div>
-
-
                 </div>
               </div>
 
-
               {/* Columna derecha */}
               <div className="columna-formulario">
-
-
-
                 <div className="bloque-detalle-serie">
-                  {/* Nombre de la Serie */}
-                  <div className="grupo-campo" data-aos="fade-up" data-aos-delay="200">
+                  <div className="grupo-campo" >
                     <label className="label-campo">Nombre de la Serie</label>
                     <div className="nombre-serie-box">
                       <div className="nombre-serie-valor">{nombreSerie || '—'}</div>
                     </div>
                   </div>
 
-
-
-
-
-                  {/* Profesor */}
-                  <div className="grupo-campo" data-aos="fade-up" data-aos-delay="300">
+                  <div className="grupo-campo" >
                     <label className="label-campo">Profesor</label>
                     <div className="nombre-serie-box">
                       <div className="nombre-serie-valor">{profesor || '—'}</div>
                     </div>
                   </div>
 
-                  {/* Sesiones */}
-                  <div className="grupo-campo" data-aos="fade-up" data-aos-delay="400">
+                  <div className="grupo-campo" >
                     <label className="label-campo">Sesiones</label>
                     <div className="nombre-serie-box">
                       <div className="nombre-serie-valor">{sesiones || '—'}</div>
@@ -549,136 +426,45 @@ export default function FormularioEstudiante() {
                   </div>
                 </div>
 
-
-                {/* Clase */}
-                <div className="grupo-campo" data-aos="fade-up" data-aos-delay="500">
-
+                <div className="grupo-campo" >
                   <select
                       id="clase"
                       className="select-input"
                       value={form.clase || ''}
-                      onChange={(e) =>
-                          setForm((prev) => ({
-                            ...prev,
-                            clase: e.target.value // ← deja el valor como string
-                          }))
-
-                      }
+                      onChange={(e) => setForm(prev => ({ ...prev, clase: e.target.value }))}
                   >
                     <option value="">Selecciona clase</option>
                     {clasesFiltradas.map((numero) => (
-                        <option key={numero} value={numero}>
-                          Clase {numero}
-                        </option>
+                        <option key={numero} value={numero}>Clase {numero}</option>
                     ))}
                   </select>
-
                 </div>
 
-                {/* Nota */}
-                <div className="grupo-campo" data-aos="fade-up" data-aos-delay="600">
+                <div className="grupo-campo" >
                   <label htmlFor="nota" className="label-campo">Nota</label>
                   <div className="campo-con-icono">
-                    <input id="nota" type="number" step="0.1" min="0" max="10"
-                           className="campo-input" value={form.nota || ''}
-                           onChange={(e) =>
-                               setForm(prev => ({
-                                 ...prev,
-                                 nota: e.target.value === '' ? '' : Number(e.target.value)
-
-
-                               }))
-                           }
+                    <input
+                        id="nota"
+                        type="number"
+                        step="0.1" min="0" max="10"
+                        className="campo-input"
+                        value={form.nota || ''}
+                        onChange={(e) => setForm(prev => ({
+                          ...prev,
+                          nota: e.target.value === '' ? '' : Number(e.target.value)
+                        }))}
                     />
                   </div>
-                </div>
-
-
-
-                {/* Botón guardar */}
-                <div data-aos="zoom-in-up" data-aos-delay="700">
-                  <button
-                      type="button"
-                      className="boton-principal"
-                      onClick={async () => {
-                        try {
-                          // 🛑 Validación
-                          if (!form.clase || !form.nota) {
-                            mostrarMensajeTemporal('⚠️ Debes seleccionar la serie y una clase ');
-                            return;
-                          }
-
-                          if (!estudianteSeleccionado || !estudianteSeleccionado.id) {
-                            mostrarMensajeTemporal('❌ No se ha seleccionado un estudiante válido');
-                            return;
-                          }
-
-                          if (!form.serie_id) {
-                            mostrarMensajeTemporal('⚠️ No se ha seleccionado una serie válida');
-                            return;
-                          }
-
-                          // ✅ Buscar la clase real por número y serie_id
-                          const claseSeleccionada = clasesDisponibles.find(
-                              (c) => c.numero === parseInt(String(form.clase))
-                                  && c.serie_id === form.serie_id
-                          );
-
-                          if (!claseSeleccionada) {
-                            mostrarMensajeTemporal('❌ Clase no encontrada. Verifica la serie y la clase.');
-                            return;
-                          }
-
-                          // ✅ Guardar en Supabase con el ID real de la clase
-                          const res = await fetch('/api/notas', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                              estudiante_id: estudianteSeleccionado.id,
-                              clase_id: claseSeleccionada.id, // 🎯 El ID real
-                              nota: form.nota
-                            })
-                          });
-
-                          const data = await res.json();
-
-                          if (!res.ok) {
-                            throw new Error(data.error || 'Error desconocido');
-                          }
-
-                          // ✅ Mostrar visualmente en el panel de notas
-                          setNotas((prev) => [
-                            ...prev,
-                            {
-                              clase: form.clase,
-                              valor: form.nota,
-                              profesor: profesor,
-                              serieTitulo: nombreSerie // para mostrar en la tarjeta
-                            }
-                          ]);
-
-                          mostrarMensajeTemporal('✅ Nota guardada correctamente');
-
-                          // 🧹 Limpiar campos
-                          setForm((prev) => ({
-                            ...prev,
-                            clase: '',
-                            nota: ''
-                          }));
-                        } catch (err: any) {
-                          mostrarMensajeTemporal('❌ Error al guardar nota: ' + err.message);
-                        }
-                      }}
-                  >
-                    Guardar Nota
-                  </button>
-
 
                 </div>
+
+                  <div className="acciones-form" >
+                      <button type="submit" className="boton-principal">Guardar Nota</button>
+                  </div>
+
+
               </div>
             </div>
-
-
           </form>
         </div>
 
@@ -688,44 +474,25 @@ export default function FormularioEstudiante() {
 
           {estudianteSeleccionado && (
               <div className="tarjeta-estudiante-horizontal">
-            <span className="campo-horizontal">
-              <strong>Nombre:</strong> {estudianteSeleccionado.nombre}
-            </span>
-                <span className="campo-horizontal">
-              <strong>Teléfono:</strong> {estudianteSeleccionado.telefono}
-            </span>
-                <span className="campo-horizontal">
-                         Número de clases Pendientes: <strong>{clasesFiltradas.length}</strong>
-                        </span>
+                <span className="campo-horizontal"><strong>Nombre:</strong> {estudianteSeleccionado.nombre}</span>
+                <span className="campo-horizontal"><strong>Teléfono:</strong> {estudianteSeleccionado.telefono}</span>
+                <span className="campo-horizontal">Número de clases Pendientes: <strong>{clasesFiltradas.length}</strong></span>
               </div>
           )}
 
-
-
-
           <div className="lista-notas">
-            {notas.length === 0 && (
-                <p style={{ color: '#ccc', padding: '1rem' }}>No hay notas registradas.</p>
-            )}
-
+            {notas.length === 0 && <p style={{ color: '#7a8598', padding: '1rem' }}>No hay notas registradas.</p>}
             {notas
-                .filter((n) => n.serieTitulo === nombreSerie) // ✅ respeta el filtro actual
+                .filter((n) => n.serieTitulo === nombreSerie)
                 .map((n, i) => (
-                    <div
-                        key={i}
-                        className="tarjeta-nota"
-                        style={{ borderLeft: `6px solid ${getNotaColor(n.valor)}` }} // 🎯 borde de color
-                    >
+                    <div key={i} className="tarjeta-nota" style={{ borderLeft: `6px solid ${getNotaColor(n.valor)}` }}>
                       <h4>Clase {n.clase}</h4>
                       <p>Nota: <strong>{n.valor}</strong></p>
                       <p>{n.serieTitulo}</p>
                     </div>
                 ))}
           </div>
-
-
         </div>
-
       </div>
   );
 }
