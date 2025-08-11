@@ -1,24 +1,40 @@
-// File: src/app/api/estudiantes/[id]/resumen/route.ts
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
+import { createClient } from '@supabase/supabase-js';
 
-// (Opcional) Fuerza runtime Node si lo usas en DB
-export const runtime = 'nodejs';
+const sb = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
-// Firma tolerante: evita choques con el generador de tipos de Next
-export async function GET(_req: Request, context: any) {
-    const { id } = (context?.params ?? {}) as { id: string };
+export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
+    const id = params.id;
+    if (!id) return NextResponse.json({ error: 'ID requerido' }, { status: 400 });
 
-    // --- TU LÓGICA REAL AQUÍ ---
-    // const resumen = await obtenerResumenDeEstudiante(id);
+    const { data, error } = await sb
+        .from('v_resumen_estudiante_semestre')
+        .select('semestre_id, porcentaje_avance, promedio_simple, promedio_ponderado')
+        .eq('estudiante_id', id)
+        .order('semestre_id');
 
-    // Ejemplo mínimo (borra cuando uses tu lógica real)
-    const resumen = {
-        1: { avance: 80, prom: 4.0 },
-        2: { avance: 65, prom: 3.8 },
-        3: { avance: 20, prom: null },
-        4: { avance: 0,  prom: null },
-        5: { avance: 0,  prom: null },
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+    // Mapa 1..5
+    const out: Record<number, { avance: number; prom: number | null }> = {
+        1: { avance: 0, prom: null },
+        2: { avance: 0, prom: null },
+        3: { avance: 0, prom: null },
+        4: { avance: 0, prom: null },
+        5: { avance: 0, prom: null },
     };
 
-    return NextResponse.json({ ok: true, id, resumen });
+    (data ?? []).forEach((r: any) => {
+        const s = Number(r.semestre_id);
+        out[s] = {
+            avance: Number(r.porcentaje_avance ?? 0),
+            // prioriza ponderado; si viene null usa simple
+            prom: r.promedio_ponderado ?? r.promedio_simple ?? null,
+        };
+    });
+
+    return NextResponse.json({ resumen: out }, { status: 200, headers: { 'Cache-Control': 'no-store' } });
 }
