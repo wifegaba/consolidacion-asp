@@ -46,7 +46,8 @@ const cardGradient = (n: number) =>
                 : n === 4
                     ? 'from-[#2563eb] via-[#38bdf8] to-[#60a5fa]'
                     : 'from-[#64748b] via-[#94a3b8] to-[#cbd5e1]';
-const cardChrome = 'rounded-3xl p-5 shadow-xl ring-1 ring-white/15 backdrop-blur-md relative overflow-hidden min-h-[140px]';
+const cardChrome =
+    'rounded-3xl p-5 shadow-xl ring-1 ring-white/15 backdrop-blur-md relative overflow-hidden min-h-[140px]';
 const titleStyle = 'text-white font-extrabold text-[1.15rem] tracking-wide leading-none';
 const subtitleStyle = 'text-white/80 text-xs';
 
@@ -66,9 +67,7 @@ function SearchBox({
 }) {
     const [active, setActive] = useState<number>(-1);
     const listRef = useRef<HTMLDivElement | null>(null);
-    // ⬅️ Reemplaza la definición actual
     const itemRefs = useRef<(HTMLButtonElement | null)[]>([]);
-
 
     useEffect(() => {
         itemRefs.current = new Array(results.length);
@@ -136,8 +135,9 @@ function SearchBox({
                             id={`opt-${e.id}`}
                             role="option"
                             aria-selected={i === active}
-                            ref={(el) => { itemRefs.current[i] = el; }}
-
+                            ref={(el) => {
+                                itemRefs.current[i] = el;
+                            }}
                             onMouseEnter={() => setActive(i)}
                             onMouseDown={(ev) => ev.preventDefault()}
                             onClick={() => onSelect(e)}
@@ -249,7 +249,7 @@ function useDebounce<T>(value: T, delay = 250) {
 }
 
 // ---------- Panel de Notas ----------
-import { useToast } from '@/components/ToastProvider'; // 👈 AJUSTA esta ruta si es necesario
+import { useToast } from '@/components/ToastProvider'; // ajusta la ruta si es necesario
 
 type SerieDetalle = { id: number; titulo?: string; clases: { id: number; etiqueta: string; nota: number | null }[] };
 
@@ -266,7 +266,7 @@ function SemesterPanel({
     estudianteNombre: string;
     semestre: number | null;
 }) {
-    const toast = useToast(); // 👈 1) listo el toast
+    const toast = useToast();
 
     const [series, setSeries] = useState<SerieDetalle[]>([]);
     const [activeSerie, setActiveSerie] = useState<number | null>(null);
@@ -338,15 +338,15 @@ function SemesterPanel({
 
             if (!res.ok || !j?.ok) {
                 console.error('Guardar notas error:', j);
-                toast.error('No se pudieron guardar las notas.'); // 👈 2) error
+                toast.error('No se pudieron guardar las notas.');
                 return;
             }
 
-            toast.success('Notas actualizadas ✅'); // 👈 3) éxito
+            toast.success('Notas actualizadas ✅');
             onClose();
         } catch (e) {
             console.error('Guardar notas:', e);
-            toast.error('Error guardando notas.'); // 👈 error excepción
+            toast.error('Error guardando notas.');
         } finally {
             setSaving(false);
         }
@@ -354,81 +354,126 @@ function SemesterPanel({
 
     return (
         <div className={cls('fixed inset-0 z-50 transition', open ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none')}>
-            <div className="absolute inset-0 bg-slate-900/30" onClick={onClose} />
-            <div className="absolute inset-y-0 right-0 w-full lg:w-[860px] max-w-full bg-white shadow-2xl flex flex-col max-h-screen">
-                <div className="flex-none flex items-center justify-between px-6 py-4 border-b">
-                    <div className="font-bold text-blue-900">
-                        {estudianteNombre} · Semestre {semNum}
+            {/* Backdrop */}
+            <div className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm" onClick={onClose} />
+
+            {/* Panel: gradiente + glass */}
+            <div className="absolute inset-y-4 right-4 left-4 lg:left-auto lg:w-[980px] flex">
+                <div
+                    className="
+            relative w-full max-h-[calc(100vh-2rem)]
+            rounded-[22px] shadow-2xl ring-1 ring-white/15
+            bg-gradient-to-br from-[#0ea5e9]/30 via-[#0b3ea7]/50 to-[#0ea5e9]/25
+            backdrop-blur-xl text-white overflow-hidden
+          "
+                >
+                    {/* GLOW decorativo */}
+                    <div className="pointer-events-none absolute -left-16 -top-16 h-48 w-48 rounded-full bg-cyan-400/20 blur-2xl" />
+                    <div className="pointer-events-none absolute -right-12 -bottom-12 h-40 w-40 rounded-full bg-sky-300/20 blur-2xl" />
+
+                    {/* Header */}
+                    <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 bg-white/5">
+                        <div className="font-semibold">
+                            <span className="opacity-90">{estudianteNombre}</span>
+                            <span className="opacity-70"> · Semestre {semNum}</span>
+                        </div>
+                        <button
+                            onClick={onClose}
+                            className="h-8 w-8 grid place-items-center rounded-full bg-white/10 hover:bg-white/15"
+                            aria-label="Cerrar"
+                        >
+                            ✕
+                        </button>
                     </div>
-                    <button onClick={onClose} className="text-slate-600 hover:text-slate-900">✕</button>
-                </div>
 
-                <div className="flex-1 grid grid-cols-1 md:grid-cols-3 min-h-0">
-                    <aside className="border-r p-4 overflow-y-auto">
-                        <div className="text-slate-800 font-semibold mb-3">Series</div>
-                        {loading && <div className="text-sm text-slate-500">Cargando…</div>}
-                        <div className="grid gap-2">
-                            {series.map((s) => (
-                                <button
-                                    key={s.id}
-                                    onClick={() => setActiveSerie(s.id)}
-                                    className={cls(
-                                        'w-full text-left px-3 py-2 rounded-xl border',
-                                        activeSerie === s.id ? 'bg-blue-50 border-blue-200 text-blue-900' : 'bg-white hover:bg-slate-50 border-slate-200'
-                                    )}
-                                >
-                                    {s.titulo ?? `Serie ${s.id}`}
-                                </button>
-                            ))}
-                            {!loading && series.length === 0 && <div className="text-sm text-slate-500">Este semestre no tiene series.</div>}
-                        </div>
-                    </aside>
+                    {/* Contenido con scroll propio */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 min-h-0" style={{ height: 'calc(100% - 56px)' }}>
+                        {/* Series */}
+                        <aside className="border-r border-white/10 p-4 overflow-y-auto">
+                            <div className="text-sm font-semibold mb-3 text-white/90">Series</div>
+                            {loading && <div className="text-xs text-white/70">Cargando…</div>}
 
-                    <section className="md:col-span-2 p-4 flex flex-col min-h-0">
-                        <div className="text-slate-800 font-semibold mb-3">Notas de la serie</div>
-
-                        <div className="flex-1 overflow-y-auto pr-1">
-                            {clases.length === 0 ? (
-                                <div className="text-sm text-slate-500">Selecciona una serie para ver sus clases.</div>
-                            ) : (
-                                <div className="grid gap-3">
-                                    {clases.map((c) => (
-                                        <div key={c.id} className="grid grid-cols-12 items-center gap-3 border rounded-xl px-3 py-2">
-                                            <div className="col-span-7 sm:col-span-8 text-slate-800">{c.etiqueta}</div>
-                                            <div className="col-span-5 sm:col-span-4">
-                                                <input
-                                                    inputMode="decimal"
-                                                    placeholder="—"
-                                                    value={draft[c.id] ?? ''}
-                                                    onChange={(e) => updateNota(c.id, e.target.value)}
-                                                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-800 focus:outline-none focus:ring-4 focus:ring-blue-100"
-                                                />
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
-
-                        <div className="pt-4 mt-4 border-t">
-                            <button
-                                disabled={saving || clases.length === 0}
-                                onClick={handleGuardar}
-                                className={cls(
-                                    'rounded-xl px-4 py-2 font-semibold shadow-sm',
-                                    saving ? 'bg-slate-300 text-slate-600' : 'bg-blue-600 text-white hover:bg-blue-700'
+                            <div className="grid gap-2">
+                                {series.map((s) => {
+                                    const active = activeSerie === s.id;
+                                    return (
+                                        <button
+                                            key={s.id}
+                                            onClick={() => setActiveSerie(s.id)}
+                                            className={
+                                                'w-full text-left px-3 py-2 rounded-2xl border transition ' +
+                                                (active
+                                                    ? 'bg-cyan-500 text-white border-transparent shadow-cyan-500/30 shadow'
+                                                    : 'bg-white/10 hover:bg-white/15 text-white/90 border-white/10')
+                                            }
+                                        >
+                                            {s.titulo ?? `Serie ${s.id}`}
+                                        </button>
+                                    );
+                                })}
+                                {!loading && series.length === 0 && (
+                                    <div className="text-xs text-white/70">Este semestre no tiene series.</div>
                                 )}
-                            >
-                                {saving ? 'Guardando…' : 'Actualizar notas'}
-                            </button>
-                        </div>
-                    </section>
+                            </div>
+                        </aside>
+
+                        {/* Notas */}
+                        <section className="md:col-span-2 p-4 flex flex-col min-h-0">
+                            <div className="text-sm font-semibold mb-3 text-white/90">Notas de la serie</div>
+
+                            <div className="flex-1 overflow-y-auto pr-1">
+                                {clases.length === 0 ? (
+                                    <div className="text-xs text-white/70">Selecciona una serie para ver sus clases.</div>
+                                ) : (
+                                    <div className="grid gap-2">
+                                        {clases.map((c) => (
+                                            <div
+                                                key={c.id}
+                                                className="grid grid-cols-12 items-center gap-3 rounded-2xl border border-white/10 bg-white/10 px-3 py-2"
+                                            >
+                                                <div className="col-span-7 sm:col-span-8 text-white/90">{c.etiqueta}</div>
+                                                <div className="col-span-5 sm:col-span-4">
+                                                    <input
+                                                        inputMode="decimal"
+                                                        placeholder="—"
+                                                        value={draft[c.id] ?? ''}
+                                                        onChange={(e) => updateNota(c.id, e.target.value)}
+                                                        className="
+                              w-full rounded-xl border
+                              border-white/10 bg-white/15 text-white placeholder-white/50
+                              px-3 py-2 focus:outline-none focus:ring-4 focus:ring-cyan-400/30
+                            "
+                                                    />
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Footer */}
+                            <div className="pt-4 mt-4 border-t border-white/10">
+                                <button
+                                    disabled={saving || clases.length === 0}
+                                    onClick={handleGuardar}
+                                    className="
+                    rounded-xl px-4 py-2 font-semibold
+                    bg-gradient-to-r from-cyan-400 to-sky-500
+                    text-slate-900 hover:from-cyan-300 hover:to-sky-400
+                    disabled:opacity-60 disabled:cursor-not-allowed
+                    shadow-lg shadow-cyan-500/20
+                  "
+                                >
+                                    {saving ? 'Guardando…' : 'Actualizar notas'}
+                                </button>
+                            </div>
+                        </section>
+                    </div>
                 </div>
             </div>
         </div>
     );
 }
-
 
 // ---------- Página ----------
 export default function Page() {
