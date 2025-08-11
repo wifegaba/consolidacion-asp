@@ -41,6 +41,10 @@ function SearchBox({
     const listRef = useRef<HTMLDivElement | null>(null);
     const itemRefs = useRef<HTMLButtonElement[]>([]);
 
+
+
+
+
     // Re-sincroniza refs y reinicia índice al cambiar texto o resultados
     useEffect(() => {
         itemRefs.current = new Array(results.length);
