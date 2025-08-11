@@ -16,6 +16,8 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
         .eq('estudiante_id', id)
         .order('semestre_id');
 
+
+
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
     // Mapa 1..5
