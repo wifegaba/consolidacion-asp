@@ -4,8 +4,9 @@
 // Safelist para colores dinámicos
 const _tw = `bg-rose-500 bg-amber-400 bg-emerald-500`;
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { buscarEstudiantes } from '@/lib/academico';
+import { useToast } from '@/components/ToastProvider'; // <- ya lo venías usando
 
 // Tipos UI
 type UIStudent = {
@@ -200,57 +201,328 @@ function SemesterCard({
     );
 }
 
-function Profile({ e }: { e?: UIStudent }) {
+// ---------- Panel de datos del estudiante (card + hover + click abre panel) ----------
+const initials = (n?: string) =>
+    (n ?? '')
+        .split(' ')
+        .filter(Boolean)
+        .slice(0, 2)
+        .map((p) => p[0]?.toUpperCase() ?? '')
+        .join('') || '—';
+
+function InfoRow({
+                     label,
+                     value,
+                     href,
+                     icon,
+                 }: {
+    label: string;
+    value?: string | null;
+    href?: string;
+    icon: ReactNode;
+}) {
+    const content =
+        value && href ? (
+            <a href={href} className="text-slate-800 hover:text-blue-700 underline decoration-blue-200 break-all">
+                {value}
+            </a>
+        ) : (
+            <span className="text-slate-800 break-all">{value ?? '—'}</span>
+        );
+
+    return (
+        <div className="flex items-start gap-3">
+            <span className="mt-0.5 text-blue-600">{icon}</span>
+            <div className="text-sm">
+                <div className="font-semibold text-slate-600">{label}</div>
+                <div className="leading-5">{content}</div>
+            </div>
+        </div>
+    );
+}
+
+function Profile({
+                     e,
+                     onOpen,
+                 }: {
+    e?: UIStudent;
+    onOpen: () => void;
+}) {
     if (!e)
         return (
-            <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <div className="rounded-3xl bg-white/80 backdrop-blur-md ring-1 ring-slate-200 shadow-xl p-6">
                 <div className="text-slate-500">Selecciona un estudiante…</div>
             </div>
         );
+
     return (
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-            <div className="grid gap-2 text-sm">
-                <div className="text-xl font-bold text-blue-900">{e.nombre}</div>
-                <div>
-                    <span className="font-semibold text-slate-700">Teléfono: </span>
-                    <span className="text-slate-700">{e.telefono ?? '—'}</span>
+        <button
+            onClick={onOpen}
+            className="
+        group w-full text-left rounded-3xl overflow-hidden
+        shadow-xl ring-1 ring-slate-200 bg-white transition
+        hover:-translate-y-0.5 hover:shadow-2xl hover:ring-blue-300/40
+        focus:outline-none focus:ring-4 focus:ring-blue-100
+      "
+            aria-label="Abrir datos del estudiante"
+        >
+            {/* Header con gradiente suave + avatar */}
+            <div className="relative px-6 py-5 bg-gradient-to-r from-sky-500/20 via-indigo-500/20 to-cyan-400/20 backdrop-blur-sm">
+                <div className="absolute -left-10 -top-10 h-24 w-24 rounded-full bg-sky-300/30 blur-2xl transition group-hover:scale-110" />
+                <div className="absolute -right-8 -bottom-8 h-20 w-20 rounded-full bg-indigo-300/25 blur-2xl transition group-hover:scale-110" />
+                <div className="flex items-center gap-4 relative">
+                    <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-indigo-500 to-sky-500 text-white grid place-items-center font-bold">
+                        {initials(e.nombre)}
+                    </div>
+                    <div>
+                        <div className="text-lg font-extrabold text-blue-900 leading-tight">{e.nombre}</div>
+                        <div className="text-xs text-slate-600">Perfil del estudiante</div>
+                    </div>
                 </div>
-                <div>
-                    <span className="font-semibold text-slate-700">Cédula: </span>
-                    <span className="text-slate-700">{e.cedula ?? '—'}</span>
-                </div>
-                <div>
-                    <span className="font-semibold text-slate-700">País / Ciudad: </span>
-                    <span className="text-slate-700">
-            {e.pais ?? '—'} {e.ciudad ? `· ${e.ciudad}` : ''}
-          </span>
-                </div>
-                <div>
-                    <span className="font-semibold text-slate-700">Dirección: </span>
-                    <span className="text-slate-700">{e.direccion ?? '—'}</span>
-                </div>
-                <div>
-                    <span className="font-semibold text-slate-700">Congregación: </span>
-                    <span className="text-slate-700">{e.congregacion ?? '—'}</span>
+            </div>
+
+            {/* Cuerpo */}
+            <div className="p-6 grid gap-4">
+                <InfoRow
+                    label="Teléfono"
+                    value={e.telefono ?? undefined}
+                    href={e.telefono ? `tel:${e.telefono}` : undefined}
+                    icon={
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                            <path d="M6.62 10.79a15.05 15.05 0 006.59 6.59l2.2-2.2a1 1 0 011.01-.24c1.12.37 2.33.57 3.58.57a1 1 0 011 1v3.48a1 1 0 01-.92 1A18.91 18.91 0 013 5.92 1 1 0 014 5h3.5a1 1 0 011 1c0 1.25.2 2.46.57 3.58a1 1 0 01-.24 1.01l-2.2 2.2z" />
+                        </svg>
+                    }
+                />
+
+                <InfoRow
+                    label="Cédula"
+                    value={e.cedula ?? undefined}
+                    icon={
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                            <path d="M4 4h16a1 1 0 011 1v14a1 1 0 01-1 1H4a1 1 0 01-1-1V5a1 1 0 011-1zm2 4h8v2H6V8zm0 4h12v2H6v-2z" />
+                        </svg>
+                    }
+                />
+
+                <InfoRow
+                    label="País / Ciudad"
+                    value={[e.pais ?? '—', e.ciudad].filter(Boolean).join(e.ciudad ? ' · ' : '')}
+                    icon={
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                            <path d="M12 2a7 7 0 017 7c0 5-7 13-7 13S5 14 5 9a7 7 0 017-7zm0 9a2 2 0 100-4 2 2 0 000 4z" />
+                        </svg>
+                    }
+                />
+
+                <InfoRow
+                    label="Dirección"
+                    value={e.direccion ?? undefined}
+                    icon={
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                            <path d="M3 10l9-7 9 7v9a2 2 0 01-2 2h-4v-6H9v6H5a2 2 0 01-2-2v-9z" />
+                        </svg>
+                    }
+                />
+
+                <InfoRow
+                    label="Congregación"
+                    value={e.congregacion ?? undefined}
+                    icon={
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                            <path d="M12 3l7 4v6c0 4-3 7-7 8-4-1-7-4-7-8V7l7-4z" />
+                        </svg>
+                    }
+                />
+            </div>
+        </button>
+    );
+}
+
+// ---------- Panel de edición de estudiante ----------
+function StudentPanel({
+                          open,
+                          onClose,
+                          student,
+                          onSaved,
+                          onDeleted, // 👈 nuevo
+                      }: {
+    open: boolean;
+    onClose: () => void;
+    student: UIStudent;
+    onSaved: (s: UIStudent) => void;
+    onDeleted: () => void; // 👈 nuevo
+}) {
+    const toast = useToast();
+    const [saving, setSaving] = useState(false);
+
+    const [form, setForm] = useState<UIStudent>(student);
+
+    useEffect(() => setForm(student), [student?.id]);
+
+    const set = (k: keyof UIStudent, v: string) => setForm((f) => ({ ...f, [k]: v }));
+
+    const inputCls =
+        'w-full rounded-xl border border-white/10 bg-white/15 text-white placeholder-white/50 px-3 py-2 focus:outline-none focus:ring-4 focus:ring-cyan-400/30';
+
+    // Guardar -> PATCH /api/notas
+    const handleSave = async () => {
+        try {
+            setSaving(true);
+            const res = await fetch('/api', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    id: student.id,
+                    nombre: form.nombre ?? '',
+                    telefono: form.telefono ?? null,
+                    cedula: form.cedula ?? null,
+                    pais: form.pais ?? null,
+                    ciudad: form.ciudad ?? null,
+                    direccion: form.direccion ?? null,
+                    congregacion: form.congregacion ?? null,
+                }),
+            });
+
+            const j = await res.json().catch(() => ({}));
+            if (!res.ok || j?.ok === false) {
+                toast.error('No se pudo actualizar el estudiante.');
+                return;
+            }
+
+            toast.success('Estudiante actualizado ✅');
+            onSaved(form);
+            onClose();
+        } catch (e) {
+            console.error(e);
+            toast.error('Error actualizando.');
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    // Eliminar -> DELETE /api/notas
+    const handleDelete = async () => {
+        const ok = confirm('¿Eliminar este estudiante y sus notas? Esta acción no se puede deshacer.');
+        if (!ok) return;
+        try {
+            setSaving(true);
+            const res = await fetch('/api', {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: student.id }),
+            });
+            const j = await res.json().catch(() => ({}));
+            if (!res.ok || j?.ok === false) {
+                toast.error('No se pudo eliminar.');
+                return;
+            }
+            toast.success('Estudiante eliminado 🗑️');
+            onDeleted();  // avisa al padre para limpiar UI
+            onClose();
+        } catch (e) {
+            console.error(e);
+            toast.error('Error eliminando.');
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    return (
+        <div className={cls('fixed inset-0 z-50 transition', open ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none')}>
+            <div className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm" onClick={onClose} />
+            <div className="absolute inset-y-4 right-4 left-4 lg:left-auto lg:w-[800px] flex">
+                <div
+                    className="
+            relative w-full max-h-[calc(100vh-2rem)]
+            rounded-[22px] shadow-2xl ring-1 ring-white/15
+            bg-gradient-to-br from-[#0ea5e9]/30 via-[#0b3ea7]/50 to-[#0ea5e9]/25
+            backdrop-blur-xl text-white overflow-hidden
+          "
+                >
+                    <div className="pointer-events-none absolute -left-16 -top-16 h-48 w-48 rounded-full bg-cyan-400/20 blur-2xl" />
+                    <div className="pointer-events-none absolute -right-12 -bottom-12 h-40 w-40 rounded-full bg-sky-300/20 blur-2xl" />
+
+                    <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 bg-white/5">
+                        <div className="font-semibold">
+                            <span className="opacity-90">Datos del Estudiante</span>
+                        </div>
+                        <button
+                            onClick={onClose}
+                            className="h-8 w-8 grid place-items-center rounded-full bg-white/10 hover:bg-white/15"
+                            aria-label="Cerrar"
+                        >
+                            ✕
+                        </button>
+                    </div>
+
+                    <div className="p-5 overflow-y-auto" style={{ maxHeight: 'calc(100% - 56px)' }}>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <div className="text-xs text-white/70 mb-1">Nombre</div>
+                                <input value={form.nombre ?? ''} onChange={(e) => set('nombre', e.target.value)} className={inputCls} />
+                            </div>
+                            <div>
+                                <div className="text-xs text-white/70 mb-1">Teléfono</div>
+                                <input value={form.telefono ?? ''} onChange={(e) => set('telefono', e.target.value)} className={inputCls} />
+                            </div>
+                            <div>
+                                <div className="text-xs text-white/70 mb-1">Cédula</div>
+                                <input value={form.cedula ?? ''} onChange={(e) => set('cedula', e.target.value)} className={inputCls} />
+                            </div>
+                            <div>
+                                <div className="text-xs text-white/70 mb-1">País</div>
+                                <input value={form.pais ?? ''} onChange={(e) => set('pais', e.target.value)} className={inputCls} />
+                            </div>
+                            <div>
+                                <div className="text-xs text-white/70 mb-1">Ciudad</div>
+                                <input value={form.ciudad ?? ''} onChange={(e) => set('ciudad', e.target.value)} className={inputCls} />
+                            </div>
+                            <div className="md:col-span-2">
+                                <div className="text-xs text-white/70 mb-1">Dirección</div>
+                                <input value={form.direccion ?? ''} onChange={(e) => set('direccion', e.target.value)} className={inputCls} />
+                            </div>
+                            <div className="md:col-span-2">
+                                <div className="text-xs text-white/70 mb-1">Congregación</div>
+                                <input value={form.congregacion ?? ''} onChange={(e) => set('congregacion', e.target.value)} className={inputCls} />
+                            </div>
+                        </div>
+
+                        <div className="pt-5 mt-6 border-t border-white/10 flex items-center gap-3">
+                            <button
+                                disabled={saving}
+                                onClick={handleSave}
+                                className="
+                  rounded-xl px-4 py-2 font-semibold
+                  bg-gradient-to-r from-cyan-400 to-sky-500
+                  text-slate-900 hover:from-cyan-300 hover:to-sky-400
+                  disabled:opacity-60 disabled:cursor-not-allowed
+                  shadow-lg shadow-cyan-500/20
+                "
+                            >
+                                {saving ? 'Guardando…' : 'Actualizar Estudiante'}
+                            </button>
+
+                            <button
+                                disabled={saving}
+                                onClick={handleDelete}
+                                className="
+                  rounded-xl px-4 py-2 font-semibold
+                  border border-rose-300/60 text-rose-100
+                  hover:bg-rose-500/20 hover:border-rose-300/80
+                  disabled:opacity-60 disabled:cursor-not-allowed
+                "
+                            >
+                                Eliminar Estudiante
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
     );
 }
 
-// Debounce
-function useDebounce<T>(value: T, delay = 250) {
-    const [v, setV] = useState(value);
-    useEffect(() => {
-        const h = setTimeout(() => setV(value), delay);
-        return () => clearTimeout(h);
-    }, [value, delay]);
-    return v;
-}
-
-// ---------- Panel de Notas ----------
-import { useToast } from '@/components/ToastProvider'; // ajusta la ruta si es necesario
-
+// ---------- Panel de Notas (igual que ya tenías) ----------
 type SerieDetalle = { id: number; titulo?: string; clases: { id: number; etiqueta: string; nota: number | null }[] };
 
 function SemesterPanel({
@@ -338,15 +610,15 @@ function SemesterPanel({
 
             if (!res.ok || !j?.ok) {
                 console.error('Guardar notas error:', j);
-                toast.error('No se pudieron guardar las notas.');
+                toast.error?.('No se pudieron guardar las notas.');
                 return;
             }
 
-            toast.success('Notas actualizadas ✅');
+            toast.success?.('Notas actualizadas ✅');
             onClose();
         } catch (e) {
             console.error('Guardar notas:', e);
-            toast.error('Error guardando notas.');
+            toast.error?.('Error guardando notas.');
         } finally {
             setSaving(false);
         }
@@ -374,7 +646,7 @@ function SemesterPanel({
                     {/* Header */}
                     <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 bg-white/5">
                         <div className="font-semibold">
-                            <span className="opacity-90">{estudianteNombre}</span>
+                            <span className="opacity-90">{studentName(estudianteId)}</span>
                             <span className="opacity-70"> · Semestre {semNum}</span>
                         </div>
                         <button
@@ -437,7 +709,7 @@ function SemesterPanel({
                                                         inputMode="decimal"
                                                         placeholder="—"
                                                         value={draft[c.id] ?? ''}
-                                                        onChange={(e) => updateNota(c.id, e.target.value)}
+                                                        onChange={(e) => setDraft((d) => ({ ...d, [c.id]: e.target.value }))}
                                                         className="
                               w-full rounded-xl border
                               border-white/10 bg-white/15 text-white placeholder-white/50
@@ -451,7 +723,6 @@ function SemesterPanel({
                                 )}
                             </div>
 
-                            {/* Footer */}
                             <div className="pt-4 mt-4 border-t border-white/10">
                                 <button
                                     disabled={saving || clases.length === 0}
@@ -475,6 +746,21 @@ function SemesterPanel({
     );
 }
 
+// Helper para mostrar nombre en header del panel de notas si lo necesitas
+function studentName(_id: string) {
+    return 'Estudiante';
+}
+
+// Debounce
+function useDebounce<T>(value: T, delay = 250) {
+    const [v, setV] = useState(value);
+    useEffect(() => {
+        const h = setTimeout(() => setV(value), delay);
+        return () => clearTimeout(h);
+    }, [value, delay]);
+    return v;
+}
+
 // ---------- Página ----------
 export default function Page() {
     const [q, setQ] = useState('');
@@ -486,6 +772,7 @@ export default function Page() {
     const [promedios, setPromedios] = useState<PromMap>({ 1: null, 2: null, 3: null, 4: null, 5: null });
 
     const [openSem, setOpenSem] = useState<{ numero: number } | null>(null);
+    const [openStudent, setOpenStudent] = useState(false);
 
     const debounced = useDebounce(q, 250);
 
@@ -589,9 +876,9 @@ export default function Page() {
                         </div>
                     </section>
 
-                    {/* Derecha: datos personales */}
+                    {/* Derecha: datos personales (click abre panel) */}
                     <aside>
-                        <Profile e={sel} />
+                        <Profile e={sel} onOpen={() => sel?.id && setOpenStudent(true)} />
                     </aside>
                 </div>
             </div>
@@ -604,6 +891,23 @@ export default function Page() {
                     estudianteId={sel.id}
                     estudianteNombre={sel.nombre}
                     semestre={openSem?.numero ?? null}
+                />
+            )}
+
+            {/* Panel de edición de estudiante */}
+            {sel && (
+                <StudentPanel
+                    open={openStudent}
+                    onClose={() => setOpenStudent(false)}
+                    student={sel}
+                    onSaved={(s) => setSel(s)} // refresca el perfil en UI
+                    onDeleted={() => {
+                        // limpiar UI al eliminar
+                        setSel(undefined);
+                        setOpenStudent(false);
+                        setAvance({ 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 });
+                        setPromedios({ 1: null, 2: null, 3: null, 4: null, 5: null });
+                    }}
                 />
             )}
         </main>
