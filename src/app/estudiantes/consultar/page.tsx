@@ -6,7 +6,7 @@ const _tw = `bg-rose-500 bg-amber-400 bg-emerald-500`;
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { buscarEstudiantes } from '@/lib/academico';
-import { useToast } from '@/components/ToastProvider'; // <- ya lo venías usando
+import { useToast } from '@/components/ToastProvider';
 
 // Tipos UI
 type UIStudent = {
@@ -200,7 +200,7 @@ function SemesterCard({
     );
 }
 
-// ---------- Panel de datos del estudiante (card + hover + click abre panel) ----------
+// ---------- Panel de datos del estudiante ----------
 const initials = (n?: string) =>
     (n ?? '')
         .split(' ')
@@ -265,7 +265,7 @@ function Profile({
       "
             aria-label="Abrir datos del estudiante"
         >
-            {/* Header con gradiente suave + avatar */}
+            {/* Header */}
             <div className="relative px-6 py-5 bg-gradient-to-r from-sky-500/20 via-indigo-500/20 to-cyan-400/20 backdrop-blur-sm">
                 <div className="absolute -left-10 -top-10 h-24 w-24 rounded-full bg-sky-300/30 blur-2xl transition group-hover:scale-110" />
                 <div className="absolute -right-8 -bottom-8 h-20 w-20 rounded-full bg-indigo-300/25 blur-2xl transition group-hover:scale-110" />
@@ -343,13 +343,13 @@ function StudentPanel({
                           onClose,
                           student,
                           onSaved,
-                          onDeleted, // 👈 nuevo
+                          onDeleted,
                       }: {
     open: boolean;
     onClose: () => void;
     student: UIStudent;
     onSaved: (s: UIStudent) => void;
-    onDeleted: () => void; // 👈 nuevo
+    onDeleted: () => void;
 }) {
     const toast = useToast();
     const [saving, setSaving] = useState(false);
@@ -415,7 +415,7 @@ function StudentPanel({
                 return;
             }
             toast.success('Estudiante eliminado 🗑️');
-            onDeleted(); // avisa al padre para limpiar UI
+            onDeleted();
             onClose();
         } catch (e) {
             console.error(e);
@@ -529,12 +529,14 @@ function SemesterPanel({
                            estudianteId,
                            estudianteNombre,
                            semestre,
+                           onUpdated, // 👈 avisa al padre
                        }: {
     open: { numero: number } | null;
     onClose: () => void;
     estudianteId: string;
     estudianteNombre: string;
     semestre: number | null;
+    onUpdated: () => void;
 }) {
     const toast = useToast();
 
@@ -581,7 +583,6 @@ function SemesterPanel({
     }, [open?.numero, estudianteId, semNum]);
 
     const clases = series.find((s) => s.id === activeSerie)?.clases ?? [];
-    const updateNota = (claseId: number, v: string) => setDraft((d) => ({ ...d, [claseId]: v }));
 
     const handleGuardar = async () => {
         try {
@@ -613,6 +614,7 @@ function SemesterPanel({
             }
 
             toast.success?.('Notas actualizadas ✅');
+            onUpdated?.(); // refresca tarjetas en el padre
             onClose();
         } catch (e) {
             console.error('Guardar notas:', e);
@@ -622,12 +624,14 @@ function SemesterPanel({
         }
     };
 
+    const nombreVis = (estudianteNombre ?? '').trim() || 'Estudiante';
+
     return (
         <div className={cls('fixed inset-0 z-50 transition', open ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none')}>
             {/* Backdrop */}
             <div className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm" onClick={onClose} />
 
-            {/* Panel: gradiente + glass */}
+            {/* Panel */}
             <div className="absolute inset-y-4 right-4 left-4 lg:left-auto lg:w-[980px] flex">
                 <div
                     className="
@@ -637,14 +641,10 @@ function SemesterPanel({
             backdrop-blur-xl text-white overflow-hidden
           "
                 >
-                    {/* GLOW decorativo */}
-                    <div className="pointer-events-none absolute -left-16 -top-16 h-48 w-48 rounded-full bg-cyan-400/20 blur-2xl" />
-                    <div className="pointer-events-none absolute -right-12 -bottom-12 h-40 w-40 rounded-full bg-sky-300/20 blur-2xl" />
-
                     {/* Header */}
                     <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 bg-white/5">
                         <div className="font-semibold">
-                            <span className="opacity-90">{studentName(estudianteId)}</span>
+                            <span className="opacity-90" title={nombreVis}>{nombreVis}</span>
                             <span className="opacity-70"> · Semestre {semNum}</span>
                         </div>
                         <button onClick={onClose} className="h-8 w-8 grid place-items-center rounded-full bg-white/10 hover:bg-white/15" aria-label="Cerrar">
@@ -652,7 +652,7 @@ function SemesterPanel({
                         </button>
                     </div>
 
-                    {/* Contenido con scroll propio */}
+                    {/* Contenido */}
                     <div className="grid grid-cols-1 md:grid-cols-3 min-h-0" style={{ height: 'calc(100% - 56px)' }}>
                         {/* Series */}
                         <aside className="border-r border-white/10 p-4 overflow-y-auto">
@@ -733,11 +733,6 @@ function SemesterPanel({
     );
 }
 
-// Helper para mostrar nombre en header del panel de notas si lo necesitas
-function studentName(_id: string) {
-    return 'Estudiante';
-}
-
 // Debounce
 function useDebounce<T>(value: T, delay = 250) {
     const [v, setV] = useState(value);
@@ -748,7 +743,7 @@ function useDebounce<T>(value: T, delay = 250) {
     return v;
 }
 
-/* ====== NUEVO: anti-parpadeo del spinner ====== */
+/* ====== anti-parpadeo del spinner ====== */
 function useDelayedFlag(flag: boolean, delay = 150) {
     const [show, setShow] = useState(false);
     useEffect(() => {
@@ -760,9 +755,8 @@ function useDelayedFlag(flag: boolean, delay = 150) {
     return show;
 }
 
-/* ====== NUEVO: caché simple por prefijo (fix TS) ====== */
+/* ====== caché simple por prefijo (TS-safe) ====== */
 function useSearchCache(limit = 30) {
-    // Tipamos el Map explícitamente para que TS no infiera any
     const ref = useRef<Map<string, UIStudent[]>>(new Map<string, UIStudent[]>());
 
     const get = (k: string) => ref.current.get(k);
@@ -772,10 +766,9 @@ function useSearchCache(limit = 30) {
         ref.current.set(k, v);
 
         if (ref.current.size > limit) {
-            // TS: keys().next() puede venir con { done: true }, así que validamos
             const iter = ref.current.keys().next();
             if (!iter.done) {
-                ref.current.delete(iter.value); // iter.value es string aquí
+                ref.current.delete(iter.value);
             }
         }
     };
@@ -791,7 +784,6 @@ function useSearchCache(limit = 30) {
     return { get, set, bestPrefix };
 }
 
-
 // ---------- Página ----------
 export default function Page() {
     const [q, setQ] = useState('');
@@ -805,17 +797,21 @@ export default function Page() {
     const [openSem, setOpenSem] = useState<{ numero: number } | null>(null);
     const [openStudent, setOpenStudent] = useState(false);
 
-    // Ajuste: debounce más corto
+    // tick para refrescar resumen tras guardar notas
+    const [resumenTick, setResumenTick] = useState(0);
+    const bumpResumen = () => setResumenTick((t) => t + 1);
+
+    // debounce ágil
     const debounced = useDebounce(q, 120);
 
-    // NUEVO: refs para control de concurrencia y caché
+    // control de concurrencia y caché
     const cache = useSearchCache(30);
     const currentReq = useRef<number | null>(null);
 
-    // Spinner sólo si la espera es real (>150ms)
+    // spinner sólo si la espera es real
     const delayedLoading = useDelayedFlag(loading, 150);
 
-    // Buscar estudiantes (rápido + ignora respuestas viejas + caché por prefijo)
+    // Buscar estudiantes (SWR + caché por prefijo)
     useEffect(() => {
         let alive = true;
         const reqId = Math.random();
@@ -828,29 +824,28 @@ export default function Page() {
                 return;
             }
 
-            // Respuesta instantánea desde caché de prefijos
-            // Respuesta instantánea desde caché de prefijos (normaliza para evitar undefined)
+            // respuesta instantánea desde caché (normaliza campos)
             const qKey = q0.toLowerCase();
             const norm = (s?: string) => (s ?? '').toLowerCase();
 
             const instant = cache
                 .bestPrefix(qKey)
-                .filter((e) =>
-                    norm(e.nombre).includes(qKey) ||
-                    norm(e.cedula).includes(qKey) ||
-                    norm(e.telefono).includes(qKey)
+                .filter(
+                    (e) =>
+                        norm(e.nombre).includes(qKey) ||
+                        norm(e.cedula).includes(qKey) ||
+                        norm(e.telefono).includes(qKey),
                 )
                 .slice(0, 8);
 
             if (instant.length) setResults(instant);
 
-
-            // Fetch real (SWR)
+            // fetch real
             setLoading(true);
             try {
                 const data = (await buscarEstudiantes(q0, 8)) as UIStudent[];
                 if (!alive) return;
-                if (reqId !== currentReq.current) return; // ignora si ya hay una búsqueda más nueva
+                if (reqId !== currentReq.current) return;
                 cache.set(qKey, data);
                 setResults(data);
             } catch (e) {
@@ -869,7 +864,7 @@ export default function Page() {
         };
     }, [debounced]); // eslint-disable-line react-hooks/exhaustive-deps
 
-    // Cargar resumen
+    // Cargar resumen (se refresca cuando cambia resumenTick)
     useEffect(() => {
         let alive = true;
         (async () => {
@@ -902,7 +897,7 @@ export default function Page() {
         return () => {
             alive = false;
         };
-    }, [sel?.id]);
+    }, [sel?.id, resumenTick]);
 
     return (
         <main className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50">
@@ -960,6 +955,7 @@ export default function Page() {
                     estudianteId={sel.id}
                     estudianteNombre={sel.nombre}
                     semestre={openSem?.numero ?? null}
+                    onUpdated={bumpResumen} // refresca tarjetas al guardar
                 />
             )}
 
