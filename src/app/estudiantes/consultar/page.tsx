@@ -47,8 +47,7 @@ const cardGradient = (n: number) =>
                 : n === 4
                     ? 'from-[#2563eb] via-[#38bdf8] to-[#60a5fa]'
                     : 'from-[#64748b] via-[#94a3b8] to-[#cbd5e1]';
-const cardChrome =
-    'rounded-3xl p-5 shadow-xl ring-1 ring-white/15 backdrop-blur-md relative overflow-hidden min-h-[140px]';
+const cardChrome = 'rounded-3xl p-5 shadow-xl ring-1 ring-white/15 backdrop-blur-md relative overflow-hidden min-h-[140px]';
 const titleStyle = 'text-white font-extrabold text-[1.15rem] tracking-wide leading-none';
 const subtitleStyle = 'text-white/80 text-xs';
 
@@ -121,7 +120,9 @@ function SearchBox({
                 aria-controls="lista-estudiantes"
                 aria-activedescendant={activeId}
             />
-            <span className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400">{loading ? '⏳' : '🔎'}</span>
+            <span className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400">
+        {loading ? <span className="inline-block animate-spin">⏳</span> : '🔎'}
+      </span>
 
             {value && hasItems && (
                 <div
@@ -145,9 +146,7 @@ function SearchBox({
                             className={'w-full text-left px-4 py-3 ' + (i === active ? 'bg-slate-100' : 'hover:bg-slate-50')}
                         >
                             <div className="font-medium">{e.nombre}</div>
-                            <div className="text-xs text-slate-500">
-                                {e.cedula || '—'} · {e.telefono || '—'}
-                            </div>
+                            <div className="text-xs text-slate-500">{e.cedula || '—'} · {e.telefono || '—'}</div>
                         </button>
                     ))}
                 </div>
@@ -356,7 +355,6 @@ function StudentPanel({
     const [saving, setSaving] = useState(false);
 
     const [form, setForm] = useState<UIStudent>(student);
-
     useEffect(() => setForm(student), [student?.id]);
 
     const set = (k: keyof UIStudent, v: string) => setForm((f) => ({ ...f, [k]: v }));
@@ -364,7 +362,7 @@ function StudentPanel({
     const inputCls =
         'w-full rounded-xl border border-white/10 bg-white/15 text-white placeholder-white/50 px-3 py-2 focus:outline-none focus:ring-4 focus:ring-cyan-400/30';
 
-    // Guardar -> PATCH /api/notas
+    // Guardar -> PATCH /api
     const handleSave = async () => {
         try {
             setSaving(true);
@@ -400,7 +398,7 @@ function StudentPanel({
         }
     };
 
-    // Eliminar -> DELETE /api/notas
+    // Eliminar -> DELETE /api
     const handleDelete = async () => {
         const ok = confirm('¿Eliminar este estudiante y sus notas? Esta acción no se puede deshacer.');
         if (!ok) return;
@@ -417,7 +415,7 @@ function StudentPanel({
                 return;
             }
             toast.success('Estudiante eliminado 🗑️');
-            onDeleted();  // avisa al padre para limpiar UI
+            onDeleted(); // avisa al padre para limpiar UI
             onClose();
         } catch (e) {
             console.error(e);
@@ -522,7 +520,7 @@ function StudentPanel({
     );
 }
 
-// ---------- Panel de Notas (igual que ya tenías) ----------
+// ---------- Panel de Notas ----------
 type SerieDetalle = { id: number; titulo?: string; clases: { id: number; etiqueta: string; nota: number | null }[] };
 
 function SemesterPanel({
@@ -565,7 +563,7 @@ function SemesterPanel({
                 s.forEach((serie) =>
                     serie.clases.forEach((c) => {
                         if (c.nota != null) d[c.id] = String(c.nota);
-                    })
+                    }),
                 );
                 setDraft(d);
             } catch (e) {
@@ -649,11 +647,7 @@ function SemesterPanel({
                             <span className="opacity-90">{studentName(estudianteId)}</span>
                             <span className="opacity-70"> · Semestre {semNum}</span>
                         </div>
-                        <button
-                            onClick={onClose}
-                            className="h-8 w-8 grid place-items-center rounded-full bg-white/10 hover:bg-white/15"
-                            aria-label="Cerrar"
-                        >
+                        <button onClick={onClose} className="h-8 w-8 grid place-items-center rounded-full bg-white/10 hover:bg-white/15" aria-label="Cerrar">
                             ✕
                         </button>
                     </div>
@@ -674,18 +668,14 @@ function SemesterPanel({
                                             onClick={() => setActiveSerie(s.id)}
                                             className={
                                                 'w-full text-left px-3 py-2 rounded-2xl border transition ' +
-                                                (active
-                                                    ? 'bg-cyan-500 text-white border-transparent shadow-cyan-500/30 shadow'
-                                                    : 'bg-white/10 hover:bg-white/15 text-white/90 border-white/10')
+                                                (active ? 'bg-cyan-500 text-white border-transparent shadow-cyan-500/30 shadow' : 'bg-white/10 hover:bg-white/15 text-white/90 border-white/10')
                                             }
                                         >
                                             {s.titulo ?? `Serie ${s.id}`}
                                         </button>
                                     );
                                 })}
-                                {!loading && series.length === 0 && (
-                                    <div className="text-xs text-white/70">Este semestre no tiene series.</div>
-                                )}
+                                {!loading && series.length === 0 && <div className="text-xs text-white/70">Este semestre no tiene series.</div>}
                             </div>
                         </aside>
 
@@ -699,10 +689,7 @@ function SemesterPanel({
                                 ) : (
                                     <div className="grid gap-2">
                                         {clases.map((c) => (
-                                            <div
-                                                key={c.id}
-                                                className="grid grid-cols-12 items-center gap-3 rounded-2xl border border-white/10 bg-white/10 px-3 py-2"
-                                            >
+                                            <div key={c.id} className="grid grid-cols-12 items-center gap-3 rounded-2xl border border-white/10 bg-white/10 px-3 py-2">
                                                 <div className="col-span-7 sm:col-span-8 text-white/90">{c.etiqueta}</div>
                                                 <div className="col-span-5 sm:col-span-4">
                                                     <input
@@ -761,6 +748,50 @@ function useDebounce<T>(value: T, delay = 250) {
     return v;
 }
 
+/* ====== NUEVO: anti-parpadeo del spinner ====== */
+function useDelayedFlag(flag: boolean, delay = 150) {
+    const [show, setShow] = useState(false);
+    useEffect(() => {
+        let t: any;
+        if (flag) t = setTimeout(() => setShow(true), delay);
+        else setShow(false);
+        return () => t && clearTimeout(t);
+    }, [flag, delay]);
+    return show;
+}
+
+/* ====== NUEVO: caché simple por prefijo (fix TS) ====== */
+function useSearchCache(limit = 30) {
+    // Tipamos el Map explícitamente para que TS no infiera any
+    const ref = useRef<Map<string, UIStudent[]>>(new Map<string, UIStudent[]>());
+
+    const get = (k: string) => ref.current.get(k);
+
+    const set = (k: string, v: UIStudent[]) => {
+        if (ref.current.has(k)) ref.current.delete(k); // move-to-front
+        ref.current.set(k, v);
+
+        if (ref.current.size > limit) {
+            // TS: keys().next() puede venir con { done: true }, así que validamos
+            const iter = ref.current.keys().next();
+            if (!iter.done) {
+                ref.current.delete(iter.value); // iter.value es string aquí
+            }
+        }
+    };
+
+    const bestPrefix = (q: string) => {
+        let best: string | null = null;
+        for (const key of ref.current.keys()) {
+            if (q.startsWith(key) && (!best || key.length > best.length)) best = key;
+        }
+        return best ? (ref.current.get(best) ?? []) : [];
+    };
+
+    return { get, set, bestPrefix };
+}
+
+
 // ---------- Página ----------
 export default function Page() {
     const [q, setQ] = useState('');
@@ -774,31 +805,69 @@ export default function Page() {
     const [openSem, setOpenSem] = useState<{ numero: number } | null>(null);
     const [openStudent, setOpenStudent] = useState(false);
 
-    const debounced = useDebounce(q, 250);
+    // Ajuste: debounce más corto
+    const debounced = useDebounce(q, 120);
 
-    // Buscar estudiantes
+    // NUEVO: refs para control de concurrencia y caché
+    const cache = useSearchCache(30);
+    const currentReq = useRef<number | null>(null);
+
+    // Spinner sólo si la espera es real (>150ms)
+    const delayedLoading = useDelayedFlag(loading, 150);
+
+    // Buscar estudiantes (rápido + ignora respuestas viejas + caché por prefijo)
     useEffect(() => {
         let alive = true;
-        (async () => {
-            if (!debounced || debounced.trim().length < 2) {
+        const reqId = Math.random();
+
+        const run = async () => {
+            const q0 = debounced?.trim() ?? '';
+            if (q0.length < 2) {
                 setResults([]);
+                setLoading(false);
                 return;
             }
+
+            // Respuesta instantánea desde caché de prefijos
+            // Respuesta instantánea desde caché de prefijos (normaliza para evitar undefined)
+            const qKey = q0.toLowerCase();
+            const norm = (s?: string) => (s ?? '').toLowerCase();
+
+            const instant = cache
+                .bestPrefix(qKey)
+                .filter((e) =>
+                    norm(e.nombre).includes(qKey) ||
+                    norm(e.cedula).includes(qKey) ||
+                    norm(e.telefono).includes(qKey)
+                )
+                .slice(0, 8);
+
+            if (instant.length) setResults(instant);
+
+
+            // Fetch real (SWR)
             setLoading(true);
             try {
-                const data = (await buscarEstudiantes(debounced.trim(), 8)) as UIStudent[];
-                if (alive) setResults(data);
+                const data = (await buscarEstudiantes(q0, 8)) as UIStudent[];
+                if (!alive) return;
+                if (reqId !== currentReq.current) return; // ignora si ya hay una búsqueda más nueva
+                cache.set(qKey, data);
+                setResults(data);
             } catch (e) {
+                if (alive) setResults(instant.length ? instant : []);
                 console.error('Buscar estudiantes:', e);
-                if (alive) setResults([]);
             } finally {
                 if (alive) setLoading(false);
             }
-        })();
+        };
+
+        currentReq.current = reqId;
+        run();
+
         return () => {
             alive = false;
         };
-    }, [debounced]);
+    }, [debounced]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // Cargar resumen
     useEffect(() => {
@@ -850,7 +919,7 @@ export default function Page() {
                                 value={q}
                                 onChange={setQ}
                                 results={results}
-                                loading={loading}
+                                loading={delayedLoading}
                                 onSelect={(e) => {
                                     setSel(e);
                                     setQ('');
