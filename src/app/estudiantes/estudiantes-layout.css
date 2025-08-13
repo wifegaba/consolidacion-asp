@@ -1,125 +1,43 @@
-/* Contenedor global: fila (sidebar + contenido) */
+/* Contenedor con sidebar fijo */
 .est-wrapper {
     display: flex;
-    height: 100vh;
-    background: linear-gradient(135deg, #bfd8ff 0%, #cfe7ff 100%); /* fondo suave como mockup */
-    overflow: hidden;
+    align-items: stretch;
+    min-height: 100svh;
 }
 
-/* Columna derecha (área de contenido) */
-.est-main {
-    flex: 1;
-    padding: 24px;
-    overflow: auto;
-    display: grid;
-    place-items: start center; /* centra la tarjeta horizontalmente, arriba */
+/* Sidebar con ancho estable: NO vw */
+.est-sidebar {
+    flex: 0 0 272px;
+    width: 272px;
+    position: sticky;
+    top: 0;
+    height: 100svh;
+    overflow-y: auto;
+    background: #0f2a66;                 /* tu azul */
+    /* ...tus estilos del menú... */
 }
 
-/* Tarjeta blanca (como las cards del dashboard) */
-.est-card {
-    width: min(1100px, 100%);
-    background: #ffffff;
-    border-radius: 18px;
-    box-shadow:
-            0 8px 30px rgba(34, 60, 80, 0.12),
-            0 2px 8px rgba(34, 60, 80, 0.10);
-    padding: 28px;
-    /* separa visualmente del sidebar */
-    margin-left: 16px;
-}
-
-/* Opcional: si tu formulario es muy ancho, evita scroll horizontal feo */
-.est-card * {
-    max-width: 100%;
-    box-sizing: border-box;
-}
-
-/* ===== Desktop: sidebar a la izquierda ===== */
-.est-wrapper {
-    display: flex;
-    min-height: 100vh;
-}
-
+/* Contenido ocupa el resto, sin empujar el ancho */
 .est-main {
     flex: 1 1 auto;
-    padding: 1.2rem;
-    overflow: auto;              /* si el formulario es alto, que scrollee */
+    min-width: 0;
+    overflow-x: hidden;
+    /* si el scroll principal está aquí, reserva gutter también */
+    scrollbar-gutter: stable both-edges;
+    /* padding consistente a todas las páginas */
+    padding: 24px 24px;
 }
 
-.est-card {
-    max-width: 1200px;           /* para que el form no se estire infinito */
-    margin: 0 auto;
-}
+/* Elimina el centrado global: NO usamos .est-card ya */
+.est-card { display: contents; } /* por si algún archivo aún lo renderiza */
 
-/* ===== Mobile: dashboard arriba con scroll horizontal ===== */
-@media (max-width: 768px) {
-    .est-wrapper {
-        flex-direction: column;    /* sidebar arriba, contenido abajo */
-    }
-
-    /* El <aside> viene de MenuEstudiantes */
-    .menu-estudiantes__sidebar {
-        position: sticky;          /* se queda arriba al hacer scroll */
-        top: 0;
-        z-index: 50;
-
+/* Responsive */
+@media (max-width: 1024px) {
+    .est-wrapper { flex-direction: column; }
+    .est-sidebar {
+        position: relative;
+        height: auto;
         width: 100%;
-        height: auto;              /* override del 100vh de desktop */
-        padding: 0.75rem;
-
-        display: flex;
-        flex-direction: row;
-        gap: 0.5rem;
-
-        overflow-x: auto;          /* <-- scroll horizontal */
-        overflow-y: hidden;
-        white-space: nowrap;
-        -webkit-overflow-scrolling: touch;
-
-        border-radius: 0 0 1rem 1rem;
-    }
-
-    /* Píldoras táctiles (links del menú) */
-    .menu-estudiantes__item {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        padding: 0.55rem 0.9rem;
-        border-radius: 999px;
-        min-width: 140px;
-        text-wrap: nowrap;
-        background: rgba(255,255,255,0.12);
-        border: 1px solid rgba(255,255,255,0.18);
-    }
-
-    .menu-estudiantes__item--active {
-        background: #2f5bff;
-        color: #fff;
-        border-color: transparent;
-        box-shadow: 0 2px 6px rgba(0,0,0,0.2);
-    }
-
-    .est-main {
-        padding: 1rem 0.8rem 1.4rem;
-    }
-
-    /* Si tu formulario usa filas/columnas, llévalo a 1 columna en móvil */
-    .est-card .fila-formulario,
-    .est-card .fila {
-        display: flex;
-        flex-direction: column;
-        gap: 0.9rem;
-    }
-
-    .est-card .columna-form,
-    .est-card .col {
-        width: 100%;
-    }
-
-    /* Botones al 100% en móvil */
-    .est-card .btn-guardar,
-    .est-card .btn-salir,
-    .est-card .boton-principal {
-        width: 100%;
+        flex: 0 0 auto;
     }
 }

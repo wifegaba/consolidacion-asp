@@ -19,8 +19,4 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
-.forzar-scroll-blanco {
-  background: white !important;
-  min-height: 100vh;
-  overflow-y: auto !important;
-}
+
