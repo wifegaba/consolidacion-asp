@@ -897,6 +897,8 @@ export default function Page() {
         };
     }, [sel?.id, resumenTick]);
 
+
+
     return (
         <main className="min-h-screen bg-transparent">
             {/* Tarjeta macOS pegada al sidebar + animación directa */}
