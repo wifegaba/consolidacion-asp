@@ -121,7 +121,7 @@ function SearchBox({
                 aria-activedescendant={activeId}
             />
             <span className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400">
-        {loading ? <span className="inline-block animate-spin">⏳</span> : '🔎'}
+        {loading ? <span className="inline-block animate-spin">⏳</span> : ''}
       </span>
 
             {value && hasItems && (
@@ -155,7 +155,7 @@ function SearchBox({
     );
 }
 
-// ---------- Tarjeta de semestre ----------
+// ---------- Tarjeta de semestre (limpia, sin velo blanco) ----------
 function SemesterCard({
                           n,
                           percent,
@@ -169,36 +169,67 @@ function SemesterCard({
 }) {
     const p = safePercent(percent);
     const prom = safeProm(promedio);
+
     return (
-        <button onClick={onOpen} className={cls('transition hover:scale-[1.01]', cardChrome, `bg-gradient-to-br ${cardGradient(n)}`)}>
-            <div className="pointer-events-none absolute -right-12 -top-12 h-40 w-40 rounded-full bg-white/20 blur-2xl" />
-            <div className="pointer-events-none absolute -left-8 -bottom-10 h-28 w-28 rounded-full bg-white/10 blur-xl" />
+        <button
+            onClick={onOpen}
+            className={cls(
+                'group relative isolate w-full min-h-[140px] rounded-3xl p-5',
+                // movimiento fluido tipo mac
+                'transform-gpu will-change-transform transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]',
+                'hover:-translate-y-[6px] hover:scale-[1.02] active:translate-y-[1px]',
+                'motion-reduce:transform-none motion-reduce:transition-none',
+                // sombras limpias
+                'shadow-[0_12px_24px_rgba(0,0,0,0.20)] hover:shadow-[0_18px_32px_rgba(0,0,0,0.28)]',
+                // borde sutil (sin blanquear el fondo)
+                'ring-1 ring-white/10 hover:ring-white/20',
+                // gradiente original, sin overlay blanco
+                `bg-gradient-to-br ${cardGradient(n)}`
+            )}
+        >
+            {/* halos suaves (sin opacar) */}
+            <div
+                aria-hidden
+                className="pointer-events-none absolute -right-12 -top-12 h-40 w-40 rounded-full bg-white/15 blur-2xl transition-transform duration-500 ease-out group-hover:scale-110"
+            />
+            <div
+                aria-hidden
+                className="pointer-events-none absolute -left-8 -bottom-10 h-28 w-28 rounded-full bg-white/10 blur-xl transition-transform duration-500 ease-out group-hover:scale-110"
+            />
 
-            <div className="flex items-baseline justify-between mb-3 relative z-10">
-                <div className={titleStyle}>Semestre {n}</div>
-                <div className="text-white/90 font-bold leading-none translate-y-[1px]">{p}%</div>
-            </div>
-
-            <div className="h-3 w-full rounded-full bg-white/25 overflow-hidden relative z-10">
-                <div
-                    className={cls('h-3 rounded-full transition-[width] duration-500 ease-out', p === 0 ? 'bg-transparent' : barraColor(p))}
-                    style={{ width: p === 0 ? 0 : `${p}%` }}
-                />
-            </div>
-
-            <div className="mt-2 flex items-end justify-between relative z-10">
-                <div className={subtitleStyle}>
-                    {p <= 50 && 'Rojo: ≤50% completado'}
-                    {p > 50 && p < 100 && 'Amarillo: >50% y <100%'}
-                    {p === 100 && 'Verde: completado'}
+            {/* Contenido */}
+            <div className="relative z-[1]">
+                <div className="flex items-baseline justify-between mb-3">
+                    <div className={titleStyle}>Semestre {n}</div>
+                    <div className="text-white/90 font-bold leading-none translate-y-[1px]">{p}%</div>
                 </div>
-                <div className="text-white font-extrabold text-4xl md:text-5xl leading-none tabular-nums drop-shadow-sm">
-                    {prom == null ? '—' : prom.toFixed(1)}
+
+                <div className="h-3 w-full rounded-full bg-white/25 overflow-hidden">
+                    <div
+                        className={cls(
+                            'h-3 rounded-full transition-[width] duration-500 ease-out',
+                            p === 0 ? 'bg-transparent' : barraColor(p)
+                        )}
+                        style={{ width: p === 0 ? 0 : `${p}%` }}
+                    />
+                </div>
+
+                <div className="mt-2 flex items-end justify-between">
+                    <div className={subtitleStyle}>
+                        {p <= 50 && 'Rojo: ≤50% completado'}
+                        {p > 50 && p < 100 && 'Amarillo: >50% y <100%'}
+                        {p === 100 && 'Verde: completado'}
+                    </div>
+                    <div className="text-white font-extrabold text-4xl md:text-5xl leading-none tabular-nums drop-shadow-sm">
+                        {prom == null ? '—' : prom.toFixed(1)}
+                    </div>
                 </div>
             </div>
         </button>
     );
 }
+
+
 
 // ---------- Panel de datos del estudiante ----------
 const initials = (n?: string) =>
