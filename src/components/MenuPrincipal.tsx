@@ -88,6 +88,9 @@ export default function MenuPrincipal() {
                 aria-labelledby="dev-title"
                 aria-describedby="dev-desc"
                 onClick={() => setShowDev(false)}
+
+
+
             >
               <div className="dev-card" onClick={(e) => e.stopPropagation()}>
                 <Cog className="dev-gear spin" size={72} aria-hidden />
