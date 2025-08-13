@@ -1,7 +1,7 @@
-// File: src/app/estudiantes/consultar/page.tsx
+// File: src/components/FormularioEstudiante.tsx
 'use client';
 
-// Safelist para colores dinámicos
+// Safelist para colores dinámicos (Tailwind)
 const _tw = `bg-rose-500 bg-amber-400 bg-emerald-500`;
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
@@ -47,8 +47,6 @@ const cardGradient = (n: number) =>
                 : n === 4
                     ? 'from-[#2563eb] via-[#38bdf8] to-[#60a5fa]'
                     : 'from-[#64748b] via-[#94a3b8] to-[#cbd5e1]';
-const cardChrome =
-    'rounded-3xl p-5 shadow-xl ring-1 ring-white/15 backdrop-blur-md relative overflow-hidden min-h-[140px]';
 const titleStyle = 'text-white font-extrabold text-[1.15rem] tracking-wide leading-none';
 const subtitleStyle = 'text-white/80 text-xs';
 
@@ -156,7 +154,7 @@ function SearchBox({
     );
 }
 
-// ---------- Tarjeta de semestre (limpia, sin velo blanco) ----------
+// ---------- Tarjeta de semestre ----------
 function SemesterCard({
                           n,
                           percent,
@@ -263,13 +261,7 @@ function InfoRow({
     );
 }
 
-function Profile({
-                     e,
-                     onOpen,
-                 }: {
-    e?: UIStudent;
-    onOpen: () => void;
-}) {
+function Profile({ e, onOpen }: { e?: UIStudent; onOpen: () => void }) {
     if (!e)
         return (
             <div className="rounded-3xl bg-white/80 backdrop-blur-md ring-1 ring-slate-200 shadow-xl p-6">
@@ -280,12 +272,12 @@ function Profile({
     return (
         <button
             onClick={onOpen}
-            className="
+            className={`
         group w-full text-left rounded-3xl overflow-hidden
         shadow-xl ring-1 ring-slate-200 bg-white transition
         hover:-translate-y-0.5 hover:shadow-2xl hover:ring-blue-300/40
         focus:outline-none focus:ring-4 focus:ring-blue-100
-      "
+      `}
             aria-label="Abrir datos del estudiante"
         >
             <div className="relative px-6 py-5 bg-gradient-to-r from-sky-500/20 via-indigo-500/20 to-cyan-400/20 backdrop-blur-sm">
@@ -358,7 +350,7 @@ function Profile({
     );
 }
 
-// ---------- Panel de edición de estudiante (NEGRO TRANSPARENTE, VIDRIO) ----------
+// ---------- Panel de edición de estudiante ----------
 function StudentPanel({
                           open,
                           onClose,
@@ -449,11 +441,11 @@ function StudentPanel({
             <div className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm" onClick={onClose} />
             <div className="absolute inset-y-4 right-4 left-4 lg:left-auto lg:w-[800px] flex">
                 <div
-                    className="
+                    className={`
             relative w-full max-h-[calc(100vh-2rem)]
             rounded-[22px] shadow-2xl ring-1 ring-white/10
             bg-black/45 backdrop-blur-2xl text-white overflow-hidden
-          "
+          `}
                 >
                     <div className="pointer-events-none absolute -left-16 -top-16 h-48 w-48 rounded-full bg-white/10 blur-2xl" />
                     <div className="pointer-events-none absolute -right-12 -bottom-12 h-40 w-40 rounded-full bg-white/5 blur-2xl" />
@@ -507,13 +499,13 @@ function StudentPanel({
                             <button
                                 disabled={saving}
                                 onClick={handleSave}
-                                className="
+                                className={`
                   rounded-xl px-4 py-2 font-semibold
                   bg-gradient-to-r from-cyan-400 to-sky-500
                   text-slate-900 hover:from-cyan-300 hover:to-sky-400
                   disabled:opacity-60 disabled:cursor-not-allowed
                   shadow-lg shadow-cyan-500/20
-                "
+                `}
                             >
                                 {saving ? 'Guardando…' : 'Actualizar Estudiante'}
                             </button>
@@ -521,12 +513,12 @@ function StudentPanel({
                             <button
                                 disabled={saving}
                                 onClick={handleDelete}
-                                className="
+                                className={`
                   rounded-xl px-4 py-2 font-semibold
                   border border-rose-300/60 text-rose-100
                   hover:bg-rose-500/20 hover:border-rose-300/80
                   disabled:opacity-60 disabled:cursor-not-allowed
-                "
+                `}
                             >
                                 Eliminar Estudiante
                             </button>
@@ -650,12 +642,12 @@ function SemesterPanel({
 
             <div className="absolute inset-y-4 right-4 left-4 lg:left-auto lg:w-[980px] flex">
                 <div
-                    className="
+                    className={`
             relative w-full max-h-[calc(100vh-2rem)]
             rounded-[22px] shadow-2xl ring-1 ring-white/15
             bg-gradient-to-br from-[#0ea5e9]/30 via-[#0b3ea7]/50 to-[#0ea5e9]/25
             backdrop-blur-xl text-white overflow-hidden
-          "
+          `}
                 >
                     <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 bg-white/5">
                         <div className="font-semibold">
@@ -728,13 +720,13 @@ function SemesterPanel({
                                 <button
                                     disabled={saving || clases.length === 0}
                                     onClick={handleGuardar}
-                                    className="
+                                    className={`
                     rounded-xl px-4 py-2 font-semibold
                     bg-gradient-to-r from-cyan-400 to-sky-500
                     text-slate-900 hover:from-cyan-300 hover:to-sky-400
                     disabled:opacity-60 disabled:cursor-not-allowed
                     shadow-lg shadow-cyan-500/20
-                  "
+                  `}
                                 >
                                     {saving ? 'Guardando…' : 'Actualizar notas'}
                                 </button>
@@ -906,51 +898,67 @@ export default function Page() {
     }, [sel?.id, resumenTick]);
 
     return (
-        // ⬇⬇⬇ Forzamos scroll Y + gutter estable SOLO en esta ruta
-        <main className="min-h-screen overflow-y-scroll [scrollbar-gutter:stable_both-edges] bg-gradient-to-br from-slate-50 via-white to-slate-50">
-            {/* encabezado pegado al sidebar */}
-            <div className="pl-6 pr-4 lg:pl-7 lg:pr-8 py-5">
-                <h1 className="text-2xl md:text-3xl font-extrabold text-blue-900">Consulta de Estudiantes</h1>
-            </div>
+        <main className="min-h-screen bg-transparent">
+            {/* Tarjeta macOS pegada al sidebar + animación directa */}
+            <div className="px-0 py-1">
+                <div className="relative w-full">
+                    <div
+                        className={`
+              reg-fade-in-up
+              relative rounded-[26px]
+              bg-white/90 supports-[backdrop-filter]:bg-white/70 backdrop-blur-xl
+              ring-1 ring-slate-200/80
+              shadow-[0_40px_80px_-30px_rgba(0,0,0,0.35),0_10px_30px_-10px_rgba(0,0,0,0.15)]
+            `}
+                    >
+                        <div className="p-6 md:p-8">
+                            {/* título */}
+                            <h1 className="text-2xl md:text-3xl font-extrabold text-blue-900">
+                                Consulta de Estudiantes
+                            </h1>
 
-            {/* contenedor alineado (sin mx-auto) y sin cambiar el ancho del viewport */}
-            <div className="pl-6 pr-4 lg:pl-7 lg:pr-8 pb-12">
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 max-w-[1200px]">
-                    {/* Izquierda: búsqueda + semestres */}
-                    <section className="lg:col-span-2 space-y-6">
-                        <SearchBox
-                            value={q}
-                            onChange={setQ}
-                            results={results}
-                            loading={delayedLoading}
-                            onSelect={(e) => {
-                                setSel(e);
-                                setQ('');
-                                setResults([]);
-                            }}
-                        />
+                            {/* contenido original: buscador + tarjetas + perfil */}
+                            <div className="mt-6">
+                                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                                    {/* Izquierda: búsqueda + semestres */}
+                                    <section className="lg:col-span-2 space-y-6">
+                                        <SearchBox
+                                            value={q}
+                                            onChange={setQ}
+                                            results={results}
+                                            loading={delayedLoading}
+                                            onSelect={(e) => {
+                                                setSel(e);
+                                                setQ('');
+                                                setResults([]);
+                                            }}
+                                        />
 
-                        {/* Tarjetas Semestres */}
-                        <div className="grid sm:grid-cols-2 gap-5">
-                            {[1, 2, 3, 4, 5].map((n) => (
-                                <SemesterCard
-                                    key={n}
-                                    n={n}
-                                    percent={avance[n] ?? 0}
-                                    promedio={promedios[n] ?? null}
-                                    onOpen={() => {
-                                        if (!sel?.id) return;
-                                        setOpenSem({ numero: n });
-                                    }}
-                                />
-                            ))}
+                                        {/* Tarjetas Semestres */}
+                                        <div className="grid sm:grid-cols-2 gap-5">
+                                            {[1, 2, 3, 4, 5].map((n) => (
+                                                <SemesterCard
+                                                    key={n}
+                                                    n={n}
+                                                    percent={avance[n] ?? 0}
+                                                    promedio={promedios[n] ?? null}
+                                                    onOpen={() => {
+                                                        if (!sel?.id) return;
+                                                        setOpenSem({ numero: n });
+                                                    }}
+                                                />
+                                            ))}
+                                        </div>
+                                    </section>
+
+                                    {/* Derecha: datos personales (click abre panel) */}
+                                    <aside>
+                                        <Profile e={sel} onOpen={() => sel?.id && setOpenStudent(true)} />
+                                    </aside>
+                                </div>
+                            </div>
                         </div>
-                    </section>
-
-                    {/* Derecha: datos personales (click abre panel) */}
-                    <aside>
-                        <Profile e={sel} onOpen={() => sel?.id && setOpenStudent(true)} />
-                    </aside>
+                    </div>
                 </div>
             </div>
 
@@ -981,6 +989,20 @@ export default function Page() {
                     }}
                 />
             )}
+
+            {/* Animación local (scoped) */}
+            <style jsx>{`
+                @keyframes reg-fadeInUp {
+                    from { opacity: 0; transform: translateY(22px); }
+                    to   { opacity: 1; transform: translateY(0); }
+                }
+                .reg-fade-in-up {
+                    animation: reg-fadeInUp 300ms ease-out both;
+                }
+                @media (prefers-reduced-motion: reduce) {
+                    .reg-fade-in-up { animation: none; }
+                }
+            `}</style>
         </main>
     );
 }
