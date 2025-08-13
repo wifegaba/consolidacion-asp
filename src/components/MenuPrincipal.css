@@ -1,134 +1,166 @@
+/* ====== Vars ====== */
+:root{
+  --mac-bg-start:#f6f7fb;
+  --mac-bg-end:#eef1f7;
+  --mac-primary:#7c0a0a;          /* rojo institucional */
+  --mac-primary-ink:#ffffff;
+  --mac-ink:#0f172a;
+  --mac-ink-2:#334155;
+  --radius-xl:22px;
+  --radius-lg:18px;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --mac-bg-start:#0b1220;
+    --mac-bg-end:#0a0f1a;
+    --mac-ink:#e5e7eb;
+    --mac-ink-2:#cbd5e1;
+  }
+}
 
-/* ✅ Cambiado: altura automática y scroll permitido */
-.pantalla {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  min-height: 100vh;
+/* ====== Fondo suave tipo macOS ====== */
+body{
+  background:
+          radial-gradient(1200px 700px at 50% -10%, #ffffff80 0%, #ffffff00 60%),
+          linear-gradient(180deg, var(--mac-bg-start), var(--mac-bg-end));
+}
+
+/* ====== Lienzo ====== */
+.pantalla{
+  min-height: 100svh;
+  display: grid;
+  place-items: start center;
+  gap: clamp(16px, 3vw, 28px);
+  padding: clamp(16px, 3vw, 28px);
+}
+
+/* ====== Logo ====== */
+.panel-logo{
+  display: grid;
+  place-items: center;
+  padding-top: 8px;
+}
+.logo-n2ncu{
+  width: clamp(180px, 36vw, 460px);
   height: auto;
-  padding: 2rem;
-  box-sizing: border-box;
-  overflow-y: auto;         /* ✅ Scroll si es necesario */
-  width: 100%;
+  filter: drop-shadow(0 8px 28px rgba(0,0,0,.12));
+  user-select: none;
+  pointer-events: none;
 }
 
-/* Panel superior: Logo centrado */
-.panel-logo {
-  min-height: 30vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+/* ====== Tarjetas ====== */
+.panel-tarjetas{
+  display: grid;
+  grid-template-columns: repeat(2, minmax(240px, 1fr));
+  gap: clamp(16px, 2.5vw, 28px);
+}
+@media (max-width: 720px){
+  .panel-tarjetas{ grid-template-columns: 1fr; }
 }
 
-.logo-n2ncu {
-  width: 500px;
-  height: auto;
-  object-fit: contain;
-}
-
-/* Panel inferior: Tarjetas centradas */
-.panel-tarjetas {
-  min-height: 40vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 3rem;
-  flex-wrap: wrap;           /* ✅ antes era nowrap, mejor wrap */
-  width: 100%;
-}
-
-.tarjeta {
-  width: 300px;
-  height: 200px;
-  background: #850D16;
-  color: white;
-  backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
-  border-radius: 20px;
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.25);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.3s ease;
-  cursor: pointer;
-}
-
-.tarjeta:hover {
-  transform: scale(1.05);
-  box-shadow: 12px 12px 24px rgba(0, 0, 0, 0.2), -6px -6px 12px rgba(255, 255, 255, 0.6);
-}
-
-.tarjeta svg {
-  width: 60px;
-  height: 60px;
-  margin-bottom: 1rem;
-}
-
-.tarjeta h2 {
-  font-size: 1.4rem;
-  font-weight: 600;
-  margin: 0;
-  text-align: center;
-}
-
-.creditos {
+/* Tarjeta estilo “glass mac” */
+.tarjeta{
   position: relative;
-  margin-top: 2rem;
+  isolation: isolate;
+  border-radius: var(--radius-xl);
+  padding: clamp(22px, 3.2vw, 30px) clamp(22px, 4vw, 36px);
+  color: var(--mac-primary-ink);
+  background:
+          linear-gradient(180deg, rgba(255,255,255,.14), rgba(255,255,255,.04)),
+          linear-gradient(180deg, var(--mac-primary), #5f0808);
+  box-shadow:
+          0 30px 60px -25px rgba(124,10,10,.45),
+          0 10px 20px -12px rgba(124,10,10,.35),
+          inset 0 1px 0 0 rgba(255,255,255,.25);
+  border: 1px solid rgba(255,255,255,.22);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  cursor: pointer;
+  transition: transform .35s cubic-bezier(.22,1,.36,1),
+  box-shadow .35s cubic-bezier(.22,1,.36,1),
+  filter .35s ease;
+  display: grid;
+  place-items: center;
+  gap: 10px;
   text-align: center;
-  font-size: 0.9rem;
-  color: #ffffffcc;
-  font-weight: 300;
-  z-index: 10;
 }
 
-.creditos strong {
-  color: #ffffff;
+/* Halo suave “mac” */
+.tarjeta::before{
+  content:"";
+  position:absolute; inset:-1px;
+  border-radius: inherit;
+  background: radial-gradient(120% 140% at 50% -10%, rgba(255,255,255,.28), transparent 60%);
+  z-index:-1;
+}
+
+/* Hover/active */
+.tarjeta:hover{
+  transform: translateY(-4px) scale(1.01);
+  box-shadow:
+          0 38px 72px -30px rgba(124,10,10,.55),
+          0 18px 32px -16px rgba(124,10,10,.45),
+          inset 0 1px 0 0 rgba(255,255,255,.28);
+  filter: saturate(1.02);
+}
+.tarjeta:active{ transform: translateY(-1px) scale(.995); }
+
+/* Contenido */
+.tarjeta h2{
+  margin: 0;
+  font-weight: 800;
+  letter-spacing: .2px;
+  font-size: clamp(18px, 1.6vw, 22px);
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce){
+  .tarjeta, .tarjeta:hover{ transition: none; transform: none; }
+}
+
+/* ====== Footer ====== */
+.creditos{
+  margin-top: 12px;
+  color: var(--mac-ink-2);
+  font-size: .95rem;
+  text-align: center;
+  opacity: .9;
+}
+
+/* ====== Overlay “En desarrollo” ====== */
+.dev-overlay{
+  position: fixed; inset: 0; z-index: 1000;
+  display: grid; place-items: center;
+  background: rgba(2,6,23,.55);
+  backdrop-filter: blur(2px);
+}
+.dev-card{
+  width: min(92vw, 380px);
+  border-radius: var(--radius-lg);
+  background: linear-gradient(180deg, #fff, #f7f8fb);
+  border: 1px solid rgba(148,163,184,.35);
+  color: var(--mac-ink);
+  padding: 22px;
+  text-align: center;
+  box-shadow:
+          0 28px 60px -28px rgba(0,0,0,.35),
+          0 8px 26px -12px rgba(0,0,0,.25);
+}
+.dev-title{ font-weight: 800; font-size: 1.15rem; margin-top: 10px; }
+.dev-desc{ color: var(--mac-ink-2); margin: 6px 0 12px; }
+.dev-btn{
+  appearance: none;
+  border: 1px solid rgba(148,163,184,.35);
+  background: #f1f5f9;
+  color: var(--mac-ink);
+  padding: 10px 14px;
+  border-radius: 12px;
   font-weight: 600;
+  cursor: pointer;
+  transition: background-color .2s ease, transform .06s ease, box-shadow .2s ease;
 }
+.dev-btn:hover{ background:#e2e8f0; box-shadow: 0 8px 18px -10px rgba(0,0,0,.25); }
+.dev-btn:active{ transform: translateY(1px); }
 
-/* 📱 Responsive */
-@media (max-width: 768px) {
-  .pantalla {
-    padding: 1rem;
-  }
-
-  .panel-logo {
-    height: auto;
-    padding: 1rem 0;
-  }
-
-  .logo-n2ncu {
-    width: 90%;
-    max-width: 350px;
-  }
-
-  .panel-tarjetas {
-    flex-direction: column;
-    min-height: auto;
-    gap: 2rem;
-    margin-top: 2rem;
-  }
-
-  .tarjeta {
-    width: 90%;
-    max-width: 320px;
-    height: auto;
-    padding: 2rem 1.5rem;
-  }
-
-  .tarjeta h2 {
-    font-size: 1.2rem;
-  }
-
-  .tarjeta svg {
-    width: 50px;
-    height: 50px;
-  }
-
-  .creditos {
-    font-size: 0.8rem;
-    padding: 0 1rem;
-  }
-}
+.spin{ animation: mp-spin 1.1s linear infinite; }
+@keyframes mp-spin { to { transform: rotate(360deg); } }
