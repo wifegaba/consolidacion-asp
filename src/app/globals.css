@@ -10,22 +10,17 @@
   --color-foreground: var(--foreground);
 
 }
+html {
+  overflow-y: scroll;
+}
 
 
 
 body {
+  overflow-y: scroll;
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
 
-@keyframes reg-fadeInUp {
-  from { opacity: 0; transform: translateY(22px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-.reg-fade-in-up { animation: reg-fadeInUp 300ms ease-out both; }
-
-@media (prefers-reduced-motion: reduce) {
-  .reg-fade-in-up { animation: none; }
-}
 
