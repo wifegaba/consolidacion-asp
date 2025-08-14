@@ -976,6 +976,9 @@ export default function Page() {
                 />
             )}
 
+
+
+
             {/* Panel de edición de estudiante */}
             {sel && (
                 <StudentPanel
@@ -1008,3 +1011,8 @@ export default function Page() {
         </main>
     );
 }
+
+
+
+
+
