@@ -127,32 +127,47 @@ body{
   opacity: .9;
 }
 
-/* ====== Overlay “En desarrollo” ====== */
+
+/* ===== Overlay “En desarrollo” (arreglado) ===== */
 .dev-overlay{
   position: fixed; inset: 0; z-index: 1000;
   display: grid; place-items: center;
   background: rgba(2,6,23,.55);
-  backdrop-filter: blur(2px);
+  backdrop-filter: blur(4px);
 }
+
 .dev-card{
   width: min(92vw, 380px);
-  border-radius: var(--radius-lg);
-  background: linear-gradient(180deg, #fff, #f7f8fb);
+  border-radius: 18px;
+  background: linear-gradient(180deg, #ffffff, #f7f8fb);
   border: 1px solid rgba(148,163,184,.35);
-  color: var(--mac-ink);
+  color: var(--mac-ink, #0f172a);      /* ⬅ fallback oscuro legible */
   padding: 22px;
   text-align: center;
   box-shadow:
           0 28px 60px -28px rgba(0,0,0,.35),
           0 8px 26px -12px rgba(0,0,0,.25);
 }
-.dev-title{ font-weight: 800; font-size: 1.15rem; margin-top: 10px; }
-.dev-desc{ color: var(--mac-ink-2); margin: 6px 0 12px; }
+
+/* Icono */
+.dev-gear{ color: #94a3b8; }
+
+/* Textos con contraste (con fallback si no hay variables) */
+.dev-title{
+  font-weight: 800; font-size: 1.15rem; margin-top: 10px;
+  color: var(--mac-ink, #0f172a);
+}
+.dev-desc{
+  color: var(--mac-ink-2, #334155);
+  margin: 6px 0 12px;
+}
+
+/* Botón */
 .dev-btn{
   appearance: none;
   border: 1px solid rgba(148,163,184,.35);
   background: #f1f5f9;
-  color: var(--mac-ink);
+  color: var(--mac-ink, #0f172a);
   padding: 10px 14px;
   border-radius: 12px;
   font-weight: 600;
@@ -162,8 +177,25 @@ body{
 .dev-btn:hover{ background:#e2e8f0; box-shadow: 0 8px 18px -10px rgba(0,0,0,.25); }
 .dev-btn:active{ transform: translateY(1px); }
 
+/* Animación del engranaje */
 .spin{ animation: mp-spin 1.1s linear infinite; }
 @keyframes mp-spin { to { transform: rotate(360deg); } }
+
+/* Tema oscuro opcional (si el sistema está en dark mode) */
+@media (prefers-color-scheme: dark){
+  .dev-card{
+    background: linear-gradient(180deg, #0f172a, #0b1220);
+    border-color: rgba(148,163,184,.25);
+    color: #e5e7eb;
+  }
+  .dev-title{ color:#e5e7eb; }
+  .dev-desc{ color:#cbd5e1; }
+  .dev-btn{
+    background:#111827; color:#e5e7eb; border-color:#374151;
+  }
+  .dev-btn:hover{ background:#1f2937; }
+}
+
 
 
 
