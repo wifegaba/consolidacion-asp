@@ -5,14 +5,22 @@ import { useRouter } from 'next/navigation';
 import { UserPlus, Pencil, Cog } from 'lucide-react';
 import './MenuPrincipal.css';
 
-export default function MenuPrincipal() {
+export interface MenuPrincipalProps {
+  /** Si la pasas, se ejecuta al pulsar “Docentes”. Si no, navega a /estudiantes */
+  onRegistrarEstudiante?: () => void;
+}
+
+const MenuPrincipal: React.FC<MenuPrincipalProps> = ({ onRegistrarEstudiante }) => {
   const router = useRouter();
   const [showDev, setShowDev] = useState(false);
   const closeBtnRef = useRef<HTMLButtonElement | null>(null);
 
-  // DOCENTES → abre la pantalla que sí tiene sidebar + contenido
   const handleDocentes = () => {
-    router.push('/estudiantes');
+    if (onRegistrarEstudiante) {
+      onRegistrarEstudiante();            // <-- usa tu toggle local (mostrarFormulario)
+    } else {
+      router.push('/estudiantes');        // <-- fallback por defecto
+    }
   };
 
   // Accesible con Enter/Espacio
@@ -46,7 +54,7 @@ export default function MenuPrincipal() {
 
           {/* Tarjetas */}
           <section className="panel-tarjetas">
-            {/* DOCENTES → /estudiantes */}
+            {/* DOCENTES → callback o /estudiantes */}
             <div
                 className="tarjeta"
                 role="button"
@@ -88,9 +96,6 @@ export default function MenuPrincipal() {
                 aria-labelledby="dev-title"
                 aria-describedby="dev-desc"
                 onClick={() => setShowDev(false)}
-
-
-
             >
               <div className="dev-card" onClick={(e) => e.stopPropagation()}>
                 <Cog className="dev-gear spin" size={72} aria-hidden />
@@ -108,8 +113,6 @@ export default function MenuPrincipal() {
         )}
       </>
   );
-}
+};
 
-
-
-
+export default MenuPrincipal;
