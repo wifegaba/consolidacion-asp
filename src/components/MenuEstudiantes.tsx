@@ -17,8 +17,9 @@ export default function MenuEstudiantes() {
     const path = usePathname();
 
     const items: Item[] = [
-        { label: 'Crear Estudiante', href: '/estudiantes',            Icon: UserPlus },
-        { label: 'Asignar Notas', href: '/estudiantes/asignar-notas', Icon: NotebookPen },
+        { label: 'Nuevo Registro', href: '/PTM/PersonaNueva', Icon: NotebookPen },
+        { label: 'Contactos', href: '/PTM',            Icon: UserPlus },
+
         { label: 'Salir', href: '/', Icon: LogOut },
     ];
 

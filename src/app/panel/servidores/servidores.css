@@ -1,0 +1,339 @@
+/* =========================================
+   Servidores · Distancias y comportamiento
+   (Ajustado: top pegado, más ancho/alto,
+   inputs 48px, 3 cols primera fila,
+   radios estilo tarjeta, dropdown culto pulido)
+   ========================================= */
+
+:root{
+    --srv-surface:#fff;
+    --srv-text:#111827;
+    --srv-muted:#1e293b;
+    --srv-border:#e5e7eb;
+    --srv-brand:#4f46e5;
+    --srv-success:#10b981;
+}
+
+/* --- Contenedor del formulario --- */
+.srv-root{
+    /* más pegado arriba */
+    padding-top: 4px;           /* pega al top */
+    padding-right: 24px;
+    padding-bottom: 20px;
+    padding-left: 8px;
+    background:transparent;
+
+}
+.srv-box{
+    /* más ancho y más alto */
+    margin: 1px auto 32px;
+
+    max-width: 1600px;
+    min-height: 80vh;
+
+    background:var(--srv-surface);
+    border:1px solid var(--srv-border);
+    border-radius:16px;
+    padding:20px;
+}
+.srv-title{ font-size:18px; font-weight:700; margin-bottom:16px; }
+
+/* --- Inputs y filas --- */
+.srv-row{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:14px;
+    margin-bottom:14px;
+}
+/* primera fila del formulario en 3 columnas */
+.srv-row-first{ grid-template-columns:1fr 1fr 1fr; }
+
+@media (max-width:1024px){
+    .srv-row-first{ grid-template-columns:1fr 1fr; }
+}
+@media (max-width:820px){
+    .srv-row, .srv-row-first{ grid-template-columns:1fr; }
+}
+
+.srv-row input,
+.srv-search-wrap input,
+.srv-observaciones{
+    width:100%;
+    height:48px;                 /* inputs más cómodos */
+    border:1px solid var(--srv-border);
+    border-radius:14px;
+    padding:12px 14px;
+    outline:none;
+    background:var(--srv-surface);
+    transition:border-color .2s, box-shadow .2s;
+}
+.srv-observaciones{
+    min-height:160px;            /* textarea más alta */
+    height:auto;
+}
+.srv-row input:focus,
+.srv-search-wrap input:focus,
+.srv-observaciones:focus{
+    border-color:var(--srv-brand);
+    box-shadow:0 0 0 3px rgba(79,70,229,.12);
+}
+.srv-input-error{ border-color:#ef4444; }
+.srv-error{ margin-top:6px; font-size:12px; color:#ef4444; }
+.srv-error--center{ text-align:center; }
+
+/* ============================
+   Cultos (chips + dropdown)
+   ============================ */
+.srv-cultos{
+    display:flex;
+    align-items:center;
+    gap:1rem;        /* separación entre chips */
+    row-gap:1rem;    /* separación vertical */
+    flex-wrap:wrap;
+    margin:2rem 0;   /* más aire respecto al título */
+}
+.srv-label-culto{ font-weight:600; margin-right:12px; }
+
+/* Chip */
+.srv-culto-box{
+    position:relative;
+    flex:0 0 auto;
+    font-weight:700;
+    padding:8px 12px;
+    border:1px solid var(--srv-border);
+    border-radius:14px;
+    background:var(--srv-surface);
+    cursor:pointer;
+    user-select:none;
+    outline:none;
+}
+/* puente para hover al menú */
+.srv-culto-box::after{
+    content:""; position:absolute; left:0; right:0; top:100%; height:8px;
+}
+/* Dropdown centrado y suave */
+.srv-culto-lista{
+    position:absolute;
+    top:100%;
+    left:50%;
+    transform:translateX(-50%) scaleY(0);
+    transform-origin:top center;
+    background:var(--srv-surface);
+    border:1px solid var(--srv-border);
+    border-radius:8px;
+    padding:10px;
+    min-width:140px;
+    box-shadow:0 6px 16px rgba(0,0,0,.08);
+    opacity:0; pointer-events:none;
+    transition:opacity .25s ease-out, transform .25s ease-out;
+    z-index:20;
+}
+.srv-culto-box:hover .srv-culto-lista,
+.srv-culto-box:focus-within .srv-culto-lista{
+    opacity:1; pointer-events:auto; transform:translateX(-50%) scaleY(1);
+}
+.srv-culto-lista li{
+    list-style:none;
+    padding:12px 14px;
+    text-align:center;
+    font-weight:600;
+    border-radius:12px;
+    cursor:pointer;
+    color:#1e293b;
+    transition:transform .2s, background .2s, color .2s;
+}
+.srv-culto-lista li:hover{
+    background:#f3f4f6;
+    transform:scale(1.05);
+    color:#1e40af;
+}
+.srv-culto-box.is-disabled{ opacity:.5; cursor:not-allowed; }
+
+/* ============================
+   Switches destino
+   ============================ */
+.srv-group{ display:flex; flex-direction:column; gap:12px; align-items:stretch; margin-top:8px; }
+.srv-destinos{ margin-top:2px; }
+.srv-switches{ display:flex; flex-wrap:wrap; gap:1rem; margin-bottom:20px; }
+
+.srv-switch{
+    position:relative;
+    display:flex;
+    align-items:center;
+    gap:.5rem;
+    font-weight:600;
+    color:var(--srv-muted);
+    cursor:pointer;
+    padding-left:40px; /* espacio para el slider */
+    user-select:none;
+}
+.srv-switch-input{ display:none; }
+.srv-switch-slider{
+    position:absolute; left:0; top:50%; transform:translateY(-50%);
+    width:36px; height:20px;
+    background:#f3f4f6; border:1px solid var(--srv-border);
+    border-radius:20px;
+    transition:background .2s, border-color .2s;
+}
+.srv-switch-slider::before{
+    content:""; position:absolute; left:2px; top:2px;
+    width:16px; height:16px; border-radius:50%;
+    background:#94a3b8;
+    transition:transform .18s, background .18s;
+}
+.srv-switch-input:checked + .srv-switch-slider{
+    background:#d1fae5; border-color:#a7f3d0;
+}
+.srv-switch-input:checked + .srv-switch-slider::before{
+    transform:translateX(16px); background:var(--srv-success);
+}
+
+/* ============================
+   Roles (radios estilo tarjeta)
+   ============================ */
+.srv-roles-card{ margin-top:18px; }
+.srv-roles-title{ font-weight:600; margin-bottom:10px; }
+.srv-roles-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));
+    gap:12px;
+    max-width: 800px;         /* Controla el ancho total del bloque */
+}
+@media (max-width:900px){
+    .srv-roles-grid{ grid-template-columns:repeat(2, minmax(0,1fr)); }
+}
+@media (max-width:640px){
+    .srv-roles-grid{ grid-template-columns:1fr; }
+}
+
+.srv-radio{ display:block; }
+.srv-radio-input{ position:absolute; opacity:0; pointer-events:none; width:0; height:0; }
+.srv-radio-card{
+    display:flex; align-items:center; gap:10px;
+    border:1px solid var(--srv-border);
+    border-radius:12px; padding:12px 14px;
+    background:#f6f7fb;
+    box-shadow:0 1px 2px rgba(16,24,40,.06);
+    transition: box-shadow .2s, transform .06s, border-color .2s, background .2s;
+    min-width: 180px;         /* Ajusta el tamaño horizontal */
+    justify-content:flex-start;
+}
+.srv-radio:hover .srv-radio-card{ box-shadow:0 8px 20px rgba(16,24,40,.12); }
+.srv-radio-input:focus-visible + .srv-radio-card{
+    outline:2px solid rgba(59,130,246,.6); outline-offset:2px;
+}
+.srv-radio-input:checked + .srv-radio-card{
+    border-color:#60a5fa;
+    background:linear-gradient(180deg, rgba(59,130,246,.08), rgba(59,130,246,.02));
+    box-shadow:0 10px 24px rgba(16,24,40,.14);
+}
+.srv-radio-dot{
+    display:inline-grid; place-items:center; width:16px; height:16px;
+    border-radius:999px; border:1px solid #9ca3af; background:#fff;
+}
+.srv-radio-input:checked + .srv-radio-card .srv-radio-dot{ border-color:#2563eb; }
+.srv-radio-dot::after{
+    content:''; width:10px; height:10px; border-radius:999px; background:#2563eb;
+    opacity:0; transition:opacity .15s;
+}
+.srv-radio-input:checked + .srv-radio-card .srv-radio-dot::after{ opacity:1; }
+.srv-radio-text{ color:#111827; }
+
+/* --- Textarea --- */
+.srv-observaciones{ width:100%; resize:vertical;
+    min-height: 80px;    /* Mitad de la altura */
+    height: auto;}
+
+/* --- Botones --- */
+.srv-actions{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-top:16px; }
+.srv-btn{
+    border:1px solid var(--srv-border);
+    background:var(--srv-surface);
+    color:var(--srv-text);
+    padding:10px 16px;
+    border-radius:12px;
+    font-weight:700;
+    cursor:pointer;
+    transition:border-color .18s, color .18s, transform .06s;
+}
+.srv-btn:hover{ border-color:var(--srv-brand); color:var(--srv-brand); transform:translateY(-1px); }
+.srv-btn:disabled{ opacity:.55; cursor:not-allowed; }
+.srv-btn--update{ background:#fff6e5; border-color:#f59e0b; color:#b45309; }
+.srv-btn-buscar{ color:#22c55e; border-color:rgba(34,197,94,.35); }
+
+/* --- Modal --- */
+.srv-modal{ position:fixed; inset:0; background:rgba(17,24,39,.45); display:grid; place-items:center; z-index:50; }
+.srv-modal__box{
+    width:min(720px,92vw);
+    background:var(--srv-surface);
+    border:1px solid var(--srv-border);
+    border-radius:16px;
+    padding:18px;
+    box-shadow:0 24px 60px rgba(0,0,0,.22);
+    position:relative;
+}
+.srv-modal__close{
+    position:absolute; right:8px; top:6px;
+    width:36px; height:36px; border-radius:10px;
+    border:1px solid var(--srv-border); background:var(--srv-surface);
+    font-size:20px; line-height:1; cursor:pointer;
+}
+.srv-modal__heading{ font-weight:700; margin:6px 0 12px; }
+
+/* --- Autocomplete búsqueda --- */
+.srv-search-wrap{ position:relative; }
+.srv-ghost{ position:absolute; inset:0; pointer-events:none; display:flex; align-items:center; padding:0 14px; color:#6b7280; }
+.srv-ghost-typed{ opacity:0; }
+.srv-ghost-hint{ opacity:.4; }
+
+.srv-sug-list{
+    position:absolute; left:0; right:0; top:calc(100% + 8px);
+    background:var(--srv-surface); border:1px solid var(--srv-border);
+    border-radius:14px; box-shadow:0 18px 40px rgba(0,0,0,.12);
+    padding:6px; z-index:10; max-height:320px; overflow:auto;
+}
+.srv-sug-item{ width:100%; text-align:left; border:none; background:transparent; padding:10px 12px; border-radius:10px; cursor:pointer; }
+.srv-sug-item:hover,.srv-sug-item.is-active{ background:#f3f4f6; color:var(--srv-brand); }
+.srv-sug-name{ font-weight:700; }
+.srv-sug-sub{ font-size:12px; color:#6b7280; margin-top:2px; display:flex; align-items:center; gap:6px; }
+.srv-sug-pill{ display:inline-block; padding:2px 8px; border-radius:999px; background:#eef2ff; color:#3730a3; font-weight:700; font-size:11px; }
+.srv-sug-loading,.srv-sug-empty{ padding:10px 12px; color:#6b7280; }
+
+/* --- Toast --- */
+.srv-toast{
+    position:fixed; left:50%; bottom:18px; transform:translateX(-50%);
+    background:#111827; color:#fff; padding:10px 14px; border-radius:10px;
+    font-weight:700; box-shadow:0 10px 24px rgba(0,0,0,.25); z-index:60;
+}
+
+
+
+
+
+/* === Ajustes de listas en el modal === */
+.srv-modal .srv-cultos {
+    display: flex;
+    column-gap: 60px;   /* <- separa más los 3 dropdowns en fila */
+    row-gap: 14px;      /* espacio vertical si llegan a wrapear */
+    flex-wrap: nowrap;  /* mantenlos en una sola línea en desktop */
+}
+
+/* Menús dentro del modal: más ancho y sin cortes de línea */
+.srv-modal .srv-culto-box .srv-culto-lista {
+    min-width: 220px;          /* ancho base más cómodo */
+}
+
+/* Devocionales en particular: un poco más ancho */
+.srv-modal .srv-culto-box.is-devocionales .srv-culto-lista {
+    min-width: 260px;          /* evita el salto 'Devocionales' / '1' */
+}
+
+/* Opciones más compactas, en una sola línea */
+.srv-modal .srv-culto-lista li {
+    white-space: nowrap;       /* NO cortar en dos líneas */
+    line-height: 1.35;         /* menos alto por opción */
+    padding: 10px 14px;        /* un pelín más compacto */
+    /* opcional:
+    font-size: 15px;
+    */
+}
