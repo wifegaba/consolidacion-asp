@@ -1,6 +1,7 @@
-// app/panel/layout.tsx
 import type { ReactNode } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
+
 import './panel.css'; // ← único CSS para todo el panel (sidebar + content)
 import './contactos/contactos.css';
 import './servidores/servidores.css';
@@ -11,8 +12,17 @@ export default function PanelLayout({ children }: { children: React.ReactNode })
             <div className="shell">
                 {/* Sidebar fijo */}
                 <aside className="sidebar" aria-label="Menú">
-                    <div className="brand">
-                        <span className="brand-mark" />
+
+                    {/* 🔹 Logo ASP circular estampado */}
+                    <div className="sidebar-logo">
+                        <Image
+                            src="/asp-logo.png"   // Ruta pública desde /public
+                            alt="Logo ASP"
+                            width={100}
+                            height={100}
+                            className="logo-circular"
+                            priority
+                        />
                     </div>
 
                     <nav className="nav">
@@ -36,22 +46,15 @@ export default function PanelLayout({ children }: { children: React.ReactNode })
                             <span className="nav-text">Semillas</span>
                         </Link>
 
-
-                            <Link href="/panel/devocionales" className="nav-item">
-                                <span className="nav-dot" />
-                                <span className="nav-text">Devocionales</span>
-                            </Link>
+                        <Link href="/panel/devocionales" className="nav-item">
+                            <span className="nav-dot" />
+                            <span className="nav-text">Devocionales</span>
+                        </Link>
 
                         <Link href="/panel/restauracion" className="nav-item">
                             <span className="nav-dot" />
                             <span className="nav-text">Restauracion</span>
                         </Link>
-
-
-
-
-
-
                     </nav>
 
                     <div className="sidebar-footer">
