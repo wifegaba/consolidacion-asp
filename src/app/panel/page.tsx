@@ -1,36 +1,78 @@
 // app/panel/page.tsx
-type Kpi = { id: string; label: string; value: string; delta?: string };
+export const dynamic = 'force-dynamic';
 
-const KPIS: Kpi[] = [
-    { id: 'users',   label: 'Contactos',   value: '1,284', delta: '+12' },
-    { id: 'servers', label: 'Servidores',  value: '48',    delta: '+2'  },
-    { id: 'att',     label: 'Asistencias', value: '326',   delta: '+18' },
-    { id: 'rest',    label: 'Restauración',value: '12',    delta: '+1'  },
-];
+import { createClient } from '@supabase/supabase-js';
+import ContactosWidget from '@/components/ContactosWidget';
 
-export default function Page() {
+function formatNumber(n: number) {
+    return new Intl.NumberFormat('es-CO').format(n);
+}
+
+async function getContactosCount(): Promise<number> {
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+    const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+    const supabase = createClient(url, anon);
+
+    // Usamos conteo directo de la tabla persona
+    const { count, error } = await supabase
+        .from('persona')
+        .select('*', { count: 'exact', head: true });
+
+    if (error) {
+        console.error('Error obteniendo total de contactos:', error);
+        return 0;
+    }
+    return count ?? 0;
+}
+
+export default async function Page() {
+    const totalContactos = await getContactosCount();
+
     return (
         <>
             <header className="toolbar">
                 <div className="toolbar-left">
-                    <h1 className="title">Dashboard </h1>
-                    <span className="subtitle">Panel de Informacion </span>
+                    <h1 className="title">Dashboard</h1>
+                    <span className="subtitle">Panel de Información</span>
                 </div>
-
             </header>
 
+            {/* KPIs */}
             <div className="kpi-row">
-                {KPIS.map((k) => (
-                    <article key={k.id} className="kpi-card" aria-label={k.label}>
-                        <div className="kpi-top">
-                            <span className="kpi-label">{k.label}</span>
-                            {k.delta && <span className="kpi-delta">{k.delta}</span>}
-                        </div>
-                        <div className="kpi-value">{k.value}</div>
-                    </article>
-                ))}
+                {/* Tarjeta Contactos con modal */}
+                <ContactosWidget
+                    label="Contactos"
+                    value={formatNumber(totalContactos)}
+                    delta="+"
+                />
+
+                {/* Tarjetas estáticas (por ahora) */}
+                <article className="kpi-card" aria-label="Servidores">
+                    <div className="kpi-top">
+                        <span className="kpi-label">Servidores</span>
+                        <span className="kpi-delta">+2</span>
+                    </div>
+                    <div className="kpi-value">48</div>
+                </article>
+
+                <article className="kpi-card" aria-label="Asistencias">
+                    <div className="kpi-top">
+                        <span className="kpi-label">Asistencias</span>
+                        <span className="kpi-delta">+18</span>
+                    </div>
+                    <div className="kpi-value">326</div>
+                </article>
+
+                <article className="kpi-card" aria-label="Restauración">
+                    <div className="kpi-top">
+                        <span className="kpi-label">Restauración</span>
+                        <span className="kpi-delta">+1</span>
+                    </div>
+                    <div className="kpi-value">12</div>
+                </article>
             </div>
 
+            {/* Grid de secciones */}
             <div className="grid">
                 <section className="card">
                     <div className="card-head">

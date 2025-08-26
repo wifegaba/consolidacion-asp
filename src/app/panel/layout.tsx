@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
+import { Home, Users, Leaf, BookOpen, Heart, User } from 'lucide-react'; // 🔹 nuevos íconos
 
 import './panel.css'; // ← único CSS para todo el panel (sidebar + content)
 import './contactos/contactos.css';
@@ -18,42 +19,43 @@ export default function PanelLayout({ children }: { children: React.ReactNode })
                         <Image
                             src="/asp-logo.png"   // Ruta pública desde /public
                             alt="Logo ASP"
-                            width={100}
-                            height={100}
+                            width={140}   // 🔹 lo agrandamos un poco
+                            height={140}
                             className="logo-circular"
                             priority
                         />
                     </div>
 
+                    {/* 🔹 Menú con íconos */}
                     <nav className="nav">
                         <Link href="/panel" className="nav-item">
-                            <span className="nav-dot" />
+                            <Home size={18} className="nav-icon" />
                             <span className="nav-text">Dashboard</span>
                         </Link>
 
                         <Link href="/panel/contactos" className="nav-item">
-                            <span className="nav-dot" />
+                            <User size={18} className="nav-icon" />
                             <span className="nav-text">Nueva Alma</span>
                         </Link>
 
                         <Link href="/panel/servidores" className="nav-item">
-                            <span className="nav-dot" />
+                            <Users size={18} className="nav-icon" />
                             <span className="nav-text">Servidores</span>
                         </Link>
 
                         <Link href="/panel/semillas" className="nav-item">
-                            <span className="nav-dot" />
+                            <Leaf size={18} className="nav-icon" />
                             <span className="nav-text">Semillas</span>
                         </Link>
 
                         <Link href="/panel/devocionales" className="nav-item">
-                            <span className="nav-dot" />
+                            <BookOpen size={18} className="nav-icon" />
                             <span className="nav-text">Devocionales</span>
                         </Link>
 
                         <Link href="/panel/restauracion" className="nav-item">
-                            <span className="nav-dot" />
-                            <span className="nav-text">Restauracion</span>
+                            <Heart size={18} className="nav-icon" />
+                            <span className="nav-text">Restauración</span>
                         </Link>
                     </nav>
 
