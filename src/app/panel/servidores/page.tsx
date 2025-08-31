@@ -1,23 +1,20 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 
 /* ========= Tipos ========= */
 type AppEstudioDia = 'Domingo' | 'Martes' | 'Virtual';
 
-type Registro = {
-    id: string;
-    fecha: string;
-    nombre: string;
-    telefono: string | null;
-    preferencias: string | null;
-    cultosSeleccionados: string | null;
-    observaciones?: string | null;
-    estudioDia?: string | null;
+type Errores = {
+    nombre?: string | null;
+    telefono?: string | null;
+    cedula?: string | null;
+    rol?: string | null;
+    etapa?: string | null;
+    dia?: string | null;
+    semana?: string | null;
 };
-
-type Errores = { nombre?: string | null; telefono?: string | null };
 
 type DiaKey = 'DOMINGO' | 'MIÉRCOLES' | 'VIERNES' | 'SÁBADO';
 
@@ -32,11 +29,38 @@ type FormState = {
     nombre: string;
     telefono: string;
     cedula: string;
-    rol: string;
-    destino: string[];
-    cultoSeleccionado: string;
+    rol: string;               // Logistica | Contactos | Maestros | Timoteo - Maestros | ...
+    destino: string[];         // UI
+    cultoSeleccionado: string; // UI logística (resumen)
     observaciones: string;
-    cultos: CultosMap;
+    cultos: CultosMap;         // UI logística (dropdowns)
+};
+
+type AsigContacto = {
+    id: number;
+    etapa: 'Semillas' | 'Devocionales' | 'Restauracion';
+    dia: AppEstudioDia;
+    semana: number;
+    vigente: boolean;
+};
+
+// 👇 Puede venir como "Semilla 3", "Devocionales 2", "Restauracion 1"
+type AsigMaestro = {
+    id: number;
+    etapa: string;
+    dia: AppEstudioDia;
+    vigente: boolean;
+};
+
+type ServidorRow = {
+    id: string;
+    cedula: string;
+    nombre: string;
+    telefono: string | null;
+    email?: string | null;
+    activo: boolean;
+    asignaciones_contacto?: AsigContacto[];
+    asignaciones_maestro?: AsigMaestro[];
 };
 
 /* ========= Catálogo UI ========= */
@@ -48,59 +72,69 @@ const defaultCultos = (): CultosMap => ({
 });
 
 const cultosOpciones: Record<DiaKey, string[]> = {
-    DOMINGO: ['7:00 AM', '9:00 AM', '11:00 PM', '5:30 PM'],
+    DOMINGO: ['7:00 AM', '9:00 AM', '11:00 AM', '5:30 PM'],
     MIÉRCOLES: ['7:00 AM', '9:00 AM', '11:00 AM', '1:00 PM', '3:00 PM', '6:30 PM'],
-    VIERNES: ['9:AM', '5:30 PM'],
-    SÁBADO: ['Ayuno Familiar', 'Jovenes'],
+    VIERNES: ['9:00 AM', '5:30 PM'],
+    SÁBADO: ['Ayuno Familiar', 'Jóvenes'],
 };
 
 const ROLES_FILA_1 = ['Logistica', 'Contactos', 'Maestros', 'Practicantes'];
 const ROLES_FILA_2 = ['Timoteos', 'Coordinador', 'Director'];
 
 /* ========= Helpers ========= */
-const toDbEstudio = (arr: string[]): AppEstudioDia =>
-    arr.includes('DOMINGO') ? 'Domingo' : arr.includes('MARTES') ? 'Martes' : 'Virtual';
+const trim = (s: string) => (s ?? '').trim();
+const esVacio = (s: string) => !trim(s);
 
-const normaliza = (s: string) =>
-    s.toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '');
+const norm = (t: string) =>
+    (t ?? '')
+        .normalize('NFD')
+        .replace(/\p{Diacritic}/gu, '')
+        .toLowerCase()
+        .trim();
 
-const claveDia = (d: string): DiaKey | null => {
-    const t = normaliza(d.trim());
-    if (t === 'domingo') return 'DOMINGO';
-    if (t === 'miercoles') return 'MIÉRCOLES';
-    if (t === 'viernes') return 'VIERNES';
-    if (t === 'sabado') return 'SÁBADO';
+const toEtapaEnum = (
+    texto: string
+): 'Semillas' | 'Devocionales' | 'Restauracion' | null => {
+    const t = norm(texto);
+    if (t.startsWith('semillas')) return 'Semillas';
+    if (t.startsWith('devocionales')) return 'Devocionales';
+    if (t.startsWith('restauracion')) return 'Restauracion';
     return null;
 };
 
-const extraerCultoDesdeNotas = (
-    txt?: string | null
-): { diaKey: DiaKey | null; hora: string | null; full: string | null; clean: string } => {
-    if (!txt) return { diaKey: null, hora: null, full: null, clean: '' };
+const rolEs = (rol: string, base: 'Contactos' | 'Maestros' | 'Logistica') =>
+    rol === base || rol === `Timoteo - ${base}`;
 
-    const parts = txt.split('|').map(s => s.trim()).filter(Boolean);
-    let diaKey: DiaKey | null = null;
-    let hora: string | null = null;
-    const resto: string[] = [];
+/** ✅ "Semillas 1" | "Devocionales 3" | "Restauración 1" -> "Semilla 1" | "Devocionales 3" | "Restauracion 1" */
+const toEtapaDetFromUi = (nivelSel: string): string | null => {
+    const t = norm(nivelSel); // "semillas 1", "devocionales 3", "restauracion 1"
+    const m = /^(semillas|devocionales|restauracion)\s+(\d+)/.exec(t);
+    if (!m) return null;
+    const grupo = m[1];
+    const num = m[2];
+    if (grupo === 'semillas') return `Semillas ${num}`;        // singular
+    if (grupo === 'devocionales') return `Devocionales ${num}`;
+    return `Restauracion ${num}`;                             // sin tilde
+};
 
-    for (const p of parts) {
-        const m = /^Culto\s+de\s+ingreso\s*:\s*([A-Za-zÁÉÍÓÚáéíóú]+)\s*-\s*([0-9:\sAPMapm\.]+)$/i.exec(p);
-        if (m && !diaKey) {
-            diaKey = claveDia(m[1]) as DiaKey | null;
-            hora = (m[2] || '').trim();
-        } else {
-            resto.push(p);
-        }
-    }
-    const full = diaKey && hora ? `${diaKey[0] + diaKey.slice(1).toLowerCase()} - ${hora}` : null;
-    return { diaKey, hora, full, clean: resto.join(' | ') };
+/** ✅ "Semilla 3" | "Devocionales 2" | "Restauracion 1" -> { grupoUI: 'Semillas'|'Devocionales'|'Restauración', num: '3' } */
+const parseEtapaDetFromDb = (
+    etapaDb: string
+): { grupoUI: 'Semillas' | 'Devocionales' | 'Restauración'; num: string } | null => {
+    const t = norm(etapaDb); // "semilla 3"
+    const m = /^(semilla|devocionales|restauracion)\s+(\d+)/.exec(t);
+    if (!m) return null;
+    const base = m[1];
+    const num = m[2];
+    if (base === 'semilla') return { grupoUI: 'Semillas', num };
+    if (base === 'devocionales') return { grupoUI: 'Devocionales', num };
+    return { grupoUI: 'Restauración', num };
 };
 
 /* ========= Componente ========= */
 export default function Servidores() {
     const observacionesRef = useRef<HTMLTextAreaElement | null>(null);
     const inputNombreRef = useRef<HTMLInputElement | null>(null);
-    const inputBusquedaModalRef = useRef<HTMLInputElement | null>(null);
 
     const [form, setForm] = useState<FormState>({
         nombre: '',
@@ -114,56 +148,45 @@ export default function Servidores() {
     });
 
     const [errores, setErrores] = useState<Errores>({});
-    const [mostrarErrorCulto, setMostrarErrorCulto] = useState(false);
-    const [mostrarErrorDestino, setMostrarErrorDestino] = useState(false);
+    const [feedback, setFeedback] = useState<string | null>(null);
+    const [busy, setBusy] = useState(false);
 
-    const [modoEdicion, setModoEdicion] = useState(false);
-    const [indiceEdicion, setIndiceEdicion] = useState<string | null>(null);
-
-    // Modal búsqueda
-    const [modalBuscarVisible, setModalBuscarVisible] = useState(false);
-    const [busqueda, setBusqueda] = useState('');
-    const [sugs, setSugs] = useState<Registro[]>([]);
-    const [openSugs, setOpenSugs] = useState(false);
-    const [active, setActive] = useState(0);
-    const [loadingSug, setLoadingSug] = useState(0);
-
-    const cacheSugs = useRef(new Map<string, { ts: number; data: Registro[] }>()).current;
-    const TTL_MS = 60_000, MIN_CHARS = 3, DEBOUNCE_MS = 350;
-
-    useEffect(() => { inputNombreRef.current?.focus(); }, []);
     useEffect(() => {
-        if (modalBuscarVisible) setTimeout(() => inputBusquedaModalRef.current?.focus(), 0);
-    }, [modalBuscarVisible]);
+        inputNombreRef.current?.focus();
+    }, []);
 
-    const toast = (msg: string) => {
-        const t = document.createElement('div');
-        t.className = 'srv-toast';
-        t.textContent = msg;
-        document.body.appendChild(t);
-        setTimeout(() => t.remove(), 3000);
-    };
-
-    /* =========================
-       MODAL (Contactos / Maestros)
-       ========================= */
+    /* ========================= MODALES ========================= */
     const [contactosModalVisible, setContactosModalVisible] = useState(false);
+    const [timoteoModalVisible, setTimoteoModalVisible] = useState(false);
+    const [logisticaModalVisible, setLogisticaModalVisible] = useState(false);
 
     // Semana (solo Contactos)
-    const [contactosSemana, setContactosSemana] = useState<string>('');
+    const [contactosSemana, setContactosSemana] = useState<string>(''); // 'Semana 1' | 'Semana 2' | 'Semana 3'
+    // Día PTM
+    const [contactosDia, setContactosDia] = useState<AppEstudioDia | ''>(''); // Domingo | Martes | Virtual
 
-    // Día/Modo (switch único)
-    const [contactosDia, setContactosDia] = useState<AppEstudioDia | ''>('');
-
-    // Nivel (selección única con dropdowns de 4 radios horizontales)
-    const [nivelSeleccionado, setNivelSeleccionado] = useState<string>('');
+    // Nivel/Etapa (selección única por radios)
+    const [nivelSeleccionado, setNivelSeleccionado] = useState<string>(''); // 'Semillas 1' | 'Devocionales 2' | 'Restauración 1'...
     const [nivelSemillasSel, setNivelSemillasSel] = useState<string>('');
     const [nivelDevSel, setNivelDevSel] = useState<string>('');
     const [nivelResSel, setNivelResSel] = useState<string>('');
 
-    // helper para seleccionar número y actualizar título
-    const selectNivel = (grupo: 'Semillas' | 'Devocionales' | 'Restauración', num: string) => {
-        setNivelSeleccionado(`${grupo} ${num}`);
+    const etapaSeleccionada = useMemo(
+        () => toEtapaEnum(nivelSeleccionado ?? ''),
+        [nivelSeleccionado]
+    );
+
+    const semanaNumero = useMemo(() => {
+        const m = /Semana\s+(\d+)/i.exec(contactosSemana ?? '');
+        return m ? parseInt(m[1], 10) : NaN;
+    }, [contactosSemana]);
+
+    const selectNivel = (
+        grupo: 'Semillas' | 'Devocionales' | 'Restauración',
+        num: string
+    ) => {
+        const etiqueta = `${grupo} ${num}`;
+        setNivelSeleccionado(etiqueta);
         if (grupo === 'Semillas') {
             setNivelSemillasSel(num);
             setNivelDevSel('');
@@ -179,14 +202,14 @@ export default function Servidores() {
         }
     };
 
-    const confirmarModal = () => {
-        const isContactos = form.rol === 'Contactos';
-        const obsSemana = isContactos && contactosSemana ? `Semana de llamadas: ${contactosSemana}` : '';
+    const confirmarModalContactos = () => {
+        const isContactos = rolEs(form.rol, 'Contactos');
+        const obsSemana = isContactos && contactosSemana ? `Semana: ${contactosSemana}` : '';
         const obsDia = contactosDia ? `Día: ${contactosDia}` : '';
         const obsNivel = nivelSeleccionado ? `Nivel: ${nivelSeleccionado}` : '';
         const extra = [obsSemana, obsDia, obsNivel].filter(Boolean).join(' | ');
 
-        setForm(prev => ({
+        setForm((prev) => ({
             ...prev,
             destino: contactosDia ? [contactosDia.toUpperCase()] : prev.destino,
             observaciones: [prev.observaciones?.trim(), extra].filter(Boolean).join(' | '),
@@ -194,250 +217,264 @@ export default function Servidores() {
         setContactosModalVisible(false);
     };
 
-    /* ===== Guardar / Actualizar ===== */
-    const validar = (): boolean => {
-        const err: Errores = {};
-        if (!form.nombre.trim()) {
-            err.nombre = 'Ingresa el Nombre y Apellido';
-            setErrores(err);
-            return false;
-        }
-        if (!/\d{7,}/.test(form.telefono)) {
-            err.telefono = 'Número inválido o incompleto';
-            setErrores(err);
-            return false;
-        }
-        // Solo exigir Culto si el rol es Logistica
-        if (form.rol === 'Logistica' && !form.cultoSeleccionado) {
-            setMostrarErrorCulto(true);
-            return false;
-        }
-        if (form.rol === 'Maestros' && form.destino.length === 0) {
-            setMostrarErrorDestino(true);
-            return false;
-        }
-        setErrores({});
-        setMostrarErrorCulto(false);
-        setMostrarErrorDestino(false);
-        return true;
-    };
+    /* ========================= BUSCAR (modal online) ========================= */
+    const [buscarModalVisible, setBuscarModalVisible] = useState(false);
+    const [q, setQ] = useState('');
+    const [results, setResults] = useState<ServidorRow[]>([]);
+    const [searching, setSearching] = useState(false);
 
-    const handleGuardar = async () => {
-        if (!validar()) return;
-
-        const p_estudio: AppEstudioDia = toDbEstudio(form.destino);
-        const p_notas = (() => {
-            const [dia, hora] = (form.cultoSeleccionado || '').split(' - ');
-            const cultoLinea = dia && hora ? `Culto de ingreso: ${dia} - ${hora}` : null;
-            const extra = (form.observaciones || '').trim();
-            return [cultoLinea, extra].filter(Boolean).join(' | ') || null;
-        })();
-
-        try {
-            if (modoEdicion && indiceEdicion) {
-                const { error } = await supabase.rpc('fn_actualizar_persona', {
-                    p_id: indiceEdicion,
-                    p_nombre: form.nombre.trim(),
-                    p_telefono: form.telefono.trim(),
-                    p_estudio,
-                    p_notas,
-                });
-                if (error) throw error;
-                toast('✅ Registro actualizado');
-            } else {
-                const { error } = await supabase.rpc('fn_registrar_persona', {
-                    p_nombre: form.nombre.trim(),
-                    p_telefono: form.telefono.trim(),
-                    p_culto: p_estudio,
-                    p_estudio,
-                    p_notas,
-                });
-                if (error) throw error;
-                toast('✅ Guardado. Enviado a Semillas 1 • Semana 1');
-            }
-
-            setForm({
-                nombre: '',
-                telefono: '',
-                cedula: '',
-                rol: '',
-                destino: [],
-                cultoSeleccionado: '',
-                observaciones: '',
-                cultos: defaultCultos(),
-            });
-            setErrores({});
-            setMostrarErrorCulto(false);
-            setMostrarErrorDestino(false);
-            setModoEdicion(false);
-            setIndiceEdicion(null);
-            inputNombreRef.current?.focus();
-            cacheSugs.clear();
-        } catch (e) {
-            console.error(e);
-            toast('❌ Error al guardar/actualizar');
-        }
-    };
-
-    /* ===== ELIMINAR ===== */
-    const handleEliminar = async () => {
-        if (!modoEdicion || !indiceEdicion) {
-            toast('Selecciona un registro primero.');
-            return;
-        }
-        const ok = window.confirm('¿Seguro que deseas eliminar este registro? Esta acción no se puede deshacer.');
-        if (!ok) return;
-
-        try {
-            const { error } = await supabase.rpc('fn_eliminar_persona', { p_id: indiceEdicion });
-            if (error) throw error;
-
-            toast('🗑️ Registro eliminado');
-            setForm({
-                nombre: '',
-                telefono: '',
-                cedula: '',
-                rol: '',
-                destino: [],
-                cultoSeleccionado: '',
-                observaciones: '',
-                cultos: defaultCultos(),
-            });
-            setErrores({});
-            setMostrarErrorCulto(false);
-            setMostrarErrorDestino(false);
-            setModoEdicion(false);
-            setIndiceEdicion(null);
-            cacheSugs.clear();
-            inputNombreRef.current?.focus();
-        } catch (e) {
-            console.error(e);
-            toast('❌ Error al eliminar');
-        }
-    };
-
-    /* ===== Búsqueda (modal) ===== */
     useEffect(() => {
-        const q = busqueda.trim();
-        if (q.length < MIN_CHARS) {
-            setSugs([]);
-            setOpenSugs(false);
-            setActive(0);
-            return;
-        }
+        const h = setTimeout(async () => {
+            if (!buscarModalVisible) return;
+            const term = trim(q);
+            setSearching(true);
+            const or = term
+                ? `nombre.ilike.%${term}%,telefono.ilike.%${term}%,cedula.ilike.%${term}%`
+                : undefined;
 
-        const cached = cacheSugs.get(q);
-        if (cached && Date.now() - cached.ts < TTL_MS) {
-            setSugs(cached.data);
-            setOpenSugs(cached.data.length > 0);
-            setActive(0);
-            return;
-        }
+            const sel =
+                'id, cedula, nombre, telefono, email, activo, asignaciones_contacto(id, etapa, dia, semana, vigente), asignaciones_maestro(id, etapa, dia, vigente)';
 
-        let cancel = false;
-        setLoadingSug(1);
-        const t = setTimeout(async () => {
-            try {
-                const { data, error } = await supabase.rpc('fn_buscar_persona', { q });
-                if (error) throw error;
+            let query = supabase.from('servidores').select(sel);
+            if (or) query = query.or(or);
+            query = query.eq('activo', true).limit(20);
 
-                const arr: Registro[] = (data || []).map((r: any) => ({
-                    id: r.id,
-                    fecha: '',
-                    nombre: r.nombre,
-                    telefono: r.telefono ?? null,
-                    preferencias: null,
-                    cultosSeleccionados: null,
-                    observaciones: r.observaciones ?? null,
-                    estudioDia: r.estudio_dia ?? null,
-                }));
+            const { data, error } = await query;
+            if (!error && data) setResults(data as ServidorRow[]);
+            setSearching(false);
+        }, 400);
+        return () => clearTimeout(h);
+    }, [q, buscarModalVisible]);
 
-                if (!cancel) {
-                    cacheSugs.set(q, { ts: Date.now(), data: arr });
-                    setSugs(arr);
-                    setOpenSugs(arr.length > 0);
-                    setActive(0);
-                }
-            } catch (e) {
-                console.error('buscar sugerencias:', e);
-                if (!cancel) {
-                    setSugs([]);
-                    setOpenSugs(false);
-                }
-            } finally {
-                if (!cancel) setLoadingSug(0);
-            }
-        }, DEBOUNCE_MS);
-
-        return () => {
-            cancel = true;
-            clearTimeout(t);
-        };
-    }, [busqueda]);
-
-    /* ===== Inyectar datos al formulario ===== */
-    const selectPersona = (p: Registro) => {
-        const culto = extraerCultoDesdeNotas(p.observaciones);
-        let cultosMap: CultosMap = defaultCultos();
-        let cultoSeleccionado = '';
-
-        if (culto.diaKey && culto.hora) {
-            const key = culto.diaKey as DiaKey;
-            cultosMap = { ...defaultCultos(), [key]: culto.hora! } as CultosMap;
-            const diaBonito = key[0] + key.slice(1).toLowerCase();
-            cultoSeleccionado = `${diaBonito} - ${culto.hora}`;
-        }
-
-        const destino = p.estudioDia ? [p.estudioDia.toUpperCase()] : [];
-
-        setForm(f => ({
-            ...f,
-            nombre: p.nombre || '',
-            telefono: p.telefono || '',
-            cedula: '',
-            rol: '',
-            observaciones: culto.clean || '',
-            destino,
-            cultos: cultosMap,
-            cultoSeleccionado,
+    const pickResult = (s: ServidorRow) => {
+        setForm((prev) => ({
+            ...prev,
+            nombre: s.nombre ?? '',
+            telefono: s.telefono ?? '',
+            cedula: s.cedula ?? '',
+            rol:
+                s.asignaciones_contacto && s.asignaciones_contacto.length > 0
+                    ? 'Contactos'
+                    : s.asignaciones_maestro && s.asignaciones_maestro.length > 0
+                        ? 'Maestros'
+                        : '',
         }));
 
-        setModoEdicion(true);
-        setIndiceEdicion(p.id);
+        if (s.asignaciones_contacto && s.asignaciones_contacto.length > 0) {
+            const a = s.asignaciones_contacto[0];
+            setContactosDia(a.dia);
+            setContactosSemana(`Semana ${a.semana}`);
+            if (a.etapa === 'Semillas') selectNivel('Semillas', nivelSemillasSel || '1');
+            if (a.etapa === 'Devocionales') selectNivel('Devocionales', nivelDevSel || '1');
+            if (a.etapa === 'Restauracion') selectNivel('Restauración', nivelResSel || '1');
+        } else if (s.asignaciones_maestro && s.asignaciones_maestro.length > 0) {
+            const a = s.asignaciones_maestro[0];
+            setContactosDia(a.dia);
 
-        setBusqueda('');
-        setSugs([]);
-        setOpenSugs(false);
-        setModalBuscarVisible(false);
-        setTimeout(() => observacionesRef.current?.focus(), 0);
+            // ✅ Si viene detallado ("Semilla 3" / "Devocionales 2" / "Restauracion 1"), marcamos radios
+            const det = parseEtapaDetFromDb(a.etapa);
+            if (det) selectNivel(det.grupoUI, det.num);
+            else {
+                // Si por compatibilidad aún viniera general, marcamos grupo y por defecto "1"
+                if (a.etapa === 'Semillas') selectNivel('Semillas', nivelSemillasSel || '1');
+                if (a.etapa === 'Devocionales') selectNivel('Devocionales', nivelDevSel || '1');
+                if (a.etapa === 'Restauracion') selectNivel('Restauración', nivelResSel || '1');
+            }
+            setContactosSemana(''); // Maestros no usa semana
+        } else {
+            setContactosDia('');
+            setContactosSemana('');
+            setNivelSeleccionado('');
+            setNivelSemillasSel('');
+            setNivelDevSel('');
+            setNivelResSel('');
+        }
+
+        setBuscarModalVisible(false);
     };
 
-    const onKeyDownSearch = (e: React.KeyboardEvent<HTMLInputElement>) => {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            if (openSugs && sugs.length > 0) selectPersona(sugs[active] ?? sugs[0]);
-            setBusqueda('');
-            setOpenSugs(false);
+    /* ========================= VALIDACIÓN & GUARDAR / ELIMINAR ========================= */
+    const validateBeforeSave = (): boolean => {
+        const errs: Errores = {};
+        if (esVacio(form.nombre)) errs.nombre = 'Nombre es obligatorio';
+        if (esVacio(form.cedula)) errs.cedula = 'Cédula es obligatoria';
+        if (esVacio(form.rol)) errs.rol = 'Seleccione un rol';
+
+        const etapaGeneral = toEtapaEnum(nivelSeleccionado ?? '');
+        const etapaDet = toEtapaDetFromUi(nivelSeleccionado || '');
+
+        if (rolEs(form.rol, 'Contactos')) {
+            if (!etapaGeneral) errs.etapa = 'Seleccione la etapa (Semillas/Devocionales/Restauración)';
+            if (!contactosDia) errs.dia = 'Seleccione el día PTM';
+            if (!contactosSemana) errs.semana = 'Seleccione la semana (1/2/3)';
+        }
+        if (rolEs(form.rol, 'Maestros')) {
+            // ✅ Para Maestros exigimos etapa con número
+            if (!etapaDet) errs.etapa = 'Seleccione la etapa con número (p. ej., Semillas 1 / Devocionales 2 / Restauración 1)';
+            if (!contactosDia) errs.dia = 'Seleccione el día PTM';
+        }
+        // Logística: solo UI
+
+        setErrores(errs);
+        return Object.keys(errs).length === 0;
+    };
+
+    const onGuardar = async () => {
+        setFeedback(null);
+        if (!validateBeforeSave()) return;
+
+        setBusy(true);
+        try {
+            // ✅ SIEMPRE guardamos/actualizamos en TABLA SERVIDORES (fn_upsert_servidor)
+            const { error: upErr } = await supabase.rpc('fn_upsert_servidor', {
+                p_cedula: trim(form.cedula),
+                p_nombre: trim(form.nombre),
+                p_telefono: trim(form.telefono),
+                p_email: null,
+            });
+            if (upErr) throw upErr;
+
+            if (rolEs(form.rol, 'Contactos')) {
+                const etapaDet = toEtapaDetFromUi(nivelSeleccionado || '');
+                if (!etapaDet) throw new Error('Etapa inválida. Elija por ejemplo "Semillas 1".');
+
+                const dia = contactosDia as AppEstudioDia;
+                const semana = semanaNumero;
+
+                const { error } = await supabase.rpc('fn_asignar_contactos', {
+                    p_cedula: trim(form.cedula),
+                    p_etapa: etapaDet, // 👈 Ahora sí manda "Semillas 1"
+                    p_dia: dia,
+                    p_semana: semana,
+                });
+                if (error) throw error;
+            } else if (rolEs(form.rol, 'Maestros')) {
+                // ✅ Para Maestros mandamos el DETALLE ("Semilla 1" / "Devocionales 3" / "Restauracion 1")
+                const etapaDet = toEtapaDetFromUi(nivelSeleccionado || '');
+                if (!etapaDet) throw new Error('Etapa inválida. Elija por ejemplo "Semillas 1".');
+
+                const dia = contactosDia as AppEstudioDia;
+
+                const { error } = await supabase.rpc('fn_asignar_maestro', {
+                    p_cedula: trim(form.cedula),
+                    p_etapa: etapaDet, // << detalle esperado por enum app_etapa_det
+                    p_dia: dia,
+                });
+                if (error) throw error;
+            } else if (rolEs(form.rol, 'Logistica')) {
+                // (pendiente de SQL) Ej: fn_asignar_logistica(...)
+            }
+
+            setFeedback('✅ Guardado correctamente.');
+        } catch (e: any) {
+            setFeedback(`❌ Error al guardar: ${e?.message ?? e}`);
+        } finally {
+            setBusy(false);
+        }
+    };
+
+    const findServidorIdByCedula = async (cedula: string): Promise<string | null> => {
+        const { data, error } = await supabase
+            .from('servidores')
+            .select('id')
+            .eq('cedula', cedula)
+            .limit(1)
+            .maybeSingle();
+        if (error || !data) return null;
+        return (data as any).id as string;
+    };
+
+    const onEliminar = async () => {
+        setFeedback(null);
+        const ced = trim(form.cedula);
+        if (!ced) {
+            setErrores((prev) => ({ ...prev, cedula: 'Cédula es obligatoria para eliminar' }));
             return;
         }
-        if (!openSugs || sugs.length === 0) return;
-        if (e.key === 'ArrowDown') {
-            e.preventDefault();
-            setActive(i => Math.min(i + 1, sugs.length - 1));
-        } else if (e.key === 'ArrowUp') {
-            e.preventDefault();
-            setActive(i => Math.max(i - 1, 0));
-        } else if (e.key === 'Escape') {
-            setOpenSugs(false);
+        setBusy(true);
+        try {
+            const sid = await findServidorIdByCedula(ced);
+            if (!sid) throw new Error('Servidor no encontrado');
+
+            const up1 = await supabase.from('servidores').update({ activo: false }).eq('id', sid);
+            if (up1.error) throw up1.error;
+
+            const up2 = await supabase
+                .from('asignaciones_contacto')
+                .update({ vigente: false })
+                .eq('servidor_id', sid);
+            if (up2.error && up2.error.code !== 'PGRST116') throw up2.error;
+
+            const up3 = await supabase
+                .from('asignaciones_maestro')
+                .update({ vigente: false })
+                .eq('servidor_id', sid);
+            if (up3.error && up3.error.code !== 'PGRST116') throw up3.error;
+
+            setFeedback('🗑️ Eliminado (inactivado) correctamente.');
+        } catch (e: any) {
+            setFeedback(`❌ Error al eliminar: ${e?.message ?? e}`);
+        } finally {
+            setBusy(false);
         }
     };
 
-    const ghost =
-        openSugs &&
-        sugs[0] &&
-        sugs[0].nombre.toLowerCase().startsWith(busqueda.toLowerCase())
-            ? sugs[0].nombre.slice(busqueda.length)
-            : '';
+    /* ========= Handlers de Modales ========= */
+    const abrirModalRol = (valor: string) => {
+        // Reset mínimos por cambio de rol
+        setErrores((prev) => ({ ...prev, rol: null, etapa: null, dia: null, semana: null }));
+
+        // Timoteos: preguntar a qué área pertenece
+        if (valor === 'Timoteos') {
+            setTimoteoModalVisible(true);
+            return;
+        }
+
+        // Asignar rol directo
+        setForm((prev) => ({
+            ...prev,
+            rol: valor,
+            cultoSeleccionado: valor === 'Logistica' ? prev.cultoSeleccionado : '',
+            cultos: valor === 'Logistica' ? prev.cultos : defaultCultos(),
+            destino: valor === 'Maestros' ? prev.destino : [],
+        }));
+
+        // Abrir modal de configuración según rol base
+        if (valor === 'Contactos' || valor === 'Maestros') {
+            setContactosModalVisible(true);
+        } else if (valor === 'Logistica') {
+            setLogisticaModalVisible(true);
+        } else {
+            setContactosModalVisible(false);
+            setLogisticaModalVisible(false);
+        }
+    };
+
+    const elegirTimoteoDestino = (destino: 'Contactos' | 'Maestros' | 'Logistica') => {
+        const compuesto = `Timoteo - ${destino}`;
+        setForm((prev) => ({
+            ...prev,
+            rol: compuesto,
+            cultoSeleccionado: destino === 'Logistica' ? prev.cultoSeleccionado : '',
+            cultos: destino === 'Logistica' ? prev.cultos : defaultCultos(),
+        }));
+        setTimoteoModalVisible(false);
+
+        if (destino === 'Contactos' || destino === 'Maestros') {
+            setContactosModalVisible(true);
+        }
+        if (destino === 'Logistica') {
+            setLogisticaModalVisible(true);
+        }
+    };
+
+    const onChangeCulto = (key: DiaKey, value: string) => {
+        setForm((prev) => ({
+            ...prev,
+            cultos: { ...prev.cultos, [key]: value },
+            cultoSeleccionado: `${key} - ${value}`,
+        }));
+    };
 
     /* ===== UI ===== */
     return (
@@ -445,87 +482,45 @@ export default function Servidores() {
             <div className="srv-box" id="form-servidores">
                 <div className="srv-title">Registro de Servidores</div>
 
-                {/* Modal BUSCAR */}
-                {modalBuscarVisible && (
+                {/* Modal TIMOTEO → selección de destino */}
+                {timoteoModalVisible && (
                     <div className="srv-modal" role="dialog" aria-modal="true">
-                        <div className="srv-modal__box">
+                        <div className="srv-modal__box" style={{ maxWidth: 520 }}>
                             <button
                                 className="srv-modal__close"
                                 aria-label="Cerrar"
-                                onClick={() => {
-                                    setBusqueda('');
-                                    setSugs([]);
-                                    setOpenSugs(false);
-                                    setModalBuscarVisible(false);
-                                }}
+                                onClick={() => setTimoteoModalVisible(false)}
                             >
                                 ×
                             </button>
 
-                            <h3 className="srv-modal__heading">Buscar Registros en Base de Datos</h3>
-
-                            <div
-                                className="srv-search-wrap"
-                                onBlur={() => setTimeout(() => setOpenSugs(false), 120)}
-                            >
-                                <div className="srv-ghost" aria-hidden>
-                                    <span className="srv-ghost-typed">{busqueda}</span>
-                                    <span className="srv-ghost-hint">{ghost}</span>
+                            <div className="srv-modal__content">
+                                <h4 className="srv-section__title">¿Timoteo para qué área?</h4>
+                                <div className="srv-roles-grid" style={{ gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' }}>
+                                    {(['Maestros', 'Contactos', 'Logistica'] as const).map((dest) => (
+                                        <label key={dest} className="srv-radio">
+                                            <input
+                                                type="radio"
+                                                name="timoteo-destino"
+                                                className="srv-radio-input"
+                                                onChange={() => elegirTimoteoDestino(dest)}
+                                            />
+                                            <div className="srv-radio-card">
+                                                <span className="srv-radio-dot" />
+                                                <span className="srv-radio-text">{dest}</span>
+                                            </div>
+                                        </label>
+                                    ))}
                                 </div>
-                                <input
-                                    type="text"
-                                    placeholder="Buscar por nombre o teléfono…"
-                                    value={busqueda}
-                                    ref={inputBusquedaModalRef}
-                                    onFocus={() => setOpenSugs(sugs.length > 0)}
-                                    onChange={e => {
-                                        const v = e.target.value;
-                                        setBusqueda(v);
-                                        setOpenSugs(v.trim().length >= MIN_CHARS);
-                                    }}
-                                    onKeyDown={onKeyDownSearch}
-                                    role="combobox"
-                                    aria-expanded={openSugs}
-                                    aria-controls="sug-list-modal"
-                                    aria-activedescendant={
-                                        openSugs && sugs[active] ? `optm-${sugs[active].id}` : undefined
-                                    }
-                                />
-                                {openSugs && (
-                                    <div id="sug-list-modal" role="listbox" className="srv-sug-list">
-                                        {sugs.map((p, i) => (
-                                            <button
-                                                key={p.id}
-                                                id={`optm-${p.id}`}
-                                                role="option"
-                                                aria-selected={i === active}
-                                                onMouseEnter={() => setActive(i)}
-                                                onMouseDown={ev => ev.preventDefault()}
-                                                onClick={() => selectPersona(p)}
-                                                className={`srv-sug-item ${i === active ? 'is-active' : ''}`}
-                                                title={`${p.nombre} • ${p.telefono ?? '—'}`}
-                                            >
-                                                <div className="srv-sug-name">{p.nombre}</div>
-                                                <div className="srv-sug-sub">
-                                                    {p.telefono ?? '—'}
-                                                    <span className="srv-sug-pill" style={{ marginLeft: 8 }}>
-                            Grupo: {p.estudioDia ?? '—'}
-                          </span>
-                                                </div>
-                                            </button>
-                                        ))}
-                                        {loadingSug ? <div className="srv-sug-loading">Buscando…</div> : null}
-                                        {!loadingSug && sugs.length === 0 && (
-                                            <div className="srv-sug-empty">Sin resultados</div>
-                                        )}
-                                    </div>
-                                )}
+                                <p className="srv-info" style={{ marginTop: 12 }}>
+                                    Se registrará como <b>Timoteo - …</b> y se configurarán las opciones del área elegida.
+                                </p>
                             </div>
                         </div>
                     </div>
                 )}
 
-                {/* Modal CONTACTOS / MAESTROS — REORGANIZADO EN TARJETAS */}
+                {/* Modal CONTACTOS / MAESTROS — Día / Semana / Etapa */}
                 {contactosModalVisible && (
                     <div className="srv-modal" role="dialog" aria-modal="true">
                         <div className="srv-modal__box">
@@ -538,15 +533,13 @@ export default function Servidores() {
                             </button>
 
                             <div className="srv-modal__content">
-                                {/* Tarjetas superiores: izquierda Semana, derecha Día PTM */}
                                 <div className="srv-modal-grid">
-                                    {/* Tarjeta: Selecciona la Semana (solo Contactos) */}
-                                    {form.rol === 'Contactos' && (
+                                    {rolEs(form.rol, 'Contactos') && (
                                         <section className="srv-card">
                                             <h4 className="srv-card__title">Selecciona la Semana</h4>
                                             <div className="srv-card__content">
                                                 <div className="srv-roles-grid srv-roles-grid--weeks">
-                                                    {['Semana 1', 'Semana 2', 'Semana 3'].map(sem => (
+                                                    {['Semana 1', 'Semana 2', 'Semana 3'].map((sem) => (
                                                         <label key={sem} className="srv-radio">
                                                             <input
                                                                 type="radio"
@@ -566,18 +559,17 @@ export default function Servidores() {
                                         </section>
                                     )}
 
-                                    {/* Tarjeta: Día PTM (Domingo / Martes / Virtual) */}
                                     <section className="srv-card">
                                         <h4 className="srv-card__title">Día PTM</h4>
                                         <div className="srv-card__content">
                                             <div className="srv-switches srv-switches--modal">
-                                                {(['Domingo', 'Martes', 'Virtual'] as AppEstudioDia[]).map(d => (
+                                                {(['Domingo', 'Martes', 'Virtual'] as AppEstudioDia[]).map((d) => (
                                                     <label key={d} className="srv-switch">
                                                         <input
                                                             type="checkbox"
                                                             className="srv-switch-input"
                                                             checked={contactosDia === d}
-                                                            onChange={e => setContactosDia(e.target.checked ? d : '')}
+                                                            onChange={(e) => setContactosDia(e.target.checked ? d : '')}
                                                         />
                                                         <span className="srv-switch-slider" />
                                                         {d}
@@ -588,7 +580,6 @@ export default function Servidores() {
                                     </section>
                                 </div>
 
-                                {/* Sección inferior: Etapas de Aprendizaje */}
                                 <section className="srv-section">
                                     <h4 className="srv-section__title">Etapas de Aprendizaje</h4>
 
@@ -597,9 +588,18 @@ export default function Servidores() {
                                         <div className="srv-culto-box" style={{ minWidth: 220 }}>
                                             {nivelSemillasSel ? `Semillas ${nivelSemillasSel}` : 'Semillas'}
                                             <ul className="srv-culto-lista" style={{ display: 'flex', gap: 10, padding: 10 }}>
-                                                {['1','2','3','4'].map(n => (
+                                                {['1', '2', '3', '4'].map((n) => (
                                                     <li key={`sem-${n}`} style={{ padding: 0 }}>
-                                                        <label style={{ display:'inline-flex', alignItems:'center', gap:6, padding:'6px 10px', borderRadius:10, cursor:'pointer' }}>
+                                                        <label
+                                                            style={{
+                                                                display: 'inline-flex',
+                                                                alignItems: 'center',
+                                                                gap: 6,
+                                                                padding: '6px 10px',
+                                                                borderRadius: 10,
+                                                                cursor: 'pointer',
+                                                            }}
+                                                        >
                                                             <input
                                                                 type="radio"
                                                                 name="nivel-semillas"
@@ -617,9 +617,18 @@ export default function Servidores() {
                                         <div className="srv-culto-box" style={{ minWidth: 220 }}>
                                             {nivelDevSel ? `Devocionales ${nivelDevSel}` : 'Devocionales'}
                                             <ul className="srv-culto-lista" style={{ display: 'flex', gap: 10, padding: 10 }}>
-                                                {['1','2','3','4'].map(n => (
+                                                {['1', '2', '3', '4'].map((n) => (
                                                     <li key={`dev-${n}`} style={{ padding: 0 }}>
-                                                        <label style={{ display:'inline-flex', alignItems:'center', gap:6, padding:'6px 10px', borderRadius:10, cursor:'pointer' }}>
+                                                        <label
+                                                            style={{
+                                                                display: 'inline-flex',
+                                                                alignItems: 'center',
+                                                                gap: 6,
+                                                                padding: '6px 10px',
+                                                                borderRadius: 10,
+                                                                cursor: 'pointer',
+                                                            }}
+                                                        >
                                                             <input
                                                                 type="radio"
                                                                 name="nivel-dev"
@@ -637,9 +646,18 @@ export default function Servidores() {
                                         <div className="srv-culto-box" style={{ minWidth: 220 }}>
                                             {nivelResSel ? `Restauración ${nivelResSel}` : 'Restauración'}
                                             <ul className="srv-culto-lista" style={{ display: 'flex', gap: 10, padding: 10 }}>
-                                                {['1'].map(n => (
+                                                {['1'].map((n) => (
                                                     <li key={`res-${n}`} style={{ padding: 0 }}>
-                                                        <label style={{ display:'inline-flex', alignItems:'center', gap:6, padding:'6px 10px', borderRadius:10, cursor:'pointer' }}>
+                                                        <label
+                                                            style={{
+                                                                display: 'inline-flex',
+                                                                alignItems: 'center',
+                                                                gap: 6,
+                                                                padding: '6px 10px',
+                                                                borderRadius: 10,
+                                                                cursor: 'pointer',
+                                                            }}
+                                                        >
                                                             <input
                                                                 type="radio"
                                                                 name="nivel-res"
@@ -656,10 +674,123 @@ export default function Servidores() {
                                 </section>
                             </div>
 
-                            {/* Acciones */}
                             <div className="srv-actions srv-modal__actions">
-                                <button className="srv-btn" onClick={() => setContactosModalVisible(false)}>Cancelar</button>
-                                <button className="srv-btn srv-btn-buscar" onClick={confirmarModal}>Listo</button>
+                                <button className="srv-btn" onClick={() => setContactosModalVisible(false)}>
+                                    Cancelar
+                                </button>
+                                <button className="srv-btn srv-btn-buscar" onClick={confirmarModalContactos}>
+                                    Listo
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Modal LOGÍSTICA — Dropdowns de cultos */}
+                {logisticaModalVisible && (
+                    <div className="srv-modal" role="dialog" aria-modal="true">
+                        <div className="srv-modal__box" style={{ maxWidth: 680 }}>
+                            <button
+                                className="srv-modal__close"
+                                aria-label="Cerrar"
+                                onClick={() => setLogisticaModalVisible(false)}
+                            >
+                                ×
+                            </button>
+
+                            <div className="srv-modal__content">
+                                <h4 className="srv-section__title">Selecciona los cultos</h4>
+
+                                <div className="srv-modal-grid" style={{ gridTemplateColumns: 'repeat(2, minmax(0, 1fr))' }}>
+                                    {(Object.keys(cultosOpciones) as DiaKey[]).map((k) => (
+                                        <div key={k} className="srv-card">
+                                            <h5 className="srv-card__title">{k}</h5>
+                                            <div className="srv-card__content">
+                                                <select
+                                                    className="srv-select"
+                                                    value={form.cultos[k]}
+                                                    onChange={(e) => onChangeCulto(k, e.target.value)}
+                                                >
+                                                    <option value={k}>{k}</option>
+                                                    {cultosOpciones[k].map((op) => (
+                                                        <option key={op} value={op}>
+                                                            {op}
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+
+                                <p className="srv-info" style={{ marginTop: 10 }}>
+                                    Selección actual: <b>{form.cultoSeleccionado || '—'}</b>
+                                </p>
+                            </div>
+
+                            <div className="srv-actions srv-modal__actions">
+                                <button className="srv-btn" onClick={() => setLogisticaModalVisible(false)}>
+                                    Cerrar
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Modal BUSCAR (online) */}
+                {buscarModalVisible && (
+                    <div className="srv-modal" role="dialog" aria-modal="true">
+                        <div className="srv-modal__box" style={{ maxWidth: 820 }}>
+                            <button
+                                className="srv-modal__close"
+                                aria-label="Cerrar"
+                                onClick={() => setBuscarModalVisible(false)}
+                            >
+                                ×
+                            </button>
+
+                            <div className="srv-modal__content">
+                                <div className="srv-section">
+                                    <h4 className="srv-section__title">Buscar Servidor</h4>
+                                    <input
+                                        type="text"
+                                        placeholder="Nombre, teléfono o cédula…"
+                                        value={q}
+                                        onChange={(e) => setQ(e.target.value)}
+                                        className="srv-search-input"
+                                    />
+                                </div>
+
+                                <div className="srv-section" style={{ maxHeight: 420, overflowY: 'auto' }}>
+                                    {searching && <div className="srv-info">Buscando…</div>}
+                                    {!searching && results.length === 0 && <div className="srv-empty">Sin resultados.</div>}
+
+                                    <ul className="srv-results">
+                                        {results.map((s) => {
+                                            const lineTop = `${s.nombre ?? ''} • ${s.telefono ?? ''}`;
+                                            const bloques: string[] = [];
+                                            (s.asignaciones_contacto ?? []).forEach((a) => {
+                                                bloques.push(`Contactos — ${a.etapa} — ${a.dia} — Semana ${a.semana}`);
+                                            });
+                                            (s.asignaciones_maestro ?? []).forEach((a) => {
+                                                bloques.push(`Maestros — ${a.etapa} — ${a.dia}`);
+                                            });
+                                            const lineBottom = bloques.join('   |   ');
+                                            return (
+                                                <li key={s.id} className="srv-result" onClick={() => pickResult(s)}>
+                                                    <div className="srv-result__top">{lineTop}</div>
+                                                    {lineBottom && <div className="srv-result__bottom">{lineBottom}</div>}
+                                                </li>
+                                            );
+                                        })}
+                                    </ul>
+                                </div>
+                            </div>
+
+                            <div className="srv-actions srv-modal__actions">
+                                <button className="srv-btn" onClick={() => setBuscarModalVisible(false)}>
+                                    Cerrar
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -672,9 +803,9 @@ export default function Servidores() {
                             ref={inputNombreRef}
                             type="text"
                             value={form.nombre}
-                            onChange={e => {
+                            onChange={(e) => {
                                 const value = e.target.value;
-                                setForm(f => ({ ...f, nombre: value }));
+                                setForm((f) => ({ ...f, nombre: value }));
                                 if (value.trim()) setErrores((prev: Errores) => ({ ...prev, nombre: null }));
                             }}
                             placeholder="Nombre"
@@ -687,9 +818,9 @@ export default function Servidores() {
                         <input
                             type="text"
                             value={form.telefono}
-                            onChange={e => {
+                            onChange={(e) => {
                                 const value = e.target.value;
-                                setForm(f => ({ ...f, telefono: value }));
+                                setForm((f) => ({ ...f, telefono: value }));
                                 if (/\d{7,}/.test(value)) setErrores((prev: Errores) => ({ ...prev, telefono: null }));
                             }}
                             placeholder="Teléfono"
@@ -702,9 +833,14 @@ export default function Servidores() {
                         <input
                             type="text"
                             value={form.cedula}
-                            onChange={e => setForm(f => ({ ...f, cedula: e.target.value }))}
+                            onChange={(e) => {
+                                setForm((f) => ({ ...f, cedula: e.target.value }));
+                                if (e.target.value.trim()) setErrores((prev) => ({ ...prev, cedula: null }));
+                            }}
                             placeholder="Cédula"
+                            className={errores.cedula ? 'srv-input-error' : ''}
                         />
+                        {errores.cedula && <div className="srv-error">** {errores.cedula}</div>}
                     </div>
                 </div>
 
@@ -712,8 +848,8 @@ export default function Servidores() {
                 <div className="srv-roles-card">
                     <div className="srv-roles-title">Roles del Servidor</div>
                     <div className="srv-roles-grid">
-                        {[...ROLES_FILA_1, ...ROLES_FILA_2].map(r => {
-                            const checked = form.rol === r;
+                        {[...ROLES_FILA_1, ...ROLES_FILA_2].map((r) => {
+                            const checked = form.rol === r || form.rol === `Timoteo - ${r}`;
                             return (
                                 <label key={r} className="srv-radio">
                                     <input
@@ -722,24 +858,7 @@ export default function Servidores() {
                                         value={r}
                                         className="srv-radio-input"
                                         checked={checked}
-                                        onChange={e => {
-                                            const valor = e.target.value;
-                                            setForm(prev => ({
-                                                ...prev,
-                                                rol: valor,
-                                                cultoSeleccionado: valor === 'Logistica' ? prev.cultoSeleccionado : '',
-                                                cultos: valor === 'Logistica' ? prev.cultos : defaultCultos(),
-                                                destino: valor === 'Maestros' ? prev.destino : [],
-                                            }));
-                                            setMostrarErrorDestino(false);
-                                            setMostrarErrorCulto(false);
-
-                                            if (valor === 'Contactos' || valor === 'Maestros') {
-                                                setContactosModalVisible(true);
-                                            } else {
-                                                setContactosModalVisible(false);
-                                            }
-                                        }}
+                                        onChange={(e) => abrirModalRol(e.target.value)}
                                     />
                                     <div className="srv-radio-card">
                                         <span className="srv-radio-dot" />
@@ -751,55 +870,6 @@ export default function Servidores() {
                     </div>
                 </div>
 
-                {mostrarErrorDestino && form.rol === 'Maestros' && (
-                    <div className="srv-error srv-error--center" style={{ marginTop: 6 }}>
-                        Selecciona un destino para Maestros.
-                    </div>
-                )}
-
-                {/* Culto de ingreso (solo Logistica) */}
-                {form.rol === 'Logistica' && (
-                    <>
-                        <div className="srv-cultos">
-                            <label className="srv-label-culto">Culto:</label>
-                            {Object.entries(form.cultos).map(([dia, valorActual]) => (
-                                <div key={dia} className="srv-culto-box">
-                                    {valorActual}
-                                    <ul className="srv-culto-lista">
-                                        {cultosOpciones[dia as DiaKey].map((opcion, index) => (
-                                            <li
-                                                key={index}
-                                                onClick={() => {
-                                                    const key = dia as DiaKey;
-                                                    const full = `${dia} - ${opcion}`;
-                                                    const updated: CultosMap = {
-                                                        ...defaultCultos(),
-                                                        [key]: opcion,
-                                                    } as CultosMap;
-                                                    setForm(prev => ({
-                                                        ...prev,
-                                                        cultoSeleccionado: full,
-                                                        cultos: updated,
-                                                    }));
-                                                    setMostrarErrorCulto(false);
-                                                }}
-                                            >
-                                                {opcion}
-                                            </li>
-                                        ))}
-                                    </ul>
-                                </div>
-                            ))}
-                        </div>
-
-                        {mostrarErrorCulto && (
-                            <div className="srv-error srv-error--center" style={{ marginBottom: '1rem' }}>
-                                ¡Escoge por favor un horario del Culto!
-                            </div>
-                        )}
-                    </>
-                )}
-
                 {/* Observaciones */}
                 <div className="srv-group" style={{ marginTop: 10 }}>
                     <div style={{ flex: 1 }}>
@@ -809,41 +879,36 @@ export default function Servidores() {
                 className="srv-observaciones"
                 placeholder="Escribe aquí las observaciones..."
                 value={form.observaciones}
-                onChange={e => setForm({ ...form, observaciones: e.target.value })}
+                onChange={(e) => setForm({ ...form, observaciones: e.target.value })}
             />
                     </div>
                 </div>
 
+                {/* Feedback */}
+                {feedback && <div className="srv-info" style={{ marginTop: 8 }}>{feedback}</div>}
+                {(errores.rol || errores.etapa || errores.dia || errores.semana) && (
+                    <div className="srv-error srv-error--center" style={{ marginTop: 6 }}>
+                        {[errores.rol, errores.etapa, errores.dia, errores.semana].filter(Boolean).join(' • ')}
+                    </div>
+                )}
+
                 {/* Botones */}
                 <div className="srv-actions">
-                    <button
-                        className={`srv-btn ${modoEdicion ? 'srv-btn--update' : ''}`}
-                        onClick={handleGuardar}
-                    >
-                        {modoEdicion ? 'Actualizar' : 'Guardar'}
+                    <button className="srv-btn" onClick={onGuardar} disabled={busy} title="Guardar">
+                        {busy ? 'Guardando…' : 'Guardar'}
                     </button>
 
                     <button
                         className="srv-btn srv-btn-buscar"
-                        onClick={() => {
-                            setBusqueda('');
-                            setSugs([]);
-                            setOpenSugs(false);
-                            setModalBuscarVisible(true);
-                            setTimeout(() => inputBusquedaModalRef.current?.focus(), 0);
-                        }}
-                        title="Abrir panel de búsqueda"
+                        onClick={() => setBuscarModalVisible(true)}
+                        disabled={busy}
+                        title="Buscar"
                     >
                         Buscar
                     </button>
 
-                    <button
-                        className="srv-btn"
-                        disabled={!modoEdicion}
-                        onClick={handleEliminar}
-                        title={modoEdicion ? 'Eliminar este registro' : 'Selecciona un registro para eliminar'}
-                    >
-                        Eliminar
+                    <button className="srv-btn" onClick={onEliminar} disabled={busy} title="Eliminar">
+                        {busy ? 'Eliminando…' : 'Eliminar'}
                     </button>
                 </div>
             </div>
