@@ -57,7 +57,16 @@ export default function PanelLayout({ children }: { children: React.ReactNode })
                             <Heart size={18} className="nav-icon" />
                             <span className="nav-text">Restauración</span>
                         </Link>
+
+                        <Link href="/panel/login" className="nav-item">
+                            <Heart size={18} className="nav-icon" />
+                            <span className="nav-text">Login Servidores</span>
+                        </Link>
+
+
                     </nav>
+
+
 
                     <div className="sidebar-footer">
                         <div className="user">
