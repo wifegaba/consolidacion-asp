@@ -1,5 +1,5 @@
 // src/pages/index.tsx
-import MenuPrincipal from '@/components/MenuPrincipal';
+import MenuPrincipal from '@/app/login/page';
 
 export default function Index() {
     return <MenuPrincipal />;
