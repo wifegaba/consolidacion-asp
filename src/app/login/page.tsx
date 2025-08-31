@@ -123,6 +123,8 @@ export default function LoginPage() {
                     </button>
                 </form>
 
+
+
                 <p className="mt-4 text-xs text-center text-slate-500">
                     Ingrese solo números. Si no tiene un rol asignado, será dirigido a una pantalla de bienvenida.
                 </p>

@@ -581,6 +581,10 @@ function FollowUp({
                 </div>
             </div>
 
+
+
+
+
             <div className="mt-4">
                 <label className="text-xs text-neutral-500">Observaciones</label>
                 <textarea className="mt-1 w-full min-h-[100px] rounded-lg ring-1 ring-black/10 px-3 py-2 bg-neutral-50 focus:outline-none focus:ring-2 focus:ring-blue-300" placeholder="Escribe aquí las observaciones..." value={obs} onChange={(e) => setObs(e.target.value)} />
