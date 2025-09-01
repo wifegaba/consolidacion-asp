@@ -6,7 +6,14 @@ import { supabase } from '@/lib/supabaseClient';
 
 /* ================= Tipos ================= */
 type Dia = 'Domingo' | 'Martes' | 'Virtual';
-type Semana = 1 | 2 | 3; // BD limita a 1..3
+type Semana = 1 | 2 | 3;
+type Etapa =
+    | 'Semilla 1'
+    | 'Semilla 2'
+    | 'Semilla 3'
+    | 'Semilla 4'
+    | 'Devocionales'
+    | 'Restauracion';
 
 type Resultado =
     | 'no_contesta'
@@ -20,17 +27,11 @@ type Resultado =
     | 'murio'
     | 'rechazado';
 
-type AsigMaestro = {
-    etapa: string;
+type AsignacionContacto = {
+    etapa: Etapa;
     dia: Dia;
+    semana: number;
     vigente: boolean;
-};
-
-type MaestroAsignacion = {
-    etapaDet: string;
-    etapaBase: 'Semillas' | 'Devocionales' | 'Restauracion';
-    modulo: 1 | 2 | 3 | 4 | 1;
-    dia: Dia;
 };
 
 type PendienteRow = {
@@ -43,19 +44,10 @@ type PendienteRow = {
 };
 type PendRowUI = PendienteRow & { _ui?: 'new' | 'changed' };
 
-type AgendadoRow = {
-    progreso_id: string;
-    nombre: string;
-    telefono: string | null;
-    semana: number;
-};
-
 /* ================= Constantes ================= */
 const V_PEND_HIST = 'v_llamadas_pendientes_hist';
 const V_PEND_BASE = 'v_llamadas_pendientes';
-const V_AGENDADOS = 'v_agendados';
 const RPC_GUARDAR_LLAMADA = 'fn_guardar_llamada';
-const RPC_ASIST = 'fn_marcar_asistencia';
 
 const resultadoLabels: Record<Resultado, string> = {
     confirmo_asistencia: 'CONFIRMÓ ASISTENCIA',
@@ -72,64 +64,48 @@ const resultadoLabels: Record<Resultado, string> = {
 
 /* ================= Helpers ================= */
 const normalizeCedula = (s: string) => (s || '').replace(/\D+/g, '');
-const norm = (t: string) =>
-    (t ?? '')
-        .normalize('NFD')
-        .replace(/\p{Diacritic}/gu, '')
-        .toLowerCase()
-        .trim();
-
-/** "Semilla 3" | "Devocionales 2" | "Restauracion 1" -> etapaBase + módulo */
-function mapEtapaDetToBase(etapaDet: string): {
+function mapEtapaToBase(etapa: Etapa): {
     etapaBase: 'Semillas' | 'Devocionales' | 'Restauracion';
-    modulo: 1 | 2 | 3 | 4 | 1;
+    modulo?: 1 | 2 | 3 | 4;
 } {
-    const t = norm(etapaDet);
-    const m = /^(semilla|devocionales|restauracion)\s+(\d+)/.exec(t);
-    if (!m) return { etapaBase: 'Semillas', modulo: 1 };
-    const num = Math.max(1, Math.min(4, parseInt(m[2], 10))) as 1 | 2 | 3 | 4;
-    if (m[1] === 'semilla') return { etapaBase: 'Semillas', modulo: num };
-    if (m[1] === 'devocionales') return { etapaBase: 'Devocionales', modulo: num };
-    return { etapaBase: 'Restauracion', modulo: 1 };
+    if (etapa.startsWith('Semilla')) {
+        const n = parseInt(etapa.split(' ')[1], 10);
+        if ([1, 2, 3, 4].includes(n)) return { etapaBase: 'Semillas', modulo: n as 1 | 2 | 3 | 4 };
+    }
+    if (etapa === 'Devocionales') return { etapaBase: 'Devocionales' };
+    return { etapaBase: 'Restauracion' };
 }
 
-/* ================= Página ================= */
-export default function MaestrosPage() {
+/* ================= Página (Client) ================= */
+export default function Contactos1Client() {
     const router = useRouter();
     const params = useSearchParams();
     const cedula = normalizeCedula(params?.get('cedula') ?? '');
 
     const [nombre, setNombre] = useState('');
-    const [asig, setAsig] = useState<MaestroAsignacion | null>(null);
+    const [asig, setAsig] = useState<AsignacionContacto | null>(null);
 
-    const [semana, setSemana] = useState<Semana>(1);
+    const [semana, setSemana] = useState<Semana | null>(null);
     const [dia, setDia] = useState<Dia | null>(null);
 
-    // llamadas
-    const [loadingPend, setLoadingPend] = useState(false);
+    const [loading, setLoading] = useState(false);
     const [pendientes, setPendientes] = useState<PendRowUI[]>([]);
     const [selectedId, setSelectedId] = useState<string | null>(null);
     const [saving, setSaving] = useState(false);
 
-    // asistencias
-    const [loadingAg, setLoadingAg] = useState(false);
-    const [agendados, setAgendados] = useState<AgendadoRow[]>([]);
-    const [marks, setMarks] = useState<Record<string, 'A' | 'N' | undefined>>({});
-    const [savingAg, setSavingAg] = useState(false);
-
-    // refs
-    const semanaRef = useRef(semana);
+    // ===== refs (idéntico a Maestros) =====
+    const semanaRef = useRef<Semana | null>(semana);
     const diaRef = useRef<Dia | null>(dia);
-    const asigRef = useRef<MaestroAsignacion | null>(null);
+    const asigRef = useRef<AsignacionContacto | null>(null);
     const pendRef = useRef<PendRowUI[]>([]);
     useEffect(() => { semanaRef.current = semana; }, [semana]);
     useEffect(() => { diaRef.current = dia; }, [dia]);
     useEffect(() => { asigRef.current = asig; }, [asig]);
     useEffect(() => { pendRef.current = pendientes; }, [pendientes]);
 
-    // limpiar resaltado "_ui" tras unos segundos
+    // Timers para limpiar el highlight "_ui"
     const clearTimersRef = useRef<Record<string, number>>({});
-    const scheduleClearUI = (id: string, ms = 5000) => {
+    const scheduleClearUI = (id: string, ms = 6000) => {
         if (clearTimersRef.current[id]) window.clearTimeout(clearTimersRef.current[id]);
         clearTimersRef.current[id] = window.setTimeout(() => {
             setPendientes(prev => prev.map(p => p.progreso_id === id ? ({ ...p, _ui: undefined }) : p));
@@ -137,13 +113,13 @@ export default function MaestrosPage() {
         }, ms);
     };
 
-    // Cargar asignación del maestro
+    /* ============== Cargar servidor + asignación vigente ============== */
     useEffect(() => {
         (async () => {
             if (!cedula) return;
             const { data, error } = await supabase
                 .from('servidores')
-                .select('id,nombre,asignaciones_maestro:asignaciones_maestro(etapa,dia,vigente)')
+                .select('id,nombre,asignaciones_contacto:asignaciones_contacto(etapa,dia,semana,vigente)')
                 .eq('cedula', cedula)
                 .maybeSingle();
 
@@ -153,31 +129,37 @@ export default function MaestrosPage() {
             }
 
             setNombre((data as any).nombre ?? '');
+            const asigVig = (data as any).asignaciones_contacto?.find(
+                (a: AsignacionContacto) => a.vigente
+            ) as AsignacionContacto | undefined;
 
-            const a = (data as any).asignaciones_maestro?.find((x: AsigMaestro) => x.vigente) as AsigMaestro | undefined;
-            if (!a) {
+            if (!asigVig) {
                 router.replace(`/bienvenida?cedula=${cedula}`);
                 return;
             }
-            const base = mapEtapaDetToBase(a.etapa);
-            const asign: MaestroAsignacion = {
-                etapaDet: a.etapa,
-                etapaBase: base.etapaBase,
-                modulo: base.modulo,
-                dia: a.dia,
-            };
-            setAsig(asign);
-            setDia(asign.dia);
+
+            setAsig(asigVig);
+            setSemana((asigVig.semana as Semana) ?? 1);
+            setDia(asigVig.dia);
         })();
     }, [cedula, router]);
 
-    const titulo = useMemo(() => asig?.etapaDet ?? '', [asig]);
+    const tituloEtapa = useMemo(() => asig?.etapa ?? '', [asig]);
+    const semanaFija = asig?.semana as Semana | undefined;
+    const diaFijo = asig?.dia as Dia | undefined;
 
-    /* ====== Fetch de pendientes ====== */
-    const fetchPendientes = useCallback(
-        async (s: Semana, d: Dia, opts?: { quiet?: boolean }) => {
-            if (!asig) return;
-            if (!opts?.quiet) setLoadingPend(true);
+    const selected = useMemo(
+        () => pendientes.find((p) => p.progreso_id === selectedId) ?? null,
+        [selectedId, pendientes]
+    );
+
+    /* ============== Cargar pendientes (igual que Maestros) ============== */
+    const loadPendientes = useCallback(
+        async (etapaAsig: Etapa, s: Semana, d: Dia, opts?: { quiet?: boolean }) => {
+            if (!s || !d) return;
+            if (!opts?.quiet) setLoading(true);
+
+            const { etapaBase, modulo } = mapEtapaToBase(etapaAsig);
 
             const [{ data: hist }, { data: base }] = await Promise.all([
                 supabase
@@ -190,10 +172,10 @@ export default function MaestrosPage() {
                     let q = supabase
                         .from(V_PEND_BASE)
                         .select('progreso_id')
-                        .eq('etapa', asig.etapaBase)
+                        .eq('etapa', etapaBase)
                         .eq('semana', s)
                         .eq('dia', d);
-                    if (asig.etapaBase !== 'Restauracion') q = (q as any).eq('modulo', asig.modulo);
+                    if (modulo) q = (q as any).eq('modulo', modulo);
                     return q;
                 })(),
             ]);
@@ -201,7 +183,7 @@ export default function MaestrosPage() {
             const allowed = new Set((base ?? []).map((r: any) => r.progreso_id));
             const draft = ((hist ?? []) as PendienteRow[]).filter((r) => allowed.has(r.progreso_id));
 
-            // Reconciliar para marcar 'new'/'changed'
+            // reconciliar para “new/changed”
             const prev = pendRef.current;
             const prevById = new Map(prev.map(p => [p.progreso_id, p]));
             const next: PendRowUI[] = draft.map((r) => {
@@ -219,38 +201,20 @@ export default function MaestrosPage() {
             });
 
             setPendientes(next);
-            // programar limpieza del highlight
             next.forEach(r => r._ui && scheduleClearUI(r.progreso_id, r._ui === 'new' ? 6000 : 3000));
-
-            if (!opts?.quiet) setLoadingPend(false);
+            if (!opts?.quiet) setLoading(false);
         },
-        [asig]
+        []
     );
 
-    // Primer load visible
     useEffect(() => {
-        if (dia) void fetchPendientes(semana, dia, { quiet: false });
-    }, [semana, dia, fetchPendientes]);
+        if (asig && semana && dia) void loadPendientes(asig.etapa, semana, dia);
+    }, [asig, semana, dia, loadPendientes]);
 
-    /* ====== Guardar resultado de llamada ====== */
+    /* ============== Guardar resultado de llamada ============== */
     const enviarResultado = async (payload: { resultado: Resultado; notas?: string }) => {
-        const row = pendRef.current.find((p) => p.progreso_id === selectedId);
+        const row = pendientes.find((p) => p.progreso_id === selectedId);
         if (!row || !semana || !dia) return;
-
-        const esConfirmado = payload.resultado === 'confirmo_asistencia';
-
-        // Optimista: refleja de inmediato en asistencias
-        setAgendados((prev) => {
-            const yaEsta = prev.some((a) => a.progreso_id === row.progreso_id);
-            if (esConfirmado) {
-                return yaEsta
-                    ? prev
-                    : [...prev, { progreso_id: row.progreso_id, nombre: row.nombre, telefono: row.telefono, semana }];
-            } else {
-                return prev.filter((a) => a.progreso_id !== row.progreso_id);
-            }
-        });
-
         setSaving(true);
         try {
             const { error } = await supabase.rpc(RPC_GUARDAR_LLAMADA, {
@@ -262,85 +226,41 @@ export default function MaestrosPage() {
             });
             if (error) throw error;
 
-            await Promise.all([
-                fetchPendientes(semana, dia, { quiet: true }),
-                fetchAgendados({ quiet: true }),
-            ]);
             setSelectedId(null);
+            await loadPendientes(asig!.etapa, semana, dia, { quiet: true });
         } catch (e: any) {
-            setAgendados((prev) => prev.filter((a) => a.progreso_id !== row.progreso_id));
             alert(e?.message ?? 'Error al guardar');
         } finally {
             setSaving(false);
         }
     };
 
-    /* ====== Agendados ====== */
-    const fetchAgendados = useCallback(async (opts?: { quiet?: boolean }) => {
-        if (!asig || !asig.dia) return;
-        if (!opts?.quiet) setLoadingAg(true);
-
-        let q = supabase
-            .from(V_AGENDADOS)
-            .select('progreso_id,nombre,telefono,semana')
-            .eq('etapa', asig.etapaBase)
-            .eq('dia', asig.dia);
-        if (asig.etapaBase !== 'Restauracion') q = (q as any).eq('modulo', asig.modulo);
-
-        const { data } = await q.order('nombre', { ascending: true });
-        setAgendados(((data ?? []) as AgendadoRow[]));
-        if (!opts?.quiet) setLoadingAg(false);
-    }, [asig]);
-
-    useEffect(() => { void fetchAgendados({ quiet: false }); }, [fetchAgendados]);
-
-    const toggleMark = (id: string, tipo: 'A' | 'N') =>
-        setMarks((m) => ({ ...m, [id]: m[id] === tipo ? undefined : tipo }));
-
-    const enviarAsistencias = async () => {
-        const entradas = Object.entries(marks).filter(([, v]) => v);
-        if (entradas.length === 0) return;
-        setSavingAg(true);
-        try {
-            for (const [progId, v] of entradas) {
-                const { error } = await supabase.rpc(RPC_ASIST, {
-                    p_progreso: progId,
-                    p_asistio: v === 'A',
-                });
-                if (error) throw error;
-            }
-            setMarks({});
-            await fetchAgendados({ quiet: true });
-        } finally {
-            setSavingAg(false);
-        }
-    };
-
-    /* ====== Realtime SIN polling ====== */
+    /* ============== Realtime (copiado del de Maestros) ============== */
     useEffect(() => {
         if (!asig) return;
 
-        // Parcheo en caliente al INSERT de progreso (evita fetch completo)
+        // Parche fino al INSERT de progreso
         const tryPatchProgresoInsert = async (row: any) => {
-            const a = asigRef.current;
-            if (!a) return;
-            const d = diaRef.current;
-            const s = semanaRef.current;
-            // Debe coincidir con filtros actuales
+            const asign = asigRef.current;
+            const d = diaRef.current as Dia | null;
+            const s = semanaRef.current as Semana | null;
+            if (!asign || !d || !s) return;
+
+            const { etapaBase, modulo } = mapEtapaToBase(asign.etapa);
             const matches =
                 row &&
                 row.dia === d &&
                 row.semana === s &&
-                row.etapa === a.etapaBase &&
-                (a.etapaBase === 'Restauracion' || row.modulo === a.modulo) &&
-                row.activo !== false; // por si usas activo
+                row.etapa === etapaBase &&
+                (etapaBase === 'Restauracion' || row.modulo === modulo) &&
+                row.activo !== false;
 
             if (!matches) return;
 
-            // Evitar duplicados
+            // evitar duplicado
             if (pendRef.current.some(p => p.progreso_id === row.id)) return;
 
-            // Traer nombre/teléfono de persona para render inmediato
+            // nombre/telefono de persona
             const { data: per } = await supabase
                 .from('persona')
                 .select('id,nombre,telefono')
@@ -364,51 +284,43 @@ export default function MaestrosPage() {
             scheduleClearUI(row.id, 6000);
         };
 
-        // Refrescos silenciosos (cuando no podemos parchar fino)
+        // Refresh silencioso (debounce 150 ms)
         let t: number | null = null;
         const refreshQuiet = () => {
             if (t) window.clearTimeout(t);
             t = window.setTimeout(async () => {
-                const d = diaRef.current;
-                const s = semanaRef.current as Semana;
-                if (d) await fetchPendientes(s, d, { quiet: true });
-                await fetchAgendados({ quiet: true });
+                const asign = asigRef.current;
+                const d = diaRef.current as Dia | null;
+                const s = semanaRef.current as Semana | null;
+                if (asign && d && s) await loadPendientes(asign.etapa, s, d, { quiet: true });
             }, 150);
         };
 
-        const ch = supabase.channel(`rt-maestros-${cedula}`);
+        const ch = supabase.channel(`rt-contactos-${cedula}`);
 
-        // Progreso: INSERT lo parchamos; UPDATE/DELETE refresco silencioso
+        // Progreso
         ch.on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'progreso' }, (payload) => {
             void tryPatchProgresoInsert(payload.new);
         });
-        ch.on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'progreso' }, () => {
-            refreshQuiet();
-        });
-        ch.on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'progreso' }, () => {
-            refreshQuiet();
-        });
+        ch.on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'progreso' }, () => refreshQuiet());
+        ch.on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'progreso' }, () => refreshQuiet());
 
-        // Llamada / Asistencia / Persona / Asignación → refresco silencioso (marcará 'changed' donde aplique)
+        // Llamadas / Persona / Asignación contacto
         ch.on('postgres_changes', { event: '*', schema: 'public', table: 'llamada_intento' }, () => refreshQuiet());
-        ch.on('postgres_changes', { event: '*', schema: 'public', table: 'asistencia' }, () => refreshQuiet());
         ch.on('postgres_changes', { event: '*', schema: 'public', table: 'persona' }, () => refreshQuiet());
-        ch.on('postgres_changes', { event: '*', schema: 'public', table: 'asignaciones_maestro' }, () => refreshQuiet());
+        ch.on('postgres_changes', { event: '*', schema: 'public', table: 'asignaciones_contacto' }, () => refreshQuiet());
 
         ch.subscribe((status) => {
-            if (status === 'SUBSCRIBED') {
-                refreshQuiet(); // primer sync silencioso
-            }
+            if (status === 'SUBSCRIBED') refreshQuiet();
         });
 
         return () => {
             ch.unsubscribe();
             if (t) window.clearTimeout(t);
-            // limpiar timeouts de _ui
             Object.values(clearTimersRef.current).forEach(id => window.clearTimeout(id));
             clearTimersRef.current = {};
         };
-    }, [asig, cedula, fetchPendientes, fetchAgendados]);
+    }, [asig, cedula, loadPendientes]);
 
     if (!cedula) {
         return (
@@ -418,72 +330,64 @@ export default function MaestrosPage() {
         );
     }
 
-    if (!asig || !dia) {
-        return (
-            <main className="min-h-[100dvh] grid place-items-center">
-                <div>Cargando asignación…</div>
-            </main>
-        );
-    }
-
     /* ========================= UI ========================= */
     return (
         <main
             className="min-h-[100dvh] px-5 md:px-8 py-6 bg-[radial-gradient(1200px_800px_at_-10%_-10%,#e9f0ff,transparent_60%),radial-gradient(1200px_900px_at_110%_10%,#ffe6f4,transparent_55%),linear-gradient(120deg,#f4f7ff,#fef6ff_50%,#eefaff)]"
-            style={{
-                fontFamily:
-                    "-apple-system,BlinkMacSystemFont,'SF Pro Display',Inter,'Helvetica Neue',Arial,sans-serif",
-            }}
+            style={{ fontFamily: "-apple-system,BlinkMacSystemFont,'SF Pro Display',Inter,'Helvetica Neue',Arial,sans-serif" }}
         >
             <div className="mx-auto w-full max-w-[1260px]">
-                {/* ===== Título / Bienvenida ===== */}
+                {/* Encabezado */}
                 <section className="mb-6 md:mb-8">
                     <div className="text-[32px] md:text-[44px] font-black leading-none tracking-tight bg-gradient-to-r from-sky-500 via-violet-600 to-fuchsia-500 text-transparent bg-clip-text drop-shadow-sm">
-                        Panel de Maestros
+                        Panel de Contactos
                     </div>
                     <div className="mt-1 text-[18px] md:text-[22px] font-medium text-neutral-700">
-                        Bienvenido, <b className="text-neutral-900">{nombre || 'Maestro'}</b>
+                        Hola, <b className="text-neutral-900">{nombre || 'Servidor'}</b>
                     </div>
                 </section>
 
-                {/* ===== Encabezado similar a Contactos ===== */}
                 <header className="mb-3 md:mb-4 flex items-baseline gap-3">
                     <h1 className="text-[22px] md:text-[28px] font-semibold text-neutral-900">
-                        Llamadas pendientes {titulo}
+                        Llamadas pendientes {tituloEtapa}
                     </h1>
-                    <span className="text-neutral-500 text-sm">Semana {semana} • {dia}</span>
+                    {semana && dia && <span className="text-neutral-500 text-sm">Semana {semana} • {dia}</span>}
                 </header>
 
-                {/* Menú: semanas (1..3) y día bloqueado */}
+                {/* Filtros (bloqueados a la asignación del contacto) */}
                 <div className="flex flex-wrap items-center gap-3">
                     <div className="inline-flex items-center gap-2">
                         <span className="text-sm text-neutral-600">Semana:</span>
-                        {[1, 2, 3].map((n) => (
-                            <button
-                                key={n}
-                                onClick={() => setSemana(n as Semana)}
-                                className={`px-3 py-1.5 rounded-full text-sm font-semibold ring-1 ring-black/10 shadow-sm transition ${
-                                    semana === n ? 'bg-neutral-900 text-white' : 'bg-white hover:shadow-md'
-                                }`}
-                            >
-                                {n}
-                            </button>
-                        ))}
+                        {[1, 2, 3].map((n) => {
+                            const disabled = semanaFija !== undefined && n !== semanaFija;
+                            return (
+                                <button
+                                    key={n}
+                                    disabled={disabled}
+                                    onClick={() => !disabled && setSemana(n as Semana)}
+                                    className={`px-3 py-1.5 rounded-full text-sm font-semibold ring-1 ring-black/10 shadow-sm transition
+                    ${semana === n ? 'bg-neutral-900 text-white' : 'bg-white hover:shadow-md'}
+                    ${disabled ? 'opacity-40 cursor-not-allowed pointer-events-none hover:shadow-none' : ''}`}
+                                    title={disabled ? 'Bloqueado por asignación' : 'Cambiar semana'}
+                                >
+                                    {n}
+                                </button>
+                            );
+                        })}
                     </div>
-
                     <div className="inline-flex items-center gap-2">
                         <span className="text-sm text-neutral-600">Día:</span>
                         {(['Domingo', 'Martes', 'Virtual'] as Dia[]).map((d) => {
-                            const disabled = d !== asig.dia;
+                            const disabled = diaFijo !== undefined && d !== diaFijo;
                             return (
                                 <button
                                     key={d}
                                     disabled={disabled}
                                     onClick={() => !disabled && setDia(d)}
-                                    className={`px-3 py-1.5 rounded-full text-sm font-semibold ring-1 ring-black/10 shadow-sm transition ${
-                                        dia === d ? 'bg-neutral-900 text-white' : 'bg-white hover:shadow-md'
-                                    } ${disabled ? 'opacity-40 cursor-not-allowed pointer-events-none hover:shadow-none' : ''}`}
-                                    title={disabled ? 'Solo puedes ver tu día asignado' : 'Cambiar día'}
+                                    className={`px-3 py-1.5 rounded-full text-sm font-semibold ring-1 ring-black/10 shadow-sm transition
+                    ${dia === d ? 'bg-neutral-900 text-white' : 'bg-white hover:shadow-md'}
+                    ${disabled ? 'opacity-40 cursor-not-allowed pointer-events-none hover:shadow-none' : ''}`}
+                                    title={disabled ? 'Bloqueado por asignación' : 'Cambiar día'}
                                 >
                                     {d}
                                 </button>
@@ -492,14 +396,14 @@ export default function MaestrosPage() {
                     </div>
                 </div>
 
-                {/* ===== Lista izquierda / Panel derecho ===== */}
+                {/* Lista + Panel de llamada */}
                 <div className="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-5 md:gap-6">
                     {/* Lista */}
                     <section className="rounded-[16px] bg-white shadow-[0_10px_28px_-14px_rgba(16,24,40,.28)] ring-1 ring-black/5">
                         <header className="px-4 md:px-5 py-3 border-b border-black/5 bg-[linear-gradient(135deg,#eaf3ff,#f6efff)]">
                             <h3 className="text-base md:text-lg font-semibold text-neutral-900">Llamadas pendientes</h3>
                             <p className="text-neutral-600 text-xs md:text-sm">
-                                {loadingPend ? 'Cargando…' : 'Selecciona un contacto para registrar la llamada.'}
+                                {loading ? 'Cargando…' : 'Selecciona un contacto para registrar la llamada.'}
                             </p>
                         </header>
 
@@ -512,7 +416,8 @@ export default function MaestrosPage() {
                                         key={c.progreso_id}
                                         className={`px-4 md:px-5 py-3 hover:bg-neutral-50 cursor-pointer transition
                       ${selectedId === c.progreso_id ? 'bg-neutral-50' : ''}
-                      ${c._ui === 'new' ? 'animate-fadeInScale ring-2 ring-emerald-300/60' : c._ui === 'changed' ? 'animate-flashBg' : ''}`}
+                      ${c._ui === 'new' ? 'animate-fadeInScale ring-2 ring-emerald-300/60'
+                                            : c._ui === 'changed' ? 'animate-flashBg' : ''}`}
                                         onClick={() => setSelectedId(c.progreso_id)}
                                     >
                                         <div className="flex items-start justify-between gap-4">
@@ -563,102 +468,38 @@ export default function MaestrosPage() {
                             </div>
                         ) : (
                             <FollowUp
-                                semana={semana}
-                                dia={dia}
-                                row={pendRef.current.find((p) => p.progreso_id === selectedId)!}
+                                semana={semana!}
+                                dia={dia!}
+                                row={pendientes.find((p) => p.progreso_id === selectedId)!}
                                 saving={saving}
                                 onSave={enviarResultado}
                             />
                         )}
                     </section>
                 </div>
-
-                {/* ===== Asistencias ===== */}
-                <section className="mt-6 animate-cardIn rounded-[18px] ring-1 ring-black/5 shadow-[0_12px_30px_-16px_rgba(16,24,40,.28)] overflow-hidden bg-white">
-                    <div className="flex items-center justify-between px-4 md:px-6 py-3 bg-[linear-gradient(135deg,#eaf3ff,#f8f1ff)]">
-                        <div>
-                            <h3 className="text-[15px] md:text-base font-semibold text-neutral-900">
-                                Listado Estudiantes Día {asig.dia} — {asig.etapaBase === 'Semillas' ? 'Semillas' : asig.etapaBase} {asig.modulo}
-                            </h3>
-                            <p className="text-neutral-500 text-xs">Agendados que confirmaron asistencia.</p>
-                        </div>
-                        <div className="text-sm font-semibold rounded-full bg-white px-3 py-1.5 ring-1 ring-black/10 shadow-sm">
-                            {asig.dia}
-                        </div>
-                    </div>
-
-                    {loadingAg ? (
-                        <div className="px-4 md:px-6 py-10 text-center text-neutral-500">Cargando…</div>
-                    ) : agendados.length === 0 ? (
-                        <div className="px-4 md:px-6 py-10 text-center text-neutral-500">No hay agendados para tu día asignado.</div>
-                    ) : (
-                        <>
-                            <ul className="divide-y divide-black/5">
-                                {agendados.map((e) => (
-                                    <li key={e.progreso_id} className="px-4 md:px-6 py-3 flex items-center gap-3">
-                                        <div className="flex-1 min-w-0">
-                                            <div className="font-semibold text-neutral-800 truncate">{e.nombre}</div>
-                                            <div className="text-neutral-500 text-xs md:text-sm">{e.telefono ?? '—'}</div>
-                                        </div>
-
-                                        <label className="inline-flex items-center gap-2 text-sm mr-3">
-                                            <input
-                                                type="checkbox"
-                                                checked={marks[e.progreso_id] === 'A'}
-                                                onChange={() => toggleMark(e.progreso_id, 'A')}
-                                                className="accent-emerald-600"
-                                            />
-                                            Asistió
-                                        </label>
-
-                                        <label className="inline-flex items-center gap-2 text-sm">
-                                            <input
-                                                type="checkbox"
-                                                checked={marks[e.progreso_id] === 'N'}
-                                                onChange={() => toggleMark(e.progreso_id, 'N')}
-                                                className="accent-rose-600"
-                                            />
-                                            No asistió
-                                        </label>
-                                    </li>
-                                ))}
-                            </ul>
-
-                            <div className="px-4 md:px-6 py-3 bg-neutral-50">
-                                <button
-                                    disabled={savingAg}
-                                    onClick={enviarAsistencias}
-                                    className="rounded-xl bg-neutral-900 text-white px-4 py-2 shadow-md hover:shadow-lg transition disabled:opacity-60"
-                                >
-                                    {savingAg ? 'Enviando…' : 'Enviar Reporte'}
-                                </button>
-                            </div>
-                        </>
-                    )}
-                </section>
             </div>
 
-            {/* Animaciones / estilos para nuevos y cambiados */}
+            {/* Animaciones “new/changed” */}
             <style jsx global>{`
-                @keyframes cardIn {
-                    0% { opacity: 0; transform: translateY(14px) scale(0.98); filter: blur(3px); }
-                    60% { opacity: 1; transform: translateY(-2px) scale(1.01); filter: blur(0); }
-                    100% { opacity: 1; transform: translateY(0) scale(1); }
-                }
-                .animate-cardIn { animation: cardIn .48s cubic-bezier(.22,1,.36,1) both; }
+        @keyframes cardIn {
+          0% { opacity: 0; transform: translateY(14px) scale(0.98); filter: blur(3px); }
+          60% { opacity: 1; transform: translateY(-2px) scale(1.01); filter: blur(0); }
+          100% { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        .animate-cardIn { animation: cardIn .48s cubic-bezier(.22,1,.36,1) both; }
 
-                @keyframes fadeInScale {
-                    0% { opacity: 0; transform: translateY(6px) scale(0.98); }
-                    100% { opacity: 1; transform: translateY(0) scale(1); }
-                }
-                .animate-fadeInScale { animation: fadeInScale .28s ease-out both; }
+        @keyframes fadeInScale {
+          0% { opacity: 0; transform: translateY(6px) scale(0.98); }
+          100% { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        .animate-fadeInScale { animation: fadeInScale .28s ease-out both; }
 
-                @keyframes flashBg {
-                    0% { background-color: #fff6d4; }
-                    100% { background-color: transparent; }
-                }
-                .animate-flashBg { animation: flashBg 1.2s ease-out 1; }
-            `}</style>
+        @keyframes flashBg {
+          0% { background-color: #fff6d4; }
+          100% { background-color: transparent; }
+        }
+        .animate-flashBg { animation: flashBg 1.2s ease-out 1; }
+      `}</style>
         </main>
     );
 }
@@ -672,7 +513,7 @@ function FollowUp({
                       onSave,
                   }: {
     semana: Semana;
-    dia: Dia | null;
+    dia: Dia;
     row: PendienteRow;
     saving: boolean;
     onSave: (p: { resultado: Resultado; notas?: string }) => Promise<void>;
@@ -693,14 +534,7 @@ function FollowUp({
     const [resultado, setResultado] = useState<Resultado | null>(null);
     const [obs, setObs] = useState('');
 
-    const initials =
-        row.nombre
-            .split(' ')
-            .filter(Boolean)
-            .slice(0, 2)
-            .map((p) => p[0]?.toUpperCase())
-            .join('') || 'U';
-
+    const initials = row.nombre.split(' ').filter(Boolean).slice(0, 2).map((p) => p[0]?.toUpperCase()).join('') || 'U';
     const telHref = row.telefono ? `tel:${row.telefono.replace(/[^\d+]/g, '')}` : null;
 
     return (
@@ -711,21 +545,14 @@ function FollowUp({
                         {initials}
                     </div>
                     <div>
-                        <div className="text-base md:text-lg font-semibold text-neutral-900 leading-tight">
-                            {row.nombre}
-                        </div>
-                        <div className="text-[12px] text-neutral-500 leading-none">
-                            Semana {semana} • {dia}
-                        </div>
+                        <div className="text-base md:text-lg font-semibold text-neutral-900 leading-tight">{row.nombre}</div>
+                        <div className="text-[12px] text-neutral-500 leading-none">Semana {semana} • {dia}</div>
                         <div className="text-[11px] text-neutral-600 mt-1 space-y-0.5">
                             {[row.llamada1 ?? null, row.llamada2 ?? null, row.llamada3 ?? null].map((r, idx) => (
                                 <div key={idx}>
                                     Llamada {idx + 1}:{' '}
-                                    {r ? (
-                                        <span className="font-medium text-neutral-800">{resultadoLabels[r as Resultado]}</span>
-                                    ) : (
-                                        <span className="italic">sin registro</span>
-                                    )}
+                                    {r ? <span className="font-medium text-neutral-800">{resultadoLabels[r as Resultado]}</span>
+                                        : <span className="italic">sin registro</span>}
                                 </div>
                             ))}
                         </div>
@@ -733,20 +560,12 @@ function FollowUp({
                 </div>
 
                 {telHref ? (
-                    <a
-                        href={telHref}
-                        className="shrink-0 inline-flex items-center gap-2 rounded-full bg-white px-3.5 py-2 text-sm font-semibold ring-1 ring-black/10 shadow-sm hover:shadow-md transition"
-                        title={`Llamar a ${row.telefono}`}
-                    >
-                        <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
-                            <path d="M6.6 10.8c1.3 2.5 3.1 4.4 5.6 5.6l2.1-2.1a1 1 0 0 1 1.1-.22c1.2.48 2.6.74 4 .74a1 1 0 0 1 1 1v3.5a1 1 0 0 1-1 1C12.1 20.3 3.7 11.9 3.7 2.7a1 1 0 0 1 1-1H8.2a1 1 0 0 1 1 1c0 1.4.26 2.8.74 4a1 1 0 0 1-.22 1.1l-2.1 2.1Z" fill="currentColor" />
-                        </svg>
+                    <a href={telHref} className="shrink-0 inline-flex items-center gap-2 rounded-full bg-white px-3.5 py-2 text-sm font-semibold ring-1 ring-black/10 shadow-sm hover:shadow-md transition" title={`Llamar a ${row.telefono}`}>
+                        <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M6.6 10.8c1.3 2.5 3.1 4.4 5.6 5.6l2.1-2.1a1 1 0 0 1 1.1-.22c1.2.48 2.6.74 4 .74a1 1 0 0 1 1 1v3.5a1 1 0 0 1-1 1C12.1 20.3 3.7 11.9 3.7 2.7a1 1 0 0 1 1-1H8.2a1 1 0 0 1 1 1c0 1.4.26 2.8.74 4a1 1 0 0 1-.22 1.1l-2.1 2.1Z" fill="currentColor" /></svg>
                         <span>{row.telefono}</span>
                     </a>
                 ) : (
-                    <div className="shrink-0 inline-flex items-center gap-2 rounded-full bg-white px-3.5 py-2 text-sm font-semibold ring-1 ring-black/10 shadow-sm">
-                        —
-                    </div>
+                    <div className="shrink-0 inline-flex items-center gap-2 rounded-full bg-white px-3.5 py-2 text-sm font-semibold ring-1 ring-black/10 shadow-sm">—</div>
                 )}
             </div>
 
@@ -755,13 +574,7 @@ function FollowUp({
                 <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
                     {opciones.map((o) => (
                         <label key={o.value} className="flex items-center gap-2 rounded-lg ring-1 ring-black/10 bg-neutral-50 px-3 py-2 cursor-pointer">
-                            <input
-                                type="radio"
-                                name="resultado"
-                                className="accent-blue-600"
-                                onChange={() => setResultado(o.value)}
-                                checked={resultado === o.value}
-                            />
+                            <input type="radio" name="resultado" className="accent-blue-600" onChange={() => setResultado(o.value)} checked={resultado === o.value} />
                             <span className="text-sm">{o.label}</span>
                         </label>
                     ))}
@@ -771,7 +584,7 @@ function FollowUp({
             <div className="mt-4">
                 <label className="text-xs text-neutral-500">Observaciones</label>
                 <textarea
-                    className="mt-1 w-full min-h-[100px] rounded-lg ring-1 ring-black/10 px-3 py-2 bg-neutral-50 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                    className="mt-1 w/full min-h-[100px] rounded-lg ring-1 ring-black/10 px-3 py-2 bg-neutral-50 focus:outline-none focus:ring-2 focus:ring-blue-300"
                     placeholder="Escribe aquí las observaciones..."
                     value={obs}
                     onChange={(e) => setObs(e.target.value)}
@@ -779,11 +592,7 @@ function FollowUp({
             </div>
 
             <div className="mt-4">
-                <button
-                    disabled={!resultado || saving}
-                    onClick={() => resultado && onSave({ resultado, notas: obs || undefined })}
-                    className="rounded-xl bg-neutral-900 text-white px-4 py-2 shadow-md hover:shadow-lg transition disabled:opacity-60"
-                >
+                <button disabled={!resultado || saving} onClick={() => resultado && onSave({ resultado, notas: obs || undefined })} className="rounded-xl bg-neutral-900 text-white px-4 py-2 shadow-md hover:shadow-lg transition disabled:opacity-60">
                     {saving ? 'Guardando…' : 'Enviar informe'}
                 </button>
             </div>
