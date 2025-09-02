@@ -225,3 +225,168 @@ body{margin:0;
     .brand{padding:6px 0 18px}
     .surface{padding:20px;border-radius:0 18px 18px 0}
 }
+/* Mobile horizontal sidebar: makes the sidebar a bottom nav on small screens */
+@media (max-width: 768px) {
+  /* Ensure the panel layout stacks on mobile */
+  .panel-shell,
+  .panel,
+  .panel-layout {
+    display: flex;
+    flex-direction: column;
+    min-height: 100dvh;
+  }
+
+  /* Sidebar becomes a horizontal, scrollable bottom bar */
+  .sidebar,
+  aside[role="navigation"],
+  .panel-sidebar {
+    position: sticky;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 56px;
+    width: 100%;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    justify-content: center;
+    overflow-x: hidden;
+    overflow-y: hidden;
+    background: var(--panel-sidebar-bg, #0f172a);
+    border-top: 1px solid color-mix(in oklab, var(--panel-sidebar-border, #334155) 80%, transparent);
+    box-shadow: 0 -6px 16px rgba(0,0,0,.15);
+    z-index: 40;
+  }
+
+  /* If the sidebar contains a list, center it */
+  .sidebar ul,
+  .panel-sidebar ul,
+  aside[role="navigation"] ul,
+  .sidebar .nav,
+  .panel-sidebar .nav,
+  aside[role="navigation"] .nav {
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 0 8px;
+    margin: 0;
+    list-style: none;
+  }
+
+  .sidebar li,
+  .panel-sidebar li,
+  aside[role="navigation"] li {
+    display: inline-flex;
+  }
+
+  /* Make main content account for the bottom bar height */
+  main,
+  .panel-content,
+  .content {
+    padding-bottom: max(56px, env(safe-area-inset-bottom));
+  }
+
+  /* Horizontal items, keep each tappable */
+  .sidebar a,
+  .sidebar button,
+  .panel-sidebar a,
+  .panel-sidebar button,
+  aside[role="navigation"] a,
+  aside[role="navigation"] button {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 12px;
+    border-radius: 8px;
+    min-height: 40px;
+    min-width: 44px;
+    white-space: nowrap;
+    text-decoration: none;
+  }
+
+  /* Optional: hide labels on very small screens if you use .label spans */
+  @media (max-width: 420px) {
+    .sidebar .label,
+    .panel-sidebar .label,
+    aside[role="navigation"] .label {
+      display: none;
+    }
+  }
+}
+/* Mobile: convertir sidebar a barra inferior centrada */
+@media (max-width: 768px) {
+  .app-frame .shell {
+    display: flex !important;
+    flex-direction: column;
+    min-height: 100dvh;
+    gap: 0;
+    grid-template-columns: none !important;
+  }
+
+  .app-frame .sidebar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    width: 100%;
+    min-height: 64px;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
+    background: var(--panel-sidebar-bg, #0f172a);
+    border-top: 1px solid color-mix(in oklab, var(--panel-sidebar-border, #334155) 80%, transparent);
+    box-shadow: 0 -6px 16px rgba(0,0,0,.15);
+    z-index: 100;
+  }
+
+  /* Ocultar elementos de la versión de escritorio */
+  .app-frame .sidebar .sidebar-logo,
+  .app-frame .sidebar .sidebar-footer {
+    display: none !important;
+  }
+
+  /* El contenido deja espacio para la barra inferior */
+  .app-frame .surface,
+  .app-frame main,
+  .app-frame .content {
+    padding-bottom: max(112px, calc(56px + env(safe-area-inset-bottom)));
+  }
+
+  /* Navegación centrada y con salto de línea si no cabe */
+  .app-frame .sidebar .nav {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    margin: 0;
+  }
+
+  .app-frame .sidebar .nav-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 12px;
+    min-height: 40px;
+    min-width: 44px;
+    border-radius: 10px;
+    white-space: nowrap;
+    text-decoration: none;
+  }
+
+  /* En pantallas muy pequeñas, mostrar solo íconos */
+  @media (max-width: 420px) {
+    .app-frame .sidebar .nav-text { display: none; }
+  }
+}

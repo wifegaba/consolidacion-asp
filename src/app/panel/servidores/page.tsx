@@ -181,7 +181,7 @@ export default function Servidores() {
             clearTimeout(feedbackTimer.current);
             feedbackTimer.current = null;
         }
-        clearToast();
+        toastClear();
         setFeedbackKind(null);
     };
 
@@ -520,6 +520,30 @@ export default function Servidores() {
         return true;
     };
 
+    // Toast helpers seguros (sin recursión)
+    const toastClear = () => {
+        if (feedbackTimer && feedbackTimer.current) {
+            try { clearTimeout(feedbackTimer.current as any); } catch {}
+            feedbackTimer.current = null;
+        }
+        setFeedback(null);
+        if (setFeedbackKind) setFeedbackKind(null as any);
+    };
+    const toastShow = (kind: 'success' | 'error' | 'delete' | 'info', text: string) => {
+        if (feedbackTimer && feedbackTimer.current) {
+            try { clearTimeout(feedbackTimer.current as any); } catch {}
+            feedbackTimer.current = null;
+        }
+        setFeedback(text);
+        if (setFeedbackKind) setFeedbackKind(kind as any);
+        const id = setTimeout(() => {
+            setFeedback(null);
+            if (setFeedbackKind) setFeedbackKind(null as any);
+            if (feedbackTimer) feedbackTimer.current = null;
+        }, 5000);
+        if (feedbackTimer) feedbackTimer.current = id as any;
+    };
+
     const onGuardar = async () => {
         clearToast();
         if (!validateBeforeSave()) return;
@@ -585,14 +609,14 @@ export default function Servidores() {
             // Guardar observación, si existe
             const okObs = await saveObservacion(form.observaciones);
             if (okObs) {
-                showToast('success', wasEdit ? 'Actualizado correctamente.' : 'Guardado correctamente.');
+                toastShow('success', wasEdit ? 'Actualizado correctamente.' : 'Guardado correctamente.');
             } else {
-                showToast('success', (wasEdit ? 'Actualizado, ' : 'Guardado, ') + 'pero no se pudo guardar la observación.');
+                toastShow('success', (wasEdit ? 'Actualizado, ' : 'Guardado, ') + 'pero no se pudo guardar la observación.');
             }
             // Limpiar campos tras éxito (tanto Guardar como Actualizar)
             resetFormulario();
         } catch (e: any) {
-            showToast('error', `Error al guardar: ${e?.message ?? e}`);
+            toastShow('error', `Error al guardar: ${e?.message ?? e}`);
         } finally {
             setBusy(false);
         }
@@ -634,11 +658,11 @@ export default function Servidores() {
                 .eq('servidor_id', sid);
             if (up3.error && up3.error.code !== 'PGRST116') throw up3.error;
 
-            showToast('delete', 'Eliminado (inactivado) correctamente.');
+            toastShow('delete', 'Eliminado (inactivado) correctamente.');
             setDetalleVisible(false);
             setConfirmDetalleDelete(false);
         } catch (e: any) {
-            showToast('error', `Error al eliminar: ${e?.message ?? e}`);
+            toastShow('error', `Error al eliminar: ${e?.message ?? e}`);
         } finally {
             setBusy(false);
         }
@@ -1127,7 +1151,7 @@ export default function Servidores() {
                             )}
                         </span>
                         <span className="srv-toast-text">{feedback}</span>
-                        <button className="srv-toast-close" onClick={clearToast} aria-label="Cerrar">×</button>
+                        <button className="srv-toast-close" onClick={toastClear} aria-label="Cerrar">×</button>
                     </div>
                 )}
                 {!guidedError && (errores.rol || errores.etapa || errores.dia || errores.semana || errores.culto) && (
@@ -1471,6 +1495,7 @@ export default function Servidores() {
                     box-shadow: 0 8px 18px rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.85);
                     font-size: 13px;
                     color: #0b0b0b;
+                    z-index: 10;
                 }
                 .srv-callout::before{
                     content: '';
