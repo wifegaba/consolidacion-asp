@@ -173,6 +173,28 @@ export default function Servidores() {
 
     const [errores, setErrores] = useState<Errores>({});
     const [feedback, setFeedback] = useState<string | null>(null);
+    const [feedbackKind, setFeedbackKind] = useState<'success' | 'error' | 'delete' | 'info' | null>(null);
+    const feedbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    const clearToast = () => {
+        if (feedbackTimer.current) {
+            clearTimeout(feedbackTimer.current);
+            feedbackTimer.current = null;
+        }
+        clearToast();
+        setFeedbackKind(null);
+    };
+
+    const showToast = (kind: 'success' | 'error' | 'delete' | 'info', text: string) => {
+        if (feedbackTimer.current) clearTimeout(feedbackTimer.current);
+        setFeedback(text);
+        setFeedbackKind(kind);
+        feedbackTimer.current = setTimeout(() => {
+            setFeedback(null);
+            setFeedbackKind(null);
+            feedbackTimer.current = null;
+        }, 5000);
+    };
     const [busy, setBusy] = useState(false);
     const [guidedError, setGuidedError] = useState<
         | { key: 'nombre' | 'cedula' | 'rol' | 'etapa' | 'dia' | 'semana' | 'culto'; msg: string }
@@ -499,20 +521,36 @@ export default function Servidores() {
     };
 
     const onGuardar = async () => {
-        setFeedback(null);
+        clearToast();
         if (!validateBeforeSave()) return;
 
         const wasEdit = editMode;
         setBusy(true);
         try {
             // Alta/actualización básica
-            const { error: upErr } = await supabase.rpc('fn_upsert_servidor', {
-                p_cedula: trim(form.cedula),
-                p_nombre: trim(form.nombre),
-                p_telefono: trim(form.telefono),
-                p_email: null,
-            });
-            if (upErr) throw upErr;
+            const ced = trim(form.cedula);
+            const nom = trim(form.nombre);
+            const tel = trim(form.telefono);
+            let sid = await findServidorIdByCedula(ced);
+
+            if (sid) {
+                // Actualizar registro existente para evitar duplicados
+                const up = await supabase
+                    .from('servidores')
+                    .update({ nombre: nom, telefono: tel || null, email: null, activo: true })
+                    .eq('id', sid);
+                if (up.error) throw up.error;
+            } else {
+                // No existe: usar RPC de upsert/insert
+                const { error: upErr } = await supabase.rpc('fn_upsert_servidor', {
+                    p_cedula: ced,
+                    p_nombre: nom,
+                    p_telefono: tel,
+                    p_email: null,
+                });
+                if (upErr) throw upErr;
+                sid = await findServidorIdByCedula(ced);
+            }
 
             if (rolEs(form.rol, 'Contactos')) {
                 const etapaDet = toEtapaDetFromUi(nivelSeleccionado || '');
@@ -547,14 +585,14 @@ export default function Servidores() {
             // Guardar observación, si existe
             const okObs = await saveObservacion(form.observaciones);
             if (okObs) {
-                setFeedback(wasEdit ? '✅ Actualizado correctamente.' : '✅ Guardado correctamente.');
+                showToast('success', wasEdit ? 'Actualizado correctamente.' : 'Guardado correctamente.');
             } else {
-                setFeedback((wasEdit ? '✅ Actualizado, ' : '✅ Guardado, ') + 'pero no se pudo guardar la observación.');
+                showToast('success', (wasEdit ? 'Actualizado, ' : 'Guardado, ') + 'pero no se pudo guardar la observación.');
             }
             // Limpiar campos tras éxito (tanto Guardar como Actualizar)
             resetFormulario();
         } catch (e: any) {
-            setFeedback(`❌ Error al guardar: ${e?.message ?? e}`);
+            showToast('error', `Error al guardar: ${e?.message ?? e}`);
         } finally {
             setBusy(false);
         }
@@ -569,6 +607,41 @@ export default function Servidores() {
             .maybeSingle();
         if (error || !data) return null;
         return (data as any).id as string;
+    };
+
+    // Eliminar por cédula desde el modal de detalle, replicando la lógica del formulario
+    const eliminarByCedula = async (ced?: string) => {
+        const cedula = trim(ced ?? '');
+        if (!cedula) return;
+        setFeedback(null);
+        setBusy(true);
+        try {
+            const sid = await findServidorIdByCedula(cedula);
+            if (!sid) throw new Error('Servidor no encontrado');
+
+            const up1 = await supabase.from('servidores').update({ activo: false }).eq('id', sid);
+            if (up1.error) throw up1.error;
+
+            const up2 = await supabase
+                .from('asignaciones_contacto')
+                .update({ vigente: false })
+                .eq('servidor_id', sid);
+            if (up2.error && up2.error.code !== 'PGRST116') throw up2.error;
+
+            const up3 = await supabase
+                .from('asignaciones_maestro')
+                .update({ vigente: false })
+                .eq('servidor_id', sid);
+            if (up3.error && up3.error.code !== 'PGRST116') throw up3.error;
+
+            showToast('delete', 'Eliminado (inactivado) correctamente.');
+            setDetalleVisible(false);
+            setConfirmDetalleDelete(false);
+        } catch (e: any) {
+            showToast('error', `Error al eliminar: ${e?.message ?? e}`);
+        } finally {
+            setBusy(false);
+        }
     };
 
     // Guarda la observación en 'observaciones_servidor' (por cedula o por servidor_id)
@@ -1010,8 +1083,53 @@ export default function Servidores() {
                     </div>
                 </div>
 
-                {/* Feedback */}
-                {feedback && <div className="srv-info" style={{ marginTop: 8 }}>{feedback}</div>}
+                {/* Feedback (Toast estilo Mac 2025) */}
+                {feedback && (
+                    <div className="srv-toast" role="status" aria-live="polite">
+                        <span className="srv-toast-icon" aria-hidden>
+                            {(feedbackKind === 'success' || (!feedbackKind && feedback && !feedback.toLowerCase().includes('error') && !feedback.toLowerCase().includes('eliminado'))) && (
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                                    <circle cx="12" cy="12" r="10" fill="url(#g1)" />
+                                    <path d="M7 12.5l3 3 7-7" stroke="#0b5" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+                                    <defs>
+                                        <linearGradient id="g1" x1="0" y1="0" x2="24" y2="24">
+                                            <stop stopColor="#E6FFF2" />
+                                            <stop offset="1" stopColor="#C7F8E0" />
+                                        </linearGradient>
+                                    </defs>
+                                </svg>
+                            )}
+                            {(feedbackKind === 'delete' || (!feedbackKind && (feedback || '').toLowerCase().includes('eliminado'))) && (
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                                    <rect x="5" y="7" width="14" height="13" rx="2" fill="url(#g2)" />
+                                    <path d="M9 7V5a2 2 0 012-2h2a2 2 0 012 2v2" stroke="#666" strokeWidth="1.6" />
+                                    <path d="M4 7h16" stroke="#888" strokeWidth="2" strokeLinecap="round" />
+                                    <defs>
+                                        <linearGradient id="g2" x1="5" y1="7" x2="19" y2="20">
+                                            <stop stopColor="#FFF2F2" />
+                                            <stop offset="1" stopColor="#FFE1E1" />
+                                        </linearGradient>
+                                    </defs>
+                                </svg>
+                            )}
+                            {(feedbackKind === 'error' || (!feedbackKind && (feedback || '').toLowerCase().includes('error'))) && (
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                                    <circle cx="12" cy="12" r="10" fill="url(#g3)" />
+                                    <path d="M12 7v7" stroke="#b00" strokeWidth="2.2" strokeLinecap="round" />
+                                    <circle cx="12" cy="17" r="1.2" fill="#b00" />
+                                    <defs>
+                                        <linearGradient id="g3" x1="0" y1="0" x2="24" y2="24">
+                                            <stop stopColor="#FFF0F0" />
+                                            <stop offset="1" stopColor="#FFE0E0" />
+                                        </linearGradient>
+                                    </defs>
+                                </svg>
+                            )}
+                        </span>
+                        <span className="srv-toast-text">{feedback}</span>
+                        <button className="srv-toast-close" onClick={clearToast} aria-label="Cerrar">×</button>
+                    </div>
+                )}
                 {!guidedError && (errores.rol || errores.etapa || errores.dia || errores.semana || errores.culto) && (
                     <div className="srv-error srv-error--center" style={{ marginTop: 6 }}>
                         {[errores.rol, errores.etapa, errores.dia, errores.semana, errores.culto].filter(Boolean).join(' • ')}
@@ -1192,7 +1310,7 @@ export default function Servidores() {
                             </div>
                             <div className="srv-actions" style={{ marginTop: 14 }}>
                                 <button className="srv-btn" onClick={() => setConfirmDetalleDelete(false)}>Cancelar</button>
-                                <button className="srv-btn" style={{ background: '#ffe8e8' }} onClick={eliminarDesdeDetalle} disabled={busy}>
+                                <button className="srv-btn" style={{ background: '#ffe8e8' }} onClick={() => eliminarByCedula(detalleSel.cedula)} disabled={busy}>
                                     {busy ? 'Eliminando…' : 'Eliminar'}
                                 </button>
                             </div>
@@ -1259,6 +1377,7 @@ export default function Servidores() {
                     padding: 6px 2px 2px;
                 }
                 .search-item{
+                    position: relative;
                     text-align: left;
                     width: 100%;
                     border: 1px solid rgba(0,0,0,0.06);
@@ -1270,7 +1389,7 @@ export default function Servidores() {
                             inset -1px -1px 3px rgba(0,0,0,.05),
                             0 10px 18px rgba(0,0,0,.08);
                     cursor: pointer;
-                    transition: transform .08s ease, box-shadow .12s ease, border-color .12s ease;
+                    transition: transform .08s ease, box-shadow .12s ease, border-color .12s ease, background .12s ease;
                 }
                 .search-item:hover{
                     transform: translateY(-1px);
@@ -1281,11 +1400,30 @@ export default function Servidores() {
                     border-color: rgba(88,132,255,.25);
                 }
                 .search-item.is-active{
-                    border-color: rgba(88,132,255,.45);
+                    transform: translateY(-1.5px);
+                    border-color: rgba(88,132,255,.6);
+                    background: linear-gradient(180deg, rgba(250,253,255,.95), rgba(235,243,255,.90));
                     box-shadow:
-                            inset 2px 2px 6px rgba(255,255,255,.92),
+                            inset 2px 2px 6px rgba(255,255,255,.95),
                             inset -2px -2px 6px rgba(0,0,0,.06),
-                            0 18px 34px rgba(88,132,255,.18);
+                            0 12px 24px rgba(88,132,255,.18),
+                            0 0 0 3px rgba(88,132,255,.25);
+                    outline: none;
+                }
+                .search-item.is-active::before{
+                    content: '';
+                    position: absolute; left: 0; top: 0; bottom: 0; width: 6px;
+                    border-radius: 14px 0 0 14px;
+                    background: linear-gradient(180deg, #8bb6ff, #5e8eff);
+                }
+                .search-item:focus-visible{
+                    outline: none;
+                    box-shadow:
+                            inset 2px 2px 6px rgba(255,255,255,.95),
+                            inset -2px -2px 6px rgba(0,0,0,.06),
+                            0 12px 24px rgba(88,132,255,.18),
+                            0 0 0 3px rgba(88,132,255,.3);
+                    border-color: rgba(88,132,255,.6);
                 }
                 .search-line{
                     display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap;
@@ -1296,6 +1434,7 @@ export default function Servidores() {
                     font-size: 16px;
                     letter-spacing: .1px;
                 }
+                .search-item.is-active .search-name{ color: #0a2a6b; }
                 .search-meta{
                     display: flex;
                     flex-wrap: wrap;
@@ -1394,8 +1533,34 @@ export default function Servidores() {
                     cursor: pointer; font-weight: 600;
                     box-shadow: inset 1px 1px 3px rgba(255,255,255,.8), inset -1px -1px 3px rgba(0,0,0,.05);
                 }
+                .view-item:hover{
+                    transform: translateY(-1px);
+                    border-color: rgba(88,132,255,.35);
+                    background: linear-gradient(180deg, rgba(255,255,255,.96), rgba(240,246,255,.92));
+                    box-shadow:
+                        inset 2px 2px 6px rgba(255,255,255,.92),
+                        inset -2px -2px 6px rgba(0,0,0,.06),
+                        0 0 0 3px rgba(88,132,255,.18);
+                }
                 .view-item.is-active{ border-color: rgba(88,132,255,.45); box-shadow: inset 2px 2px 6px rgba(255,255,255,.92), inset -2px -2px 6px rgba(0,0,0,.06), 0 6px 12px rgba(88,132,255,.15); }
                 .view-item-danger{ color: #8a1f1f; background: linear-gradient(180deg, #fff3f3, #ffe8e8); border-color: rgba(195,40,40,.25); }
+                .view-item-danger:hover{
+                    transform: translateY(-1px);
+                    border-color: rgba(195,40,40,.45);
+                    background: linear-gradient(180deg, #fff0f0, #ffe2e2);
+                    box-shadow:
+                        inset 2px 2px 6px rgba(255,255,255,.95),
+                        inset -2px -2px 6px rgba(0,0,0,.06),
+                        0 0 0 3px rgba(195,40,40,.15);
+                }
+                .view-item:focus-visible, .view-item-danger:focus-visible{
+                    outline: none;
+                    border-color: rgba(88,132,255,.55);
+                    box-shadow:
+                        inset 2px 2px 6px rgba(255,255,255,.95),
+                        inset -2px -2px 6px rgba(0,0,0,.06),
+                        0 0 0 3px rgba(88,132,255,.25);
+                }
                 .view-title{ margin: 0 0 10px; font-size: 16px; font-weight: 800; }
                 .view-grid{ display: grid; grid-template-columns: 1fr; gap: 8px; }
                 .view-row{ display: flex; gap: 8px; font-size: 14px; }
@@ -1406,6 +1571,26 @@ export default function Servidores() {
                 .view-obs-text{ font-size: 14px; }
                 .view-obs-date{ font-size: 12px; opacity: .6; margin-top: 4px; }
                 .view-obs-empty{ opacity: .7; font-size: 13px; padding: 8px 2px; }
+                /* Toast de feedback (Mac 2025) */
+                .srv-toast{
+                    position: relative;
+                    margin-top: 10px;
+                    padding: 10px 38px 10px 36px;
+                    border-radius: 14px;
+                    background: radial-gradient(120% 140% at 0% 0%, rgba(255,255,255,0.9), rgba(246,248,255,0.9));
+                    border: 1px solid rgba(0,0,0,0.06);
+                    box-shadow: inset 2px 2px 6px rgba(255,255,255,.9), inset -2px -2px 6px rgba(0,0,0,.06), 0 16px 28px rgba(0,0,0,.12);
+                    display: flex; align-items: center; gap: 10px;
+                }
+                .srv-toast-icon{ position: absolute; left: 10px; display: inline-flex; align-items: center; justify-content: center; }
+                .srv-toast-text{ font-size: 14px; color: #0b0b0b; }
+                .srv-toast-close{
+                    position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+                    width: 24px; height: 24px; border-radius: 8px; border: 1px solid rgba(0,0,0,0.06);
+                    background: linear-gradient(180deg, rgba(255,255,255,.95), rgba(248,250,255,.9));
+                    cursor: pointer; font-size: 16px; line-height: 1; opacity: .85;
+                    box-shadow: inset 1px 1px 3px rgba(255,255,255,.85), inset -1px -1px 3px rgba(0,0,0,.05);
+                }
                 /* Confirmación eliminar */
                 .confirm-box{
                     max-width: 520px;
