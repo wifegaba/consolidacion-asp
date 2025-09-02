@@ -278,7 +278,12 @@ export default function Servidores() {
                 .eq('activo', true)
                 .limit(20);
 
-            if (!error && data) setResults(data as ServidorRow[]);
+            if (!error && data) {
+                // Forzar el tipo evitando el error de GenericStringError[] en build
+                setResults((data as unknown) as ServidorRow[]);
+            } else {
+                setResults([]);
+            }
             setSearching(false);
         }, 300);
 
