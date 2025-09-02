@@ -340,3 +340,46 @@
 }
 
 
+/* --- Mac 2025 look & feel (transparente) --- */
+/* Solo estilos contenedor, sin cambiar dropdowns ni modales */
+
+.srv-root {
+  padding: 8px 10px;
+  background: transparent !important;
+}
+
+.srv-box {
+  position: relative;
+  max-width: 1040px;
+  margin: 0 auto;
+  padding: 16px 18px;
+  border-radius: 18px;
+  background: transparent; /* sin fondo nuevo */
+  border: 1px solid rgba(255,255,255,0.08);
+  box-shadow:
+    0 12px 28px rgba(0,0,0,0.22),
+    inset 0 1px 0 rgba(255,255,255,0.06);
+  backdrop-filter: saturate(1.05) blur(4px);
+}
+
+.srv-box:hover {
+  box-shadow:
+    0 14px 32px rgba(0,0,0,0.25),
+    inset 0 1px 0 rgba(255,255,255,0.07),
+    0 0 0 2px rgba(88,132,255,0.16);
+  border-color: rgba(255,255,255,0.12);
+}
+
+.srv-title {
+  margin: 2px 0 12px;
+  padding: 2px 2px 8px;
+  border-radius: 10px;
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: .2px;
+  color: #e9ecf5;
+  background: transparent; /* sin barra gris */
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+
+.srv-row-first { margin-top: 6px; }

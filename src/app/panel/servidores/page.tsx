@@ -205,7 +205,7 @@ export default function Servidores() {
     const [editMode, setEditMode] = useState(false);
 
     useEffect(() => {
-        inputNombreRef.current?.focus();
+        
     }, []);
 
     /* ========================= MODALES ========================= */
@@ -577,6 +577,11 @@ export default function Servidores() {
             }
 
             if (rolEs(form.rol, 'Contactos')) {
+                // Desactivar asignaciones de otras áreas
+                if (sid) {
+                    await supabase.from('asignaciones_maestro').update({ vigente: false }).eq('servidor_id', sid);
+                    await supabase.from('asignaciones_logistica').update({ vigente: false }).eq('servidor_id', sid);
+                }
                 const etapaDet = toEtapaDetFromUi(nivelSeleccionado || '');
                 if (!etapaDet) throw new Error('Etapa inválida. Elija por ejemplo "Semillas 1".');
 
@@ -591,6 +596,11 @@ export default function Servidores() {
                 });
                 if (error) throw error;
             } else if (rolEs(form.rol, 'Maestros')) {
+                // Desactivar asignaciones de otras áreas
+                if (sid) {
+                    await supabase.from('asignaciones_contacto').update({ vigente: false }).eq('servidor_id', sid);
+                    await supabase.from('asignaciones_logistica').update({ vigente: false }).eq('servidor_id', sid);
+                }
                 const etapaDet = toEtapaDetFromUi(nivelSeleccionado || '');
                 if (!etapaDet) throw new Error('Etapa inválida. Elija por ejemplo "Semillas 1".');
 
@@ -603,7 +613,24 @@ export default function Servidores() {
                 });
                 if (error) throw error;
             } else if (rolEs(form.rol, 'Logistica')) {
-                // Pendiente: RPC logística si aplica
+                // Desactivar asignaciones anteriores de otras áreas
+                if (sid) {
+                    await supabase.from('asignaciones_contacto').update({ vigente: false }).eq('servidor_id', sid);
+                    await supabase.from('asignaciones_maestro').update({ vigente: false }).eq('servidor_id', sid);
+                    await supabase.from('asignaciones_logistica').update({ vigente: false }).eq('servidor_id', sid);
+                }
+                // Crear nueva asignación de logística a partir de 'cultoSeleccionado'
+                const full = trim(form.cultoSeleccionado);
+                if (!full) throw new Error('Seleccione una hora de culto para Logística.');
+                const parts = full.split(' - ');
+                const diaCulto = (parts[0] || '').trim();
+                const franja = (parts[1] || '').trim();
+                if (!diaCulto || !franja) throw new Error('Selección de culto inválida.');
+                // Insert directo; el tipo enum de dia_culto debe coincidir con el texto
+                const ins = await supabase
+                    .from('asignaciones_logistica')
+                    .insert({ servidor_id: sid, dia_culto: diaCulto, franja, vigente: true });
+                if (ins.error) throw ins.error;
             }
 
             // Guardar observación, si existe
@@ -613,7 +640,8 @@ export default function Servidores() {
             } else {
                 toastShow('success', (wasEdit ? 'Actualizado, ' : 'Guardado, ') + 'pero no se pudo guardar la observación.');
             }
-            // Limpiar campos tras éxito (tanto Guardar como Actualizar)
+            // Actualiza el rol vigente y limpia el formulario tras éxito
+            await upsertRolVigente();
             resetFormulario();
         } catch (e: any) {
             toastShow('error', `Error al guardar: ${e?.message ?? e}`);
@@ -631,6 +659,43 @@ export default function Servidores() {
             .maybeSingle();
         if (error || !data) return null;
         return (data as any).id as string;
+    };
+
+    // Mapea el rol del UI al valor esperado en DB
+    const mapRolForDB = (rolUi: string): string => {
+        const r = trim(rolUi);
+        if (!r) return r;
+        // Si viene "Timoteo - Contactos/Maestros/Logistica", guardamos como "Timoteos"
+        if (r.toLowerCase().startsWith('timoteo')) return 'Timoteos';
+        return r;
+    };
+
+    // Actualiza la tabla servidores_roles dejando vigente solo el rol actual
+    const upsertRolVigente_legacy = async () => {
+        try {
+            const sid = await findServidorIdByCedula(trim(form.cedula));
+            const rolDb = mapRolForDB(form.rol);
+            if (sid && rolDb) {
+                await supabase.from('servidores_roles').update({ vigente: false }).eq('servidor_id', sid);
+                await supabase.from('servidores_roles').insert({ servidor_id: sid, rol: rolDb, vigente: true });
+            }
+        } catch (e) {
+            console.warn('No se pudo actualizar servidores_roles:', e);
+        }
+    };
+
+    // Actualiza la tabla servidores_roles dejando vigente solo el rol actual
+    const upsertRolVigente = async () => {
+        try {
+            const sid = await findServidorIdByCedula(trim(form.cedula));
+            const rolActual = trim(form.rol);
+            if (sid && rolActual) {
+                await supabase.from('servidores_roles').update({ vigente: false }).eq('servidor_id', sid);
+                await supabase.from('servidores_roles').insert({ servidor_id: sid, rol: rolActual, vigente: true });
+            }
+        } catch (e) {
+            console.warn('No se pudo actualizar servidores_roles:', e);
+        }
     };
 
     // Eliminar por cédula desde el modal de detalle, replicando la lógica del formulario
@@ -770,7 +835,9 @@ export default function Servidores() {
     return (
         <div className="srv-root">
             <div className="srv-box" id="form-servidores">
-                <div className="srv-title">Registro de Servidores</div>
+                <div className="srv-form-title" style={{ fontSize: 24, fontWeight: 900, color: '#0a0a0a', marginBottom: 16 }}>
+                    Registro de Servidores
+                </div>
 
                 {/* Modal TIMOTEO */}
                 {timoteoModalVisible && (
