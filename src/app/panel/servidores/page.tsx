@@ -276,10 +276,10 @@ export default function Servidores() {
                 .select(sel)
                 .or(`nombre.ilike.%${term}%,telefono.ilike.%${term}%,cedula.ilike.%${term}%`)
                 .eq('activo', true)
-                .limit(20);
+                .limit(20)
+                .returns<ServidorRow[]>();
 
             if (!error && data) {
-                // Forzar el tipo evitando el error de GenericStringError[] en build
                 setResults((data as unknown) as ServidorRow[]);
             } else {
                 setResults([]);
