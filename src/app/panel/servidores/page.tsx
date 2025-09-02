@@ -6,6 +6,10 @@ import { supabase } from '@/lib/supabaseClient';
 /* ========= Tipos ========= */
 type AppEstudioDia = 'Domingo' | 'Martes' | 'Virtual';
 
+
+
+
+
 type Errores = {
     nombre?: string | null;
     telefono?: string | null;
