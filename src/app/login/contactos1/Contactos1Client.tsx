@@ -1,7 +1,7 @@
-'use client';
+﻿'use client';
 
 import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
 
 /* ================= Tipos ================= */
@@ -77,10 +77,9 @@ function mapEtapaToBase(etapa: Etapa): {
 }
 
 /* ================= Página (Client) ================= */
-export default function Contactos1Client() {
+export default function Contactos1Client({ cedula: cedulaProp }: { cedula?: string }) {
     const router = useRouter();
-    const params = useSearchParams();
-    const cedula = normalizeCedula(params?.get('cedula') ?? '');
+        const cedula = normalizeCedula(cedulaProp ?? '');
 
     const [nombre, setNombre] = useState('');
     const [asig, setAsig] = useState<AsignacionContacto | null>(null);
@@ -134,7 +133,7 @@ export default function Contactos1Client() {
             ) as AsignacionContacto | undefined;
 
             if (!asigVig) {
-                router.replace(`/bienvenida?cedula=${cedula}`);
+                router.replace(`/bienvenida`);
                 return;
             }
 
@@ -351,7 +350,7 @@ export default function Contactos1Client() {
                     <h1 className="text-[22px] md:text-[28px] font-semibold text-neutral-900">
                         Llamadas pendientes {tituloEtapa}
                     </h1>
-                    {semana && dia && <span className="text-neutral-500 text-sm">Semana {semana} • {dia}</span>}
+                    {semana && dia && <span className="text-neutral-500 text-sm">Semana {semana} · {dia}</span>}
                 </header>
 
                 {/* Filtros (bloqueados a la asignación del contacto) */}
@@ -546,7 +545,7 @@ function FollowUp({
                     </div>
                     <div>
                         <div className="text-base md:text-lg font-semibold text-neutral-900 leading-tight">{row.nombre}</div>
-                        <div className="text-[12px] text-neutral-500 leading-none">Semana {semana} • {dia}</div>
+                        <div className="text-[12px] text-neutral-500 leading-none">Semana {semana} · {dia}</div>
                         <div className="text-[11px] text-neutral-600 mt-1 space-y-0.5">
                             {[row.llamada1 ?? null, row.llamada2 ?? null, row.llamada3 ?? null].map((r, idx) => (
                                 <div key={idx}>
@@ -584,13 +583,13 @@ function FollowUp({
             <div className="mt-4">
                 <label className="text-xs text-neutral-500">Observaciones</label>
                 <textarea
-                    className="mt-1 w/full min-h-[100px] rounded-lg ring-1 ring-black/10 px-3 py-2 bg-neutral-50 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                    aria-label="Observaciones" className="mt-1 w-full min-h-[120px] resize-y rounded-2xl border border-slate-200/80 bg-white/90 px-4 py-3 text-[14px] text-slate-800 placeholder-slate-400 shadow-inner focus:outline-none focus:ring-4 focus:ring-sky-200 focus:border-sky-300 transition"
                     placeholder="Escribe aquí las observaciones..."
                     value={obs}
                     onChange={(e) => setObs(e.target.value)}
                 />
-            </div>
 
+            </div>
             <div className="mt-4">
                 <button disabled={!resultado || saving} onClick={() => resultado && onSave({ resultado, notas: obs || undefined })} className="rounded-xl bg-neutral-900 text-white px-4 py-2 shadow-md hover:shadow-lg transition disabled:opacity-60">
                     {saving ? 'Guardando…' : 'Enviar informe'}
@@ -599,3 +598,6 @@ function FollowUp({
         </div>
     );
 }
+
+
+

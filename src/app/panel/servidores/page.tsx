@@ -144,10 +144,10 @@ const parseEtapaDetFromDb = (
 };
 
 const roleFromRow = (s: ServidorRow): string => {
-    if (s.asignaciones_contacto?.length) return 'Contactos';
-    if (s.asignaciones_maestro?.length) return 'Maestros';
+    if (s.asignaciones_contacto?.some(a => a?.vigente)) return 'Contactos';
+    if (s.asignaciones_maestro?.some(a => a?.vigente)) return 'Maestros';
     return '—';
-};
+};;
 
 /* ========= Componente ========= */
 export default function Servidores() {
@@ -278,6 +278,17 @@ export default function Servidores() {
     const [obsItems, setObsItems] = useState<ObservacionRow[]>([]);
     const [confirmDetalleDelete, setConfirmDetalleDelete] = useState(false);
 
+    // Volver al modal de búsqueda desde el detalle
+    const volverABuscar = () => {
+        setConfirmDetalleDelete(false);
+        setDetalleVisible(false);
+        setDetalleSel(null);
+        setQ('');
+        setResults([]);
+        setFocusIndex(0);
+        setBuscarModalVisible(true);
+    };
+
     // Búsqueda online con debounce; sin resultados si no hay término suficiente
     useEffect(() => {
         if (!buscarModalVisible) return;
@@ -302,6 +313,10 @@ export default function Servidores() {
                 .select(sel)
                 .or(`nombre.ilike.%${term}%,telefono.ilike.%${term}%,cedula.ilike.%${term}%`)
                 .eq('activo', true)
+                .order('vigente', { foreignTable: 'asignaciones_contacto', ascending: false })
+                .order('id', { foreignTable: 'asignaciones_contacto', ascending: false })
+                .order('vigente', { foreignTable: 'asignaciones_maestro', ascending: false })
+                .order('id', { foreignTable: 'asignaciones_maestro', ascending: false })
                 .limit(20)
                 .returns<ServidorRow[]>();
 
@@ -1337,8 +1352,8 @@ export default function Servidores() {
                                             <div className="view-row"><label>Teléfono:</label> <span>{detalleSel.telefono || '—'}</span></div>
                                             <div className="view-row"><label>Cédula:</label> <span>{detalleSel.cedula || '—'}</span></div>
                                             <div className="view-row"><label>Rol:</label> <span>{roleFromRow(detalleSel)}</span></div>
-                                            <div className="view-row"><label>Día:</label> <span>{(detalleSel.asignaciones_contacto?.[0]?.dia || detalleSel.asignaciones_maestro?.[0]?.dia || '—')}</span></div>
-                                            <div className="view-row"><label>Etapa:</label> <span>{(detalleSel.asignaciones_contacto?.[0]?.etapa || detalleSel.asignaciones_maestro?.[0]?.etapa || '—')}</span></div>
+                                            <div className="view-row"><label>Día:</label> <span>{((detalleSel.asignaciones_contacto?.find(a => a.vigente)?.dia ?? detalleSel.asignaciones_maestro?.find(a => a.vigente)?.dia) || (detalleSel.asignaciones_contacto?.find(a => a.vigente)?.dia ?? detalleSel.asignaciones_maestro?.find(a => a.vigente)?.dia) || '—')}</span></div>
+                                            <div className="view-row"><label>Etapa:</label> <span>{((detalleSel.asignaciones_contacto?.find(a => a.vigente)?.etapa ?? detalleSel.asignaciones_maestro?.find(a => a.vigente)?.etapa) || (detalleSel.asignaciones_contacto?.find(a => a.vigente)?.etapa ?? detalleSel.asignaciones_maestro?.find(a => a.vigente)?.etapa) || '—')}</span></div>
                                         </div>
                                         <h4 className="view-title" style={{ marginTop: 16 }}>Historial de Observaciones</h4>
                                         <div className="view-obs">
@@ -1379,6 +1394,7 @@ export default function Servidores() {
                                 <button className={`view-item${detalleTab === 'datos' ? ' is-active' : ''}`} onClick={() => setDetalleTab('datos')}>Datos Personales</button>
                                 <button className={`view-item${detalleTab === 'actualizar' ? ' is-active' : ''}`} onClick={() => setDetalleTab('actualizar')}>Actualizar Datos</button>
                                 <button className="view-item view-item-danger" onClick={() => setConfirmDetalleDelete(true)}>Eliminar Servidor</button>
+                                <button className="view-item" onClick={volverABuscar}>Atras</button>
                             </aside>
                         </div>
                     </div>

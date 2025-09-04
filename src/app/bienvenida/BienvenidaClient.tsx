@@ -4,12 +4,12 @@ import { useEffect, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
 
-export default function BienvenidaClient() {
+export default function BienvenidaClient({ cedula: cedulaProp }: { cedula?: string }) {
     const search = useSearchParams();
     const router = useRouter();
 
     // ✅ uso seguro de search params
-    const cedula: string = search?.get('cedula') ?? '';
+    const cedula: string = cedulaProp ?? (search?.get('cedula') ?? '');
 
     const [nombre, setNombre] = useState('');
     const [rol, setRol] = useState('');
@@ -94,9 +94,7 @@ export default function BienvenidaClient() {
                     {rol === 'contactos' && (
                         <button
                             className="w-full bg-blue-600 text-white py-4 rounded-lg hover:bg-blue-700 transition"
-                            onClick={() =>
-                                router.push(`/login/contactos1?cedula=${encodeURIComponent(cedula)}`)
-                            }
+                            onClick={() => router.push(`/login/contactos1`)}
                         >
                             📞 Llamadas pendientes
                         </button>
@@ -105,9 +103,7 @@ export default function BienvenidaClient() {
                     {rol === 'maestro' && (
                         <button
                             className="w-full bg-green-600 text-white py-4 rounded-lg hover:bg-green-700 transition"
-                            onClick={() =>
-                                router.push(`/login/maestros?cedula=${encodeURIComponent(cedula)}`)
-                            }
+                            onClick={() => router.push(`/login/maestros`)}
                         >
                             📋 Asistencias de hoy
                         </button>

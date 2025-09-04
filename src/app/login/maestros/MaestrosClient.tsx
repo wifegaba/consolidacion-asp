@@ -80,25 +80,33 @@ const norm = (t: string) =>
         .toLowerCase()
         .trim();
 
-/** "Semilla 3" | "Devocionales 2" | "Restauracion 1" -> etapaBase + módulo */
+/** Filtro "Semilla 3" | "Devocionales 2" | "Restauracion 1" -> etapaBase + módulo */
 function mapEtapaDetToBase(etapaDet: string): {
-    etapaBase: 'Semillas' | 'Devocionales' | 'Restauracion';
-    modulo: 1 | 2 | 3 | 4;
+  etapaBase: 'Semillas' | 'Devocionales' | 'Restauracion';
+  modulo: 1 | 2 | 3 | 4;
+  hasModulo: boolean;
 } {
-    const t = norm(etapaDet);
-    const m = /^(semilla|devocionales|restauracion)\s+(\d+)/.exec(t);
-    if (!m) return { etapaBase: 'Semillas', modulo: 1 };
-    const num = Math.max(1, Math.min(4, parseInt(m[2], 10))) as 1 | 2 | 3 | 4;
-    if (m[1] === 'semilla') return { etapaBase: 'Semillas', modulo: num };
-    if (m[1] === 'devocionales') return { etapaBase: 'Devocionales', modulo: num };
-    return { etapaBase: 'Restauracion', modulo: 1 };
+  const t = norm(etapaDet);
+
+  if (t.startsWith('semilla')) {
+    const num = Number((t.match(/\d+/)?.[0] ?? '1'));
+    return { etapaBase: 'Semillas', modulo: Math.min(4, Math.max(1, num)) as 1|2|3|4, hasModulo: true };
+  }
+
+  if (t.startsWith('devocional')) {
+    const num = Number((t.match(/\d+/)?.[0] ?? '1'));
+    return { etapaBase: 'Devocionales', modulo: Math.min(4, Math.max(1, num)) as 1|2|3|4, hasModulo: true };
+  }
+
+  return { etapaBase: 'Restauracion', modulo: 1, hasModulo: false };
 }
 
+
 /* ================= Página ================= */
-export default function MaestrosClient() {
+export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string }) {
     const router = useRouter();
     const params = useSearchParams();
-    const cedula = normalizeCedula(params?.get('cedula') ?? '');
+    const cedula = normalizeCedula((cedulaProp ?? params?.get('cedula') ?? ''));
 
     const [nombre, setNombre] = useState('');
     const [asig, setAsig] = useState<MaestroAsignacion | null>(null);

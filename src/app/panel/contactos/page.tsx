@@ -153,7 +153,7 @@ export default function PersonaNueva() {
     const cacheSugs = useRef(new Map<string, { ts: number; data: Registro[] }>()).current;
     const TTL_MS = 60_000, MIN_CHARS = 3, DEBOUNCE_MS = 350;
 
-    useEffect(() => { inputNombreRef.current?.focus(); }, []);
+    
     useEffect(() => { if (modalBuscarVisible) setTimeout(() => inputBusquedaModalRef.current?.focus(), 0); }, [modalBuscarVisible]);
 
     const toast = (msg: string) => {
@@ -185,7 +185,7 @@ export default function PersonaNueva() {
         setReactivarDesdeArchivo(false);
         personaArchivoIdRef.current = null;
         progresoArchivoIdRef.current = null;
-        inputNombreRef.current?.focus(); cacheSugs.clear();
+       
     };
 
     const handleGuardar = async () => {
