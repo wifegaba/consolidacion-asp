@@ -75,8 +75,8 @@ const normalizeCedula = (s: string) => (s || '').replace(/\D+/g, '');
 const norm = (t: string) =>
   (t ?? '')
     .normalize('NFD')
-    // @ts-ignore
-    .replace(/\p{Diacritic}/gu, '')
+    // Elimina marcas diacríticas de forma compatible sin @ts-ignore
+    .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase()
     .trim();
 
@@ -878,4 +878,3 @@ function FollowUp({
     </div>
   );
 }
-
