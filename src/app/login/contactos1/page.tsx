@@ -6,8 +6,8 @@ import Contactos1Client from "./Contactos1Client";
 export const dynamic = "force-dynamic";
 export const fetchCache = "force-no-store";
 
-export default function Page() {
-    const cookieStore = cookies();
+export default async function Page() {
+    const cookieStore = await cookies();
     const isProd = process.env.NODE_ENV === 'production';
     const COOKIE_NAME = isProd ? '__Host-session' : 'session';
     const token = cookieStore.get(COOKIE_NAME)?.value;
