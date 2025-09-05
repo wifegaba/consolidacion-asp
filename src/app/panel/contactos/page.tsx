@@ -671,7 +671,7 @@ export default function PersonaNueva() {
                 </div>
 
                 {/* Botones */}
-                <div className="btn-container" style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                <div className="btn-container">
                     <button className="btn-minimal" onClick={handleGuardar} style={{ backgroundColor: (modoEdicion || reactivarDesdeArchivo) ? 'orange' : '' }}>
                         {(modoEdicion || reactivarDesdeArchivo) ? 'Actualizar / Reactivar' : 'Guardar'}
                     </button>

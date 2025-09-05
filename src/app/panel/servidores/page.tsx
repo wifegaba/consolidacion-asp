@@ -1734,6 +1734,11 @@ export default function Servidores() {
                     display: flex; flex-direction: column; gap: 8px;
                     box-shadow: inset 2px 2px 6px rgba(255,255,255,.8), inset -2px -2px 6px rgba(0,0,0,.06);
                 }
+                /* Layout del detalle en dos tarjetas verticales SOLO en responsive */
+                @media (max-width: 900px){
+                    .view-layout{ grid-template-columns: 1fr; }
+                    .view-sidebar{ margin-top: 14px; width: 100%; }
+                }
                 .view-item{
                     text-align: left; padding: 10px 12px; border-radius: 12px;
                     border: 1px solid rgba(0,0,0,0.06);
@@ -1839,6 +1844,18 @@ export default function Servidores() {
                 }
                 .list-table{ width: 100%;  border:1px solid rgba(0,0,0,.06); border-radius:14px; overflow:hidden; background:linear-gradient(180deg, rgba(255,255,255,.92), rgba(246,248,255,.86)); box-shadow: inset 2px 2px 6px rgba(255,255,255,.85), inset -2px -2px 6px rgba(0,0,0,.05); }
                 .list-row{ display:grid; grid-template-columns: 28px 1fr 1fr .9fr .9fr .9fr .8fr 150px; align-items:center; padding:8px 10px; border-bottom:1px solid rgba(0,0,0,.05); }
+                /* Responsive: mostrar solo Nombre, Rol y Etapa */
+                @media (max-width: 640px){
+                    .list-row{ grid-template-columns: 1fr .8fr .8fr; }
+                    .list-row .col-name{ grid-column: 1; }
+                    .list-row .col-rol{ grid-column: 2; }
+                    .list-row .col-etp{ grid-column: 3; }
+                    .list-table .col-idx,
+                    .list-table .col-tel,
+                    .list-table .col-ced,
+                    .list-table .col-dia,
+                    .list-table .col-act{ display: none; }
+                }
                 .list-head{ background:linear-gradient(180deg, rgba(245,247,255,.95), rgba(234,238,255,.9)); font-weight:800; letter-spacing:.3px; }
                 .list-row:last-child{ border-bottom:0; }
                 .list-cell{ font-size:14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -1849,6 +1866,47 @@ export default function Servidores() {
                 .list-select{ padding:8px 12px; color:#fff; border-color: rgba(59,91,253,.45) !important; background: linear-gradient(180deg, #5b7cff, #3b5bfd) !important; box-shadow: inset 1px 1px 3px rgba(255,255,255,.35), 0 10px 20px rgba(59,91,253,.18) !important; }
                 .list-select:hover{ filter: brightness(1.03); box-shadow: inset 1px 1px 3px rgba(255,255,255,.35), 0 14px 26px rgba(59,91,253,.24) !important; }
                 .list-select:focus-visible{ outline: none; box-shadow: 0 0 0 3px rgba(88,132,255,.28), inset 1px 1px 3px rgba(255,255,255,.35) !important; }
+
+                /* ===== Listado en tarjetas (solo responsive) ===== */
+                @media (max-width: 640px){
+                    /* contenedor del modal listado con layout de columna y scroll interno */
+                    .list-box{ display:flex; flex-direction:column; max-height: 92dvh; }
+                    .list-table{ flex: 1 1 auto; min-height: 0; overflow: auto; }
+                    .list-pager{ flex: 0 0 auto; }
+
+                    .list-header{ margin-bottom: 8px; }
+                    .list-head{ display: none; }
+                    .list-table{ border: none; background: transparent; box-shadow: none; }
+                    .list-row{
+                        grid-template-columns: 1fr;
+                        gap: 6px;
+                        margin: 10px 0;
+                        padding: 12px;
+                        border-radius: 14px;
+                        background: linear-gradient(180deg, rgba(255,255,255,.96), rgba(246,248,255,.92));
+                        box-shadow: inset 2px 2px 6px rgba(255,255,255,.85), inset -2px -2px 6px rgba(0,0,0,.05), 0 8px 18px rgba(0,0,0,.06);
+                        border: 1px solid rgba(0,0,0,.06);
+                    }
+                    .list-cell{ display: block; white-space: normal; }
+                    .col-idx{ display: none; }
+                    /* Orden de presentación */
+                    .col-name{ order: 1; font-weight: 800; font-size: 16px; color:#0b0b0b; }
+                    .col-tel{ order: 2; }
+                    .col-ced{ order: 3; }
+                    .col-etp{ order: 4; }
+                    .col-dia{ order: 5; }
+                    .col-rol{ order: 6; }
+                    .col-act{ order: 7; }
+                    /* Etiquetas antes del valor */
+                    .col-tel::before{ content: 'Teléfono: '; font-weight: 700; opacity:.85; }
+                    .col-ced::before{ content: 'Cédula: '; font-weight: 700; opacity:.85; }
+                    .col-etp::before{ content: 'Etapa: '; font-weight: 700; opacity:.85; }
+                    .col-dia::before{ content: 'Día: '; font-weight: 700; opacity:.85; }
+                    .col-rol::before{ content: 'Rol: '; font-weight: 700; opacity:.85; }
+                    /* Botón seleccionar al ancho de la tarjeta */
+                    .list-table .col-act{ display: block !important; margin-top: 6px; }
+                    .col-act .list-select{ width: 100%; justify-content: center; }
+                }
                 .list-pager{ display:flex; justify-content:center; align-items:center; gap:14px; margin-top:12px; }
                 .pager-btn{ padding:8px 12px; border-radius:12px; border:1px solid rgba(0,0,0,.08); background:linear-gradient(180deg, rgba(255,255,255,.95), rgba(246,248,255,.9)); font-weight:700; box-shadow: inset 1px 1px 3px rgba(255,255,255,.85), inset -1px -1px 3px rgba(0,0,0,.05); }
                 .pager-btn:disabled{ opacity:.5; cursor:not-allowed; }

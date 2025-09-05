@@ -214,7 +214,7 @@ function DevCard({
             aria-label={`Abrir ${CARD_TITLE} ${id}`}
             className={`
         group relative rounded-[16px]
-        w-full h-[100px]
+        w-full h-[84px] md:h-[100px]
         bg-gradient-to-br ${grad} text-white ring-1 ring-white/30
         shadow-[0_10px_24px_-10px_rgba(16,24,40,.30)]
         hover:shadow-[0_18px_40px_-12px_rgba(16,24,40,.40)] transition
@@ -240,7 +240,7 @@ function DevCard({
             )}
 
             {/* Texto centrado arriba */}
-            <div className="pointer-events-none absolute left-0 right-0 top-[10px] text-center">
+            <div className="pointer-events-none absolute left-0 right-0 top-[8px] md:top-[10px] text-center">
                 <div
                     className="text-[13px] md:text-[14px] font-semibold leading-none tracking-[.02em] drop-shadow-[0_1px_1px_rgba(0,0,0,.25)]"
                     style={{ fontFamily: `-apple-system, BlinkMacSystemFont, 'SF Pro Display', Inter, 'Helvetica Neue', Arial, sans-serif` }}
@@ -248,7 +248,7 @@ function DevCard({
                     {CARD_TITLE}
                 </div>
                 <div
-                    className="mt-1 text-[30px] md:text-[34px] font-extrabold leading-none tracking-[-0.01em] drop-shadow-[0_1px_1px_rgba(0,0,0,.25)]"
+                    className="mt-1 text-[26px] md:text-[34px] font-extrabold leading-none tracking-[-0.01em] drop-shadow-[0_1px_1px_rgba(0,0,0,.25)]"
                     style={{ fontFamily: `-apple-system, BlinkMacSystemFont, 'SF Pro Display', Inter, 'Helvetica Neue', Arial, sans-serif` }}
                 >
                     {id}
@@ -685,17 +685,17 @@ export default function PageDevocionales() {
                 </header>
 
                 {/* Devocionales */}
-                <div className="flex flex-nowrap items-stretch gap-6">
-                    <div className="basis-1/4 min-w-0">
+                <div className="flex flex-col gap-4 md:flex-row md:flex-nowrap md:items-stretch md:gap-6">
+                    <div className="w-full md:basis-1/4 md:min-w-0">
                         <DevCard index={0} id="1" onClick={() => handleOpen(1)} selected={selectedDevCard === 1} />
                     </div>
-                    <div className="basis-1/4 min-w-0">
+                    <div className="w-full md:basis-1/4 md:min-w-0">
                         <DevCard index={1} id="2" onClick={() => handleOpen(2)} selected={selectedDevCard === 2} />
                     </div>
-                    <div className="basis-1/4 min-w-0">
+                    <div className="w-full md:basis-1/4 md:min-w-0">
                         <DevCard index={2} id="3" onClick={() => handleOpen(3)} selected={selectedDevCard === 3} />
                     </div>
-                    <div className="basis-1/4 min-w-0">
+                    <div className="w-full md:basis-1/4 md:min-w-0">
                         <DevCard index={3} id="4" onClick={() => handleOpen(4)} selected={selectedDevCard === 4} />
                     </div>
                 </div>
@@ -787,8 +787,8 @@ export default function PageDevocionales() {
                             >
                                 Llamadas pendientes
                             </h2>
-                            <div className="flex flex-nowrap items-stretch gap-6 mt-3">
-                                <div className="basis-1/3 min-w-0">
+                            <div className="flex flex-col gap-4 md:flex-row md:flex-nowrap md:items-stretch md:gap-6 mt-3">
+                                <div className="w-full md:basis-1/3 md:min-w-0">
                                     <WeekCard
                                         week={1}
                                         onPick={(day) => {
@@ -798,7 +798,7 @@ export default function PageDevocionales() {
                                         }}
                                     />
                                 </div>
-                                <div className="basis-1/3 min-w-0">
+                                <div className="w-full md:basis-1/3 md:min-w-0">
                                     <WeekCard
                                         week={2}
                                         delay={80}
@@ -809,7 +809,7 @@ export default function PageDevocionales() {
                                         }}
                                     />
                                 </div>
-                                <div className="basis-1/3 min-w-0">
+                                <div className="w-full md:basis-1/3 md:min-w-0">
                                     <WeekCard
                                         week={3}
                                         delay={160}

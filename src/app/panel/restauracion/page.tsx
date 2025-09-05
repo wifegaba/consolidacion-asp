@@ -210,7 +210,7 @@ function RestCard({
             aria-label={`Abrir ${CARD_TITLE} 1`}
             className={`
         group relative rounded-[16px]
-        w-[min(380px,92vw)] h-[110px] mx-auto
+        w-[min(380px,92vw)] h-[92px] md:h-[110px] mx-auto
         bg-gradient-to-br ${grad} text-white ring-1 ring-white/30
         shadow-[0_10px_24px_-10px_rgba(16,24,40,.30)]
         hover:shadow-[0_18px_40px_-12px_rgba(16,24,40,.40)] transition
@@ -235,7 +235,7 @@ function RestCard({
             )}
 
             {/* Texto centrado arriba */}
-            <div className="pointer-events-none absolute left-0 right-0 top-[14px] text-center">
+            <div className="pointer-events-none absolute left-0 right-0 top-[10px] md:top-[14px] text-center">
                 <div
                     className="text-[13px] md:text-[14px] font-semibold leading-none tracking-[.02em] drop-shadow-[0_1px_1px_rgba(0,0,0,.25)]"
                     style={{ fontFamily: `-apple-system, BlinkMacSystemFont, 'SF Pro Display', Inter, 'Helvetica Neue', Arial, sans-serif` }}
@@ -243,7 +243,7 @@ function RestCard({
                     {CARD_TITLE}
                 </div>
                 <div
-                    className="mt-1 text-[30px] md:text-[34px] font-extrabold leading-none tracking-[-0.01em] drop-shadow-[0_1px_1px_rgba(0,0,0,.25)]"
+                    className="mt-1 text-[26px] md:text-[34px] font-extrabold leading-none tracking-[-0.01em] drop-shadow-[0_1px_1px_rgba(0,0,0,.25)]"
                     style={{ fontFamily: `-apple-system, BlinkMacSystemFont, 'SF Pro Display', Inter, 'Helvetica Neue', Arial, sans-serif` }}
                 >
                     1
@@ -847,8 +847,8 @@ export default function PageRestauracion() {
                             >
                                 Llamadas pendientes
                             </h2>
-                            <div className="max-w-[980px] mx-auto flex flex-nowrap items-stretch gap-6 mt-3">
-                                <div className="basis-1/3 min-w-0">
+                            <div className="max-w-[980px] mx-auto flex flex-col gap-4 md:flex-row md:flex-nowrap md:items-stretch md:gap-6 mt-3">
+                                <div className="w-full md:basis-1/3 md:min-w-0">
                                     <WeekCard
                                         week={1}
                                         onPick={(day) => {
@@ -858,7 +858,7 @@ export default function PageRestauracion() {
                                         }}
                                     />
                                 </div>
-                                <div className="basis-1/3 min-w-0">
+                                <div className="w-full md:basis-1/3 md:min-w-0">
                                     <WeekCard
                                         week={2}
                                         delay={80}
@@ -869,7 +869,7 @@ export default function PageRestauracion() {
                                         }}
                                     />
                                 </div>
-                                <div className="basis-1/3 min-w-0">
+                                <div className="w-full md:basis-1/3 md:min-w-0">
                                     <WeekCard
                                         week={3}
                                         delay={160}

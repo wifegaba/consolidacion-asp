@@ -215,6 +215,35 @@
 @media (max-width:768px){
     .pn-root{ padding:10px; }
     .pn-root #formulario1{ padding:20px 16px; }
+    /* Cultos: 2x2 y tamaño reducido */
+    .pn-root .cultos-row{
+        display:grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap:.75rem;
+        margin:1rem 0; /* un poco menos de margen */
+    }
+    /* El label no debe ocupar una de las 2 columnas de botones */
+    .pn-root .cultos-row > .Label-Culto{
+        grid-column: 1 / -1;   /* toma toda la fila superior */
+        margin-bottom: .25rem;
+    }
+    .pn-root .culto-box{
+        padding:6px 8px;         /* más pequeño en móvil */
+        font-size:.9rem;         /* reducir tipografía */
+        border-radius:12px;
+    }
+
+    /* Botonera: 2x2 en móvil */
+    .pn-root .btn-container{
+        display:grid;                 /* sobreescribe el flex por clase */
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
+    }
+    .pn-root .btn-container .btn-minimal{
+        width: 100%;                  /* que llenen su celda */
+        padding: .7rem 1rem;          /* un poco más compactos */
+        font-size: 0.95rem;
+    }
 }
 
 
