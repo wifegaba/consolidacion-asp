@@ -225,3 +225,73 @@ body{margin:0;
     .brand{padding:6px 0 18px}
     .surface{padding:20px;border-radius:0 18px 18px 0}
 }
+
+/* Bottom-centered sidebar on very small screens */
+@media (max-width: 640px){
+    /* Switch to rows: content then bottom bar */
+    .shell{
+        grid-template-columns: 1fr;
+        grid-template-rows: 1fr; /* sidebar will be fixed, not part of grid height */
+        height: calc(100vh - 36px);
+    }
+
+    .surface{
+        grid-column: 1;
+        grid-row: 1;
+        border-radius: 18px 18px 0 0; /* top rounded, flat bottom next to bar */
+        padding: 16px 16px 60px; /* room for slimmer bottom bar */
+    }
+
+    .sidebar{
+        grid-column: 1;
+        grid-row: 2;
+        position: fixed; /* keep visible at bottom */
+        bottom: 0;
+        left: 0;
+        right: 0;
+        z-index: 50;
+        border-right: none;
+        border-top: 1px solid rgba(255,255,255,.06);
+        padding: 6px 10px; /* shorter height */
+        background: var(--sidebar-bg);
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        justify-content: center; /* center the bar */
+        gap: 6px;
+        overflow-x: hidden; /* remove horizontal scroll */
+        overflow-y: hidden;
+    }
+
+    /* Hide logo and footer to keep bar compact */
+    .sidebar-logo, .sidebar-footer{ display: none; }
+
+    /* Make nav horizontal and centered */
+    .nav{
+        flex-direction: row;
+        justify-content: space-between; /* spread to fit one line */
+        align-items: center;
+        gap: 6px;
+        width: 100%;
+        flex-wrap: nowrap; /* keep single line */
+        padding: 0 6px;
+        margin: 0 auto;
+    }
+
+    .nav-item{
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        gap: 2px; /* tighter */
+        padding: 6px 6px; /* slimmer */
+        border-radius: 10px;
+        font-size: 11px; /* smaller labels */
+        line-height: 1; /* reduce vertical height */
+    }
+
+    /* Hide labels to show icons only */
+    .nav-text{ display: none; }
+
+    /* Smaller icons for mobile bottom bar */
+    .nav-icon{ width:16px; height:16px; min-width:16px; }
+}
