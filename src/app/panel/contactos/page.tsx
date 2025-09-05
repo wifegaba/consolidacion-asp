@@ -1,712 +1,678 @@
-// File: PersonaNueva.tsx
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
 
-/* ========= Tipos ========= */
-type AppEstudioDia = 'Domingo' | 'Martes' | 'Virtual';
-type AppEtapa = 'Semillas' | 'Devocionales' | 'Restauracion';
+/* ================= Tipos ================= */
+type Dia = 'Domingo' | 'Martes' | 'Virtual';
+type Semana = 1 | 2 | 3;
+type Etapa =
+  | 'Semilla 1'
+  | 'Semilla 2'
+  | 'Semilla 3'
+  | 'Semilla 4'
+  | 'Devocionales'
+  | 'Restauracion';
 
-type Registro = {
-    id: string;
-    fecha: string;
-    nombre: string;
-    telefono: string | null;
-    preferencias: string | null;
-    cultosSeleccionados: string | null;
-    observaciones?: string | null;
-    estudioDia?: string | null; // para prender el switch
-    etapa?: AppEtapa | null;    // NUEVO: etapa actual
-    semana?: number | null;     // NUEVO: semana actual
+type Resultado =
+  | 'no_contesta'
+  | 'no_por_ahora'
+  | 'llamar_de_nuevo'
+  | 'confirmo_asistencia'
+  | 'salio_de_viaje'
+  | 'ya_esta_en_ptmd'
+  | 'no_tiene_transporte'
+  | 'vive_fuera'
+  | 'murio'
+  | 'rechazado';
+
+type AsignacionContacto = {
+  etapa: Etapa;
+  dia: Dia;
+  semana: number;
+  vigente: boolean;
 };
 
-type ArchivoItem = {
-    progreso_id: string;
-    persona_id: string;
-    nombre: string;
-    telefono: string | null;
-    estudio_dia: AppEstudioDia | null;
-    notas: string | null;
-    modulo: number;
-    semana: number;
-    dia: AppEstudioDia;
-    estado: string;
-    activo: boolean;
-    creado_en: string;
+type PendienteRow = {
+  progreso_id: string;
+  nombre: string;
+  telefono: string | null;
+  llamada1?: Resultado | null;
+  llamada2?: Resultado | null;
+  llamada3?: Resultado | null;
+};
+type PendRowUI = PendienteRow & { _ui?: 'new' | 'changed' };
+
+/* ================= Constantes ================= */
+const V_PEND_HIST = 'v_llamadas_pendientes_hist';
+const V_PEND_BASE = 'v_llamadas_pendientes';
+const RPC_GUARDAR_LLAMADA = 'fn_guardar_llamada';
+
+const resultadoLabels: Record<Resultado, string> = {
+  confirmo_asistencia: 'CONFIRMÓ ASISTENCIA',
+  no_contesta: 'NO CONTESTA',
+  no_por_ahora: 'NO POR AHORA',
+  llamar_de_nuevo: 'LLAMAR DE NUEVO',
+  salio_de_viaje: 'SALIO DE VIAJE',
+  ya_esta_en_ptmd: 'YA ESTÁ EN PTMD',
+  no_tiene_transporte: 'NO TIENE $ TRANSPORTE',
+  vive_fuera: 'VIVE FUERA DE LA CIUDAD',
+  murio: 'MURIÓ',
+  rechazado: 'NO ME INTERESA',
 };
 
-type Errores = { nombre?: string | null; telefono?: string | null; };
+/* ================= Helpers ================= */
+const normalizeCedula = (s: string) => (s || '').replace(/\D+/g, '');
+function mapEtapaToBase(etapa: Etapa): {
+  etapaBase: 'Semillas' | 'Devocionales' | 'Restauracion';
+  modulo?: 1 | 2 | 3 | 4;
+} {
+  if (etapa.startsWith('Semilla')) {
+    const n = parseInt(etapa.split(' ')[1], 10);
+    if ([1, 2, 3, 4].includes(n)) return { etapaBase: 'Semillas', modulo: n as 1 | 2 | 3 | 4 };
+  }
+  if (etapa === 'Devocionales') return { etapaBase: 'Devocionales' };
+  return { etapaBase: 'Restauracion' };
+}
 
-/** Claves válidas para la UI de Cultos (botones grandes) */
-type DiaKey = 'DOMINGO' | 'MIÉRCOLES' | 'VIERNES' | 'SÁBADO';
+/* ================= Página (Client) ================= */
+export default function Contactos1Client({ cedula: cedulaProp }: { cedula?: string }) {
+  const router = useRouter();
+  const cedula = normalizeCedula(cedulaProp ?? '');
 
-type CultosMap = {
-    DOMINGO: string;
-    MIÉRCOLES: string;
-    VIERNES: string;
-    SÁBADO: string;
-};
+  const [nombre, setNombre] = useState('');
+  const [asig, setAsig] = useState<AsignacionContacto | null>(null);
 
-type FormState = {
-    nombre: string;
-    telefono: string;
-    destino: string[];
-    cultoSeleccionado: string;
-    observaciones: string;
-    cultos: CultosMap;
-};
+  const [semana, setSemana] = useState<Semana | null>(null);
+  const [dia, setDia] = useState<Dia | null>(null);
 
-/* ========= Catálogo UI ========= */
-const defaultCultos = (): CultosMap => ({
-    DOMINGO: 'DOMINGO',
-    MIÉRCOLES: 'MIÉRCOLES',
-    VIERNES: 'VIERNES',
-    SÁBADO: 'SÁBADO',
-});
+  const [loading, setLoading] = useState(false);
+  const [pendientes, setPendientes] = useState<PendRowUI[]>([]);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
 
-const cultosOpciones: Record<DiaKey, string[]> = {
-    DOMINGO: ['7:00 AM', '9:00 AM', '11:00 PM', '5:30 PM'],
-    MIÉRCOLES: ['7:00 AM', '9:00 AM', '11:00 AM', '1:00 PM', '3:00 PM', '6:30 PM'],
-    VIERNES: ['9:AM', '5:30 PM'],
-    SÁBADO: ['Ayuno Familiar', 'Jovenes'],
-};
+  // ===== refs (idéntico a Maestros) =====
+  const semanaRef = useRef<Semana | null>(semana);
+  const diaRef = useRef<Dia | null>(dia);
+  const asigRef = useRef<AsignacionContacto | null>(null);
+  const pendRef = useRef<PendRowUI[]>([]);
+  useEffect(() => { semanaRef.current = semana; }, [semana]);
+  useEffect(() => { diaRef.current = dia; }, [dia]);
+  useEffect(() => { asigRef.current = asig; }, [asig]);
+  useEffect(() => { pendRef.current = pendientes; }, [pendientes]);
 
-/* ========= Helpers ========= */
-const toDbEstudio = (arr: string[]): AppEstudioDia =>
-    arr.includes('DOMINGO') ? 'Domingo' : arr.includes('MARTES') ? 'Martes' : 'Virtual';
+  // Timers para limpiar el highlight "_ui"
+  const clearTimersRef = useRef<Record<string, number>>({});
+  const scheduleClearUI = (id: string, ms = 6000) => {
+    if (clearTimersRef.current[id]) window.clearTimeout(clearTimersRef.current[id]);
+    clearTimersRef.current[id] = window.setTimeout(() => {
+      setPendientes(prev => prev.map(p => p.progreso_id === id ? ({ ...p, _ui: undefined }) : p));
+      delete clearTimersRef.current[id];
+    }, ms);
+  };
 
-const normaliza = (s: string) =>
-    s.toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '');
+  /* ============== Cargar servidor + asignación vigente ============== */
+  useEffect(() => {
+    (async () => {
+      if (!cedula) return;
+      const { data, error } = await supabase
+        .from('servidores')
+        .select('id,nombre,asignaciones_contacto:asignaciones_contacto(etapa,dia,semana,vigente)')
+        .eq('cedula', cedula)
+        .maybeSingle();
 
-const claveDia = (d: string): DiaKey | null => {
-    const t = normaliza(d.trim());
-    if (t === 'domingo') return 'DOMINGO';
-    if (t === 'miercoles') return 'MIÉRCOLES';
-    if (t === 'viernes') return 'VIERNES';
-    if (t === 'sabado') return 'SÁBADO';
-    return null;
-};
+      if (error || !data) {
+        router.replace('/login');
+        return;
+      }
 
-/** Extrae el culto de ingreso de las notas y devuelve las observaciones limpias (sin el rótulo). */
-const extraerCultoDesdeNotas = (
-    txt?: string | null
-): { diaKey: DiaKey | null; hora: string | null; full: string | null; clean: string } => {
-    if (!txt) return { diaKey: null, hora: null, full: null, clean: '' };
+      setNombre((data as any).nombre ?? '');
+      const asigVig = (data as any).asignaciones_contacto?.find(
+        (a: AsignacionContacto) => a.vigente
+      ) as AsignacionContacto | undefined;
 
-    const parts = txt.split('|').map(s => s.trim()).filter(Boolean);
-    let diaKey: DiaKey | null = null;
-    let hora: string | null = null;
-    const resto: string[] = [];
+      if (!asigVig) {
+        router.replace(`/bienvenida`);
+        return;
+      }
 
-    for (const p of parts) {
-        const m = /^Culto\s+de\s+ingreso\s*:\s*([A-Za-zÁÉÍÓÚáéíóú]+)\s*-\s*([0-9:\sAPMapm\.]+)$/i.exec(p);
-        if (m && !diaKey) {
-            diaKey = claveDia(m[1]) as DiaKey | null;
-            hora = (m[2] || '').trim();
-        } else {
-            resto.push(p);
-        }
+      setAsig(asigVig);
+      setSemana((asigVig.semana as Semana) ?? 1);
+      setDia(asigVig.dia);
+    })();
+  }, [cedula, router]);
+
+  const tituloEtapa = useMemo(() => asig?.etapa ?? '', [asig]);
+  const semanaFija = asig?.semana as Semana | undefined;
+  const diaFijo = asig?.dia as Dia | undefined;
+
+  const selected = useMemo(
+    () => pendientes.find((p) => p.progreso_id === selectedId) ?? null,
+    [selectedId, pendientes]
+  );
+
+  /* ============== Cargar pendientes (igual que Maestros) ============== */
+  const loadPendientes = useCallback(
+    async (etapaAsig: Etapa, s: Semana, d: Dia, opts?: { quiet?: boolean }) => {
+      if (!s || !d) return;
+      if (!opts?.quiet) setLoading(true);
+
+      const { etapaBase, modulo } = mapEtapaToBase(etapaAsig);
+
+      const [{ data: hist }, { data: base }] = await Promise.all([
+        supabase
+          .from(V_PEND_HIST)
+          .select('progreso_id,nombre,telefono,llamada1,llamada2,llamada3')
+          .eq('semana', s)
+          .eq('dia', d)
+          .order('nombre', { ascending: true }),
+        (() => {
+          let q = supabase
+            .from(V_PEND_BASE)
+            .select('progreso_id')
+            .eq('etapa', etapaBase)
+            .eq('semana', s)
+            .eq('dia', d);
+          if (modulo) q = (q as any).eq('modulo', modulo);
+          return q;
+        })(),
+      ]);
+
+      const allowed = new Set((base ?? []).map((r: any) => r.progreso_id));
+      const draft = ((hist ?? []) as PendienteRow[]).filter((r) => allowed.has(r.progreso_id));
+
+      // reconciliar para “new/changed”
+      const prev = pendRef.current;
+      const prevById = new Map(prev.map(p => [p.progreso_id, p]));
+      const next: PendRowUI[] = draft.map((r) => {
+        const old = prevById.get(r.progreso_id);
+        let _ui: 'new' | 'changed' | undefined;
+        if (!old) _ui = 'new';
+        else if (
+          old.llamada1 !== r.llamada1 ||
+          old.llamada2 !== r.llamada2 ||
+          old.llamada3 !== r.llamada3 ||
+          old.nombre !== r.nombre ||
+          old.telefono !== r.telefono
+        ) _ui = 'changed';
+        return { ...r, _ui };
+      });
+
+      setPendientes(next);
+      next.forEach(r => r._ui && scheduleClearUI(r.progreso_id, r._ui === 'new' ? 6000 : 3000));
+      if (!opts?.quiet) setLoading(false);
+    },
+    []
+  );
+
+  useEffect(() => {
+    if (asig && semana && dia) void loadPendientes(asig.etapa, semana, dia);
+  }, [asig, semana, dia, loadPendientes]);
+
+  /* ============== Guardar resultado de llamada ============== */
+  const enviarResultado = async (payload: { resultado: Resultado; notas?: string }) => {
+    const row = pendientes.find((p) => p.progreso_id === selectedId);
+    if (!row || !semana || !dia) return;
+    setSaving(true);
+    try {
+      const { error } = await supabase.rpc(RPC_GUARDAR_LLAMADA, {
+        p_progreso: row.progreso_id,
+        p_semana: semana,
+        p_dia: dia,
+        p_resultado: payload.resultado,
+        p_notas: payload.notas ?? null,
+      });
+      if (error) throw error;
+
+      setSelectedId(null);
+      await loadPendientes(asig!.etapa, semana, dia, { quiet: true });
+    } catch (e: any) {
+      alert(e?.message ?? 'Error al guardar');
+    } finally {
+      setSaving(false);
     }
+  };
 
-    const full = diaKey && hora ? `${diaKey[0] + diaKey.slice(1).toLowerCase()} - ${hora}` : null;
-    return { diaKey, hora, full, clean: resto.join(' | ') };
-};
+  /* ============== Realtime (idéntico a Maestros) ============== */
+  useEffect(() => {
+    if (!asig) return;
 
-export default function PersonaNueva() {
-    const observacionesRef = useRef<HTMLTextAreaElement | null>(null);
-    const inputNombreRef = useRef<HTMLInputElement | null>(null);
-    const inputBusquedaModalRef = useRef<HTMLInputElement | null>(null);
+    // Parche fino al INSERT de progreso
+    const tryPatchProgresoInsert = async (row: any) => {
+      const asign = asigRef.current;
+      const d = diaRef.current as Dia | null;
+      const s = semanaRef.current as Semana | null;
+      if (!asign || !d || !s) return;
 
-    const [form, setForm] = useState<FormState>({
-        nombre: '', telefono: '', destino: [],
-        cultoSeleccionado: '', observaciones: '',
-        cultos: defaultCultos(),
+      const { etapaBase, modulo } = mapEtapaToBase(asign.etapa);
+      const matches =
+        row &&
+        row.dia === d &&
+        row.semana === s &&
+        row.etapa === etapaBase &&
+        (etapaBase === 'Restauracion' || row.modulo === modulo) &&
+        row.activo !== false;
+
+      if (!matches) return;
+
+      // evitar duplicado
+      if (pendRef.current.some(p => p.progreso_id === row.id)) return;
+
+      // nombre/telefono de persona
+      const { data: per } = await supabase
+        .from('persona')
+        .select('id,nombre,telefono')
+        .eq('id', row.persona_id)
+        .maybeSingle();
+
+      const nuevo: PendRowUI = {
+        progreso_id: row.id,
+        nombre: per?.nombre ?? '—',
+        telefono: per?.telefono ?? null,
+        llamada1: null,
+        llamada2: null,
+        llamada3: null,
+        _ui: 'new',
+      };
+
+      setPendientes(prev => {
+        const up = [...prev, nuevo].sort((a, b) => a.nombre.localeCompare(b.nombre));
+        return up;
+      });
+      scheduleClearUI(row.id, 6000);
+    };
+
+    // Parche fino al UPDATE de progreso (S1→S2, etc.)
+    const tryPatchProgresoUpdate = async (oldRow: any, newRow: any) => {
+      const asign = asigRef.current;
+      const d = diaRef.current as Dia | null;
+      const s = semanaRef.current as Semana | null;
+      if (!asign || !d || !s) return;
+
+      const { etapaBase, modulo } = mapEtapaToBase(asign.etapa);
+
+      const oldMatch =
+        oldRow &&
+        oldRow.dia === d &&
+        oldRow.semana === s &&
+        oldRow.etapa === etapaBase &&
+        (etapaBase === 'Restauracion' || oldRow.modulo === modulo) &&
+        oldRow.activo !== false;
+
+      const newMatch =
+        newRow &&
+        newRow.dia === d &&
+        newRow.semana === s &&
+        newRow.etapa === etapaBase &&
+        (etapaBase === 'Restauracion' || newRow.modulo === modulo) &&
+        newRow.activo !== false;
+
+      // antes NO y ahora SÍ → agregar
+      if (!oldMatch && newMatch) {
+        if (!pendRef.current.some(p => p.progreso_id === newRow.id)) {
+          const { data: per } = await supabase
+            .from('persona')
+            .select('id,nombre,telefono')
+            .eq('id', newRow.persona_id)
+            .maybeSingle();
+
+          const nuevo: PendRowUI = {
+            progreso_id: newRow.id,
+            nombre: per?.nombre ?? '—',
+            telefono: per?.telefono ?? null,
+            llamada1: null,
+            llamada2: null,
+            llamada3: null,
+            _ui: 'new',
+          };
+          setPendientes(prev => [...prev, nuevo].sort((a, b) => a.nombre.localeCompare(b.nombre)));
+          scheduleClearUI(newRow.id, 6000);
+        }
+        return;
+      }
+
+      // antes SÍ y ahora NO → quitar
+      if (oldMatch && !newMatch) {
+        setPendientes(prev => prev.filter(p => p.progreso_id !== newRow.id));
+        if (selectedId === newRow.id) setSelectedId(null);
+        return;
+      }
+
+      // si sigue coincidiendo → refresco silencioso
+      if (newMatch) refreshQuiet();
+    };
+
+    // Refresh silencioso (debounce 150 ms)
+    let t: number | null = null;
+    const refreshQuiet = () => {
+      if (t) window.clearTimeout(t);
+      t = window.setTimeout(async () => {
+        const asign = asigRef.current;
+        const d = diaRef.current as Dia | null;
+        const s = semanaRef.current as Semana | null;
+        if (asign && d && s) await loadPendientes(asign.etapa, s, d, { quiet: true });
+      }, 150);
+    };
+
+    const ch = supabase.channel(`rt-contactos-${cedula}`);
+
+    // Escuchar cambios en progreso
+    ch.on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'progreso' }, (payload) => {
+      if (payload.new) void tryPatchProgresoInsert(payload.new);
     });
 
-    const [errores, setErrores] = useState<Errores>({});
-    const [mostrarErrorCulto, setMostrarErrorCulto] = useState(false);
-    const [mostrarErrorDestino, setMostrarErrorDestino] = useState(false);
-    const [bloquearCultos, setBloquearCultos] = useState(false);
+    ch.on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'progreso' }, (payload) => {
+      if (payload.old && payload.new) void tryPatchProgresoUpdate(payload.old, payload.new);
+      else refreshQuiet();
+    });
 
-    const [modoEdicion, setModoEdicion] = useState(false);
-    const [indiceEdicion, setIndiceEdicion] = useState<string | null>(null);
+    ch.on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'progreso' }, (payload) => {
+      if (payload.old?.id) {
+        setPendientes(prev => prev.filter(p => p.progreso_id !== payload.old.id));
+        if (selectedId === payload.old.id) setSelectedId(null);
+      }
+      refreshQuiet();
+    });
 
-    // Modal búsqueda
-    const [modalBuscarVisible, setModalBuscarVisible] = useState(false);
-    const [busqueda, setBusqueda] = useState('');
-    const [sugs, setSugs] = useState<Registro[]>([]);
-    const [openSugs, setOpenSugs] = useState(false);
-    const [active, setActive] = useState(0);
-    const [loadingSug, setLoadingSug] = useState(false);
+    // Transition_log: simular un UPDATE si no vino completo
+    ch.on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'transition_log' }, async (payload) => {
+      const progId = payload.new?.progreso_id;
+      if (!progId) return;
+      const { data: row } = await supabase.from('progreso').select('*').eq('id', progId).maybeSingle();
+      if (row) await tryPatchProgresoUpdate({}, row);
+    });
 
-    // Banco Archivo
-    const [modalArchivoVisible, setModalArchivoVisible] = useState(false);
-    const [archivoData, setArchivoData] = useState<ArchivoItem[]>([]);
-    const [loadingArchivo, setLoadingArchivo] = useState(false);
-    const [reactivarDesdeArchivo, setReactivarDesdeArchivo] = useState(false);
+    // Llamadas / Persona / Asignación contacto / Asistencia → refresh silencioso
+    ['llamada_intento', 'persona', 'asignaciones_contacto', 'asistencia'].forEach((tbl) => {
+      ch.on('postgres_changes', { event: '*', schema: 'public', table: tbl }, () => refreshQuiet());
+    });
 
-    // Refs para IDs seleccionados desde Banco Archivo
-    const personaArchivoIdRef = useRef<string | null>(null);
-    const progresoArchivoIdRef = useRef<string | null>(null); // progreso archivado seleccionado
+    ch.subscribe((status) => {
+      if (status === 'SUBSCRIBED') refreshQuiet();
+    });
 
-    const cacheSugs = useRef(new Map<string, { ts: number; data: Registro[] }>()).current;
-    const TTL_MS = 60_000, MIN_CHARS = 3, DEBOUNCE_MS = 350;
-
-    
-    useEffect(() => { if (modalBuscarVisible) setTimeout(() => inputBusquedaModalRef.current?.focus(), 0); }, [modalBuscarVisible]);
-
-    const toast = (msg: string) => {
-        const t = document.createElement('div'); t.className = 'toast'; t.textContent = msg;
-        document.body.appendChild(t); setTimeout(() => t.remove(), 3000);
+    return () => {
+      ch.unsubscribe();
+      if (t) window.clearTimeout(t);
+      Object.values(clearTimersRef.current).forEach(id => window.clearTimeout(id));
+      clearTimersRef.current = {};
     };
+  }, [asig, cedula, loadPendientes, selectedId]);
 
-    /* ===== Guardar / Actualizar / Reactivar ===== */
-    const validar = (): boolean => {
-        const err: Errores = {};
-        if (!form.nombre.trim()) { err.nombre = 'Ingresa el Nombre y Apellido'; setErrores(err); return false; }
-        if (!/\d{7,}/.test(form.telefono)) { err.telefono = 'Número inválido o incompleto'; setErrores(err); return false; }
-        if (!form.cultoSeleccionado) { setMostrarErrorCulto(true); return false; }
-        if (form.destino.length === 0) { setMostrarErrorDestino(true); return false; }
-        setErrores({}); setMostrarErrorCulto(false); setMostrarErrorDestino(false); return true;
-    };
-
-    const construirNotas = () => {
-        const [dia, hora] = form.cultoSeleccionado.split(' - ');
-        const cultoLinea = dia && hora ? `Culto de ingreso: ${dia} - ${hora}` : null;
-        const extra = (form.observaciones || '').trim();
-        return [cultoLinea, extra].filter(Boolean).join(' | ') || null;
-    };
-
-    const resetForm = () => {
-        setForm({ nombre: '', telefono: '', destino: [], cultoSeleccionado: '', observaciones: '', cultos: defaultCultos() });
-        setErrores({}); setMostrarErrorCulto(false); setMostrarErrorDestino(false);
-        setBloquearCultos(false); setModoEdicion(false); setIndiceEdicion(null);
-        setReactivarDesdeArchivo(false);
-        personaArchivoIdRef.current = null;
-        progresoArchivoIdRef.current = null;
-       
-    };
-
-    const handleGuardar = async () => {
-        if (!validar()) return;
-
-        const p_estudio: AppEstudioDia = toDbEstudio(form.destino);
-        const p_notas = construirNotas();
-
-        try {
-            // Reactivación desde Banco Archivo => Semilla 1 Semana 1 (nuevo pendiente)
-            if (reactivarDesdeArchivo && personaArchivoIdRef.current) {
-                const { error } = await supabase.rpc('fn_reactivar_desde_archivo', {
-                    p_progreso: progresoArchivoIdRef.current,
-                    p_persona: personaArchivoIdRef.current,
-                    p_nombre: form.nombre.trim(),
-                    p_telefono: form.telefono.trim(),
-                    p_estudio: p_estudio,
-                    p_notas: p_notas,
-                });
-                if (error) throw error;
-                toast('✅ Reactivado y removido de Banco Archivo. Enviado a Semillas 1 • Semana 1');
-                resetForm();
-                return;
-            }
-
-            if (modoEdicion && indiceEdicion) {
-                const { error } = await supabase.rpc('fn_actualizar_persona', {
-                    p_id: indiceEdicion,
-                    p_nombre: form.nombre.trim(),
-                    p_telefono: form.telefono.trim(),
-                    p_estudio,
-                    p_notas,
-                });
-                if (error) throw error;
-                toast('✅ Registro actualizado');
-            } else {
-                const { error } = await supabase.rpc('fn_registrar_persona', {
-                    p_nombre: form.nombre.trim(),
-                    p_telefono: form.telefono.trim(),
-                    p_culto: p_estudio, // si tu RPC lo usa
-                    p_estudio,
-                    p_notas,
-                });
-                if (error) throw error;
-                toast('✅ Guardado. Enviado a Semillas 1 • Semana 1');
-            }
-
-            resetForm();
-        } catch (e) {
-            console.error(e); toast('❌ Error al guardar/actualizar');
-        }
-    };
-
-    /* ===== ELIMINAR ===== */
-    const handleEliminar = async () => {
-        if (!modoEdicion || !indiceEdicion) {
-            toast('Selecciona un registro primero.');
-            return;
-        }
-        const ok = window.confirm('¿Seguro que deseas eliminar este registro? Esta acción no se puede deshacer.');
-        if (!ok) return;
-
-        try {
-            const { error } = await supabase.rpc('fn_eliminar_persona', { p_id: indiceEdicion });
-            if (error) throw error;
-
-            toast('🗑️ Registro eliminado');
-            resetForm();
-        } catch (e) {
-            console.error(e);
-            toast('❌ Error al eliminar');
-        }
-    };
-
-    /* ===== Búsqueda (modal) ===== */
-    useEffect(() => {
-        const q = busqueda.trim();
-        if (q.length < MIN_CHARS) { setSugs([]); setOpenSugs(false); setActive(0); return; }
-
-        const cached = cacheSugs.get(q);
-        if (cached && Date.now() - cached.ts < TTL_MS) {
-            setSugs(cached.data); setOpenSugs(cached.data.length > 0); setActive(0); return;
-        }
-
-        let cancel = false;
-        setLoadingSug(true);
-
-        const t = setTimeout(async () => {
-            try {
-                // 1) RPC de búsqueda por persona (nombre/teléfono)
-                const { data, error } = await supabase.rpc('fn_buscar_persona', { q });
-                if (error) throw error;
-
-                // 2) Mapeo base (trae estudioDia y, si existieran, etapa/semana)
-                let arr: Registro[] = (data || []).map((r: any) => ({
-                    id: r.id,
-                    fecha: '',
-                    nombre: r.nombre,
-                    telefono: r.telefono ?? null,
-                    preferencias: null,
-                    cultosSeleccionados: null,
-                    observaciones: r.observaciones ?? null,
-                    estudioDia: r.estudio_dia ?? null,
-                    etapa: (r.etapa as AppEtapa) ?? null,
-                    semana: (typeof r.semana === 'number' ? r.semana : null),
-                }));
-
-                // 3) Si la RPC no trajo etapa/semana, completar consultando 'progreso' activo
-                const needStatus = arr.some(x => !x.etapa || x.semana == null);
-                if (needStatus) {
-                    const ids = arr.map(x => x.id).filter(Boolean);
-                    if (ids.length > 0) {
-                        const { data: estados, error: err2 } = await supabase
-                            .from('progreso')
-                            .select('persona_id, etapa, semana, creado_en')
-                            .eq('activo', true)
-                            .in('persona_id', ids)
-                            .order('creado_en', { ascending: false });
-
-                        if (!err2 && estados && estados.length) {
-                            const map = new Map<string, { etapa: AppEtapa | null; semana: number | null }>();
-                            for (const row of estados as any[]) {
-                                if (!map.has(row.persona_id)) {
-                                    map.set(row.persona_id, { etapa: row.etapa ?? null, semana: row.semana ?? null });
-                                }
-                            }
-                            arr = arr.map(p => {
-                                const m = map.get(p.id);
-                                return m ? { ...p, etapa: p.etapa ?? m.etapa, semana: p.semana ?? m.semana } : p;
-                            });
-                        }
-                    }
-                }
-
-                if (!cancel) {
-                    cacheSugs.set(q, { ts: Date.now(), data: arr });
-                    setSugs(arr); setOpenSugs(arr.length > 0); setActive(0);
-                }
-            } catch (e) {
-                console.error('buscar sugerencias:', e);
-                if (!cancel) { setSugs([]); setOpenSugs(false); }
-            } finally {
-                if (!cancel) setLoadingSug(false);
-            }
-        }, DEBOUNCE_MS);
-
-        return () => { cancel = true; clearTimeout(t); };
-    }, [busqueda]);
-
-    /* ===== Inyectar datos al formulario desde búsqueda ===== */
-    const selectPersona = (p: Registro) => {
-        const culto = extraerCultoDesdeNotas(p.observaciones);
-        let cultosMap: CultosMap = defaultCultos();
-        let cultoSeleccionado = '';
-
-        if (culto.diaKey && culto.hora) {
-            const key = culto.diaKey as DiaKey;
-            cultosMap = { ...defaultCultos(), [key]: culto.hora! } as CultosMap;
-            const diaBonito = key[0] + key.slice(1).toLowerCase();
-            cultoSeleccionado = `${diaBonito} - ${culto.hora}`;
-        }
-
-        const destino = p.estudioDia ? [p.estudioDia.toUpperCase()] : [];
-
-        setForm(f => ({
-            ...f,
-            nombre: p.nombre || '',
-            telefono: p.telefono || '',
-            observaciones: culto.clean || '',
-            destino,
-            cultos: cultosMap,
-            cultoSeleccionado,
-        }));
-
-        setModoEdicion(true);
-        setIndiceEdicion(p.id);
-        setBloquearCultos(true);
-
-        setBusqueda(''); setSugs([]); setOpenSugs(false); setModalBuscarVisible(false);
-        setTimeout(() => observacionesRef.current?.focus(), 0);
-    };
-
-    const onKeyDownSearch = (e: React.KeyboardEvent<HTMLInputElement>) => {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            if (openSugs && sugs.length > 0) selectPersona(sugs[active] ?? sugs[0]);
-            setBusqueda(''); setOpenSugs(false);
-            return;
-        }
-        if (!openSugs || sugs.length === 0) return;
-        if (e.key === 'ArrowDown') { e.preventDefault(); setActive(i => Math.min(i + 1, sugs.length - 1)); }
-        else if (e.key === 'ArrowUp') { e.preventDefault(); setActive(i => Math.max(i - 1, 0)); }
-        else if (e.key === 'Escape') { setOpenSugs(false); }
-    };
-
-    const ghost =
-        openSugs && sugs[0] && sugs[0].nombre.toLowerCase().startsWith(busqueda.toLowerCase())
-            ? sugs[0].nombre.slice(busqueda.length)
-            : '';
-
-    /* ===== Banco Archivo ===== */
-    const abrirBancoArchivo = async () => {
-        setModalArchivoVisible(true);
-        setLoadingArchivo(true);
-        try {
-            const { data, error } = await supabase
-                .from('v_banco_archivo')
-                .select('progreso_id, persona_id, nombre, telefono, estudio_dia, notas, modulo, semana, dia, estado, activo, creado_en')
-                .order('creado_en', { ascending: false });
-            if (error) throw error;
-            setArchivoData((data || []) as ArchivoItem[]);
-        } catch (e) {
-            console.error(e);
-            toast('❌ Error cargando Banco Archivo');
-        } finally {
-            setLoadingArchivo(false);
-        }
-    };
-
-    const cargarDesdeArchivo = (row: ArchivoItem) => {
-        // Parsear culto de ingreso desde notas (si existiera)
-        const culto = extraerCultoDesdeNotas(row.notas || undefined);
-        let cultosMap: CultosMap = defaultCultos();
-        let cultoSeleccionado = '';
-
-        if (culto.diaKey && culto.hora) {
-            const key = culto.diaKey as DiaKey;
-            cultosMap = { ...defaultCultos(), [key]: culto.hora! } as CultosMap;
-            const diaBonito = key[0] + key.slice(1).toLowerCase();
-            cultoSeleccionado = `${diaBonito} - ${culto.hora}`;
-        }
-
-        // Destino según su último estudio_dia (permitimos cambiarlo)
-        const destino = row.estudio_dia ? [row.estudio_dia.toUpperCase()] : [];
-
-        setForm(f => ({
-            ...f,
-            nombre: row.nombre || '',
-            telefono: row.telefono || '',
-            observaciones: culto.clean || '',
-            destino,
-            cultos: cultosMap,
-            cultoSeleccionado,
-        }));
-
-        setReactivarDesdeArchivo(true);
-        personaArchivoIdRef.current = row.persona_id;
-        progresoArchivoIdRef.current = row.progreso_id;
-
-        // Al reactivar, DEJAMOS elegir de nuevo el culto => no bloqueamos
-        setBloquearCultos(false);
-
-        setModalArchivoVisible(false);
-        setTimeout(() => observacionesRef.current?.focus(), 0);
-    };
-
-    /* ===== UI ===== */
+  if (!cedula) {
     return (
-        <div className="pn-root">
-            <div className="formulario-box" id="formulario1">
-                <div className="form-title">
-                    Registro Persona Nueva
-                    {reactivarDesdeArchivo && (
-                        <span className="pill" style={{ marginLeft: 8 }}>Reactiva desde Banco Archivo</span>
-                    )}
-                </div>
-
-                {/* Modal BUSCAR */}
-                {modalBuscarVisible && (
-                    <div className="modal-buscar" role="dialog" aria-modal="true">
-                        <div className="modal-buscar__box">
-                            <button className="modal-buscar__close" aria-label="Cerrar"
-                                    onClick={() => { setBusqueda(''); setSugs([]); setOpenSugs(false); setModalBuscarVisible(false); }}>×</button>
-
-                            <h3 className="modal-buscar__heading">Buscar Registros en Base de Datos</h3>
-
-                            <div className="search-wrap" onBlur={() => setTimeout(() => setOpenSugs(false), 120)}>
-                                <div className="ghost" aria-hidden>
-                                    <span className="ghost-typed">{busqueda}</span>
-                                    <span className="ghost-hint">{ghost}</span>
-                                </div>
-                                <input
-                                    type="text"
-                                    placeholder="Buscar por nombre o teléfono…"
-                                    value={busqueda}
-                                    ref={inputBusquedaModalRef}
-                                    onFocus={() => setOpenSugs(sugs.length > 0)}
-                                    onChange={(e) => { const v = e.target.value; setBusqueda(v); setOpenSugs(v.trim().length >= MIN_CHARS); }}
-                                    onKeyDown={onKeyDownSearch}
-                                    role="combobox"
-                                    aria-expanded={openSugs}
-                                    aria-controls="sug-list-modal"
-                                    aria-activedescendant={openSugs && sugs[active] ? `optm-${sugs[active].id}` : undefined}
-                                />
-                                {openSugs && (
-                                    <div id="sug-list-modal" role="listbox" className="sug-list">
-                                        {sugs.map((p, i) => (
-                                            <button
-                                                key={p.id}
-                                                id={`optm-${p.id}`}
-                                                role="option"
-                                                aria-selected={i === active}
-                                                onMouseEnter={() => setActive(i)}
-                                                onMouseDown={(ev) => ev.preventDefault()}
-                                                onClick={() => selectPersona(p)}
-                                                className={`sug-item ${i === active ? 'active' : ''}`}
-                                                title={`${p.nombre} • ${p.telefono ?? '—'}`}
-                                            >
-                                                <div className="sug-name">{p.nombre}</div>
-                                                <div className="sug-sub">
-                                                    {p.telefono ?? '—'}
-                                                    <span className="sug-pill" style={{ marginLeft: 8 }}>
-                            Grupo: {p.estudioDia ?? '—'}
-                          </span>
-                                                    <span className="sug-pill" style={{ marginLeft: 8 }}>
-                            Etapa: {p.etapa ?? '—'}
-                          </span>
-                                                    <span className="sug-pill" style={{ marginLeft: 8 }}>
-                            Semana: {p.semana ?? '—'}
-                          </span>
-                                                </div>
-                                            </button>
-                                        ))}
-                                        {loadingSug && <div className="sug-loading">Buscando…</div>}
-                                        {!loadingSug && sugs.length === 0 && <div className="sug-empty">Sin resultados</div>}
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                    </div>
-                )}
-
-                {/* Modal BANCO ARCHIVO */}
-                {modalArchivoVisible && (
-                    <div className="modal-buscar" role="dialog" aria-modal="true">
-                        <div className="modal-buscar__box">
-                            <button className="modal-buscar__close" aria-label="Cerrar"
-                                    onClick={() => setModalArchivoVisible(false)}>×</button>
-
-                            <h3 className="modal-buscar__heading">Banco Archivo (Archivados)</h3>
-
-                            <div className="tabla-archivo-wrap" style={{ maxHeight: 420, overflow: 'auto' }}>
-                                <table className="tabla-archivo" style={{ width: '100%', borderCollapse: 'collapse' }}>
-                                    <thead>
-                                    <tr>
-                                        <th style={{ textAlign: 'left', padding: '8px' }}>Nombre</th>
-                                        <th style={{ textAlign: 'left', padding: '8px' }}>Teléfono</th>
-                                        <th style={{ textAlign: 'left', padding: '8px' }}>Mód/Sem</th>
-                                        <th style={{ textAlign: 'left', padding: '8px' }}>Día</th>
-                                        <th style={{ textAlign: 'left', padding: '8px' }}>Fecha</th>
-                                        <th style={{ textAlign: 'left', padding: '8px' }}>Acción</th>
-                                    </tr>
-                                    </thead>
-                                    <tbody>
-                                    {loadingArchivo && (
-                                        <tr><td colSpan={6} style={{ padding: 12 }}>Cargando…</td></tr>
-                                    )}
-                                    {!loadingArchivo && archivoData.length === 0 && (
-                                        <tr><td colSpan={6} style={{ padding: 12 }}>Sin registros archivados</td></tr>
-                                    )}
-                                    {!loadingArchivo && archivoData.map((row) => (
-                                        <tr key={row.progreso_id} className="arch-row" style={{ borderTop: '1px solid rgba(255,255,255,0.1)' }}>
-                                            <td style={{ padding: '8px' }}>{row.nombre}</td>
-                                            <td style={{ padding: '8px' }}>{row.telefono ?? '—'}</td>
-                                            <td style={{ padding: '8px' }}>{row.modulo}/{row.semana}</td>
-                                            <td style={{ padding: '8px' }}>{row.dia}</td>
-                                            <td style={{ padding: '8px' }}>{new Date(row.creado_en).toLocaleString()}</td>
-                                            <td style={{ padding: '8px' }}>
-                                                <button className="btn-minimal" onClick={() => cargarDesdeArchivo(row)}>
-                                                    Seleccionar
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
-                )}
-
-                {/* Fila: nombre / teléfono */}
-                <div className="form-row first-row">
-                    <div>
-                        <input
-                            ref={inputNombreRef}
-                            type="text"
-                            value={form.nombre}
-                            onChange={(e) => {
-                                const value = e.target.value;
-                                setForm((f) => ({ ...f, nombre: value }));
-                                if (value.trim()) setErrores((prev: Errores) => ({ ...prev, nombre: null }));
-                            }}
-                            placeholder="Nombre"
-                            className={errores.nombre ? 'input-error' : ''}
-                        />
-                        {errores.nombre && <div className="error-msg">{errores.nombre}</div>}
-                    </div>
-
-                    <div>
-                        <input
-                            type="text"
-                            value={form.telefono}
-                            onChange={(e) => {
-                                const value = e.target.value;
-                                setForm((f) => ({ ...f, telefono: value }));
-                                if (/\d{7,}/.test(value)) setErrores((prev: Errores) => ({ ...prev, telefono: null }));
-                            }}
-                            placeholder="Teléfono"
-                            className={errores.telefono ? 'input-error' : ''}
-                        />
-                        {errores.telefono && <div className="error-msg">{errores.telefono}</div>}
-                    </div>
-                </div>
-
-                {/* Culto de ingreso (bloqueado tras selección) */}
-                <div className="cultos-row">
-                    <label className="Label-Culto">Culto:</label>
-                    {Object.entries(form.cultos).map(([dia, valorActual]) => (
-                        <div key={dia} className={`culto-box ${bloquearCultos && !valorActual.includes(dia) ? 'disabled' : ''}`}>
-                            {valorActual}
-                            {/* Desplegables sólo si NO está bloqueado */}
-                            {!bloquearCultos && (
-                                <ul className="culto-lista">
-                                    {cultosOpciones[(dia as DiaKey)].map((opcion, index) => (
-                                        <li key={index} onClick={() => {
-                                            if (bloquearCultos) return;
-                                            const key = dia as DiaKey;
-                                            const full = `${dia} - ${opcion}`;
-                                            const updated: CultosMap = { ...defaultCultos(), [key]: opcion } as CultosMap;
-                                            setForm(prev => ({
-                                                ...prev,
-                                                cultoSeleccionado: full,
-                                                cultos: updated,
-                                            }));
-                                            setMostrarErrorCulto(false);
-                                            setBloquearCultos(true);
-                                        }}>{opcion}</li>
-                                    ))}
-                                </ul>
-                            )}
-                        </div>
-                    ))}
-                </div>
-
-                {mostrarErrorCulto && (
-                    <div className="error-msg" style={{ textAlign: 'center', marginBottom: '1rem', color: 'white' }}>
-                        ¡Escoge por favor un horario del Culto!
-                    </div>
-                )}
-
-                {/* Switches (día de estudio) + Observaciones */}
-                <div className="form-group destinos-row">
-                    <div className="switch-group">
-                        {['DOMINGO', 'MARTES', 'VIRTUAL', 'PENDIENTES'].map((d) => (
-                            <label key={d} className="switch-label">
-                                <input
-                                    type="checkbox"
-                                    className="switch-input"
-                                    value={d}
-                                    onChange={(e) => {
-                                        const { value, checked } = e.target;
-                                        setMostrarErrorDestino(false);
-                                        setForm(prev => ({ ...prev, destino: checked ? [value] : [] }));
-                                    }}
-                                    checked={form.destino.includes(d)}
-                                />
-                                <span className="switch-slider"></span> {d}
-                            </label>
-                        ))}
-                    </div>
-
-                    <div style={{ flex: 1 }}>
-            <textarea
-                ref={observacionesRef}
-                id="observaciones"
-                className="observaciones-estilo"
-                placeholder="Escribe aquí las observaciones..."
-                value={form.observaciones}
-                onChange={(e) => setForm({ ...form, observaciones: e.target.value })}
-            />
-                    </div>
-                </div>
-
-                {/* Botones */}
-                <div className="btn-container">
-                    <button className="btn-minimal" onClick={handleGuardar} style={{ backgroundColor: (modoEdicion || reactivarDesdeArchivo) ? 'orange' : '' }}>
-                        {(modoEdicion || reactivarDesdeArchivo) ? 'Actualizar / Reactivar' : 'Guardar'}
-                    </button>
-
-                    <button
-                        className="btn-minimal btn-buscar"
-                        onClick={() => {
-                            setBusqueda(''); setSugs([]); setOpenSugs(false);
-                            setModalBuscarVisible(true); setTimeout(() => inputBusquedaModalRef.current?.focus(), 0);
-                        }}
-                        title="Abrir panel de búsqueda"
-                    >
-                        Buscar
-                    </button>
-
-                    {/* Banco Archivo */}
-                    <button
-                        className="btn-minimal"
-                        onClick={abrirBancoArchivo}
-                        title="Abrir Banco Archivo (Archivados)"
-                    >
-                        Banco Archivo
-                    </button>
-
-                    {/* Eliminar */}
-                    <button
-                        className="btn-minimal"
-                        disabled={!modoEdicion}
-                        onClick={handleEliminar}
-                        title={modoEdicion ? 'Eliminar este registro' : 'Selecciona un registro para eliminar'}
-                    >
-                        Eliminar
-                    </button>
-                </div>
-            </div>
-        </div>
+      <main className="min-h-[100dvh] grid place-items-center">
+        <div>Falta la cédula en la URL.</div>
+      </main>
     );
+  }
+
+  /* ========================= UI ========================= */
+  return (
+    <main
+      className="min-h-[100dvh] px-5 md:px-8 py-6 bg-[radial-gradient(1200px_800px_at_-10%_-10%,#e9f0ff,transparent_60%),radial-gradient(1200px_900px_at_110%_10%,#ffe6f4,transparent_55%),linear-gradient(120deg,#f4f7ff,#fef6ff_50%,#eefaff)]"
+      style={{ fontFamily: "-apple-system,BlinkMacSystemFont,'SF Pro Display',Inter,'Helvetica Neue',Arial,sans-serif" }}
+    >
+      <div className="mx-auto w-full max-w-[1260px]">
+        {/* Encabezado */}
+        <section className="mb-6 md:mb-8">
+          <div className="text-[32px] md:text-[44px] font-black leading-none tracking-tight bg-gradient-to-r from-sky-500 via-violet-600 to-fuchsia-500 text-transparent bg-clip-text drop-shadow-sm">
+            Panel de Contactos
+          </div>
+          <div className="mt-1 text-[18px] md:text-[22px] font-medium text-neutral-700">
+            Hola, <b className="text-neutral-900">{nombre || 'Servidor'}</b>
+          </div>
+        </section>
+
+        <header className="mb-3 md:mb-4 flex items-baseline gap-3">
+          <h1 className="text-[22px] md:text-[28px] font-semibold text-neutral-900">
+            Llamadas pendientes {tituloEtapa}
+          </h1>
+          {semana && dia && <span className="text-neutral-500 text-sm">Semana {semana} · {dia}</span>}
+        </header>
+
+        {/* Filtros (bloqueados a la asignación del contacto) */}
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="inline-flex items-center gap-2">
+            <span className="text-sm text-neutral-600">Semana:</span>
+            {[1, 2, 3].map((n) => {
+              const disabled = semanaFija !== undefined && n !== semanaFija;
+              return (
+                <button
+                  key={n}
+                  disabled={disabled}
+                  onClick={() => !disabled && setSemana(n as Semana)}
+                  className={`px-3 py-1.5 rounded-full text-sm font-semibold ring-1 ring-black/10 shadow-sm transition
+                    ${semana === n ? 'bg-neutral-900 text-white' : 'bg-white hover:shadow-md'}
+                    ${disabled ? 'opacity-40 cursor-not-allowed pointer-events-none hover:shadow-none' : ''}`}
+                  title={disabled ? 'Bloqueado por asignación' : 'Cambiar semana'}
+                >
+                  {n}
+                </button>
+              );
+            })}
+          </div>
+          <div className="inline-flex items-center gap-2">
+            <span className="text-sm text-neutral-600">Día:</span>
+            {(['Domingo', 'Martes', 'Virtual'] as Dia[]).map((d) => {
+              const disabled = diaFijo !== undefined && d !== diaFijo;
+              return (
+                <button
+                  key={d}
+                  disabled={disabled}
+                  onClick={() => !disabled && setDia(d)}
+                  className={`px-3 py-1.5 rounded-full text-sm font-semibold ring-1 ring-black/10 shadow-sm transition
+                    ${dia === d ? 'bg-neutral-900 text-white' : 'bg-white hover:shadow-md'}
+                    ${disabled ? 'opacity-40 cursor-not-allowed pointer-events-none hover:shadow-none' : ''}`}
+                  title={disabled ? 'Bloqueado por asignación' : 'Cambiar día'}
+                >
+                  {d}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Lista + Panel de llamada */}
+        <div className="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-5 md:gap-6">
+          {/* Lista */}
+          <section className="rounded-[16px] bg-white shadow-[0_10px_28px_-14px_rgba(16,24,40,.28)] ring-1 ring-black/5">
+            <header className="px-4 md:px-5 py-3 border-b border-black/5 bg-[linear-gradient(135deg,#eaf3ff,#f6efff)]">
+              <h3 className="text-base md:text-lg font-semibold text-neutral-900">Llamadas pendientes</h3>
+              <p className="text-neutral-600 text-xs md:text-sm">
+                {loading ? 'Cargando…' : 'Selecciona un contacto para registrar la llamada.'}
+              </p>
+            </header>
+
+            {pendientes.length === 0 ? (
+              <div className="p-6 text-neutral-500">No hay llamadas con los filtros actuales.</div>
+            ) : (
+              <ul className="divide-y divide-black/5">
+                {pendientes.map((c) => (
+                  <li
+                    key={c.progreso_id}
+                    className={`px-4 md:px-5 py-3 hover:bg-neutral-50 cursor-pointer transition
+                      ${selectedId === c.progreso_id ? 'bg-neutral-50' : ''}
+                      ${c._ui === 'new' ? 'animate-fadeInScale ring-2 ring-emerald-300/60'
+                        : c._ui === 'changed' ? 'animate-flashBg' : ''}`}
+                    onClick={() => setSelectedId(c.progreso_id)}
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex items-start gap-3 min-w-0">
+                        <span className={`mt-1 inline-block h-2.5 w-2.5 rounded-full ${
+                          c._ui === 'new' ? 'bg-emerald-500 shadow-[0_0_0_4px_rgba(16,185,129,.25)]' : 'bg-amber-500 shadow-[0_0_0_3px_rgba(251,191,36,.25)]'
+                        }`} />
+                        <div className="min-w-0">
+                          <div className="font-semibold text-neutral-800 leading-tight truncate">{c.nombre}</div>
+                          <div className="mt-0.5 inline-flex items-center gap-1.5 text-neutral-600 text-xs md:text-sm">
+                            <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" className="opacity-80">
+                              <path d="M6.6 10.8c1.3 2.5 3.1 4.4 5.6 5.6l2.1-2.1a1 1 0 0 1 1.1-.22c1.2.48 2.6.74 4 .74a1 1 0 0 1 1 1v3.5a1 1 0 0 1-1 1C12.1 20.3 3.7 11.9 3.7 2.7a1 1 0 0 1 1-1H8.2a1 1 0 0 1 1 1c0 1.4.26 2.8.74 4a1 1 0 0 1-.22 1.1l-2.1 2.1Z" fill="currentColor" />
+                            </svg>
+                            <span className="truncate">{c.telefono ?? '—'}</span>
+                          </div>
+                          {c._ui === 'new' && (
+                            <span className="mt-1 inline-flex items-center text-[10px] font-semibold text-emerald-700 bg-emerald-50 rounded-full px-2 py-0.5">
+                              Nuevo
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="shrink-0 text-right text-[11px] md:text-xs text-neutral-500 leading-5">
+                        {[c.llamada1 ?? null, c.llamada2 ?? null, c.llamada3 ?? null].map((r, idx) => (
+                          <div key={idx}>
+                            <span className="mr-1">Llamada {idx + 1}:</span>
+                            {r ? (
+                              <span className="font-medium text-neutral-700">{resultadoLabels[r as Resultado]}</span>
+                            ) : (
+                              <span className="italic">sin registro</span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+
+          {/* Panel derecho de llamada */}
+          <section className="rounded-[16px] bg-white shadow-[0_10px_28px_-14px_rgba(16,24,40,.28)] ring-1 ring-black/5 p-4 md:p-5">
+            {!selectedId ? (
+              <div className="grid place-items-center text-neutral-500 h-full">
+                Selecciona un nombre de la lista para llamar / registrar.
+              </div>
+            ) : (
+              <FollowUp
+                semana={semana!}
+                dia={dia!}
+                row={pendientes.find((p) => p.progreso_id === selectedId)!}
+                saving={saving}
+                onSave={enviarResultado}
+              />
+            )}
+          </section>
+        </div>
+      </div>
+
+      {/* Animaciones “new/changed” */}
+      <style jsx global>{`
+        @keyframes cardIn {
+          0% { opacity: 0; transform: translateY(14px) scale(0.98); filter: blur(3px); }
+          60% { opacity: 1; transform: translateY(-2px) scale(1.01); filter: blur(0); }
+          100% { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        .animate-cardIn { animation: cardIn .48s cubic-bezier(.22,1,.36,1) both; }
+
+        @keyframes fadeInScale {
+          0% { opacity: 0; transform: translateY(6px) scale(0.98); }
+          100% { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        .animate-fadeInScale { animation: fadeInScale .28s ease-out both; }
+
+        @keyframes flashBg {
+          0% { background-color: #fff6d4; }
+          100% { background-color: transparent; }
+        }
+        .animate-flashBg { animation: flashBg 1.2s ease-out 1; }
+      `}</style>
+    </main>
+  );
+}
+
+/* ================= Panel derecho (detalle y envío) ================= */
+function FollowUp({
+  semana,
+  dia,
+  row,
+  saving,
+  onSave,
+}: {
+  semana: Semana;
+  dia: Dia;
+  row: PendienteRow;
+  saving: boolean;
+  onSave: (p: { resultado: Resultado; notas?: string }) => Promise<void>;
+}) {
+  const opciones: { label: string; value: Resultado }[] = [
+    { label: 'CONFIRMÓ ASISTENCIA', value: 'confirmo_asistencia' },
+    { label: 'NO CONTESTA', value: 'no_contesta' },
+    { label: 'NO POR AHORA', value: 'no_por_ahora' },
+    { label: 'LLAMAR DE NUEVO', value: 'llamar_de_nuevo' },
+    { label: 'SALIO DE VIAJE', value: 'salio_de_viaje' },
+    { label: 'YA ESTÁ EN PTMD', value: 'ya_esta_en_ptmd' },
+    { label: 'NO TIENE $ TRANSPORTE', value: 'no_tiene_transporte' },
+    { label: 'VIVE FUERA DE LA CIUDAD', value: 'vive_fuera' },
+    { label: 'MURIÓ', value: 'murio' },
+    { label: 'NO ME INTERESA', value: 'rechazado' },
+  ];
+
+  const [resultado, setResultado] = useState<Resultado | null>(null);
+  const [obs, setObs] = useState('');
+
+  const initials = row.nombre.split(' ').filter(Boolean).slice(0, 2).map((p) => p[0]?.toUpperCase()).join('') || 'U';
+  const telHref = row.telefono ? `tel:${row.telefono.replace(/[^\d+]/g, '')}` : null;
+
+  return (
+    <div className="animate-cardIn">
+      <div className="mb-4 rounded-2xl ring-1 ring-black/5 bg-[linear-gradient(135deg,#eef3ff,#f6efff)] px-4 py-3 md:px-5 md:py-4 flex items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="grid place-items-center h-10 w-10 md:h-12 md:w-12 rounded-xl text-white font-bold bg-gradient-to-br from-blue-500 to-indigo-500 shadow-sm">
+            {initials}
+          </div>
+          <div>
+            <div className="text-base md:text-lg font-semibold text-neutral-900 leading-tight">{row.nombre}</div>
+            <div className="text-[12px] text-neutral-500 leading-none">Semana {semana} · {dia}</div>
+            <div className="text-[11px] text-neutral-600 mt-1 space-y-0.5">
+              {[row.llamada1 ?? null, row.llamada2 ?? null, row.llamada3 ?? null].map((r, idx) => (
+                <div key={idx}>
+                  Llamada {idx + 1}:{' '}
+                  {r ? <span className="font-medium text-neutral-800">{resultadoLabels[r as Resultado]}</span>
+                    : <span className="italic">sin registro</span>}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {telHref ? (
+          <a href={telHref} className="shrink-0 inline-flex items-center gap-2 rounded-full bg-white px-3.5 py-2 text-sm font-semibold ring-1 ring-black/10 shadow-sm hover:shadow-md transition" title={`Llamar a ${row.telefono}`}>
+            <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M6.6 10.8c1.3 2.5 3.1 4.4 5.6 5.6l2.1-2.1a1 1 0 0 1 1.1-.22c1.2.48 2.6.74 4 .74a1 1 0 0 1 1 1v3.5a1 1 0 0 1-1 1C12.1 20.3 3.7 11.9 3.7 2.7a1 1 0 0 1 1-1H8.2a1 1 0 0 1 1 1c0 1.4.26 2.8.74 4a1 1 0 0 1-.22 1.1l-2.1 2.1Z" fill="currentColor" /></svg>
+            <span>{row.telefono}</span>
+          </a>
+        ) : (
+          <div className="shrink-0 inline-flex items-center gap-2 rounded-full bg-white px-3.5 py-2 text-sm font-semibold ring-1 ring-black/10 shadow-sm">—</div>
+        )}
+      </div>
+
+      <div>
+        <label className="text-xs text-neutral-500">Resultado de la llamada</label>
+        <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+          {opciones.map((o) => (
+            <label key={o.value} className="flex items-center gap-2 rounded-lg ring-1 ring-black/10 bg-neutral-50 px-3 py-2 cursor-pointer">
+              <input type="radio" name="resultado" className="accent-blue-600" onChange={() => setResultado(o.value)} checked={resultado === o.value} />
+              <span className="text-sm">{o.label}</span>
+            </label>
+          ))}
+        </div>
+      </div>
+
+      <div className="mt-4">
+        <label className="text-xs text-neutral-500">Observaciones</label>
+        <textarea
+          aria-label="Observaciones" className="mt-1 w-full min-h[120px] resize-y rounded-2xl border border-slate-200/80 bg-white/90 px-4 py-3 text-[14px] text-slate-800 placeholder-slate-400 shadow-inner focus:outline-none focus:ring-4 focus:ring-sky-200 focus:border-sky-300 transition"
+          placeholder="Escribe aquí las observaciones..."
+          value={obs}
+          onChange={(e) => setObs(e.target.value)}
+        />
+      </div>
+      <div className="mt-4">
+        <button disabled={!resultado || saving} onClick={() => resultado && onSave({ resultado, notas: obs || undefined })} className="rounded-xl bg-neutral-900 text-white px-4 py-2 shadow-md hover:shadow-lg transition disabled:opacity-60">
+          {saving ? 'Guardando…' : 'Enviar informe'}
+        </button>
+      </div>
+    </div>
+  );
 }
