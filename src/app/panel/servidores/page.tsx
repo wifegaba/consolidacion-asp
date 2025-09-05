@@ -147,7 +147,13 @@ const roleFromRow = (s: ServidorRow): string => {
     if (s.asignaciones_contacto?.some(a => a?.vigente)) return 'Contactos';
     if (s.asignaciones_maestro?.some(a => a?.vigente)) return 'Maestros';
     return '—';
-};;
+};
+const etapaDiaFromRow = (s: ServidorRow): { etapa: string; dia: string } => {
+  const ac = s.asignaciones_contacto?.find(a => a?.vigente);
+  const am = s.asignaciones_maestro?.find(a => a?.vigente);
+  return { etapa: (ac?.etapa ?? am?.etapa ?? '—') as string, dia: (ac?.dia ?? am?.dia ?? '—') as string };
+};
+;
 
 /* ========= Componente ========= */
 export default function Servidores() {
@@ -269,6 +275,48 @@ export default function Servidores() {
     const [results, setResults] = useState<ServidorRow[]>([]);
     const [searching, setSearching] = useState(false);
     const [focusIndex, setFocusIndex] = useState(0);
+
+    /* ===== LISTADO (modal paginado) ===== */
+    const [listadoVisible, setListadoVisible] = useState(false);
+    const [listPage, setListPage] = useState(1);
+    const listPageSize = 7;
+    const [listTotal, setListTotal] = useState(0);
+    const [listLoading, setListLoading] = useState(false);
+    const [listRows, setListRows] = useState<ServidorRow[]>([]);
+
+    const cargarListado = async (page: number) => {
+        setListLoading(true);
+        try {
+            const start = (page - 1) * listPageSize;
+            const end = start + listPageSize - 1;
+            const sel =
+              'id, cedula, nombre, telefono, email, activo,' +
+              ' asignaciones_contacto(id, etapa, dia, semana, vigente),' +
+              ' asignaciones_maestro(id, etapa, dia, vigente)';
+
+            const { data, error, count } = await supabase
+                .from('servidores')
+                .select(sel, { count: 'exact' })
+                .eq('activo', true)
+                .order('nombre', { ascending: true })
+                .range(start, end)
+                .returns<ServidorRow[]>();
+
+            if (error) throw error;
+            setListRows(data || []);
+            setListTotal(count || 0);
+            setListPage(page);
+        } catch (e) {
+            setListRows([]);
+            setListTotal(0);
+        } finally {
+            setListLoading(false);
+        }
+    };
+
+    const abrirListado = () => { setListadoVisible(true); cargarListado(1); };
+    const cerrarListado = () => setListadoVisible(false);
+
 
     // Modal Detalle (vista lateral con sidebar)
     const [detalleVisible, setDetalleVisible] = useState(false);
@@ -1257,11 +1305,55 @@ export default function Servidores() {
                         Buscar
                     </button>
 
-                    <button className="srv-btn" onClick={onEliminar} disabled={busy} title="Eliminar">
-                        {busy ? 'Eliminando…' : 'Eliminar'}
-                    </button>
+                    <button className="srv-btn" onClick={abrirListado} disabled={busy} title="Listado">Listado</button>
                 </div>
             </div>
+
+            {/* ===== Modal LISTADO — Mac 2025 con paginación ===== */}
+            {listadoVisible && (
+                <div className="srv-modal" role="dialog" aria-modal="true">
+                    <div className="srv-modal__box list-box">
+                        <button className="srv-modal__close" aria-label="Cerrar" onClick={cerrarListado}>×</button>
+                        <div className="list-header">
+                            <h4 className="list-title">Listado de Servidores</h4>
+                            <div className="list-subtitle">Mostrando {Math.min(listPage*listPageSize, listTotal)} de {listTotal}</div>
+                        </div>
+                        <div className="list-table" role="table" aria-label="Servidores">
+                            <div className="list-row list-head" role="row">
+                                <div className="list-cell col-idx" role="columnheader">#</div>
+                                <div className="list-cell col-name" role="columnheader">Nombre</div>
+                                <div className="list-cell col-tel" role="columnheader">Teléfono</div>
+                                <div className="list-cell col-ced" role="columnheader">Cédula</div>
+                                <div className="list-cell col-etp" role="columnheader">Etapa</div>
+                                <div className="list-cell col-dia" role="columnheader">Día</div>
+                                <div className="list-cell col-rol" role="columnheader">Rol</div>
+                                <div className="list-cell col-act" role="columnheader">Acción</div>
+                            </div>
+                            {listLoading && <div className="list-empty">Cargando…</div>}
+                            {!listLoading && listRows.length === 0 && <div className="list-empty">Sin registros.</div>}
+                            {!listLoading && listRows.length > 0 && listRows.map((s, i) => (
+                                <div key={s.id} className="list-row" role="row">
+                                    <div className="list-cell col-idx" role="cell">{(listPage-1)*listPageSize + i + 1}</div>
+                                    <div className="list-cell col-name" role="cell">{s.nombre || '—'}</div>
+                                    <div className="list-cell col-tel" role="cell">{s.telefono || '—'}</div>
+                                    <div className="list-cell col-ced" role="cell">{s.cedula || '—'}</div>
+                                    <div className="list-cell col-etp" role="cell">{etapaDiaFromRow(s).etapa}</div>
+                                    <div className="list-cell col-dia" role="cell">{etapaDiaFromRow(s).dia}</div>
+                                    <div className="list-cell col-rol" role="cell">{(s.asignaciones_contacto?.some(a=>a?.vigente) ? 'Contactos' : (s.asignaciones_maestro?.some(a=>a?.vigente) ? 'Maestros' : '—'))}</div>
+                                    <div className="list-cell col-act" role="cell">
+                                        <button className="srv-btn list-select" onClick={() => { applyPick(s); cerrarListado(); }}>Seleccionar</button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                        <div className="list-pager">
+                            <button className="pager-btn" onClick={() => cargarListado(Math.max(1, listPage-1))} disabled={listPage<=1 || listLoading}>◀ Anterior</button>
+                            <span className="pager-info">Página {listPage} de {Math.max(1, Math.ceil(listTotal / listPageSize))}</span>
+                            <button className="pager-btn" onClick={() => cargarListado(listPage+1)} disabled={listPage>=Math.ceil(listTotal / listPageSize) || listLoading}>Siguiente ▶</button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* ===== Modal BUSCAR — Mac 2025 Neumorphism ===== */}
             {buscarModalVisible && (
@@ -1314,6 +1406,14 @@ export default function Servidores() {
                                                 <span className="meta-dot">•</span>
                                                 <span className="meta-item">
                           <label>Rol:</label> {roleFromRow(s)}
+                        </span>
+                                                <span className="meta-dot">•</span>
+                                                <span className="meta-item">
+                          <label>Etapa:</label> {etapaDiaFromRow(s).etapa}
+                        </span>
+                                                <span className="meta-dot">•</span>
+                                                <span className="meta-item">
+                          <label>Día:</label> {etapaDiaFromRow(s).dia}
                         </span>
                                             </div>
                                         </button>
@@ -1712,7 +1812,53 @@ export default function Servidores() {
                 .confirm-title{ margin: 0 0 8px; font-size: 18px; font-weight: 800; }
                 .confirm-text{ margin: 0 0 10px; opacity: .8; }
                 .confirm-data{ display: grid; gap: 6px; font-size: 14px; }
-            `}</style>
+            
+                /* ===== LISTADO (modal) ===== */
+                .list-box{ width: min(92vw, 1200px); max-width: 1100px; }
+                .list-header{ display:flex; align-items:baseline; justify-content:space-between; margin-bottom:10px; }
+                .list-title{ font-size:18px; font-weight:800; letter-spacing:.2px; }
+                .list-subtitle{ font-size:13px; opacity:.7; }
+                /* Cerrar (macOS 2025) solo para el modal Listado */
+                .list-box .srv-modal__close{
+                    position: absolute; top: 10px; right: 12px; left: auto;
+                    width: 22px; height: 22px; border-radius: 50%;
+                    border: 1px solid rgba(0,0,0,0.08);
+                    background: radial-gradient(120% 120% at 30% 30%, #ff8a80, #ff5f57 60%, #e0443e 100%);
+                    box-shadow: inset 1px 1px 2px rgba(255,255,255,.6), inset -1px -1px 2px rgba(0,0,0,.06), 0 6px 14px rgba(255,95,87,.22);
+                    cursor: pointer;
+                    display: inline-flex; align-items: center; justify-content: center;
+                    color: #ffffff; font-size: 14px; line-height: 1; font-weight: 900; padding: 0;
+                }
+                .list-box .srv-modal__close:hover{
+                    box-shadow: inset 1px 1px 2px rgba(255,255,255,.65), inset -1px -1px 2px rgba(0,0,0,.06), 0 0 0 4px rgba(255,95,87,.18), 0 10px 20px rgba(255,95,87,.25);
+                    filter: brightness(1.02);
+                }
+                .list-box .srv-modal__close:focus-visible{
+                    outline: none;
+                    box-shadow: inset 1px 1px 2px rgba(255,255,255,.65), inset -1px -1px 2px rgba(0,0,0,.06), 0 0 0 4px rgba(255,95,87,.28), 0 12px 24px rgba(255,95,87,.28);
+                }
+                .list-table{ width: 100%;  border:1px solid rgba(0,0,0,.06); border-radius:14px; overflow:hidden; background:linear-gradient(180deg, rgba(255,255,255,.92), rgba(246,248,255,.86)); box-shadow: inset 2px 2px 6px rgba(255,255,255,.85), inset -2px -2px 6px rgba(0,0,0,.05); }
+                .list-row{ display:grid; grid-template-columns: 28px 1fr 1fr .9fr .9fr .9fr .8fr 150px; align-items:center; padding:8px 10px; border-bottom:1px solid rgba(0,0,0,.05); }
+                .list-head{ background:linear-gradient(180deg, rgba(245,247,255,.95), rgba(234,238,255,.9)); font-weight:800; letter-spacing:.3px; }
+                .list-row:last-child{ border-bottom:0; }
+                .list-cell{ font-size:14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+                .col-idx{ text-align:center; font-weight:700; opacity:.8; }
+                .col-name{ font-weight:700; color:#0b0b0b; }
+                .col-rol{ font-weight:600; opacity:.85; }
+                .list-empty{ padding:16px; text-align:center; opacity:.7; }
+                .list-select{ padding:8px 12px; color:#fff; border-color: rgba(59,91,253,.45) !important; background: linear-gradient(180deg, #5b7cff, #3b5bfd) !important; box-shadow: inset 1px 1px 3px rgba(255,255,255,.35), 0 10px 20px rgba(59,91,253,.18) !important; }
+                .list-select:hover{ filter: brightness(1.03); box-shadow: inset 1px 1px 3px rgba(255,255,255,.35), 0 14px 26px rgba(59,91,253,.24) !important; }
+                .list-select:focus-visible{ outline: none; box-shadow: 0 0 0 3px rgba(88,132,255,.28), inset 1px 1px 3px rgba(255,255,255,.35) !important; }
+                .list-pager{ display:flex; justify-content:center; align-items:center; gap:14px; margin-top:12px; }
+                .pager-btn{ padding:8px 12px; border-radius:12px; border:1px solid rgba(0,0,0,.08); background:linear-gradient(180deg, rgba(255,255,255,.95), rgba(246,248,255,.9)); font-weight:700; box-shadow: inset 1px 1px 3px rgba(255,255,255,.85), inset -1px -1px 3px rgba(0,0,0,.05); }
+                .pager-btn:disabled{ opacity:.5; cursor:not-allowed; }
+                .pager-info{ font-size:13px; opacity:.75; }
+
+
+
+
+                
+`}</style>
         </div>
     );
 }

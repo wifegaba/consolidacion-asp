@@ -110,6 +110,16 @@ export default function Servidores() {
     const [modoEdicion, setModoEdicion] = useState(false);
     const [indiceEdicion, setIndiceEdicion] = useState<string | null>(null);
 
+    // Listado de Servidores (modal tipo Mac 2025)
+    type AsigSrv = { etapa: string; dia: AppEstudioDia; vigente: boolean };
+    type ServidorRow = { id: string; nombre: string; cedula?: string | null; asignaciones_maestro?: AsigSrv[] };
+    const [listadoOpen, setListadoOpen] = useState(false);
+    const [srvLoading, setSrvLoading] = useState(false);
+    const [srvRows, setSrvRows] = useState<ServidorRow[]>([]);
+    const [srvPage, setSrvPage] = useState(1);
+    const [srvTotal, setSrvTotal] = useState(0);
+    const SRV_PAGE_SIZE = 10;
+
     // Modal búsqueda
     const [modalBuscarVisible, setModalBuscarVisible] = useState(false);
     const [busqueda, setBusqueda] = useState('');
