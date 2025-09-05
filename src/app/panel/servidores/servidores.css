@@ -372,6 +372,47 @@
     */
 }
 
+/* === Responsive: modal en columna (móviles) === */
+@media (max-width: 640px){
+  /* Switches dentro del modal: uno debajo del otro */
+  .srv-modal .srv-switches{
+    flex-wrap: nowrap;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+  .srv-modal .srv-switch{ padding-left: 40px; }
+
+  /* Botones dentro del modal: columna y ancho completo */
+  .srv-modal .srv-actions,
+  .srv-modal .srv-modal__actions{
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+  .srv-modal .srv-btn{ width: 100%; }
+
+  /* Opcional: dropdowns de cultos en columna para evitar overflow */
+  .srv-modal .srv-cultos{
+    flex-direction: column;
+    flex-wrap: nowrap;
+    column-gap: 0;
+    row-gap: 12px;
+  }
+
+  /* Radios del modal (Timoteo/Maestros): evitar desborde lateral */
+  .srv-modal .srv-roles-grid{
+    display: flex;
+    flex-wrap: wrap !important;   /* forzar wrap aunque haya inline styles */
+    justify-content: center;
+    gap: 8px;
+  }
+  .srv-modal .srv-radio-card{
+    min-width: 104px;
+    padding: 8px 10px;
+  }
+}
+
 
 /* --- Mac 2025 look & feel (transparente) --- */
 /* Solo estilos contenedor, sin cambiar dropdowns ni modales */

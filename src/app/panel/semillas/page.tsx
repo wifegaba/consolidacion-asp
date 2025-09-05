@@ -136,9 +136,9 @@ function Modal({
     if (!open) return null;
 
     return (
-        <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center p-6">
+        <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6">
             <div aria-hidden="true" className="fixed inset-0 bg-black/10 backdrop-blur-[2px]" onClick={onClose} />
-            <div className="relative w-[min(680px,92vw)] max-h-[90vh] overflow-auto rounded-[24px] bg-white shadow-[0_16px_40px_rgba(0,0,0,.22)] ring-1 ring-black/10">
+            <div className="relative w-[min(680px,96vw)] max-h-[92vh] overflow-hidden rounded-[20px] sm:rounded-[24px] bg-white shadow-[0_16px_40px_rgba(0,0,0,.22)] ring-1 ring-black/10 flex flex-col">
                 <button
                     onClick={onClose}
                     aria-label="Cerrar"
@@ -147,11 +147,11 @@ function Modal({
                     ✕
                 </button>
 
-                <div className="p-7 md:p-9">
+                <div className="p-6 md:p-9 overflow-auto seed-modal">
                     <h2 className="text-2xl md:text-3xl font-semibold tracking-tight text-neutral-900">Seleccione el área</h2>
                     <div className="mt-2 text-neutral-500">{seed ? `Semilla ${seed}` : ''}</div>
 
-                    <div className="mt-7 grid grid-cols-1 sm:grid-cols-2 gap-5">
+                    <div className="mt-7 grid grid-cols-1 sm:grid-cols-2 gap-5 seed-modal__options">
                         <button
                             onClick={() => {
                                 onSelect('contactos');
@@ -877,6 +877,17 @@ export default function PageSemillas() {
                     0% { background-position: 0% 50%; }
                     50% { background-position: 100% 50%; }
                     100% { background-position: 0% 50%; }
+                }
+
+                /* ===== Modal Semillas: Responsive vertical ===== */
+                @media (max-width: 640px){
+                    /* fuerza disposición vertical en el contenido del modal */
+                    .seed-modal{ display: grid; grid-auto-flow: row; align-content: start; gap: 14px; }
+                    .seed-modal__options{ display: grid; grid-template-columns: 1fr; gap: 10px; }
+                    /* cualquier contenedor flex interno en el modal -> columna */
+                    .seed-modal :is(.flex, .inline-flex){ flex-direction: column !important; align-items: stretch !important; }
+                    /* botones a ancho completo en móvil */
+                    .seed-modal button{ width: 100%; }
                 }
             `}</style>
 
