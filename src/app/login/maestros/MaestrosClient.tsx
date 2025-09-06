@@ -537,7 +537,7 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
   if (!cedula) {
     return (
       <main className="min-h-[100dvh] grid place-items-center">
-        <div>Falta la cédula en la URL.</div>
+        <div>Credenciales Invalidas </div>
       </main>
     );
   }

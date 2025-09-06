@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json().catch(() => ({}));
     const cedula = String(body?.cedula || '').replace(/\D+/g, '').trim();
     if (!cedula) {
-      return NextResponse.json({ error: 'Falta la cédula.' }, { status: 400 });
+      return NextResponse.json({ error: 'Debe Autenticarse ' }, { status: 400 });
     }
 
     // 3) Llamar a tus RPCs en el servidor (service_role)

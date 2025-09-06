@@ -1,4 +1,3 @@
-// middleware.ts
 import { NextRequest, NextResponse } from 'next/server';
 import jwt from 'jsonwebtoken';
 
@@ -18,24 +17,28 @@ export function middleware(req: NextRequest) {
   const token = req.cookies.get(COOKIE_NAME)?.value;
 
   const isPublic =
-    pathname.startsWith('/login') ||
+    pathname === '/login' ||                // solo /login raíz es público
     pathname.startsWith('/api/login') ||
     pathname.startsWith('/_next') ||
     pathname.startsWith('/public') ||
-    pathname === '/' ||
-    pathname.startsWith('/favicon');
+    pathname.startsWith('/favicon') ||
+    pathname === '/';
 
   if (isPublic) {
-    if (pathname.startsWith('/login') && token) {
+    if (pathname === '/login' && token) {
       try {
         const payload = jwt.verify(token, JWT_SECRET) as any;
         return NextResponse.redirect(new URL(roleToHome(payload.rol), req.url));
-      } catch { /* token inválido => permitir login */ }
+      } catch {
+        /* token inválido => permitir login */
+      }
     }
     return NextResponse.next();
   }
 
-  if (!token) return NextResponse.redirect(new URL('/login', req.url));
+  if (!token) {
+    return NextResponse.redirect(new URL('/login', req.url));
+  }
 
   try {
     jwt.verify(token, JWT_SECRET);
@@ -48,5 +51,11 @@ export function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/panel/:path*', '/login/maestros', '/login/contactos1', '/bienvenida'],
+  matcher: [
+    '/panel/:path*',
+    '/login/panel/:path*',   // ahora protegido
+    '/login/maestros',
+    '/login/contactos1',
+    '/bienvenida',
+  ],
 };
