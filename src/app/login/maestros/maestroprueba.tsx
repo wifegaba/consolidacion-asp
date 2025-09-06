@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
@@ -50,30 +50,27 @@ type AgendadoRow = {
   semana: number;
 };
 
-/** ======== Banco Archivo ======== */
 type BancoRow = {
   progreso_id: string;
   persona_id: string;
   nombre: string;
   telefono: string | null;
-  modulo: 1 | 2 | 3 | 4 | null;
-  semana: number | null;
+  modulo: number;
+  semana: number;
   dia: Dia;
   creado_en: string;
-  etapa: 'Semillas' | 'Devocionales' | 'Restauracion';
+  etapa?: 'Semillas' | 'Devocionales' | 'Restauracion';
 };
 
 /* ================= Constantes ================= */
-const V_PEND_HIST   = 'v_llamadas_pendientes_hist';
-const V_PEND_BASE   = 'v_llamadas_pendientes';
-const V_AGENDADOS   = 'v_agendados';
+const V_PEND_HIST = 'v_llamadas_pendientes_hist';
+const V_PEND_BASE = 'v_llamadas_pendientes';
+const V_AGENDADOS = 'v_agendados';
 const RPC_GUARDAR_LLAMADA = 'fn_guardar_llamada';
-const RPC_ASIST     = 'fn_marcar_asistencia';
+const RPC_ASIST = 'fn_marcar_asistencia';
 
-/** ======== Banco Archivo (constantes) ======== */
-/** Vista que lista archivados visibles para este panel */
+/* Banco Archivo */
 const V_BANCO = 'v_banco_archivo';
-/** RPC que re-activa un registro desde Banco Archivo hacia el panel actual */
 const RPC_REACTIVAR = 'fn_reactivar_desde_archivo';
 
 const resultadoLabels: Record<Resultado, string> = {
@@ -98,7 +95,7 @@ const norm = (t: string) =>
     .toLowerCase()
     .trim();
 
-/** "Semilla 3" | "Devocionales 2" | "Restauracion 1" -> etapaBase + módulo */
+/** Filtro "Semilla 3" | "Devocionales 2" | "Restauracion 1" -> etapaBase + módulo */
 function mapEtapaDetToBase(etapaDet: string): {
   etapaBase: 'Semillas' | 'Devocionales' | 'Restauracion';
   modulo: 1 | 2 | 3 | 4;
@@ -143,9 +140,8 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
   const router = useRouter();
   const params = useSearchParams();
   const cedula = normalizeCedula(cedulaProp ?? params?.get('cedula') ?? '');
-  const rtDebug = (params?.get('rtlog') === '1') || (params?.get('debug') === '1');
-  const rtLog = (...args: any[]) => { if (rtDebug) console.log('[RT maestros]', ...args); };
 
+  const [servidorId, setServidorId] = useState<string>('');
   const [nombre, setNombre] = useState('');
   const [asig, setAsig] = useState<MaestroAsignacion | null>(null);
 
@@ -164,24 +160,26 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
   const [marks, setMarks] = useState<Record<string, 'A' | 'N' | undefined>>({});
   const [savingAg, setSavingAg] = useState(false);
 
-  /** ======== Banco Archivo (estado) ======== */
+  // Banco Archivo (modal)
   const [bancoOpen, setBancoOpen] = useState(false);
   const [bancoLoading, setBancoLoading] = useState(false);
   const [bancoRows, setBancoRows] = useState<BancoRow[]>([]);
   const [reactivating, setReactivating] = useState<Record<string, boolean>>({});
-  const [servidorId, setServidorId] = useState<string | null>(null);
 
-  // refs para estado “vivo” dentro de handlers realtime
+  // refs
   const semanaRef = useRef(semana);
   const diaRef = useRef<Dia | null>(dia);
   const asigRef = useRef<MaestroAsignacion | null>(null);
   const pendRef = useRef<PendRowUI[]>([]);
+
+  // IDs que llegaron por realtime y deben mantener marcador "Nuevo" hasta recargar
+  const rtNewRef = useRef<Set<string>>(new Set());
   useEffect(() => { semanaRef.current = semana; }, [semana]);
   useEffect(() => { diaRef.current = dia; }, [dia]);
   useEffect(() => { asigRef.current = asig; }, [asig]);
   useEffect(() => { pendRef.current = pendientes; }, [pendientes]);
 
-  // limpiar resaltado "_ui"
+  // limpiar resaltado "_ui" tras unos segundos
   const clearTimersRef = useRef<Record<string, number>>({});
   const scheduleClearUI = (id: string, ms = 6000) => {
     if (clearTimersRef.current[id]) window.clearTimeout(clearTimersRef.current[id]);
@@ -191,10 +189,7 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
     }, ms);
   };
 
-  /** Para marcar “Nuevo” cuando viene de reactivación */
-  const rtNewRef = useRef<Set<string>>(new Set());
-
-  // Cargar asignación del maestro (y servidorId para reactivar)
+  // Cargar asignación del maestro
   useEffect(() => {
     (async () => {
       if (!cedula) return;
@@ -210,7 +205,7 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
       }
 
       setNombre((data as any).nombre ?? '');
-      setServidorId((data as any).id ?? null);
+      setServidorId((data as any).id ?? '');
 
       const a = (data as any).asignaciones_maestro?.find((x: AsigMaestro) => x.vigente) as AsigMaestro | undefined;
       if (!a) {
@@ -231,7 +226,7 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
 
   const titulo = useMemo(() => asig?.etapaDet ?? '', [asig]);
 
-  /* ====== Fetchers ====== */
+  /* ====== Fetch de pendientes ====== */
   const fetchPendientes = useCallback(
     async (s: Semana, d: Dia, opts?: { quiet?: boolean }) => {
       if (!asig) return;
@@ -259,16 +254,14 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
       const allowed = new Set((base ?? []).map((r: any) => r.progreso_id));
       const draft = ((hist ?? []) as PendienteRow[]).filter((r) => allowed.has(r.progreso_id));
 
+      // Reconciliar para marcar 'new'/'changed'
       const prev = pendRef.current;
       const prevById = new Map(prev.map(p => [p.progreso_id, p]));
       const next: PendRowUI[] = draft.map((r) => {
         const old = prevById.get(r.progreso_id);
         let _ui: 'new' | 'changed' | undefined;
-        if (rtNewRef.current.has(r.progreso_id)) {
-          _ui = 'new';
-          // limpiamos la marca para no forzar “nuevo” en siguientes cargas
-          rtNewRef.current.delete(r.progreso_id);
-        } else if (!old) _ui = 'new';
+        if (rtNewRef.current.has(r.progreso_id)) _ui = 'new';
+        else if (!old) _ui = 'new';
         else if (
           old.llamada1 !== r.llamada1 ||
           old.llamada2 !== r.llamada2 ||
@@ -280,40 +273,30 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
       });
 
       setPendientes(next);
-      next.forEach(r => r._ui && scheduleClearUI(r.progreso_id, r._ui === 'new' ? 6000 : 3000));
+      next.forEach(r => {
+        if (!r._ui) return;
+        if (r._ui === 'new' && rtNewRef.current.has(r.progreso_id)) return; // no limpiar realtime
+        scheduleClearUI(r.progreso_id, r._ui === 'new' ? 6000 : 3000);
+      });
 
       if (!opts?.quiet) setLoadingPend(false);
     },
     [asig]
   );
 
-  const fetchAgendados = useCallback(async (opts?: { quiet?: boolean }) => {
-    if (!asig || !asig.dia) return;
-    if (!opts?.quiet) setLoadingAg(true);
+  // Primer load visible
+  useEffect(() => {
+    if (dia) void fetchPendientes(semana, dia, { quiet: false });
+  }, [semana, dia, fetchPendientes]);
 
-    let q = supabase
-      .from(V_AGENDADOS)
-      .select('progreso_id,nombre,telefono,semana')
-      .eq('etapa', asig.etapaBase)
-      .eq('dia', asig.dia);
-    if (asig.etapaBase !== 'Restauracion') q = (q as any).eq('modulo', asig.modulo);
-
-    const { data } = await q.order('nombre', { ascending: true });
-    setAgendados(((data ?? []) as AgendadoRow[]));
-    if (!opts?.quiet) setLoadingAg(false);
-  }, [asig]);
-
-  useEffect(() => { if (dia) void fetchPendientes(semana, dia, { quiet: false }); }, [semana, dia, fetchPendientes]);
-  useEffect(() => { void fetchAgendados({ quiet: false }); }, [fetchAgendados]);
-
-  /* ====== Acciones ====== */
+  /* ====== Guardar resultado de llamada ====== */
   const enviarResultado = async (payload: { resultado: Resultado; notas?: string }) => {
     const row = pendRef.current.find((p) => p.progreso_id === selectedId);
     if (!row || !semana || !dia) return;
 
     const esConfirmado = payload.resultado === 'confirmo_asistencia';
 
-    // Optimista en UI
+    // Optimista: refleja de inmediato en asistencias
     setAgendados((prev) => {
       const yaEsta = prev.some((a) => a.progreso_id === row.progreso_id);
       if (esConfirmado) {
@@ -343,11 +326,30 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
       setSelectedId(null);
     } catch (e: any) {
       setAgendados((prev) => prev.filter((a) => a.progreso_id !== row.progreso_id));
-      alert(e?.message ?? 'Error al guardar');
+      console.error(e?.message ?? 'Error al guardar');
     } finally {
       setSaving(false);
     }
   };
+
+  /* ====== Agendados ====== */
+  const fetchAgendados = useCallback(async (opts?: { quiet?: boolean }) => {
+    if (!asig || !asig.dia) return;
+    if (!opts?.quiet) setLoadingAg(true);
+
+    let q = supabase
+      .from(V_AGENDADOS)
+      .select('progreso_id,nombre,telefono,semana')
+      .eq('etapa', asig.etapaBase)
+      .eq('dia', asig.dia);
+    if (asig.etapaBase !== 'Restauracion') q = (q as any).eq('modulo', asig.modulo);
+
+    const { data } = await q.order('nombre', { ascending: true });
+    setAgendados(((data ?? []) as AgendadoRow[]));
+    if (!opts?.quiet) setLoadingAg(false);
+  }, [asig]);
+
+  useEffect(() => { void fetchAgendados({ quiet: false }); }, [fetchAgendados]);
 
   const toggleMark = (id: string, tipo: 'A' | 'N') =>
     setMarks((m) => ({ ...m, [id]: m[id] === tipo ? undefined : tipo }));
@@ -371,169 +373,249 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
     }
   };
 
-  /* ====== Realtime ====== */
+  /* ====== Banco Archivo ====== */
+  const openBanco = async () => {
+    if (!asig) return;
+    setBancoOpen(true);
+    setBancoLoading(true);
+
+    try {
+      let q = supabase
+        .from(V_BANCO)
+        .select('progreso_id,persona_id,nombre,telefono,modulo,semana,dia,creado_en,etapa')
+        .eq('dia', asig.dia);
+
+      if (asig.etapaBase !== 'Restauracion') {
+        q = (q as any).eq('modulo', asig.modulo);
+      }
+      // Si la vista expone 'etapa', filtramos también por etapa:
+      q = (q as any).eq('etapa', asig.etapaBase);
+
+      const { data, error } = await q.order('creado_en', { ascending: false });
+      if (error) throw error;
+
+      const rows = (data ?? []) as BancoRow[];
+      setBancoRows(rows);
+    } catch (e: any) {
+      console.error(e?.message ?? 'Error cargando Banco Archivo');
+      setBancoRows([]);
+    } finally {
+      setBancoLoading(false);
+    }
+  };
+
+  const reactivar = async (row: BancoRow) => {
+    if (!asig || !servidorId) return;
+    setReactivating((m) => ({ ...m, [row.progreso_id]: true }));
+    try {
+      const { error } = await supabase.rpc(RPC_REACTIVAR, {
+        p_progreso: row.progreso_id,
+        p_persona: row.persona_id,
+        p_nombre: row.nombre,
+        p_telefono: row.telefono ?? null,
+        p_estudio: asig.dia,
+        p_notas: null,
+        p_servidor: servidorId,
+      });
+      if (error) throw error;
+
+      // Quitar del modal y refrescar listas
+      setBancoRows((prev) => prev.filter((r) => r.progreso_id !== row.progreso_id));
+      if (dia) await fetchPendientes(semana, dia, { quiet: true });
+      await fetchAgendados({ quiet: true });
+      // Marcar como "Nuevo" para que quede resaltado en el panel si corresponde
+      rtNewRef.current.add(row.progreso_id);
+    } catch (e: any) {
+      console.error(e?.message ?? 'No se pudo reactivar');
+    } finally {
+      setReactivating((m) => ({ ...m, [row.progreso_id]: false }));
+    }
+  };
+
+  /* ====== Realtime con reconciliación por ID (Maestros) ====== */
   useEffect(() => {
     if (!asig) return;
 
-    // ---- parches finos ----
-    const tryPatchProgresoInsert = async (row: any) => {
-      const a = asigRef.current;
-      const d = diaRef.current;
-      const s = semanaRef.current;
-      if (!a) return;
 
-      if (!matchAsigRow(row, a, d, s)) return;
-
-      if (pendRef.current.some(p => p.progreso_id === row.id)) return;
-
-      const { data: per } = await supabase
-        .from('persona')
-        .select('id,nombre,telefono')
-        .eq('id', row.persona_id)
-        .maybeSingle();
-
-      const nuevo: PendRowUI = {
-        progreso_id: row.id,
-        nombre: per?.nombre ?? '—',
-        telefono: per?.telefono ?? null,
-        llamada1: null,
-        llamada2: null,
-        llamada3: null,
-        _ui: 'new',
-      };
-
-      setPendientes(prev => [...prev, nuevo].sort((a, b) => a.nombre.localeCompare(b.nombre)));
-      scheduleClearUI(row.id, 6000);
-    };
-
+    // Parche fino al UPDATE (entrada/salida del set visible)
     const tryPatchProgresoUpdate = async (oldRow: any, newRow: any) => {
+      let n = newRow;
+      // Si el update viene sin campos clave, rescatar el registro completo
+      if (n?.etapa == null || n?.dia == null || n?.semana == null) {
+        const { data } = await supabase.from('progreso').select('*').eq('id', n?.id ?? oldRow?.id).maybeSingle();
+        if (data) n = data;
+      }
       const a = asigRef.current;
-      const d = diaRef.current;
-      const s = semanaRef.current;
+      const d = diaRef.current as Dia | null;
+      const s = semanaRef.current as Semana | null;
       if (!a) return;
 
-      const oldMatch = matchAsigRow(oldRow, a, d, s);
-      const newMatch = matchAsigRow(newRow, a, d, s);
+      const oldMatch =
+        oldRow && d && s &&
+        oldRow.dia === d && oldRow.semana === s &&
+        oldRow.etapa === a.etapaBase &&
+        (a.etapaBase === 'Restauracion' || oldRow.modulo === a.modulo) &&
+        oldRow.activo !== false;
 
-      // antes NO y ahora SÍ → agregar
+      const newMatch =
+        n && d && s &&
+        n.dia === d && n.semana === s &&
+        n.etapa === a.etapaBase &&
+        (a.etapaBase === 'Restauracion' || n.modulo === a.modulo) &&
+        n.activo !== false;
+
       if (!oldMatch && newMatch) {
-        if (!pendRef.current.some(p => p.progreso_id === newRow.id)) {
-          const { data: per } = await supabase
-            .from('persona')
-            .select('id,nombre,telefono')
-            .eq('id', newRow.persona_id)
-            .maybeSingle();
+        // entra al panel → añadirlo con datos de persona
+        const { data: per } = await supabase
+          .from('persona')
+          .select('id,nombre,telefono')
+          .eq('id', n.persona_id)
+          .maybeSingle();
 
-          const nuevo: PendRowUI = {
-            progreso_id: newRow.id,
-            nombre: per?.nombre ?? '—',
-            telefono: per?.telefono ?? null,
-            llamada1: null,
-            llamada2: null,
-            llamada3: null,
-            _ui: 'new',
-          };
-          setPendientes(prev => [...prev, nuevo].sort((a, b) => a.nombre.localeCompare(b.nombre)));
-          scheduleClearUI(newRow.id, 6000);
-        }
+        const nuevo = {
+          progreso_id: n.id,
+          nombre: per?.nombre ?? '—',
+          telefono: per?.telefono ?? null,
+          llamada1: null, llamada2: null, llamada3: null,
+          _ui: 'new' as const,
+        };
+        setPendientes(prev => [...prev, nuevo].sort((a, b) => (a.nombre || '').localeCompare(b.nombre || '')));
+        scheduleClearUI(n.id, 6000);
         return;
       }
 
-      // antes SÍ y ahora NO → quitar
       if (oldMatch && !newMatch) {
-        setPendientes(prev => prev.filter(p => p.progreso_id !== newRow.id));
-        if (selectedId === newRow.id) setSelectedId(null);
+        // sale del panel → quitarlo
+        setPendientes(prev => prev.filter(p => p.progreso_id !== n.id));
+        if (selectedId === n.id) setSelectedId(null);
         return;
       }
 
-      // sigue coincidiendo → refrescar silencioso
-      if (newMatch) refreshQuiet();
+      // sigue perteneciendo → refresh silencioso
+      refreshQuiet();
     };
 
-    // ---- refresh silencioso con debounce ----
+
+
+    // Helper: ¿este progreso pertenece al panel actual?
+    const checkMembership = async (progresoId: string) => {
+      const d = diaRef.current as Dia | null;
+      const s = semanaRef.current as Semana | null;
+      const a = asigRef.current;
+      if (!d || !s || !a) return { inPanel: false, row: null };
+
+      let q = supabase
+        .from(V_PEND_BASE)
+        .select('progreso_id')
+        .eq('dia', d)
+        .eq('semana', s)
+        .eq('etapa', a.etapaBase)
+        .eq('progreso_id', progresoId);
+
+      if (a.etapaBase !== 'Restauracion') q = (q as any).eq('modulo', a.modulo);
+
+      const { data: base } = await q.limit(1);
+      const inPanel = !!(base && base.length);
+
+      if (!inPanel) return { inPanel: false, row: null };
+
+      // Si pertenece, traigo su información desde el hist (nombre/telefono/llamadas)
+      const { data: hist } = await supabase
+        .from(V_PEND_HIST)
+        .select('progreso_id,nombre,telefono,llamada1,llamada2,llamada3')
+        .eq('semana', s)
+        .eq('dia', d)
+        .eq('progreso_id', progresoId)
+        .limit(1);
+
+      return { inPanel: true, row: hist?.[0] ?? { progreso_id: progresoId, nombre: '—', telefono: null } };
+    };
+
+    // Inserta o actualiza el estado con "Nuevo" permanente si viene por realtime
+    const addAsNewIfNeeded = (row: PendienteRow) => {
+      if (pendRef.current.some(p => p.progreso_id === row.progreso_id)) return;
+      rtNewRef.current.add(row.progreso_id);
+      const nuevo: PendRowUI = { ...row, _ui: 'new' };
+      setPendientes(prev => [...prev, nuevo].sort((a, b) => (a.nombre || '').localeCompare(b.nombre || '')));
+    };
+
+    // Quita si estaba presente
+    const removeIfPresent = (progresoId: string) => {
+      setPendientes(prev => prev.filter(p => p.progreso_id !== progresoId));
+      if (selectedId === progresoId) setSelectedId(null);
+    };
+
+    // Reconciliar un único progreso por ID (core del fix)
+    const reconcileById = async (progresoId: string) => {
+      const { inPanel, row } = await checkMembership(progresoId);
+      if (inPanel && row) addAsNewIfNeeded(row as PendienteRow);
+      else removeIfPresent(progresoId);
+    };
+
+    // Refresco silencioso
     let t: number | null = null;
     const refreshQuiet = () => {
       if (t) window.clearTimeout(t);
       t = window.setTimeout(async () => {
         const d = diaRef.current as Dia | null;
-        const s = semanaRef.current as Semana;
-        if (d) {
+        const s = semanaRef.current as Semana | null;
+        if (d && s) {
           await fetchPendientes(s, d, { quiet: true });
           await fetchAgendados({ quiet: true });
         }
-      }, 150);
+      }, 120);
     };
 
-    // ---- canal ----
-    const channelName = `rt-maestros-${cedula}`;
-    const ch = supabase.channel(channelName);
+    const ch = supabase.channel(`rt-maestros-${cedula}`);
 
-    // Logs de diagnóstico (activar con ?rtlog=1)
-    ch.on('postgres_changes', { event: '*', schema: 'public', table: 'progreso' }, (p: any) => {
-      if (rtDebug) rtLog('ev:progreso', p?.eventType, { old: p?.old?.id, new: p?.new?.id });
-    });
-
-    // INSERT progreso con fallback
-    ch.on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'progreso' }, async (payload) => {
+    ch.on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'progreso' }, (payload) => {
       const id = payload.new?.id;
       if (!id) return;
-      let row = payload.new as any;
-
-      const needsFetch =
-        row?.etapa == null ||
-        row?.dia == null ||
-        row?.semana == null ||
-        (asigRef.current?.etapaBase !== 'Restauracion' && row?.modulo == null);
-
-      if (needsFetch) {
-        const { data } = await supabase.from('progreso').select('*').eq('id', id).maybeSingle();
-        if (data) row = data;
-      }
-      await tryPatchProgresoInsert(row);
+      reconcileById(id);
     });
 
-    // UPDATE progreso con fallback
-    ch.on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'progreso' }, async (payload) => {
-      if (payload.old && payload.new) {
-        void tryPatchProgresoUpdate(payload.old, payload.new);
-      } else {
-        const id = (payload.new as any)?.id ?? (payload.old as any)?.id;
-        if (!id) return refreshQuiet();
-        const { data: row } = await supabase.from('progreso').select('*').eq('id', id).maybeSingle();
-        if (row) void tryPatchProgresoUpdate(payload.old ?? {}, row);
-        else refreshQuiet();
-      }
-    });
+   ch.on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'progreso' }, async (payload) => {
+  if (payload.old && payload.new) {
+    void tryPatchProgresoUpdate(payload.old, payload.new);
+  } else {
+    // fallback seguro: trae el registro completo
+    const { data: row } = await supabase
+      .from('progreso')
+      .select('*')
+      .eq('id', payload.new?.id || payload.old?.id)
+      .maybeSingle();
+    if (row) void tryPatchProgresoUpdate(payload.old ?? {}, row);
+  }
+});
 
-    // transition_log: refuerzo para transiciones S1→S2, etc.
-    ch.on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'transition_log' }, async (payload) => {
-      const progId = payload.new?.progreso_id;
-      if (!progId) return;
-      const { data: row } = await supabase.from('progreso').select('*').eq('id', progId).maybeSingle();
-      if (row) await tryPatchProgresoUpdate({}, row);
+
+    ch.on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'progreso' }, (payload) => {
+      const id = payload.old?.id;
+      if (!id) return;
+      removeIfPresent(id);
       refreshQuiet();
     });
 
-    // Otros eventos que impactan vistas → refresco silencioso
-    ch.on('postgres_changes', { event: '*', schema: 'public', table: 'llamada_intento' }, () => refreshQuiet());
-    ch.on('postgres_changes', { event: '*', schema: 'public', table: 'asistencia' }, () => refreshQuiet());
-    ch.on('postgres_changes', { event: '*', schema: 'public', table: 'persona' }, () => refreshQuiet());
-    ch.on('postgres_changes', { event: '*', schema: 'public', table: 'asignaciones_maestro' }, () => refreshQuiet());
+    ch.on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'transition_log' }, (payload) => {
+      const progId = payload.new?.progreso_id;
+      if (!progId) { refreshQuiet(); return; }
+      reconcileById(progId);
+    });
+
+    ['llamada_intento', 'persona', 'asistencia', 'asignaciones_maestro'].forEach((tbl) => {
+      ch.on('postgres_changes', { event: '*', schema: 'public', table: tbl }, () => refreshQuiet());
+    });
 
     ch.subscribe((status) => {
-      if (rtDebug) rtLog('channel:status', status);
       if (status === 'SUBSCRIBED') refreshQuiet();
     });
 
     return () => {
       ch.unsubscribe();
       if (t) window.clearTimeout(t);
-      Object.values(clearTimersRef.current).forEach(id => window.clearTimeout(id));
-      clearTimersRef.current = {};
     };
-  }, [asig, cedula, fetchPendientes, fetchAgendados, rtDebug, rtLog, selectedId]);
+  }, [asig, cedula, fetchPendientes, fetchAgendados, selectedId]);
 
-  /* ========================= UI ========================= */
   if (!cedula) {
     return (
       <main className="min-h-[100dvh] grid place-items-center">
@@ -550,6 +632,7 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
     );
   }
 
+  /* ========================= UI ========================= */
   return (
     <main
       className="min-h-[100dvh] px-5 md:px-8 py-6 bg-[radial-gradient(1200px_800px_at_-10%_-10%,#e9f0ff,transparent_60%),radial-gradient(1200px_900px_at_110%_10%,#ffe6f4,transparent_55%),linear-gradient(120deg,#f4f7ff,#fef6ff_50%,#eefaff)]"
@@ -566,27 +649,15 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
           </div>
         </section>
 
-        {/* ===== Encabezado ===== */}
+        {/* ===== Encabezado similar a Contactos ===== */}
         <header className="mb-3 md:mb-4 flex items-baseline gap-3">
           <h1 className="text-[22px] md:text-[28px] font-semibold text-neutral-900">
             Llamadas pendientes {titulo}
           </h1>
           <span className="text-neutral-500 text-sm">Semana {semana} • {dia}</span>
-
-          {/* ====== Botón Banco Archivo (añadido) ====== */}
-          <button
-            onClick={() => openBanco()}
-            className="ml-auto inline-flex items-center gap-2 rounded-xl bg-white px-3 py-1.5 text-sm font-semibold ring-1 ring-black/10 shadow-sm hover:shadow-md transition"
-            title="Ver estudiantes archivados y reactivar"
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M3 6.5A2.5 2.5 0 0 1 5.5 4h13A2.5 2.5 0 0 1 21 6.5V18a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2ZM5 8h14v10H5Zm2-3h10v2H7z" fill="currentColor"/>
-            </svg>
-            Banco Archivo
-          </button>
         </header>
 
-        {/* Menú: semanas (1..3) y día bloqueado */}
+        {/* Menú: semanas (1..3) y día bloqueado + Banco Archivo */}
         <div className="flex flex-wrap items-center gap-3">
           <div className="inline-flex items-center gap-2">
             <span className="text-sm text-neutral-600">Semana:</span>
@@ -621,6 +692,15 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
                 </button>
               );
             })}
+
+            {/* Botón Banco Archivo */}
+            <button
+              onClick={openBanco}
+              className="ml-2 px-3 py-1.5 rounded-full text-sm font-semibold ring-1 ring-black/10 shadow-sm bg-white hover:shadow-md transition"
+              title="Ver Banco Archivo de tu etapa"
+            >
+              Banco Archivo
+            </button>
           </div>
         </div>
 
@@ -779,7 +859,7 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
             onClick={() => setBancoOpen(false)}
           />
           <div className="absolute inset-0 grid place-items-center px-4">
-            <div className="w-full max-w-4xl rounded-3xl shadow-[0_20px_60px_-20px_rgba(0,0,0,35)] ring-1 ring-white/40 bg-[linear-gradient(180deg,rgba(255,255,255,65),rgba(255,255,255,45))] backdrop-blur-xl">
+            <div className="w-full max-w-4xl rounded-3xl shadow-[0_20px_60px_-20px_rgba(0,0,0,.35)] ring-1 ring-white/40 bg-[linear-gradient(180deg,rgba(255,255,255,.65),rgba(255,255,255,.45))] backdrop-blur-xl">
               {/* Header */}
               <div className="px-5 md:px-7 py-4 flex items-center justify-between border-b border-white/50">
                 <div>
@@ -790,7 +870,7 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
                 </div>
                 <button
                   onClick={() => setBancoOpen(false)}
-                  className="rounded-full bg-white/80 hover:bg:white px-4 py-2 text-sm font-semibold ring-1 ring-black/10 shadow-sm"
+                  className="rounded-full bg-white/80 hover:bg-white px-4 py-2 text-sm font-semibold ring-1 ring-black/10 shadow-sm"
                 >
                   Atrás
                 </button>
@@ -799,43 +879,46 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
               {/* Tabla */}
               <div className="px-4 md:px-6 py-3">
                 <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
+                  <table className="min-w-full text-sm">
                     <thead>
                       <tr className="text-left text-neutral-600">
-                        <th className="py-2 pr-3">Nombre</th>
-                        <th className="py-2 pr-3">Teléfono</th>
-                        <th className="py-2 pr-3">Módulo</th>
-                        <th className="py-2 pr-3">Semana</th>
-                        <th className="py-2 pr-3">Día</th>
-                        <th className="py-2 pr-3">Archivado</th>
-                        <th className="py-2 pr-3 text-right">Acción</th>
+                        <th className="py-2 pr-3 font-medium">Nombre</th>
+                        <th className="py-2 px-3 font-medium">Teléfono</th>
+                        <th className="py-2 px-3 font-medium">Mód/Sem</th>
+                        <th className="py-2 px-3 font-medium">Día</th>
+                        <th className="py-2 px-3 font-medium">Fecha</th>
+                        <th className="py-2 pl-3 font-medium text-right">Acción</th>
                       </tr>
                     </thead>
-                    <tbody className="align-top">
+                    <tbody className="align-middle">
                       {bancoLoading ? (
-                        <tr><td colSpan={7} className="py-6 text-center text-neutral-500">Cargando…</td></tr>
-                      ) : bancoRows.length === 0 ? (
-                        <tr><td colSpan={7} className="py-6 text-center text-neutral-500">Sin registros archivados.</td></tr>
-                      ) : bancoRows.map((r) => (
-                        <tr key={r.progreso_id} className="border-t border-black/5">
-                          <td className="py-2 pr-3 font-medium text-neutral-900">{r.nombre}</td>
-                          <td className="py-2 pr-3 text-neutral-700">{r.telefono ?? '—'}</td>
-                          <td className="py-2 pr-3">{r.modulo ?? '—'}</td>
-                          <td className="py-2 pr-3">{r.semana ?? '—'}</td>
-                          <td className="py-2 pr-3">{r.dia}</td>
-                          <td className="py-2 pr-3">{new Date(r.creado_en).toLocaleString()}</td>
-                          <td className="py-2 pr-0 text-right">
-                            <button
-                              disabled={!!reactivating[r.progreso_id]}
-                              onClick={() => reactivar(r)}
-                              className="inline-flex items-center gap-2 rounded-xl bg-neutral-900 text-white px-3 py-1.5 text-sm shadow-md hover:shadow-lg transition disabled:opacity-60"
-                              title="Reactivar al panel actual"
-                            >
-                              {reactivating[r.progreso_id] ? 'Reactivando…' : 'Reactivar'}
-                            </button>
-                          </td>
+                        <tr>
+                          <td className="py-6 text-neutral-500" colSpan={6}>Cargando…</td>
                         </tr>
-                      ))}
+                      ) : bancoRows.length === 0 ? (
+                        <tr>
+                          <td className="py-6 text-neutral-500" colSpan={6}>No hay registros archivados para tu etapa/día.</td>
+                        </tr>
+                      ) : (
+                        bancoRows.map((r) => (
+                          <tr key={r.progreso_id} className="border-t border-white/60">
+                            <td className="py-2 pr-3 font-semibold text-neutral-900">{r.nombre}</td>
+                            <td className="py-2 px-3 text-neutral-700">{r.telefono ?? '—'}</td>
+                            <td className="py-2 px-3">{r.modulo}/{r.semana}</td>
+                            <td className="py-2 px-3">{r.dia}</td>
+                            <td className="py-2 px-3 text-neutral-600">{new Date(r.creado_en).toLocaleString()}</td>
+                            <td className="py-2 pl-3 text-right">
+                              <button
+                                onClick={() => reactivar(r)}
+                                disabled={!!reactivating[r.progreso_id]}
+                                className="inline-flex items-center rounded-xl bg-neutral-900 text-white px-4 py-1.5 text-sm shadow-md hover:shadow-lg transition disabled:opacity-60"
+                              >
+                                {reactivating[r.progreso_id] ? 'Reactivando…' : 'Reactivar'}
+                              </button>
+                            </td>
+                          </tr>
+                        ))
+                      )}
                     </tbody>
                   </table>
                 </div>
@@ -846,7 +929,7 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
         </div>
       )}
 
-      {/* Animaciones / estilos */}
+      {/* Animaciones / estilos para nuevos y cambiados */}
       <style jsx global>{`
         @keyframes cardIn {
           0% { opacity: 0; transform: translateY(14px) scale(0.98); filter: blur(3px); }
@@ -869,64 +952,6 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
       `}</style>
     </main>
   );
-
-  /** ====== Banco Archivo: handlers ====== */
-  async function openBanco() {
-    if (!asig) return;
-    setBancoOpen(true);
-    setBancoLoading(true);
-
-    try {
-      let q = supabase
-        .from(V_BANCO)
-        .select('progreso_id,persona_id,nombre,telefono,modulo,semana,dia,creado_en,etapa')
-        .eq('dia', asig.dia);
-
-      if (asig.etapaBase !== 'Restauracion') {
-        q = (q as any).eq('modulo', asig.modulo);
-      }
-      q = (q as any).eq('etapa', asig.etapaBase);
-
-      const { data, error } = await q.order('creado_en', { ascending: false });
-      if (error) throw error;
-
-      setBancoRows((data ?? []) as BancoRow[]);
-    } catch (e: any) {
-      console.error(e?.message ?? 'Error cargando Banco Archivo');
-      setBancoRows([]);
-    } finally {
-      setBancoLoading(false);
-    }
-  }
-
-  async function reactivar(row: BancoRow) {
-    if (!asig || !servidorId) return;
-    setReactivating((m) => ({ ...m, [row.progreso_id]: true }));
-    try {
-      const { error } = await supabase.rpc(RPC_REACTIVAR, {
-        p_progreso: row.progreso_id,
-        p_persona: row.persona_id,
-        p_nombre: row.nombre,
-        p_telefono: row.telefono ?? null,
-        p_estudio: asig.dia,
-        p_notas: null,
-        p_servidor: servidorId,
-      });
-      if (error) throw error;
-
-      // Quitar del modal y refrescar listas
-      setBancoRows((prev) => prev.filter((r) => r.progreso_id !== row.progreso_id));
-      if (dia) await fetchPendientes(semana, dia, { quiet: true });
-      await fetchAgendados({ quiet: true });
-
-      // Marcar como "Nuevo" en el panel
-      rtNewRef.current.add(row.progreso_id);
-    } catch (e: any) {
-      console.error(e?.message ?? 'No se pudo reactivar');
-    } finally {
-      setReactivating((m) => ({ ...m, [row.progreso_id]: false }));
-    }
-  }
 }
 
 /* ================= Panel derecho (detalle y envío) ================= */

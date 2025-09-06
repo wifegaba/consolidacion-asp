@@ -1,20 +1,11 @@
 ﻿'use client';
 
 import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
-import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
 
 /* ================= Tipos ================= */
 type Dia = 'Domingo' | 'Martes' | 'Virtual';
 type Semana = 1 | 2 | 3;
-type Etapa =
-  | 'Semilla 1'
-  | 'Semilla 2'
-  | 'Semilla 3'
-  | 'Semilla 4'
-  | 'Devocionales'
-  | 'Restauracion';
-
 type Resultado =
   | 'no_contesta'
   | 'no_por_ahora'
@@ -28,7 +19,7 @@ type Resultado =
   | 'rechazado';
 
 type AsignacionContacto = {
-  etapa: Etapa;
+  etapa: string;     // p.ej. "Semilla 1", "Semilla 2", "Devocionales", "Restauracion"
   dia: Dia;
   semana: number;
   vigente: boolean;
@@ -44,10 +35,19 @@ type PendienteRow = {
 };
 type PendRowUI = PendienteRow & { _ui?: 'new' | 'changed' };
 
-/* ================= Constantes ================= */
+type AgendadoRow = {
+  progreso_id: string;
+  nombre: string;
+  telefono: string | null;
+  semana: number;
+};
+
+/* ================= Constantes (mismas vistas/RPCs que Maestros) ================= */
 const V_PEND_HIST = 'v_llamadas_pendientes_hist';
 const V_PEND_BASE = 'v_llamadas_pendientes';
+const V_AGENDADOS = 'v_agendados';
 const RPC_GUARDAR_LLAMADA = 'fn_guardar_llamada';
+const RPC_ASIST = 'fn_marcar_asistencia';
 
 const resultadoLabels: Record<Resultado, string> = {
   confirmo_asistencia: 'CONFIRMÓ ASISTENCIA',
@@ -64,47 +64,67 @@ const resultadoLabels: Record<Resultado, string> = {
 
 /* ================= Helpers ================= */
 const normalizeCedula = (s: string) => (s || '').replace(/\D+/g, '');
-function mapEtapaToBase(etapa: Etapa): {
-  etapaBase: 'Semillas' | 'Devocionales' | 'Restauracion';
-  modulo?: 1 | 2 | 3 | 4;
-} {
-  if (etapa.startsWith('Semilla')) {
-    const n = parseInt(etapa.split(' ')[1], 10);
-    if ([1, 2, 3, 4].includes(n)) return { etapaBase: 'Semillas', modulo: n as 1 | 2 | 3 | 4 };
+const norm = (t: string) =>
+  (t ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
+
+function etapaToBase(etapa: string): { etapaBase: 'Semillas' | 'Devocionales' | 'Restauracion'; modulo?: 1 | 2 | 3 | 4 } {
+  const t = norm(etapa);
+  if (t.startsWith('semilla')) {
+    const n = Number((t.match(/\d+/)?.[0] ?? '1'));
+    return { etapaBase: 'Semillas', modulo: Math.min(4, Math.max(1, n)) as 1 | 2 | 3 | 4 };
   }
-  if (etapa === 'Devocionales') return { etapaBase: 'Devocionales' };
+  if (t.startsWith('devocional')) return { etapaBase: 'Devocionales' };
   return { etapaBase: 'Restauracion' };
 }
 
-/* ================= Página (Client) ================= */
-export default function Contactos1Client({ cedula: cedulaProp }: { cedula?: string }) {
-  const router = useRouter();
+function matchAsigRow(row: any, asig: AsignacionContacto | null, d: Dia | null, s: Semana | null) {
+  if (!row || !asig || !d || !s) return false;
+  const { etapaBase, modulo } = etapaToBase(asig.etapa);
+  return (
+    row.dia === d &&
+    row.semana === s &&
+    row.etapa === etapaBase &&
+    (etapaBase === 'Restauracion' || row.modulo === modulo) &&
+    row.activo !== false
+  );
+}
+
+/* ================= Página Contactos ================= */
+export default function ContactosClient({ cedula: cedulaProp, rtlog = false }: { cedula?: string; rtlog?: boolean }) {
   const cedula = normalizeCedula(cedulaProp ?? '');
 
   const [nombre, setNombre] = useState('');
   const [asig, setAsig] = useState<AsignacionContacto | null>(null);
-
   const [semana, setSemana] = useState<Semana | null>(null);
   const [dia, setDia] = useState<Dia | null>(null);
 
-  const [loading, setLoading] = useState(false);
+  const [loadingPend, setLoadingPend] = useState(false);
   const [pendientes, setPendientes] = useState<PendRowUI[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
-  // ===== refs (idéntico a Maestros) =====
+  const [loadingAg, setLoadingAg] = useState(false);
+  const [agendados, setAgendados] = useState<AgendadoRow[]>([]);
+  const [marks, setMarks] = useState<Record<string, 'A' | 'N' | undefined>>({});
+  const [savingAg, setSavingAg] = useState(false);
+
+  // Refs “vivos” para handlers
   const semanaRef = useRef<Semana | null>(semana);
   const diaRef = useRef<Dia | null>(dia);
-  const asigRef = useRef<AsignacionContacto | null>(null);
+  const asigRef = useRef<AsignacionContacto | null>(asig);
   const pendRef = useRef<PendRowUI[]>([]);
-  // IDs que llegaron por realtime y deben mantener marcador "Nuevo" hasta recargar
-  const rtNewRef = useRef<Set<string>>(new Set());
   useEffect(() => { semanaRef.current = semana; }, [semana]);
   useEffect(() => { diaRef.current = dia; }, [dia]);
   useEffect(() => { asigRef.current = asig; }, [asig]);
   useEffect(() => { pendRef.current = pendientes; }, [pendientes]);
 
-  // Timers para limpiar el highlight "_ui"
+  const log = (...args: any[]) => { if (rtlog) console.log('[RT contactos]', ...args); };
+
+  // limpiar resaltado "_ui" tras unos segundos
   const clearTimersRef = useRef<Record<string, number>>({});
   const scheduleClearUI = (id: string, ms = 6000) => {
     if (clearTimersRef.current[id]) window.clearTimeout(clearTimersRef.current[id]);
@@ -114,28 +134,43 @@ export default function Contactos1Client({ cedula: cedulaProp }: { cedula?: stri
     }, ms);
   };
 
-  /* ============== Cargar servidor + asignación vigente ============== */
+  /* ====== Cargar servidor + asignación vigente ====== */
   useEffect(() => {
     (async () => {
       if (!cedula) return;
-      const { data, error } = await supabase
+
+      // 1) Intentar asignaciones_contacto (si existe)
+      let asigVig: AsignacionContacto | null = null;
+      const q1 = await supabase
         .from('servidores')
         .select('id,nombre,asignaciones_contacto:asignaciones_contacto(etapa,dia,semana,vigente)')
         .eq('cedula', cedula)
         .maybeSingle();
 
-      if (error || !data) {
-        router.replace('/login');
-        return;
+      if (!q1.error && q1.data) {
+        setNombre((q1.data as any).nombre ?? '');
+        asigVig = ((q1.data as any).asignaciones_contacto ?? []).find((a: AsignacionContacto) => a.vigente) ?? null;
       }
 
-      setNombre((data as any).nombre ?? '');
-      const asigVig = (data as any).asignaciones_contacto?.find(
-        (a: AsignacionContacto) => a.vigente
-      ) as AsignacionContacto | undefined;
+      // 2) Fallback: si no hay asignaciones_contacto vigentes, intenta asignaciones_maestro (mantener consistencia con Maestros)
+      if (!asigVig) {
+        const q2 = await supabase
+          .from('servidores')
+          .select('id,nombre,asignaciones_maestro:asignaciones_maestro(etapa,dia,vigente)')
+          .eq('cedula', cedula)
+          .maybeSingle();
+        if (!q2.error && q2.data) {
+          setNombre((q2.data as any).nombre ?? (q1.data as any)?.nombre ?? '');
+          const a = ((q2.data as any).asignaciones_maestro ?? []).find((x: any) => x.vigente) ?? null;
+          if (a) {
+            const { etapaBase, modulo } = etapaToBase(a.etapa);
+            asigVig = { etapa: etapaBase === 'Semillas' ? `Semilla ${modulo ?? 1}` : a.etapa, dia: a.dia, semana: 1, vigente: true };
+          }
+        }
+      }
 
       if (!asigVig) {
-        router.replace(`/bienvenida`);
+        // sin asignación → no mostramos nada (igual que Maestros redirige)
         return;
       }
 
@@ -143,24 +178,17 @@ export default function Contactos1Client({ cedula: cedulaProp }: { cedula?: stri
       setSemana((asigVig.semana as Semana) ?? 1);
       setDia(asigVig.dia);
     })();
-  }, [cedula, router]);
+  }, [cedula]);
 
-  const tituloEtapa = useMemo(() => asig?.etapa ?? '', [asig]);
-  const semanaFija = asig?.semana as Semana | undefined;
-  const diaFijo = asig?.dia as Dia | undefined;
+  const titulo = useMemo(() => asig?.etapa ?? '', [asig]);
 
-  const selected = useMemo(
-    () => pendientes.find((p) => p.progreso_id === selectedId) ?? null,
-    [selectedId, pendientes]
-  );
+  /* ====== Fetchers (idéntico a Maestros) ====== */
+  const fetchPendientes = useCallback(
+    async (s: Semana, d: Dia, opts?: { quiet?: boolean }) => {
+      if (!asig) return;
+      if (!opts?.quiet) setLoadingPend(true);
 
-  /* ============== Cargar pendientes (igual que Maestros) ============== */
-  const loadPendientes = useCallback(
-    async (etapaAsig: Etapa, s: Semana, d: Dia, opts?: { quiet?: boolean }) => {
-      if (!s || !d) return;
-      if (!opts?.quiet) setLoading(true);
-
-      const { etapaBase, modulo } = mapEtapaToBase(etapaAsig);
+      const { etapaBase, modulo } = etapaToBase(asig.etapa);
 
       const [{ data: hist }, { data: base }] = await Promise.all([
         supabase
@@ -176,7 +204,7 @@ export default function Contactos1Client({ cedula: cedulaProp }: { cedula?: stri
             .eq('etapa', etapaBase)
             .eq('semana', s)
             .eq('dia', d);
-          if (modulo) q = (q as any).eq('modulo', modulo);
+          if (etapaBase !== 'Restauracion') q = (q as any).eq('modulo', modulo);
           return q;
         })(),
       ]);
@@ -190,8 +218,7 @@ export default function Contactos1Client({ cedula: cedulaProp }: { cedula?: stri
       const next: PendRowUI[] = draft.map((r) => {
         const old = prevById.get(r.progreso_id);
         let _ui: 'new' | 'changed' | undefined;
-        if (rtNewRef.current.has(r.progreso_id)) _ui = 'new';
-        else if (!old) _ui = 'new';
+        if (!old) _ui = 'new';
         else if (
           old.llamada1 !== r.llamada1 ||
           old.llamada2 !== r.llamada2 ||
@@ -203,24 +230,53 @@ export default function Contactos1Client({ cedula: cedulaProp }: { cedula?: stri
       });
 
       setPendientes(next);
-      next.forEach(r => {
-        if (!r._ui) return;
-        if (r._ui === 'new' && rtNewRef.current.has(r.progreso_id)) return; // no limpiar realtime
-        scheduleClearUI(r.progreso_id, r._ui === 'new' ? 6000 : 3000);
-      });
-      if (!opts?.quiet) setLoading(false);
+      next.forEach(r => r._ui && scheduleClearUI(r.progreso_id, r._ui === 'new' ? 6000 : 3000));
+
+      if (!opts?.quiet) setLoadingPend(false);
     },
-    []
+    [asig]
   );
 
-  useEffect(() => {
-    if (asig && semana && dia) void loadPendientes(asig.etapa, semana, dia);
-  }, [asig, semana, dia, loadPendientes]);
+  const fetchAgendados = useCallback(async (opts?: { quiet?: boolean }) => {
+    if (!asig || !asig.dia) return;
+    if (!opts?.quiet) setLoadingAg(true);
 
-  /* ============== Guardar resultado de llamada ============== */
+    const { etapaBase, modulo } = etapaToBase(asig.etapa);
+
+    let q = supabase
+      .from(V_AGENDADOS)
+      .select('progreso_id,nombre,telefono,semana')
+      .eq('etapa', etapaBase)
+      .eq('dia', asig.dia);
+    if (etapaBase !== 'Restauracion') q = (q as any).eq('modulo', modulo);
+
+    const { data } = await q.order('nombre', { ascending: true });
+    setAgendados(((data ?? []) as AgendadoRow[]));
+    if (!opts?.quiet) setLoadingAg(false);
+  }, [asig]);
+
+  useEffect(() => { if (dia && semana) void fetchPendientes(semana, dia, { quiet: false }); }, [semana, dia, fetchPendientes]);
+  useEffect(() => { void fetchAgendados({ quiet: false }); }, [fetchAgendados]);
+
+  /* ====== Acciones ====== */
   const enviarResultado = async (payload: { resultado: Resultado; notas?: string }) => {
-    const row = pendientes.find((p) => p.progreso_id === selectedId);
+    const row = pendRef.current.find((p) => p.progreso_id === selectedId);
     if (!row || !semana || !dia) return;
+
+    const esConfirmado = payload.resultado === 'confirmo_asistencia';
+
+    // Optimista: refleja al toque en “agendados”
+    setAgendados((prev) => {
+      const yaEsta = prev.some((a) => a.progreso_id === row.progreso_id);
+      if (esConfirmado) {
+        return yaEsta
+          ? prev
+          : [...prev, { progreso_id: row.progreso_id, nombre: row.nombre, telefono: row.telefono, semana }];
+      } else {
+        return prev.filter((a) => a.progreso_id !== row.progreso_id);
+      }
+    });
+
     setSaving(true);
     try {
       const { error } = await supabase.rpc(RPC_GUARDAR_LLAMADA, {
@@ -232,136 +288,168 @@ export default function Contactos1Client({ cedula: cedulaProp }: { cedula?: stri
       });
       if (error) throw error;
 
+      await Promise.all([
+        fetchPendientes(semana, dia, { quiet: true }),
+        fetchAgendados({ quiet: true }),
+      ]);
       setSelectedId(null);
-      await loadPendientes(asig!.etapa, semana, dia, { quiet: true });
     } catch (e: any) {
+      // rollback optimista si falló
+      setAgendados((prev) => prev.filter((a) => a.progreso_id !== row.progreso_id));
       alert(e?.message ?? 'Error al guardar');
     } finally {
       setSaving(false);
     }
   };
 
-  /* ============== Realtime (idéntico a Maestros) ============== */
-  useEffect(() => {
-  if (!asig) return;
+  const toggleMark = (id: string, tipo: 'A' | 'N') =>
+    setMarks((m) => ({ ...m, [id]: m[id] === tipo ? undefined : tipo }));
 
-  const checkMembership = async (progresoId: string): Promise<{ inPanel: boolean; row: PendienteRow | null }> => {
-    const d = diaRef.current as Dia | null;
-    const s = semanaRef.current as Semana | null;
-    const a = asigRef.current;
-    if (!d || !s || !a) return { inPanel: false, row: null };
-
-    const { etapaBase, modulo } = mapEtapaToBase(a.etapa);
-
-    let q = supabase
-      .from(V_PEND_BASE)
-      .select('progreso_id')
-      .eq('dia', d)
-      .eq('semana', s)
-      .eq('etapa', etapaBase)
-      .eq('progreso_id', progresoId);
-
-    if (etapaBase !== 'Restauracion' && modulo) q = (q as any).eq('modulo', modulo);
-
-    const { data: base } = await q.limit(1);
-    const inPanel = !!(base && base.length);
-    if (!inPanel) return { inPanel: false, row: null };
-
-    const { data: hist } = await supabase
-      .from(V_PEND_HIST)
-      .select('progreso_id,nombre,telefono,llamada1,llamada2,llamada3')
-      .eq('semana', s)
-      .eq('dia', d)
-      .eq('progreso_id', progresoId)
-      .limit(1);
-
-    return { inPanel: true, row: (hist?.[0] as PendienteRow) ?? { progreso_id: progresoId, nombre: '—', telefono: null } };
+  const enviarAsistencias = async () => {
+    const entradas = Object.entries(marks).filter(([, v]) => v);
+    if (entradas.length === 0) return;
+    setSavingAg(true);
+    try {
+      for (const [progId, v] of entradas) {
+        const { error } = await supabase.rpc(RPC_ASIST, { p_progreso: progId, p_asistio: v === 'A' });
+        if (error) throw error;
+      }
+      setMarks({});
+      await fetchAgendados({ quiet: true });
+    } finally {
+      setSavingAg(false);
+    }
   };
 
-  const reconcileByIdWithRetry = async (progresoId: string, tries = 12, delayMs = 200) => {
-    for (let i = 0; i < tries; i++) {
-      const { inPanel, row } = await checkMembership(progresoId);
-      if (inPanel && row) {
-        if (!pendRef.current.some(p => p.progreso_id === progresoId)) {
-          rtNewRef.current.add(progresoId);
-          const nuevo: PendRowUI = { ...row, _ui: 'new' };
-          setPendientes(prev => [...prev, nuevo].sort((a,b)=> (a.nombre||'').localeCompare(b.nombre||'')));
-        } else {
-          rtNewRef.current.add(progresoId);
-          setPendientes(prev => prev.map(p => p.progreso_id === progresoId ? { ...p, _ui: 'new' } : p));
+  /* ====== Realtime — calcado a Maestros (con gancho a transition_log) ====== */
+  useEffect(() => {
+    if (!asig) return;
+
+    // Parche fino al INSERT (usa payload; si no cuadra filtros, se ignora)
+    const tryPatchProgresoInsert = async (row: any) => {
+      if (!matchAsigRow(row, asigRef.current, diaRef.current, semanaRef.current)) return;
+      if (pendRef.current.some(p => p.progreso_id === row.id)) return;
+
+      const { data: per } = await supabase
+        .from('persona')
+        .select('id,nombre,telefono')
+        .eq('id', row.persona_id)
+        .maybeSingle();
+
+      const nuevo: PendRowUI = {
+        progreso_id: row.id,
+        nombre: per?.nombre ?? '—',
+        telefono: per?.telefono ?? null,
+        llamada1: null, llamada2: null, llamada3: null,
+        _ui: 'new',
+      };
+      setPendientes(prev => [...prev, nuevo].sort((a, b) => a.nombre.localeCompare(b.nombre)));
+      scheduleClearUI(row.id, 6000);
+    };
+
+    // Parche fino al UPDATE (Entrada/salida del set visible)
+    const tryPatchProgresoUpdate = async (oldRow: any, newRow: any) => {
+      const a = asigRef.current, d = diaRef.current, s = semanaRef.current;
+      const oldMatch = matchAsigRow(oldRow, a, d, s);
+      const newMatch = matchAsigRow(newRow, a, d, s);
+
+      if (!oldMatch && newMatch) {
+        if (!pendRef.current.some(p => p.progreso_id === newRow.id)) {
+          const { data: per } = await supabase
+            .from('persona').select('id,nombre,telefono')
+            .eq('id', newRow.persona_id).maybeSingle();
+          const nuevo: PendRowUI = {
+            progreso_id: newRow.id,
+            nombre: per?.nombre ?? '—',
+            telefono: per?.telefono ?? null,
+            llamada1: null, llamada2: null, llamada3: null,
+            _ui: 'new',
+          };
+          setPendientes(prev => [...prev, nuevo].sort((a, b) => a.nombre.localeCompare(b.nombre)));
+          scheduleClearUI(newRow.id, 6000);
         }
         return;
       }
-      if (!inPanel && pendRef.current.some(p => p.progreso_id === progresoId)) {
-        setPendientes(prev => prev.filter(p => p.progreso_id !== progresoId));
-        if (selectedId === progresoId) setSelectedId(null);
+      if (oldMatch && !newMatch) {
+        setPendientes(prev => prev.filter(p => p.progreso_id !== newRow.id));
+        if (selectedId === newRow.id) setSelectedId(null);
         return;
       }
-      await new Promise(r => setTimeout(r, delayMs));
-    }
-    refreshQuiet();
-  };
+      if (newMatch) refreshQuiet();
+    };
 
-  let t: number | null = null;
-  const refreshQuiet = () => {
-    if (t) window.clearTimeout(t);
-    t = window.setTimeout(async () => {
-      const asign = asigRef.current;
-      const d = diaRef.current as Dia | null;
-      const s = semanaRef.current as Semana | null;
-      if (asign && d && s) await loadPendientes(asign.etapa, s, d, { quiet: true });
-    }, 120);
-  };
+    // Debounce para sync de vistas
+    let t: number | null = null;
+    const refreshQuiet = () => {
+      if (t) window.clearTimeout(t);
+      t = window.setTimeout(async () => {
+        const d = diaRef.current as Dia | null;
+        const s = semanaRef.current as Semana | null;
+        if (asigRef.current && d && s) {
+          await fetchPendientes(s, d, { quiet: true });
+          await fetchAgendados({ quiet: true });
+        }
+      }, 150);
+    };
 
-  const ch = supabase.channel(`rt-contactos-${cedula}`);
+    const ch = supabase.channel(`rt-maestros-${normalizeCedula(cedula)}`); // mismo esquema que Maestros
 
-  ch.on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'progreso' }, (payload) => {
-    const id = payload.new?.id;
-    if (id) void reconcileByIdWithRetry(id);
-  });
+    // Logs (activa pasando prop rtlog={true})
+    ch.on('postgres_changes', { event: '*', schema: 'public', table: 'progreso' }, (p) => {
+      const oldId = (p?.old as any)?.id;
+      const newId = (p?.new as any)?.id;
+      log('ev:progreso', p?.eventType, { old: oldId, new: newId });
+    });
 
-  ch.on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'progreso' }, (payload) => {
-    const id = payload.new?.id || payload.old?.id;
-    if (id) void reconcileByIdWithRetry(id);
-    else refreshQuiet();
-  });
+    // INSERT progreso → parche fino
+    ch.on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'progreso' }, (payload) => {
+      tryPatchProgresoInsert(payload.new);
+    });
 
-  ch.on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'progreso' }, (payload) => {
-    const id = payload.old?.id;
-    if (id) {
-      setPendientes(prev => prev.filter(p => p.progreso_id !== id));
-      if (selectedId === id) setSelectedId(null);
-    }
-    refreshQuiet();
-  });
+    // UPDATE progreso → si trae old/new, parche fino; si no, refresh (igual que Maestros) :contentReference[oaicite:2]{index=2}
+    ch.on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'progreso' }, (payload) => {
+      if (payload.old && payload.new) void tryPatchProgresoUpdate(payload.old, payload.new);
+      else refreshQuiet();
+    });
 
-  ch.on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'transition_log' }, (payload) => {
-    const progId = payload.new?.progreso_id;
-    if (progId) void reconcileByIdWithRetry(progId);
-    else refreshQuiet();
-  });
+    // DELETE → refresh
+    ch.on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'progreso' }, () => refreshQuiet());
 
-  ['llamada_intento', 'persona', 'asignaciones_contacto', 'asistencia'].forEach((tbl) => {
-    ch.on('postgres_changes', { event: '*', schema: 'public', table: tbl }, () => refreshQuiet());
-  });
+    // transition_log: refuerzo S1→S2 (lee progreso por id y simula UPDATE) :contentReference[oaicite:3]{index=3}
+    ch.on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'transition_log' }, async (payload) => {
+      const progId = payload.new?.progreso_id;
+      if (!progId) return;
+      const { data: row } = await supabase.from('progreso').select('*').eq('id', progId).maybeSingle();
+      if (row) await tryPatchProgresoUpdate({}, row);
+      refreshQuiet();
+    });
 
-  ch.subscribe((status) => { if (status === 'SUBSCRIBED') refreshQuiet(); });
+    // Otros que afectan vistas → refresh silencioso (igual que Maestros) :contentReference[oaicite:4]{index=4}
+    ['llamada_intento', 'asistencia', 'persona', 'asignaciones_maestro', 'asignaciones_contacto'].forEach((tbl) => {
+      ch.on('postgres_changes', { event: '*', schema: 'public', table: tbl }, () => refreshQuiet());
+    });
 
-  return () => {
-    ch.unsubscribe();
-    if (t) window.clearTimeout(t);
-  };
-}, [asig, cedula, loadPendientes, selectedId]);
+    ch.subscribe((status) => {
+      log('channel:status', status);
+      if (status === 'SUBSCRIBED') refreshQuiet();
+    });
 
-  if (!cedula) {
-    return (
-      <main className="min-h-[100dvh] grid place-items-center">
-        <div>Falta la cédula en la URL.</div>
-      </main>
-    );
-  }
+    return () => {
+      ch.unsubscribe();
+      if (t) window.clearTimeout(t);
+      Object.values(clearTimersRef.current).forEach(id => window.clearTimeout(id));
+      clearTimersRef.current = {};
+    };
+  }, [asig, cedula, fetchPendientes, fetchAgendados, selectedId]);
 
   /* ========================= UI ========================= */
+  if (!cedula) {
+    return <main className="min-h-[100dvh] grid place-items-center"><div>Falta la cédula.</div></main>;
+  }
+  if (!asig || !dia || !semana) {
+    return <main className="min-h-[100dvh] grid place-items-center"><div>Cargando asignación…</div></main>;
+  }
+
   return (
     <main
       className="min-h-[100dvh] px-5 md:px-8 py-6 bg-[radial-gradient(1200px_800px_at_-10%_-10%,#e9f0ff,transparent_60%),radial-gradient(1200px_900px_at_110%_10%,#ffe6f4,transparent_55%),linear-gradient(120deg,#f4f7ff,#fef6ff_50%,#eefaff)]"
@@ -374,32 +462,30 @@ export default function Contactos1Client({ cedula: cedulaProp }: { cedula?: stri
             Panel de Contactos
           </div>
           <div className="mt-1 text-[18px] md:text-[22px] font-medium text-neutral-700">
-            Hola, <b className="text-neutral-900">{nombre || 'Servidor'}</b>
+            Bienvenido, <b className="text-neutral-900">{nombre || 'Contacto'}</b>
           </div>
         </section>
 
+        {/* Header con filtros bloqueados a la asignación */}
         <header className="mb-3 md:mb-4 flex items-baseline gap-3">
           <h1 className="text-[22px] md:text-[28px] font-semibold text-neutral-900">
-            Llamadas pendientes {tituloEtapa}
+            Llamadas pendientes {titulo}
           </h1>
-          {semana && dia && <span className="text-neutral-500 text-sm">Semana {semana} · {dia}</span>}
+          <span className="text-neutral-500 text-sm">Semana {semana} • {dia}</span>
         </header>
 
-        {/* Filtros (bloqueados a la asignación del contacto) */}
         <div className="flex flex-wrap items-center gap-3">
           <div className="inline-flex items-center gap-2">
             <span className="text-sm text-neutral-600">Semana:</span>
             {[1, 2, 3].map((n) => {
-              const disabled = semanaFija !== undefined && n !== semanaFija;
+              const disabled = n !== semana;
               return (
                 <button
                   key={n}
                   disabled={disabled}
-                  onClick={() => !disabled && setSemana(n as Semana)}
                   className={`px-3 py-1.5 rounded-full text-sm font-semibold ring-1 ring-black/10 shadow-sm transition
-                    ${semana === n ? 'bg-neutral-900 text-white' : 'bg-white hover:shadow-md'}
-                    ${disabled ? 'opacity-40 cursor-not-allowed pointer-events-none hover:shadow-none' : ''}`}
-                  title={disabled ? 'Bloqueado por asignación' : 'Cambiar semana'}
+                    ${semana === n ? 'bg-neutral-900 text-white' : 'bg-white'}
+                    ${disabled ? 'opacity-40 cursor-not-allowed' : ''}`}
                 >
                   {n}
                 </button>
@@ -409,16 +495,14 @@ export default function Contactos1Client({ cedula: cedulaProp }: { cedula?: stri
           <div className="inline-flex items-center gap-2">
             <span className="text-sm text-neutral-600">Día:</span>
             {(['Domingo', 'Martes', 'Virtual'] as Dia[]).map((d) => {
-              const disabled = diaFijo !== undefined && d !== diaFijo;
+              const disabled = d !== dia;
               return (
                 <button
                   key={d}
                   disabled={disabled}
-                  onClick={() => !disabled && setDia(d)}
                   className={`px-3 py-1.5 rounded-full text-sm font-semibold ring-1 ring-black/10 shadow-sm transition
-                    ${dia === d ? 'bg-neutral-900 text-white' : 'bg-white hover:shadow-md'}
-                    ${disabled ? 'opacity-40 cursor-not-allowed pointer-events-none hover:shadow-none' : ''}`}
-                  title={disabled ? 'Bloqueado por asignación' : 'Cambiar día'}
+                    ${dia === d ? 'bg-neutral-900 text-white' : 'bg-white'}
+                    ${disabled ? 'opacity-40 cursor-not-allowed' : ''}`}
                 >
                   {d}
                 </button>
@@ -427,14 +511,14 @@ export default function Contactos1Client({ cedula: cedulaProp }: { cedula?: stri
           </div>
         </div>
 
-        {/* Lista + Panel de llamada */}
+        {/* Lista + Panel derecho */}
         <div className="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-5 md:gap-6">
           {/* Lista */}
           <section className="rounded-[16px] bg-white shadow-[0_10px_28px_-14px_rgba(16,24,40,.28)] ring-1 ring-black/5">
             <header className="px-4 md:px-5 py-3 border-b border-black/5 bg-[linear-gradient(135deg,#eaf3ff,#f6efff)]">
               <h3 className="text-base md:text-lg font-semibold text-neutral-900">Llamadas pendientes</h3>
               <p className="text-neutral-600 text-xs md:text-sm">
-                {loading ? 'Cargando…' : 'Selecciona un contacto para registrar la llamada.'}
+                {loadingPend ? 'Cargando…' : 'Selecciona un contacto para registrar la llamada.'}
               </p>
             </header>
 
@@ -491,7 +575,7 @@ export default function Contactos1Client({ cedula: cedulaProp }: { cedula?: stri
             )}
           </section>
 
-          {/* Panel derecho de llamada */}
+          {/* Panel derecho */}
           <section className="rounded-[16px] bg-white shadow-[0_10px_28px_-14px_rgba(16,24,40,.28)] ring-1 ring-black/5 p-4 md:p-5">
             {!selectedId ? (
               <div className="grid place-items-center text-neutral-500 h-full">
@@ -499,55 +583,107 @@ export default function Contactos1Client({ cedula: cedulaProp }: { cedula?: stri
               </div>
             ) : (
               <FollowUp
-                semana={semana!}
-                dia={dia!}
-                row={pendientes.find((p) => p.progreso_id === selectedId)!}
+                semana={semana}
+                dia={dia}
+                row={pendRef.current.find((p) => p.progreso_id === selectedId)!}
                 saving={saving}
                 onSave={enviarResultado}
               />
             )}
           </section>
         </div>
+
+        {/* ===== Asistencias ===== */}
+        <section className="mt-6 animate-cardIn rounded-[18px] ring-1 ring-black/5 shadow-[0_12px_30px_-16px_rgba(16,24,40,.28)] overflow-hidden bg-white">
+          <div className="flex items-center justify-between px-4 md:px-6 py-3 bg-[linear-gradient(135deg,#eaf3ff,#f8f1ff)]">
+            <div>
+              <h3 className="text-[15px] md:text-base font-semibold text-neutral-900">
+                Listado Estudiantes Día {asig.dia} — {etapaToBase(asig.etapa).etapaBase}{' '}
+                {etapaToBase(asig.etapa).modulo ?? ''}
+              </h3>
+              <p className="text-neutral-500 text-xs">Agendados que confirmaron asistencia.</p>
+            </div>
+            <div className="text-sm font-semibold rounded-full bg-white px-3 py-1.5 ring-1 ring-black/10 shadow-sm">
+              {asig.dia}
+            </div>
+          </div>
+
+          {loadingAg ? (
+            <div className="px-4 md:px-6 py-10 text-center text-neutral-500">Cargando…</div>
+          ) : agendados.length === 0 ? (
+            <div className="px-4 md:px-6 py-10 text-center text-neutral-500">No hay agendados para tu día asignado.</div>
+          ) : (
+            <>
+              <ul className="divide-y divide-black/5">
+                {agendados.map((e) => (
+                  <li key={e.progreso_id} className="px-4 md:px-6 py-3 flex items-center gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="font-semibold text-neutral-800 truncate">{e.nombre}</div>
+                      <div className="text-neutral-500 text-xs md:text-sm">{e.telefono ?? '—'}</div>
+                    </div>
+
+                    <label className="inline-flex items-center gap-2 text-sm mr-3">
+                      <input
+                        type="checkbox"
+                        checked={marks[e.progreso_id] === 'A'}
+                        onChange={() => toggleMark(e.progreso_id, 'A')}
+                        className="accent-emerald-600"
+                      />
+                      Asistió
+                    </label>
+
+                    <label className="inline-flex items-center gap-2 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={marks[e.progreso_id] === 'N'}
+                        onChange={() => toggleMark(e.progreso_id, 'N')}
+                        className="accent-rose-600"
+                      />
+                      No asistió
+                    </label>
+                  </li>
+                ))}
+              </ul>
+
+              <div className="px-4 md:px-6 py-3 bg-neutral-50">
+                <button
+                  disabled={savingAg}
+                  onClick={enviarAsistencias}
+                  className="rounded-xl bg-neutral-900 text-white px-4 py-2 shadow-md hover:shadow-lg transition disabled:opacity-60"
+                >
+                  {savingAg ? 'Enviando…' : 'Enviar Reporte'}
+                </button>
+              </div>
+            </>
+          )}
+        </section>
       </div>
 
-      {/* Animaciones “new/changed” */}
+      {/* Animaciones */}
       <style jsx global>{`
-        @keyframes cardIn {
-          0% { opacity: 0; transform: translateY(14px) scale(0.98); filter: blur(3px); }
+        @keyframes cardIn { 0% { opacity: 0; transform: translateY(14px) scale(0.98); filter: blur(3px); }
           60% { opacity: 1; transform: translateY(-2px) scale(1.01); filter: blur(0); }
-          100% { opacity: 1; transform: translateY(0) scale(1); }
-        }
+          100% { opacity: 1; transform: translateY(0) scale(1); } }
         .animate-cardIn { animation: cardIn .48s cubic-bezier(.22,1,.36,1) both; }
 
-        @keyframes fadeInScale {
-          0% { opacity: 0; transform: translateY(6px) scale(0.98); }
-          100% { opacity: 1; transform: translateY(0) scale(1); }
-        }
+        @keyframes fadeInScale { 0% { opacity: 0; transform: translateY(6px) scale(0.98); }
+          100% { opacity: 1; transform: translateY(0) scale(1); } }
         .animate-fadeInScale { animation: fadeInScale .28s ease-out both; }
 
-        @keyframes flashBg {
-          0% { background-color: #fff6d4; }
-          100% { background-color: transparent; }
-        }
+        @keyframes flashBg { 0% { background-color: #fff6d4; }
+          100% { background-color: transparent; } }
         .animate-flashBg { animation: flashBg 1.2s ease-out 1; }
       `}</style>
     </main>
   );
 }
 
-/* ================= Panel derecho (detalle y envío) ================= */
+/* ================= Panel derecho ================= */
 function FollowUp({
-  semana,
-  dia,
-  row,
-  saving,
-  onSave,
+  semana, dia, row, saving, onSave,
 }: {
-  semana: Semana;
-  dia: Dia;
-  row: PendienteRow;
-  saving: boolean;
-  onSave: (p: { resultado: Resultado; notas?: string }) => Promise<void>;
+  semana: Semana; dia: Dia | null; row: PendienteRow;
+  saving: boolean; onSave: (p: { resultado: Resultado; notas?: string }) => Promise<void>;
 }) {
   const opciones: { label: string; value: Resultado }[] = [
     { label: 'CONFIRMÓ ASISTENCIA', value: 'confirmo_asistencia' },
@@ -565,7 +701,7 @@ function FollowUp({
   const [resultado, setResultado] = useState<Resultado | null>(null);
   const [obs, setObs] = useState('');
 
-  const initials = row.nombre.split(' ').filter(Boolean).slice(0, 2).map((p) => p[0]?.toUpperCase()).join('') || 'U';
+  const initials = row.nombre.split(' ').filter(Boolean).slice(0, 2).map(p => p[0]?.toUpperCase()).join('') || 'U';
   const telHref = row.telefono ? `tel:${row.telefono.replace(/[^\d+]/g, '')}` : null;
 
   return (
@@ -577,13 +713,13 @@ function FollowUp({
           </div>
           <div>
             <div className="text-base md:text-lg font-semibold text-neutral-900 leading-tight">{row.nombre}</div>
-            <div className="text-[12px] text-neutral-500 leading-none">Semana {semana} · {dia}</div>
+            <div className="text-[12px] text-neutral-500 leading-none">Semana {semana} • {dia}</div>
             <div className="text-[11px] text-neutral-600 mt-1 space-y-0.5">
               {[row.llamada1 ?? null, row.llamada2 ?? null, row.llamada3 ?? null].map((r, idx) => (
                 <div key={idx}>
                   Llamada {idx + 1}:{' '}
                   {r ? <span className="font-medium text-neutral-800">{resultadoLabels[r as Resultado]}</span>
-                    : <span className="italic">sin registro</span>}
+                     : <span className="italic">sin registro</span>}
                 </div>
               ))}
             </div>
@@ -615,14 +751,19 @@ function FollowUp({
       <div className="mt-4">
         <label className="text-xs text-neutral-500">Observaciones</label>
         <textarea
-          aria-label="Observaciones" className="mt-1 w-full min-h[120px] resize-y rounded-2xl border border-slate-200/80 bg-white/90 px-4 py-3 text-[14px] text-slate-800 placeholder-slate-400 shadow-inner focus:outline-none focus:ring-4 focus:ring-sky-200 focus:border-sky-300 transition"
+          className="mt-1 w-full min-h-[100px] rounded-lg ring-1 ring-black/10 px-3 py-2 bg-neutral-50 focus:outline-none focus:ring-2 focus:ring-blue-300"
           placeholder="Escribe aquí las observaciones..."
           value={obs}
           onChange={(e) => setObs(e.target.value)}
         />
       </div>
+
       <div className="mt-4">
-        <button disabled={!resultado || saving} onClick={() => resultado && onSave({ resultado, notas: obs || undefined })} className="rounded-xl bg-neutral-900 text-white px-4 py-2 shadow-md hover:shadow-lg transition disabled:opacity-60">
+        <button
+          disabled={!resultado || saving}
+          onClick={() => resultado && onSave({ resultado, notas: obs || undefined })}
+          className="rounded-xl bg-neutral-900 text-white px-4 py-2 shadow-md hover:shadow-lg transition disabled:opacity-60"
+        >
           {saving ? 'Guardando…' : 'Enviar informe'}
         </button>
       </div>

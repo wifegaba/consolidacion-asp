@@ -1,5 +1,26 @@
 // src/lib/academico.ts
 import { createClient } from '@supabase/supabase-js';
+// Tipos explícitos para selects de académico
+type SerieRow = {
+    id: number;
+    titulo: string | null;
+    profesor: string | null;
+    semestre_id: number | null;
+};
+
+type ClaseRow = {
+    id: number;
+    numero: number | null;
+    series: SerieRow | null;
+};
+
+type NotaSelectRow = {
+    id: number;
+    nota: number | null;
+    clase_id: number | null;
+    fecha_registro: string;
+    clases: ClaseRow | null; // con !inner no viene como array
+};
 const sb = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -96,6 +117,7 @@ export async function getNotas(
     if (error) throw error;
 
     // Normaliza
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return (data ?? []).map((n: any) => {
         const clase = n.clases; // con !inner no viene como array
         const serie = clase?.series;
