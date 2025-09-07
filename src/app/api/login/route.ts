@@ -7,15 +7,20 @@ const isProd = process.env.NODE_ENV === 'production';
 const COOKIE_NAME = isProd ? '__Host-session' : 'session';
 
 function roleToRoute(rol: string) {
-  if (rol === 'admin') return '/panel';
-  if (rol === 'maestro') return '/login/maestros';
-  if (rol === 'contactos') return '/login/contactos1';
-  return '/bienvenida';
+  const r = (rol || '').toLowerCase();
+
+  if (r === 'coordinador') return '/panel';
+  if (r === 'director') return '/panel';
+  if (r === 'maestro') return '/login/maestros';
+  if (r === 'contactos') return '/login/contactos1';
+
+  return null;
 }
+
 
 export async function POST(req: NextRequest) {
   try {
-    // 1) Validar envs aquí (si faltan, devolvemos JSON)
+    // 1) Validar envs
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
     const jwtSecret = process.env.JWT_SECRET;
@@ -30,10 +35,10 @@ export async function POST(req: NextRequest) {
     const body = await req.json().catch(() => ({}));
     const cedula = String(body?.cedula || '').replace(/\D+/g, '').trim();
     if (!cedula) {
-      return NextResponse.json({ error: 'Debe Autenticarse ' }, { status: 400 });
+      return NextResponse.json({ error: 'Debe autenticarse.' }, { status: 400 });
     }
 
-    // 3) Llamar a tus RPCs en el servidor (service_role)
+    // 3) Validar rol desde Supabase
     const supabase = createClient(url, serviceKey, { auth: { persistSession: false } });
 
     const { data: isAdmin, error: e1 } = await supabase.rpc('fn_es_admin', { p_cedula: cedula });
@@ -42,7 +47,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Error de validación.' }, { status: 500 });
     }
 
-    let rol = 'unknown';
+    let rol: string | null = null;
     if (isAdmin === true) {
       rol = 'admin';
     } else {
@@ -51,10 +56,16 @@ export async function POST(req: NextRequest) {
         console.error('[fn_resolver_rol]', e2);
         return NextResponse.json({ error: 'Error de validación.' }, { status: 500 });
       }
-      rol = r || 'unknown';
+      rol = r || null;
     }
 
-    // 4) Firmar JWT y setear cookie HttpOnly
+    // 4) Si no hay rol válido, devolvemos error (no redirigimos a bienvenida)
+    const redirectPath = roleToRoute(rol ?? '');
+    if (!redirectPath) {
+      return NextResponse.json({ error: '❌ Error al ingresar credenciales' }, { status: 401 });
+    }
+
+    // 5) Firmar JWT y setear cookie HttpOnly
     const secret = new TextEncoder().encode(jwtSecret);
     const token = await new SignJWT({ cedula, rol })
       .setProtectedHeader({ alg: 'HS256' })
@@ -62,7 +73,7 @@ export async function POST(req: NextRequest) {
       .setExpirationTime('2h')
       .sign(secret);
 
-    const res = NextResponse.json({ ok: true, redirect: roleToRoute(rol) });
+    const res = NextResponse.json({ ok: true, redirect: redirectPath });
     res.cookies.set({
       name: COOKIE_NAME,
       value: token,
@@ -70,12 +81,11 @@ export async function POST(req: NextRequest) {
       secure: isProd,
       sameSite: 'lax',
       path: '/',
-      maxAge: 60 * 60 * 2,
+      maxAge: 60 * 60 * 2, // 2h
     });
     return res;
   } catch (err) {
     console.error('[LOGIN API]', err);
-    // <- SIEMPRE devolvemos JSON
     return NextResponse.json({ error: 'Error en el login.' }, { status: 500 });
   }
 }

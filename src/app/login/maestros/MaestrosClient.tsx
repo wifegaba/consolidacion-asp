@@ -537,7 +537,7 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
   if (!cedula) {
     return (
       <main className="min-h-[100dvh] grid place-items-center">
-        <div>Credenciales Invalidas </div>
+        <div>Falta la cédula en la URL.</div>
       </main>
     );
   }
@@ -871,33 +871,36 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
   );
 
   /** ====== Banco Archivo: handlers ====== */
-  async function openBanco() {
-    if (!asig) return;
-    setBancoOpen(true);
-    setBancoLoading(true);
+async function openBanco() {
+  if (!asig) return;
+  setBancoOpen(true);
+  setBancoLoading(true);
 
-    try {
-      let q = supabase
-        .from(V_BANCO)
-        .select('progreso_id,persona_id,nombre,telefono,modulo,semana,dia,creado_en,etapa')
-        .eq('dia', asig.dia);
+  try {
+    let q = supabase
+      .from(V_BANCO)
+      .select('progreso_id,persona_id,nombre,telefono,modulo,semana,dia,creado_en,etapa')
+      .eq('dia', asig.dia);
 
-      if (asig.etapaBase !== 'Restauracion') {
-        q = (q as any).eq('modulo', asig.modulo);
-      }
-      q = (q as any).eq('etapa', asig.etapaBase);
-
-      const { data, error } = await q.order('creado_en', { ascending: false });
-      if (error) throw error;
-
-      setBancoRows((data ?? []) as BancoRow[]);
-    } catch (e: any) {
-      console.error(e?.message ?? 'Error cargando Banco Archivo');
-      setBancoRows([]);
-    } finally {
-      setBancoLoading(false);
+    // 🔑 Filtro correcto: etapaBase + modulo
+    q = (q as any).eq('etapa', asig.etapaBase);
+    if (asig.etapaBase !== 'Restauracion') {
+      q = (q as any).eq('modulo', asig.modulo);
     }
+
+    const { data, error } = await q.order('creado_en', { ascending: false });
+    if (error) throw error;
+
+    setBancoRows((data ?? []) as BancoRow[]);
+  } catch (e: any) {
+    console.error(e?.message ?? 'Error cargando Banco Archivo');
+    setBancoRows([]);
+  } finally {
+    setBancoLoading(false);
   }
+}
+
+
 
   async function reactivar(row: BancoRow) {
     if (!asig || !servidorId) return;

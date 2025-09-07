@@ -848,7 +848,65 @@ export default function Servidores() {
         }
     };
 
-    const abrirModalRol = (valor: string) => {
+    // Asigna y persiste de inmediato roles simples (Coordinador/Director)
+    const persistirRolSimple = async (valor: 'Coordinador' | 'Director') => {
+        // Validación mínima: nombre y cédula
+        const nombreOk = !esVacio(form.nombre);
+        const cedulaOk = !esVacio(form.cedula);
+        if (!nombreOk) {
+            setErrores({ nombre: 'Ingresa el nombre del servidor.' });
+            setGuidedError({ key: 'nombre', msg: 'Ingresa el nombre del servidor.' });
+            inputNombreRef.current?.focus();
+            return;
+        }
+        if (!cedulaOk) {
+            setErrores({ cedula: 'Ingresa la cédula del servidor.' });
+            setGuidedError({ key: 'cedula', msg: 'Ingresa la cédula del servidor.' });
+            inputCedulaRef.current?.focus();
+            return;
+        }
+
+        setBusy(true);
+        try {
+            // Asegurar existencia/actualización del servidor base
+            const ced = trim(form.cedula);
+            const nom = trim(form.nombre);
+            const tel = trim(form.telefono);
+            let sid = await findServidorIdByCedula(ced);
+
+            if (sid) {
+                const up = await supabase
+                    .from('servidores')
+                    .update({ nombre: nom, telefono: tel || null, email: null, activo: true })
+                    .eq('id', sid);
+                if (up.error) throw up.error;
+            } else {
+                const { error: upErr } = await supabase.rpc('fn_upsert_servidor', {
+                    p_cedula: ced,
+                    p_nombre: nom,
+                    p_telefono: tel,
+                    p_email: null,
+                });
+                if (upErr) throw upErr;
+                sid = await findServidorIdByCedula(ced);
+            }
+
+            if (!sid) throw new Error('No se pudo localizar el servidor.');
+
+            // Actualizar rol vigente
+            await supabase.from('servidores_roles').update({ vigente: false }).eq('servidor_id', sid);
+            const ins = await supabase.from('servidores_roles').insert({ servidor_id: sid, rol: valor, vigente: true });
+            if (ins.error) throw ins.error;
+
+            toastShow('success', `Rol asignado: ${valor}.`);
+        } catch (e: any) {
+            toastShow('error', `No fue posible asignar el rol: ${e?.message ?? e}`);
+        } finally {
+            setBusy(false);
+        }
+    };
+
+    const abrirModalRol = async (valor: string) => {
         setErrores((prev) => ({ ...prev, rol: null, etapa: null, dia: null, semana: null, culto: null }));
         if (guidedError?.key === 'rol') setGuidedError(null);
 
@@ -873,6 +931,11 @@ export default function Servidores() {
             setContactosModalVisible(true);
         } else {
             setContactosModalVisible(false);
+        }
+
+        // Persistencia inmediata para roles simples
+        if (valor === 'Coordinador' || valor === 'Director') {
+            await persistirRolSimple(valor);
         }
     };
 
