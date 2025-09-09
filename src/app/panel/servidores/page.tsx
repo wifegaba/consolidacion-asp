@@ -1016,7 +1016,7 @@ export default function Servidores() {
                         <div
                             className="srv-modal__box"
                             style={{
-                                width: 'min(92vw, 1000px)',
+                                width: rolEs(form.rol, 'Maestros') ? 'min(92vw, 820px)' : 'min(92vw, 1000px)',
                                 maxHeight: '92vh',
                                 padding: '24px 24px 20px',
                                 borderRadius: 18,
@@ -1892,10 +1892,10 @@ export default function Servidores() {
                 .confirm-data{ display: grid; gap: 6px; font-size: 14px; }
             
                 /* ===== LISTADO (modal) ===== */
-                .list-box{ width: min(92vw, 1200px); max-width: 1100px; }
-                .list-header{ display:flex; align-items:baseline; justify-content:space-between; margin-bottom:10px; }
-                .list-title{ font-size:18px; font-weight:800; letter-spacing:.2px; }
-                .list-subtitle{ font-size:13px; opacity:.7; }
+                .list-box{ width: min(92vw, 1200px); max-width: 1100px; padding: 16px 18px 14px; border-radius: 22px; background: radial-gradient(140% 160% at 10% 0%, rgba(255,255,255,.72), rgba(243,246,255,.68)); box-shadow: inset 10px 10px 28px rgba(255,255,255,.55), inset -8px -8px 24px rgba(0,0,0,.04), 0 28px 56px rgba(0,0,0,.28); border: 1px solid rgba(255,255,255,.66); }
+                .list-header{ display:flex; align-items:flex-end; justify-content:space-between; margin: 2px 2px 12px; padding: 0 2px; }
+                .list-title{ font-size:20px; font-weight:900; letter-spacing:.2px; color:#0b0b0b; }
+                .list-subtitle{ font-size:12.5px; opacity:.65; }
                 /* Cerrar (macOS 2025) solo para el modal Listado */
                 .list-box .srv-modal__close{
                     position: absolute; top: 10px; right: 12px; left: auto;
@@ -1915,8 +1915,8 @@ export default function Servidores() {
                     outline: none;
                     box-shadow: inset 1px 1px 2px rgba(255,255,255,.65), inset -1px -1px 2px rgba(0,0,0,.06), 0 0 0 4px rgba(255,95,87,.28), 0 12px 24px rgba(255,95,87,.28);
                 }
-                .list-table{ width: 100%;  border:1px solid rgba(0,0,0,.06); border-radius:14px; overflow:hidden; background:linear-gradient(180deg, rgba(255,255,255,.92), rgba(246,248,255,.86)); box-shadow: inset 2px 2px 6px rgba(255,255,255,.85), inset -2px -2px 6px rgba(0,0,0,.05); }
-                .list-row{ display:grid; grid-template-columns: 28px 1fr 1fr .9fr .9fr .9fr .8fr 150px; align-items:center; padding:8px 10px; border-bottom:1px solid rgba(0,0,0,.05); }
+                .list-table{ width: 100%;  border:1px solid rgba(0,0,0,.05); border-radius:16px; overflow:hidden; background:linear-gradient(180deg, rgba(255,255,255,.96), rgba(244,248,255,.9)); box-shadow: inset 2px 2px 7px rgba(255,255,255,.9), inset -2px -2px 6px rgba(0,0,0,.045); }
+                .list-row{ display:grid; grid-template-columns: 28px 1.6fr .9fr .8fr .9fr .8fr .8fr 120px; align-items:center; padding:7px 10px; border-bottom:1px solid rgba(0,0,0,.045); }
                 /* Responsive: mostrar solo Nombre, Rol y Etapa */
                 @media (max-width: 640px){
                     .list-row{ grid-template-columns: 1fr .8fr .8fr; }
@@ -1929,16 +1929,17 @@ export default function Servidores() {
                     .list-table .col-dia,
                     .list-table .col-act{ display: none; }
                 }
-                .list-head{ background:linear-gradient(180deg, rgba(245,247,255,.95), rgba(234,238,255,.9)); font-weight:800; letter-spacing:.3px; }
+                .list-head{ background:linear-gradient(180deg, rgba(245,247,255,.98), rgba(232,238,255,.92)); font-weight:900; letter-spacing:.25px; color:#0b0b0b; }
                 .list-row:last-child{ border-bottom:0; }
-                .list-cell{ font-size:14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+                .list-cell{ font-size:13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
                 .col-idx{ text-align:center; font-weight:700; opacity:.8; }
-                .col-name{ font-weight:700; color:#0b0b0b; }
-                .col-rol{ font-weight:600; opacity:.85; }
+                .col-name{ font-weight:700; color:#0b0b0b; white-space: normal; overflow: visible; text-overflow: clip; }
+                .col-rol{ font-weight:600; opacity:.8; }
                 .list-empty{ padding:16px; text-align:center; opacity:.7; }
-                .list-select{ padding:8px 12px; color:#fff; border-color: rgba(59,91,253,.45) !important; background: linear-gradient(180deg, #5b7cff, #3b5bfd) !important; box-shadow: inset 1px 1px 3px rgba(255,255,255,.35), 0 10px 20px rgba(59,91,253,.18) !important; }
-                .list-select:hover{ filter: brightness(1.03); box-shadow: inset 1px 1px 3px rgba(255,255,255,.35), 0 14px 26px rgba(59,91,253,.24) !important; }
-                .list-select:focus-visible{ outline: none; box-shadow: 0 0 0 3px rgba(88,132,255,.28), inset 1px 1px 3px rgba(255,255,255,.35) !important; }
+                .list-select{ padding:6px 12px !important; min-height: auto !important; font-size:13px !important; border-radius:10px !important; color:#0b183a !important; background: linear-gradient(180deg, #e7f0ff, #dbe7ff) !important; border: 1px solid rgba(28,72,196,.22) !important; box-shadow: inset 1px 1px 3px rgba(255,255,255,.7), 0 6px 16px rgba(40,80,200,.12) !important; }
+                .list-select:hover{ filter: none; background: linear-gradient(180deg, #eaf2ff, #dfe9ff) !important; box-shadow: inset 1px 1px 3px rgba(255,255,255,.8), 0 10px 22px rgba(40,80,200,.16) !important; }
+                .list-select:active{ transform: translateY(0.5px); box-shadow: inset 1px 1px 2px rgba(0,0,0,.05), 0 6px 14px rgba(40,80,200,.12) !important; }
+                .list-select:focus-visible{ outline: none; box-shadow: 0 0 0 3px rgba(88,132,255,.22), inset 1px 1px 3px rgba(255,255,255,.75) !important; }
 
                 /* ===== Listado en tarjetas (solo responsive) ===== */
                 @media (max-width: 640px){
