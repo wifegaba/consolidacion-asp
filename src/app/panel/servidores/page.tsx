@@ -933,10 +933,7 @@ export default function Servidores() {
             setContactosModalVisible(false);
         }
 
-        // Persistencia inmediata para roles simples
-        if (valor === 'Coordinador' || valor === 'Director') {
-            await persistirRolSimple(valor);
-        }
+        // Quitar persistencia inmediata: Director también se guarda solo con el botón Guardar.
     };
 
     const elegirTimoteoDestino = (destino: 'Contactos' | 'Maestros' | 'Logistica') => {
