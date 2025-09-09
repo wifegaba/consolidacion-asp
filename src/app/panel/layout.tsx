@@ -65,15 +65,22 @@ export default function PanelLayout({ children }: { children: React.ReactNode })
 
 
 
-                    <div className="sidebar-footer">
-                        <div className="user">
-                            <div className="avatar" />
-                            <div className="user-meta">
-                                <span className="user-name">WF System</span>
-                                <span className="user-email">admin@wf.system</span>
-                            </div>
-                        </div>
-                    </div>
+                   <div className="sidebar-footer">
+  <div className="user">
+    <Image
+      src="/wf-logo.png"   // 🔹 asegúrate que el archivo exista en /public
+      alt="WF SYSTEM Logo"
+      width={42}
+      height={42}
+      className="avatar-logo"
+    />
+    <div className="user-meta">
+      <span className="user-name">WF SYSTEM S.I</span>
+      <span className="user-email">© Designed by WF SYSTEM</span>
+    </div>
+  </div>
+</div>
+
                 </aside>
 
                 {/* Content (renderiza las páginas hijas) */}

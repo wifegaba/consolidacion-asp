@@ -263,6 +263,13 @@ body{margin:0;
         overflow-y: hidden;
     }
 
+    .avatar-logo {
+  border-radius: 50%;
+  object-fit: cover;
+  box-shadow: 0 0 8px rgba(255, 215, 0, 0.6); /* 🔹 Glow dorado */
+}
+
+
     /* Hide logo and footer to keep bar compact */
     .sidebar-logo, .sidebar-footer{ display: none; }
 
