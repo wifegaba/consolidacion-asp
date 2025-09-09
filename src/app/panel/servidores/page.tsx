@@ -1013,12 +1013,25 @@ export default function Servidores() {
                 {/* Modal CONTACTOS / MAESTROS */}
                 {contactosModalVisible && (
                     <div className="srv-modal" role="dialog" aria-modal="true">
-                        <div className="srv-modal__box">
+                        <div
+                            className="srv-modal__box"
+                            style={{
+                                width: 'min(92vw, 1000px)',
+                                maxHeight: '92vh',
+                                padding: '24px 24px 20px',
+                                borderRadius: 18,
+                                display: 'flex',
+                                flexDirection: 'column',
+                            }}
+                        >
                             <button className="srv-modal__close" aria-label="Cerrar" onClick={() => setContactosModalVisible(false)}>
                                 ×
                             </button>
 
-                            <div className="srv-modal__content">
+                            <div
+                                className="srv-modal__content"
+                                style={{ flex: '1 1 auto', overflow: 'visible' }}
+                            >
                                 <div className="srv-modal-grid">
                                     {rolEs(form.rol, 'Contactos') && (
                                         <section className="srv-card" ref={modalSemanaRef}>
@@ -1087,7 +1100,7 @@ export default function Servidores() {
                                         </div>
                                     )}
 
-                                    <div className="srv-cultos srv-cultos--niveles" style={{ flexWrap: 'nowrap', gap: '16px' }}>
+                                    <div className="srv-cultos srv-cultos--niveles" style={{ flexWrap: 'wrap', gap: '16px' }}>
                                         {/* Semillas */}
                                         <div className="srv-culto-box" style={{ minWidth: 220 }}>
                                             {nivelSemillasSel ? `Semillas ${nivelSemillasSel}` : 'Semillas'}
@@ -1136,7 +1149,7 @@ export default function Servidores() {
                                 </section>
                             </div>
 
-                            <div className="srv-actions srv-modal__actions">
+                            <div className="srv-actions srv-modal__actions" style={{ marginTop: 18 }}>
                                 <button className="srv-btn" onClick={() => setContactosModalVisible(false)}>
                                     Cancelar
                                 </button>
