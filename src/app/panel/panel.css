@@ -118,6 +118,12 @@ body{margin:0;
 
 
 
+
+
+
+
+
+
 /* ====== Estilos del CONTENT (antes estaban en page.css) ====== */
 .toolbar{ display:flex; justify-content:space-between; align-items:center; }
 .title{ font-size:22px; font-weight:700; margin:0; color: var(--text); }
