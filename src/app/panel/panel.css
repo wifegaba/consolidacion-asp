@@ -109,9 +109,9 @@ body{margin:0;
 
     /* 🚀 Neutralizamos el fondo */
     background:
-            radial-gradient(1200px 800px at -10% -10%, #e9f0ff, transparent 60%),
-            radial-gradient(1200px 900px at 110% 10%, #ffe6f4, transparent 55%),
-            linear-gradient(120deg, #f4f7ff, #fef6ff 50%, #eefaff);
+       radial-gradient(circle at top center, rgba(59, 130, 246, 0.5),transparent 70%);
+
+
 
 }
 
