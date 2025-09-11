@@ -559,7 +559,7 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
         {/* ===== Título / Bienvenida ===== */}
         <section className="mb-6 md:mb-8">
           <div className="text-[32px] md:text-[44px] font-black leading-none tracking-tight bg-gradient-to-r from-sky-500 via-violet-600 to-fuchsia-500 text-transparent bg-clip-text drop-shadow-sm">
-            Panel de Maestros
+            Panel de Coordinadores
           </div>
           <div className="mt-1 text-[18px] md:text-[22px] font-medium text-neutral-700">
             Bienvenido, <b className="text-neutral-900">{nombre || 'Maestro'}</b>
