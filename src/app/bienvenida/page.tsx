@@ -4,7 +4,8 @@ import BienvenidaClient from './BienvenidaClient';
 export const dynamic = 'force-dynamic';
 export const fetchCache = 'force-no-store';
 
-export default function Page() {
-  const cedula = cookies().get('ced')?.value || '';
+export default async function Page() {
+  const cookieStore = await cookies();
+  const cedula = cookieStore.get('ced')?.value || '';
   return <BienvenidaClient cedula={cedula} />;
 }

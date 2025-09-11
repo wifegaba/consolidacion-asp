@@ -117,8 +117,7 @@ export async function getNotas(
     if (error) throw error;
 
     // Normaliza
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return (data ?? []).map((n: any) => {
+    return ((data ?? []) as unknown as NotaSelectRow[]).map((n) => {
         const clase = n.clases; // con !inner no viene como array
         const serie = clase?.series;
         return {
