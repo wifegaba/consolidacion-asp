@@ -399,7 +399,7 @@ function FollowUpForm({
     const telHref = contact.tel ? `tel:${contact.tel.replace(/\s+/g, '')}` : undefined;
 
     return (
-        <section className="animate-cardIn rounded-[16px] bg-white shadow-[0_10px_28px_-14px_rgba(16,24,40,.28)] ring-1 ring-black/5 p-4 md:p-5">
+        <section className="animate-depthFade rounded-[16px] bg-white shadow-[0_10px_28px_-14px_rgba(16,24,40,.28)] ring-1 ring-black/5 p-4 md:p-5">
             <div className="mb-4 rounded-2xl ring-1 ring-black/5 bg-[linear-gradient(135deg,#eef3ff,#f6efff)] px-4 py-3 md:px-5 md:py-4 flex items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
                     <div className="grid place-items-center h-10 w-10 md:h-12 md:w-12 rounded-xl text-white font-bold bg-gradient-to-br from-blue-500 to-indigo-500 shadow-sm">
@@ -663,26 +663,41 @@ export default function PageDevocionales() {
     }, [selectedProgreso, pendientes, activeWeek, activeDay]);
 
     return (
-        <main
-            className={`
-        min-h-[100dvh] overflow-x-hidden
-        bg-[radial-gradient(1200px_800px_at_-10%_-10%,#e9f0ff,transparent_60%),radial-gradient(1200px_900px_at_110%_10%,#ffe6f4,transparent_55%),linear-gradient(120deg,#f4f7ff,#fef6f5_50%,#eefaff)]
-        px-5 md:px-8 py-6
-      `}
-            style={{
-                fontFamily:
-                    "-apple-system, BlinkMacSystemFont, 'SF Pro Display', Inter, 'Helvetica Neue', Arial, sans-serif",
-            }}
-        >
-            <div className="mx-auto w-full max-w-[1260px]">
-                <header className="mb-4 md:mb-6">
-                    <h1 className="text-[26px] md:text-[34px] font-semibold tracking-tight text-neutral-900">
-                        Panel de Devocionales
-                    </h1>
-                    <p className="text-neutral-600 text-sm md:text-base">
-                        Gestión de llamadas y asistencias por etapa.
-                    </p>
-                </header>
+ <main
+   className="min-h-screen w-full flex justify-center items-start px-5 md:px-8 pt-2 pb-6 animate-premiumFade"
+  style={{
+    fontFamily: `-apple-system, BlinkMacSystemFont, 'SF Pro Display', Inter, 'Helvetica Neue', Arial, sans-serif`,
+ 
+ 
+ 
+ }}
+>
+  {/* Tarjeta principal */}
+  <div className="relative z-10 w-full max-w-[1200px] rounded-2xl overflow-hidden shadow-[0_8px_30px_rgba(0,0,0,0.12)] ring-1 ring-black/5">
+
+  {/* Fondo transparente */}
+{/* Fondo degradado */}
+<div
+  className="absolute inset-0"
+  style={{
+    background:
+      `
+        radial-gradient(125% 125% at 50% 10%, #ffffff 40%, #14b8a6 100%)
+      `,
+
+  }}
+></div>
+
+    {/* Contenido */}
+    <div className="relative p-8 md:p-12 space-y-6">
+      <header className="mb-4 md:mb-6">
+        <h1 className="text-[26px] md:text-[34px] font-semibold tracking-tight text-neutral-900">
+          Panel de Devocionales
+        </h1>
+        <p className="text-neutral-700 text-sm md:text-base">
+          Gestión rápida de módulos y seguimiento.
+        </p>
+      </header>
 
                 {/* Devocionales */}
                 <div className="flex flex-col gap-4 md:flex-row md:flex-nowrap md:items-stretch md:gap-6">
@@ -741,6 +756,7 @@ export default function PageDevocionales() {
 
                                 {selectedContact ? (
                                     <FollowUpForm
+                                        key={selectedContact.progresoId}
                                         contact={{
                                             progresoId: selectedContact.progresoId,
                                             nombre: selectedContact.nombre,
@@ -863,6 +879,7 @@ export default function PageDevocionales() {
 
                 <div className="h-4" />
             </div>
+            </div>
 
             {/* Estilos locales */}
             <style jsx global>{`
@@ -879,6 +896,28 @@ export default function PageDevocionales() {
           50% { background-position: 100% 50%; }
           100% { background-position: 0% 50%; }
         }
+
+@keyframes premiumFade {
+    0% {
+      opacity: 0;
+      transform: scale(0.96) translateY(20px);
+      filter: blur(6px) brightness(1.1);
+    }
+    50% {
+      opacity: 1;
+      transform: scale(1.02) translateY(-4px);
+      filter: blur(0) brightness(1.05);
+    }
+    100% {
+      opacity: 1;
+      transform: scale(1) translateY(0);
+      filter: blur(0) brightness(1);
+    }
+  }
+  .animate-premiumFade {
+    animation: premiumFade 0.9s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
       `}</style>
 
             {/* Modal */}
