@@ -8,9 +8,8 @@ export const fetchCache = "force-no-store";
 
 export default async function Page() {
     const cookieStore = await cookies();
-    const isProd = process.env.NODE_ENV === 'production';
-    const COOKIE_NAME = isProd ? '__Host-session' : 'session';
-    const token = cookieStore.get(COOKIE_NAME)?.value;
+    // Lee ambas variantes por robustez, sin depender estrictamente de NODE_ENV
+    const token = cookieStore.get('__Host-session')?.value ?? cookieStore.get('session')?.value;
 
     let cedula: string | undefined = undefined;
     if (token && process.env.JWT_SECRET) {

@@ -1,35 +1,16 @@
-import { Suspense } from "react";
 import { cookies } from 'next/headers';
-import jwt from 'jsonwebtoken';
-import Contactos1Client from "./Contactos1Client";
+import { redirect } from 'next/navigation';
+import ContactosClient from './Contactos1Client';
 
-export const dynamic = "force-dynamic";
-export const fetchCache = "force-no-store";
+// evita cachear la lectura de cookies (si no, puede no ver la sesión)
+export const dynamic = 'force-dynamic';
+export const fetchCache = 'force-no-store';
+
+
 
 export default async function Page() {
-    const cookieStore = await cookies();
-    const isProd = process.env.NODE_ENV === 'production';
-    const COOKIE_NAME = isProd ? '__Host-session' : 'session';
-    const token = cookieStore.get(COOKIE_NAME)?.value;
-
-    let cedula: string | undefined = undefined;
-    if (token && process.env.JWT_SECRET) {
-        try {
-            const payload = jwt.verify(token, process.env.JWT_SECRET) as any;
-            cedula = String(payload?.cedula || '');
-        } catch {}
-    }
-    return (
-        <Suspense fallback={<Fallback />}>
-            <Contactos1Client cedula={cedula} />
-        </Suspense>
-    );
-}
-
-function Fallback() {
-    return (
-        <main className="min-h-[100dvh] grid place-items-center">
-            <div>Cargando…</div>
-        </main>
-    );
+  const cookieStore = await cookies();
+  const ced = cookieStore.get('ced')?.value || '';
+  if (!ced) redirect('/login');
+  return <ContactosClient cedula={ced} />;
 }

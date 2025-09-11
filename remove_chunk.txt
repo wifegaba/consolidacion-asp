@@ -1,0 +1,42 @@
+                )}
+
+                {/* Modal BANCO ARCHIVO */}
+                {modalArchivoVisible && (
+                    <div className="modal-buscar" role="dialog" aria-modal="true">
+                        <div className="modal-buscar__box">
+                            <button className="modal-buscar__close" aria-label="Cerrar"
+                                    onClick={() => setModalArchivoVisible(false)}>×</button>
+
+                            <h3 className="modal-buscar__heading">Banco Archivo (Archivados)</h3>
+
+                            <div className="tabla-archivo-wrap" style={{ maxHeight: 420, overflow: 'auto' }}>
+                                <table className="tabla-archivo" style={{ width: '100%', borderCollapse: 'collapse' }}>
+                                    <thead>
+                                    <tr>
+                                        <th style={{ textAlign: 'left', padding: '8px' }}>Nombre</th>
+                                        <th style={{ textAlign: 'left', padding: '8px' }}>Teléfono</th>
+                                        <th style={{ textAlign: 'left', padding: '8px' }}>Mód/Sem</th>
+                                        <th style={{ textAlign: 'left', padding: '8px' }}>Día</th>
+                                        <th style={{ textAlign: 'left', padding: '8px' }}>Fecha</th>
+                                        <th style={{ textAlign: 'left', padding: '8px' }}>Acción</th>
+                                    </tr>
+                                    </thead>
+                                    <tbody>
+                                    {loadingArchivo && (
+                                        <tr><td colSpan={6} style={{ padding: 12 }}>Cargando…</td></tr>
+                                    )}
+                                    {!loadingArchivo && archivoData.length === 0 && (
+                                        <tr><td colSpan={6} style={{ padding: 12 }}>Sin registros archivados</td></tr>
+                                    )}
+                                    {!loadingArchivo && archivoData.map((row) => (
+                                        <tr key={row.progreso_id} className="arch-row" style={{ borderTop: '1px solid rgba(255,255,255,0.1)' }}>
+                                            <td style={{ padding: '8px' }}>{row.nombre}</td>
+                                            <td style={{ padding: '8px' }}>{row.telefono ?? '—'}</td>
+                                            <td style={{ padding: '8px' }}>{row.modulo}/{row.semana}</td>
+                                            <td style={{ padding: '8px' }}>{row.dia}</td>
+                                            <td style={{ padding: '8px' }}>{new Date(row.creado_en).toLocaleString()}</td>
+                                            <td style={{ padding: '8px' }}>
+                                                <button className="btn-minimal" onClick={() => cargarDesdeArchivo(row)}>
+                                                    Seleccionar
+                                                </button>
+                                            </td>

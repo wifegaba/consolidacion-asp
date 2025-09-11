@@ -1,20 +1,17 @@
 // src/app/api/login/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import jwt from 'jsonwebtoken';
 
 /**
  * Mapea el rol (en minúsculas) a la ruta correspondiente.
- * - coordinador -> /login/coordinador
- * - director -> /panel
+ * - coordinador|director -> /panel
  * - maestro -> /login/maestros
  * - contactos -> /login/contactos1
  * - default -> /login
  */
 function roleToRoute(rol: string | null | undefined): string {
   const v = (rol || "").toLowerCase();
-  if (v === "coordinador") return "/login/coordinador";
-  if (v === "director") return "/panel";
+  if (v === "coordinador" || v === "director") return "/panel";
   if (v === "maestro") return "/login/maestros";
   if (v === "contactos") return "/login/contactos1";
   return "/login";
@@ -74,24 +71,25 @@ export async function POST(req: NextRequest) {
     if (adminRow?.servidores_roles && Array.isArray(adminRow.servidores_roles) && adminRow.servidores_roles.length > 0) {
       const rol = String(adminRow.servidores_roles[0].rol); // 'Coordinador' | 'Director'
       const redirect = roleToRoute(rol);
-
-      // Establecer cookie de sesión (JWT) si hay secreto
-      const isProd = process.env.NODE_ENV === 'production';
-      const COOKIE_NAME = isProd ? '__Host-session' : 'session';
-      const secret = process.env.JWT_SECRET;
       const res = NextResponse.json({ redirect, rol, nombre: servidor.nombre });
-      if (secret) {
-        const token = jwt.sign({ cedula: cedula.trim(), rol }, secret, { expiresIn: '12h' });
-        res.cookies.set({
-          name: COOKIE_NAME,
-          value: token,
-          httpOnly: true,
-          secure: isProd,
-          sameSite: 'lax',
-          path: '/',
-          maxAge: 60 * 60 * 12,
-        });
-      }
+      // Establece cookies de sesión mínimas (sin exponer en URL)
+      // - "ced": cédula en cookie httpOnly para uso en páginas protegidas
+      // - "admin": flag para middleware de /panel
+      const isProd = process.env.NODE_ENV === 'production';
+      res.cookies.set("ced", cedula.trim(), {
+        httpOnly: true,
+        sameSite: "lax",
+        secure: isProd,
+        path: "/",
+        maxAge: 60 * 60 * 6, // 6 horas
+      });
+      res.cookies.set("admin", "1", {
+        httpOnly: true,
+        sameSite: "lax",
+        secure: isProd,
+        path: "/",
+        maxAge: 60 * 60 * 6, // 6 horas
+      });
       return res;
     }
 
@@ -108,24 +106,24 @@ export async function POST(req: NextRequest) {
 
     const rol = (rolBasico as string | null) || null; // 'maestro' | 'contactos' | null
     const redirect = roleToRoute(rol);
-
-    // Establecer cookie de sesión (JWT) si hay secreto
-    const isProd = process.env.NODE_ENV === 'production';
-    const COOKIE_NAME = isProd ? '__Host-session' : 'session';
-    const secret = process.env.JWT_SECRET;
     const res = NextResponse.json({ redirect, rol, nombre: servidor.nombre });
-    if (secret) {
-      const token = jwt.sign({ cedula: cedula.trim(), rol }, secret, { expiresIn: '12h' });
-      res.cookies.set({
-        name: COOKIE_NAME,
-        value: token,
-        httpOnly: true,
-        secure: isProd,
-        sameSite: 'lax',
-        path: '/',
-        maxAge: 60 * 60 * 12,
-      });
-    }
+    const isProd = process.env.NODE_ENV === 'production';
+    // Cookie de cédula para que páginas lean la sesión sin URL
+    res.cookies.set("ced", cedula.trim(), {
+      httpOnly: true,
+      sameSite: "lax",
+      secure: isProd,
+      path: "/",
+      maxAge: 60 * 60 * 6, // 6 horas
+    });
+    // Asegura que el flag admin esté limpio para no-admin
+    res.cookies.set("admin", "0", {
+      httpOnly: true,
+      sameSite: "lax",
+      secure: isProd,
+      path: "/",
+      maxAge: 60 * 60 * 6,
+    });
     return res;
   } catch (e: any) {
     console.error("[/api/login] error", e);

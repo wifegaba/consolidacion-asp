@@ -3,11 +3,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import jwt from 'jsonwebtoken';
 
 const isProd = process.env.NODE_ENV === 'production';
-const COOKIE_NAME = isProd ? '__Host-session' : 'session';
+const COOKIE_NAME_A = '__Host-session';
+const COOKIE_NAME_B = 'session';
 
 export async function GET(req: NextRequest) {
   try {
-    const token = req.cookies.get(COOKIE_NAME)?.value;
+    const token = req.cookies.get(COOKIE_NAME_A)?.value ?? req.cookies.get(COOKIE_NAME_B)?.value;
     if (!token) return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
 
     const secret = process.env.JWT_SECRET;
@@ -22,4 +23,3 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
   }
 }
-
