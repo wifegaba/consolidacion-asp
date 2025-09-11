@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
+import PersonaNueva from '@/app/panel/contactos/page';
+import Servidores from '@/app/panel/servidores/page';
 
 /* ================= Tipos ================= */
 type Dia = 'Domingo' | 'Martes' | 'Virtual';
@@ -170,6 +172,9 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
   const [bancoRows, setBancoRows] = useState<BancoRow[]>([]);
   const [reactivating, setReactivating] = useState<Record<string, boolean>>({});
   const [servidorId, setServidorId] = useState<string | null>(null);
+  // Modales adicionales
+  const [nuevaAlmaOpen, setNuevaAlmaOpen] = useState(false);
+  const [servidoresOpen, setServidoresOpen] = useState(false);
 
   // refs para estado “vivo” dentro de handlers realtime
   const semanaRef = useRef(semana);
@@ -621,6 +626,32 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
           </div>
         </div>
 
+        {/* Botón Nueva Alma (debajo de los botones de semana) */}
+        <div className="mt-3">
+          <button
+            type="button"
+            onClick={() => setNuevaAlmaOpen(true)}
+            className="inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2 text-sm font-semibold ring-1 ring-black/10 shadow-sm hover:shadow-md transition"
+            title="Registrar nueva alma"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 5a1 1 0 0 1 1 1v5h5a1 1 0 1 1 0 2h-5v5a1 1 0 1 1-2 0v-5H6a1 1 0 1 1 0-2h5V6a1 1 0 0 1 1-1Z" fill="currentColor"/>
+            </svg>
+            Nueva Alma
+          </button>
+          <button
+            type="button"
+            onClick={() => setServidoresOpen(true)}
+            className="inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2 text-sm font-semibold ring-1 ring-black/10 shadow-sm hover:shadow-md transition ml-2"
+            title="Abrir formulario de Servidores"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M4 6a2 2 0 0 1 2-2h5v2H6v12h5v2H6a2 2 0 0 1-2-2V6Zm10-2h4a2 2 0 0 1 2 2v3h-2V6h-4V4Zm4 9h2v3a2 2 0 0 1-2 2h-4v-2h4v-3Z" fill="currentColor"/>
+            </svg>
+            Servidores
+          </button>
+        </div>
+
         {/* ===== Lista izquierda / Panel derecho ===== */}
         <div className="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-5 md:gap-6">
           {/* Lista */}
@@ -844,6 +875,52 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
       )}
 
       {/* Animaciones / estilos */}
+      {/* Modal Nueva Alma */}
+      {nuevaAlmaOpen && (
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/40">
+          <div className="relative w-[min(1100px,96vw)] max-h-[90vh] overflow-auto rounded-2xl bg-white shadow-2xl ring-1 ring-black/10">
+            <div className="sticky top-0 z-10 flex items-center justify-between gap-3 px-4 md:px-5 py-3 border-b border-black/10 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/60">
+              <h2 className="text-lg font-semibold text-neutral-900">Nueva Alma</h2>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setNuevaAlmaOpen(false)}
+                  className="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-semibold ring-1 ring-black/10 hover:bg-neutral-50"
+                >
+                  Atrás
+                </button>
+              </div>
+            </div>
+            <div className="px-3 md:px-5 py-4">
+              <PersonaNueva />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Servidores */}
+      {servidoresOpen && (
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/40">
+          <div className="relative w-[min(1200px,96vw)] max-h-[90vh] overflow-auto rounded-2xl bg-white shadow-2xl ring-1 ring-black/10">
+            <div className="sticky top-0 z-10 flex items-center justify-between gap-3 px-4 md:px-5 py-3 border-b border-black/10 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/60">
+              <h2 className="text-lg font-semibold text-neutral-900">Servidores</h2>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setServidoresOpen(false)}
+                  className="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-semibold ring-1 ring-black/10 hover:bg-neutral-50"
+                >
+                  Atrás
+                </button>
+              </div>
+            </div>
+            <div className="px-3 md:px-5 py-4">
+              <Servidores />
+            </div>
+          </div>
+        </div>
+      )}
+
       <style jsx global>{`
         @keyframes cardIn {
           0% { opacity: 0; transform: translateY(14px) scale(0.98); filter: blur(3px); }

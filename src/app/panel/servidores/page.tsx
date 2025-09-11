@@ -1238,7 +1238,22 @@ export default function Servidores() {
                             const checked = form.rol === r || form.rol === `Timoteo - ${r}`;
                             return (
                                 <label key={r} className="srv-radio">
-                                    <input type="radio" name="rol-servidor" value={r} className="srv-radio-input" checked={checked} onChange={(e) => abrirModalRol(e.target.value)} />
+                                    <input
+                                        type="radio"
+                                        name="rol-servidor"
+                                        value={r}
+                                        className="srv-radio-input"
+                                        checked={checked}
+                                        onChange={(e) => abrirModalRol(e.target.value)}
+                                        onClick={(e) => {
+                                            const valor = (e.currentTarget as HTMLInputElement).value;
+                                            if (valor === 'Timoteos') {
+                                                setTimoteoModalVisible(true);
+                                            } else if (valor === 'Contactos' || valor === 'Maestros') {
+                                                setContactosModalVisible(true);
+                                            }
+                                        }}
+                                    />
                                     <div className="srv-radio-card">
                                         <span className="srv-radio-dot" />
                                         <span className="srv-radio-text">{r}</span>
