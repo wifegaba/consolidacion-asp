@@ -1,6 +1,7 @@
 // src/app/api/login/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import jwt from "jsonwebtoken";
 
 /**
  * Mapea el rol (en minúsculas) a la ruta correspondiente.
@@ -67,11 +68,46 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Error validando rol" }, { status: 500 });
     }
 
-    // Si es admin, redirige a /panel
+    // Helper para construir la respuesta con cookies de sesión
+    const makeResponse = (payload: { redirect: string; rol: string | null; nombre: string }) => {
+      const isProd = process.env.NODE_ENV === "production";
+      const COOKIE_NAME = isProd ? "__Host-session" : "session";
+
+      const secret = process.env.JWT_SECRET;
+      const token = secret
+        ? jwt.sign({ cedula: String(cedula).trim() }, secret, { expiresIn: "7d" })
+        : null;
+
+      const res = NextResponse.json(payload);
+
+      // Set cookie de sesión si tenemos secreto
+      if (token) {
+        res.cookies.set(COOKIE_NAME, token, {
+          httpOnly: true,
+          sameSite: "lax",
+          secure: isProd,
+          path: "/",
+          maxAge: 60 * 60 * 24 * 7, // 7 días
+        });
+      }
+
+      return res;
+    };
+
+    // Si es admin, redirige a /panel y marca cookie admin
     if (adminRow?.servidores_roles && Array.isArray(adminRow.servidores_roles) && adminRow.servidores_roles.length > 0) {
       const rol = String(adminRow.servidores_roles[0].rol); // 'Coordinador' | 'Director'
       const redirect = roleToRoute(rol);
-      return NextResponse.json({ redirect, rol, nombre: servidor.nombre });
+      const res = makeResponse({ redirect, rol, nombre: servidor.nombre });
+      // Cookie de flag admin solo para proteger /panel en middleware
+      res.cookies.set("admin", "1", {
+        httpOnly: true,
+        sameSite: "lax",
+        secure: process.env.NODE_ENV === "production",
+        path: "/",
+        maxAge: 60 * 60 * 8, // 8h
+      });
+      return res;
     }
 
     // 3) No es admin -> resuelve rol básico (tu lógica existente)
@@ -87,7 +123,10 @@ export async function POST(req: NextRequest) {
 
     const rol = (rolBasico as string | null) || null; // 'maestro' | 'contactos' | null
     const redirect = roleToRoute(rol);
-    return NextResponse.json({ redirect, rol, nombre: servidor.nombre });
+    const res = makeResponse({ redirect, rol, nombre: servidor.nombre });
+    // Asegura que el flag admin esté limpio para no interferir con /panel
+    res.cookies.set("admin", "", { path: "/", maxAge: 0 });
+    return res;
   } catch (e: any) {
     console.error("[/api/login] error", e);
     return NextResponse.json({ error: "Error inesperado" }, { status: 500 });
