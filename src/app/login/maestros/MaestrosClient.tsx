@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
+import { getPersonaIdDesdeProgreso, getObservacionesPersona } from '@/lib/api';
 import PersonaNueva from '@/app/panel/contactos/page';
 import Servidores from '@/app/panel/servidores/page';
 
@@ -895,7 +896,7 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
       {/* Modal Nueva Alma */}
       {nuevaAlmaOpen && (
         <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/40">
-          <div className="relative w-[min(1100px,96vw)] max-h-[90vh] overflow-auto rounded-2xl bg-white shadow-2xl ring-1 ring-black/10">
+          <div className="relative w-[min(1100px,96vw)] max-h-[96vh] overflow-auto rounded-2xl bg-white shadow-2xl ring-1 ring-black/10">
             <div className="sticky top-0 z-10 flex items-center justify-between gap-3 px-4 md:px-5 py-3 border-b border-black/10 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/60">
               <h2 className="text-lg font-semibold text-neutral-900">Nueva Alma</h2>
               <div className="flex items-center gap-2">
@@ -918,7 +919,7 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
       {/* Modal Servidores */}
       {servidoresOpen && (
         <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/40">
-          <div className="relative w-[min(1200px,96vw)] max-h-[90vh] overflow-auto rounded-2xl bg-white shadow-2xl ring-1 ring-black/10">
+          <div className="relative w-[min(1200px,96vw)] max-h-[96vh] overflow-auto rounded-2xl bg-white shadow-2xl ring-1 ring-black/10">
             <div className="sticky top-0 z-10 flex items-center justify-between gap-3 px-4 md:px-5 py-3 border-b border-black/10 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/60">
               <h2 className="text-lg font-semibold text-neutral-900">Servidores</h2>
               <div className="flex items-center gap-2">
@@ -1053,6 +1054,47 @@ function FollowUp({
   const [resultado, setResultado] = useState<Resultado | null>(null);
   const [obs, setObs] = useState('');
 
+  // Reiniciar estado cuando cambia el registro seleccionado
+  useEffect(() => {
+    setResultado(null);
+    setObs('');
+  }, [row.progreso_id]);
+
+  // Observaciones modal state
+  type ObsItem = { fecha: string; notas: string; fuente: 'registro' | 'llamada' };
+  const [obsOpen, setObsOpen] = useState(false);
+  const [obsLoading, setObsLoading] = useState(false);
+  const [obsItems, setObsItems] = useState<ObsItem[]>([]);
+
+  
+const openObsModal = async () => {
+  setObsOpen(true);
+  setObsLoading(true);
+  try {
+    const { data, error } = await supabase
+      .from('llamada_intento')
+      .select('creado_en, notas')
+      .eq('progreso_id', row.progreso_id)
+      .order('creado_en', { ascending: false });
+
+    if (error) throw error;
+
+    const items = (data ?? []).map((r: any) => ({
+      fecha: r.creado_en,
+      notas: r.notas,
+      fuente: 'llamada' as const,
+    }));
+
+    setObsItems(items);
+  } catch (e) {
+    console.error('No se pudieron cargar observaciones', e);
+    setObsItems([]);
+  } finally {
+    setObsLoading(false);
+  }
+};
+
+
   const initials =
     row.nombre
       .split(' ')
@@ -1067,7 +1109,8 @@ function FollowUp({
   const waHref = telDigits ? `https://wa.me/${telDigits}?text=${encodeURIComponent(waText)}` : null;
 
   return (
-    <div className="animate-cardIn">
+    <>
+      <div className="animate-cardIn">
       <div className="mb-4 rounded-2xl ring-1 ring-black/5 bg-[linear-gradient(135deg,#eef3ff,#f6efff)] px-4 py-3 md:px-5 md:py-4 flex items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <div className="grid place-items-center h-10 w-10 md:h-12 md:w-12 rounded-xl text-white font-bold bg-gradient-to-br from-blue-500 to-indigo-500 shadow-sm">
@@ -1128,6 +1171,18 @@ function FollowUp({
               WhatsApp
             </a>
           )}
+
+          <button
+            type="button"
+            onClick={openObsModal}
+            className="inline-flex items-center justify-center gap-2 rounded-full bg-white px-3.5 py-2 text-sm font-semibold ring-1 ring-black/10 shadow-sm hover:shadow-md transition"
+            title="Ver observaciones del registro"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 3C7 3 2.73 6.11 1 10.5 2.73 14.89 7 18 12 18s9.27-3.11 11-7.5C21.27 6.11 17 3 12 3zm0 13c-3.31 0-6-2.69-6-6s2.69-6 6-6 6 2.69 6 6-2.69 6-6 6zm-1-9h2v4h-2zm0 6h2v2h-2z" fill="currentColor"/>
+            </svg>
+            Observaciones
+          </button>
         </div>
       </div>
 
@@ -1162,12 +1217,65 @@ function FollowUp({
       <div className="mt-4">
         <button
           disabled={!resultado || saving}
-          onClick={() => resultado && onSave({ resultado, notas: obs || undefined })}
+          onClick={() => resultado && onSave({ resultado, notas: obs })}
           className="rounded-xl bg-neutral-900 text-white px-4 py-2 shadow-md hover:shadow-lg transition disabled:opacity-60"
         >
           {saving ? 'Guardando…' : 'Enviar informe'}
         </button>
       </div>
-    </div>
+      </div>
+
+      {obsOpen && (
+        <div className="fixed inset-0 z-[70]">
+          <div
+            className="absolute inset-0 bg-black/30 backdrop-blur-sm"
+            onClick={() => setObsOpen(false)}
+          />
+          <div className="absolute inset-0 grid place-items-center px-4">
+            <div className="w-full max-w-3xl rounded-3xl shadow-[0_20px_60px_-20px_rgba(0,0,0,35)] ring-1 ring-white/40 bg-[linear-gradient(180deg,rgba(255,255,255,65),rgba(255,255,255,45))] backdrop-blur-xl overflow-hidden">
+              <div className="px-5 md:px-7 py-4 flex items-center justify-between border-b border-white/50">
+                <div>
+                  <div className="text-xl md:text-2xl font-semibold text-neutral-900">Observaciones</div>
+                  <div className="text-[12px] text-neutral-600">{row.nombre}</div>
+                </div>
+                <button
+                  onClick={() => setObsOpen(false)}
+                  className="rounded-full bg-white/80 hover:bg:white px-4 py-2 text-sm font-semibold ring-1 ring-black/10 shadow-sm"
+                >
+                  Atras
+                </button>
+              </div>
+              <div className="px-4 md:px-6 py-4">
+                {obsLoading ? (
+                  <div className="py-6 text-center text-neutral-600">Cargando.</div>
+                ) : obsItems.length === 0 ? (
+                  <div className="py-6 text-center text-neutral-500">Sin observaciones registradas.</div>
+                ) : (
+                  <ul className="space-y-3">
+                    {obsItems.map((it, idx) => (
+                      <li key={idx} className="rounded-xl bg-white/70 ring-1 ring-black/10 px-4 py-3 shadow-sm">
+                        <div className="text-sm text-neutral-600 flex items-center justify-between">
+                          <span className="font-medium text-neutral-800">
+                            {new Date(it.fecha).toLocaleString()}
+                          </span>
+                          <span className="text-[11px] inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-neutral-100 ring-1 ring-black/10">
+                            {it.fuente === 'registro' ? 'Registro' : 'Llamada'}
+                          </span>
+                        </div>
+                        <div className="mt-2 text-[13px] text-neutral-800 whitespace-pre-wrap">
+                          {it.notas || '-'}
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
+
+// Modal Observaciones (dentro de FollowUp render)
