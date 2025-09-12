@@ -1,7 +1,7 @@
 'use client';
 
 import Image from 'next/image';
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 
 const normalizeCedula = (raw: string) => raw.replace(/\D+/g, '').trim();
@@ -11,9 +11,11 @@ export default function LoginPage() {
   const [cedula, setCedula] = useState('');
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const pendingRef = useRef(false); // evita doble submit rápido
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (pendingRef.current) return; // bloquea doble click
     setErrorMsg(null);
 
     const ced = normalizeCedula(cedula);
@@ -23,23 +25,38 @@ export default function LoginPage() {
     }
 
     setLoading(true);
+    pendingRef.current = true;
+
     try {
-      // Enviamos solo la cédula al backend
       const res = await fetch('/api/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ cedula: ced }),
       });
 
-      const data = await res.json();
-      if (!res.ok) throw new Error(data?.error || 'Error de autenticación');
+      // Parseo robusto del JSON (evita "Unexpected end of JSON input")
+      let data: any = null;
+      try {
+        data = await res.json();
+      } catch {
+        throw new Error('Respuesta inválida del servidor');
+      }
 
-      // El backend responde con la ruta a donde redirigir
-      router.replace(data.redirect || '/panel');
+      if (!res.ok) {
+        throw new Error(data?.error || 'Error de autenticación');
+      }
+
+      // ✅ Sin fallback. Solo seguimos lo que diga el backend.
+      if (!data?.redirect || typeof data.redirect !== 'string') {
+        throw new Error('El servidor no envió una ruta de redirección.');
+      }
+
+      router.replace(data.redirect);
     } catch (err: any) {
-      setErrorMsg(err.message || 'No fue posible validar su ingreso.');
+      setErrorMsg(err?.message || 'No fue posible validar su ingreso.');
     } finally {
       setLoading(false);
+      pendingRef.current = false;
     }
   };
 
@@ -99,7 +116,7 @@ export default function LoginPage() {
 
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || pendingRef.current}
             className="w-full py-3 rounded-full bg-gradient-to-r from-sky-500 via-sky-600 to-indigo-700 text-white font-semibold tracking-wide shadow-md hover:shadow-[0_0_18px_rgba(37,99,235,0.6)] active:scale-[0.99] transition-all duration-300 disabled:opacity-50"
           >
             {loading ? 'Validando…' : 'Ingresar'}

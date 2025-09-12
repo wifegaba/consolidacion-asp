@@ -35,7 +35,7 @@ type MaestroAsignacion = {
 
 type PendienteRow = {
   progreso_id: string;
-  nombre: string;
+  nombre: string | undefined; // <-- permitir undefined para hardening
   telefono: string | null;
   llamada1?: Resultado | null;
   llamada2?: Resultado | null;
@@ -45,7 +45,7 @@ type PendRowUI = PendienteRow & { _ui?: 'new' | 'changed' };
 
 type AgendadoRow = {
   progreso_id: string;
-  nombre: string;
+  nombre: string | undefined; // <-- permitir undefined para hardening
   telefono: string | null;
   semana: number;
 };
@@ -54,7 +54,7 @@ type AgendadoRow = {
 type BancoRow = {
   progreso_id: string;
   persona_id: string;
-  nombre: string;
+  nombre: string | undefined; // <-- permitir undefined
   telefono: string | null;
   modulo: 1 | 2 | 3 | 4 | null;
   semana: number | null;
@@ -139,11 +139,23 @@ function matchAsigRow(
 }
 
 /* ================= Página ================= */
-export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string }) {
+export default function Contactos1Client(
+  {
+    cedula: cedulaProp,
+    etapaInicial,
+    diaInicial,
+    semanaInicial,
+  }: {
+    cedula?: string;
+    etapaInicial?: string;
+    diaInicial?: string; // validado internamente a 'Domingo' | 'Martes' | 'Virtual'
+    semanaInicial?: number; // validado internamente a 1 | 2 | 3
+  }
+) {
   const router = useRouter();
   const cedula = normalizeCedula(cedulaProp ?? '');
   const rtDebug = false;
-  const rtLog = (...args: any[]) => { if (rtDebug) console.log('[RT maestros]', ...args); };
+  const rtLog = (...args: any[]) => { if (rtDebug) console.log('[RT contactos1]', ...args); };
 
   const [nombre, setNombre] = useState('');
   const [asig, setAsig] = useState<MaestroAsignacion | null>(null);
@@ -180,6 +192,33 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
   useEffect(() => { asigRef.current = asig; }, [asig]);
   useEffect(() => { pendRef.current = pendientes; }, [pendientes]);
 
+  // Inicializar con props opcionales, validando valores
+  useEffect(() => {
+    // Semana: solo 1..3
+    if (typeof semanaInicial === 'number' && [1, 2, 3].includes(semanaInicial)) {
+      const w = semanaInicial as Semana;
+      if (semanaRef.current !== w) setSemana(w);
+    }
+
+    // Día: solo valores permitidos
+    if (diaInicial === 'Domingo' || diaInicial === 'Martes' || diaInicial === 'Virtual') {
+      const d = diaInicial as Dia;
+      if (diaRef.current !== d) setDia(d);
+    }
+
+    // Etapa: si hay también día, podemos armar una asignación inicial
+    if (etapaInicial && (diaInicial === 'Domingo' || diaInicial === 'Martes' || diaInicial === 'Virtual')) {
+      const base = mapEtapaDetToBase(etapaInicial);
+      const initAsig: MaestroAsignacion = {
+        etapaDet: etapaInicial,
+        etapaBase: base.etapaBase,
+        modulo: base.modulo,
+        dia: diaInicial as Dia,
+      };
+      setAsig(prev => prev ?? initAsig);
+    }
+  }, [etapaInicial, diaInicial, semanaInicial]);
+
   // limpiar resaltado "_ui"
   const clearTimersRef = useRef<Record<string, number>>({});
   const scheduleClearUI = (id: string, ms = 6000) => {
@@ -193,7 +232,7 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
   /** Para marcar “Nuevo” cuando viene de reactivación */
   const rtNewRef = useRef<Set<string>>(new Set());
 
-  // Cargar asignación del maestro (y servidorId para reactivar)
+  // Cargar asignación del contacto (y servidorId para reactivar)
   useEffect(() => {
     (async () => {
       if (!cedula) return;
@@ -295,6 +334,9 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
         return { ...r, _ui };
       });
 
+      // ordenar con fallback para nombre
+      next.sort((a, b) => (a.nombre ?? '').localeCompare(b.nombre ?? ''));
+
       setPendientes(next);
       next.forEach(r => r._ui && scheduleClearUI(r.progreso_id, r._ui === 'new' ? 6000 : 3000));
 
@@ -332,10 +374,11 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
     // Optimista en UI
     setAgendados((prev) => {
       const yaEsta = prev.some((a) => a.progreso_id === row.progreso_id);
+      const nombreSafe = row.nombre ?? '—';
       if (esConfirmado) {
         return yaEsta
           ? prev
-          : [...prev, { progreso_id: row.progreso_id, nombre: row.nombre, telefono: row.telefono, semana }];
+          : [...prev, { progreso_id: row.progreso_id, nombre: nombreSafe, telefono: row.telefono, semana }];
       } else {
         return prev.filter((a) => a.progreso_id !== row.progreso_id);
       }
@@ -418,7 +461,7 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
         _ui: 'new',
       };
 
-      setPendientes(prev => [...prev, nuevo].sort((a, b) => a.nombre.localeCompare(b.nombre)));
+      setPendientes(prev => [...prev, nuevo].sort((a, b) => (a.nombre ?? '').localeCompare(b.nombre ?? '')));
       scheduleClearUI(row.id, 6000);
     };
 
@@ -449,7 +492,7 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
             llamada3: null,
             _ui: 'new',
           };
-          setPendientes(prev => [...prev, nuevo].sort((a, b) => a.nombre.localeCompare(b.nombre)));
+          setPendientes(prev => [...prev, nuevo].sort((a, b) => (a.nombre ?? '').localeCompare(b.nombre ?? '')));
           scheduleClearUI(newRow.id, 6000);
         }
         return;
@@ -481,7 +524,7 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
     };
 
     // ---- canal ----
-    const channelName = `rt-maestros-${cedula}`;
+    const channelName = `rt-contactos1-${cedula}`;
     const ch = supabase.channel(channelName);
 
     // Logs de diagnóstico (activar con ?rtlog=1)
@@ -672,7 +715,7 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
                           c._ui === 'new' ? 'bg-emerald-500 shadow-[0_0_0_4px_rgba(16,185,129,.25)]' : 'bg-amber-500 shadow-[0_0_0_3px_rgba(251,191,36,.25)]'
                         }`} />
                         <div className="min-w-0">
-                          <div className="font-semibold text-neutral-800 leading-tight truncate">{c.nombre}</div>
+                          <div className="font-semibold text-neutral-800 leading-tight truncate">{c.nombre ?? '—'}</div>
                           <div className="mt-0.5 inline-flex items-center gap-1.5 text-neutral-600 text-xs md:text-sm">
                             <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" className="opacity-80">
                               <path d="M6.6 10.8c1.3 2.5 3.1 4.4 5.6 5.6l2.1-2.1a1 1 0 0 1 1.1-.22c1.2.48 2.6.74 4 .74a1 1 0 0 1 1 1v3.5a1 1 0 0 1-1 1C12.1 20.3 3.7 11.9 3.7 2.7a1 1 0 0 1 1-1H8.2a1 1 0 0 1 1 1c0 1.4.26 2.8.74 4a1 1 0 0 1-.22 1.1l-2.1 2.1Z" fill="currentColor" />
@@ -748,7 +791,7 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
                 {agendados.map((e) => (
                   <li key={e.progreso_id} className="px-4 md:px-6 py-3 flex items-center gap-3">
                     <div className="flex-1 min-w-0">
-                      <div className="font-semibold text-neutral-800 truncate">{e.nombre}</div>
+                      <div className="font-semibold text-neutral-800 truncate">{e.nombre ?? '—'}</div>
                       <div className="text-neutral-500 text-xs md:text-sm">{e.telefono ?? '—'}</div>
                     </div>
 
@@ -836,7 +879,7 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
                         <tr><td colSpan={7} className="py-6 text-center text-neutral-500">Sin registros archivados.</td></tr>
                       ) : bancoRows.map((r) => (
                         <tr key={r.progreso_id} className="border-t border-black/5">
-                          <td className="py-2 pr-3 font-medium text-neutral-900">{r.nombre}</td>
+                          <td className="py-2 pr-3 font-medium text-neutral-900">{r.nombre ?? '—'}</td>
                           <td className="py-2 pr-3 text-neutral-700">{r.telefono ?? '—'}</td>
                           <td className="py-2 pr-3">{r.modulo ?? '—'}</td>
                           <td className="py-2 pr-3">{r.semana ?? '—'}</td>
@@ -927,7 +970,7 @@ async function openBanco() {
       const { error } = await supabase.rpc(RPC_REACTIVAR, {
         p_progreso: row.progreso_id,
         p_persona: row.persona_id,
-        p_nombre: row.nombre,
+        p_nombre: row.nombre ?? '—',
         p_telefono: row.telefono ?? null,
         p_estudio: asig.dia,
         p_notas: null,
@@ -981,7 +1024,7 @@ function FollowUp({
   const [obs, setObs] = useState('');
 
   const initials =
-    row.nombre
+    (row.nombre ?? 'U')
       .split(' ')
       .filter(Boolean)
       .slice(0, 2)
@@ -999,7 +1042,7 @@ function FollowUp({
           </div>
           <div>
             <div className="text-base md:text-lg font-semibold text-neutral-900 leading-tight">
-              {row.nombre}
+              {row.nombre ?? '—'}
             </div>
             <div className="text-[12px] text-neutral-500 leading-none">
               Semana {semana} • {dia}

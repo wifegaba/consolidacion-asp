@@ -1,132 +1,121 @@
 // src/app/api/login/route.ts
-import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { NextResponse } from 'next/server';
+import jwt from 'jsonwebtoken';
+import { getServerSupabase } from '@/lib/supabaseClient';
 
-/**
- * Mapea el rol (en minúsculas) a la ruta correspondiente.
- * - coordinador|director -> /panel
- * - maestro -> /login/maestros
- * - contactos -> /login/contactos1
- * - default -> /login
- */
-function roleToRoute(rol: string | null | undefined): string {
-  const v = (rol || "").toLowerCase();
-  if (v === "coordinador" || v === "director") return "/panel";
-  if (v === "maestro") return "/login/maestros";
-  if (v === "contactos") return "/login/contactos1";
-  return "/login";
-}
+const normalizeCedula = (raw: string) => raw?.replace(/\D+/g, '').trim() ?? '';
 
-export async function POST(req: NextRequest) {
+export async function POST(req: Request) {
+  const isProd = process.env.NODE_ENV === 'production';
+
   try {
-    const { cedula } = await req.json();
+    const body = await req.json().catch(() => ({}));
+    const cedula = normalizeCedula(body?.cedula);
 
-    if (!cedula || typeof cedula !== "string" || cedula.trim() === "") {
-      return NextResponse.json({ error: "Falta cédula" }, { status: 400 });
+    if (!cedula) {
+      return NextResponse.json({ error: 'Cédula requerida' }, { status: 400 });
     }
 
-    const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-    if (!url || !serviceKey) {
-      return NextResponse.json({ error: "Config faltante" }, { status: 500 });
-    }
+    const supabase = getServerSupabase();
 
-    // Cliente Supabase server-side (no persistir sesión en server)
-    const supabase = createClient(url, serviceKey, { auth: { persistSession: false } });
-
-    // 1) Buscar servidor por cédula (activo)
+    // 1) Servidor por cédula
     const { data: servidor, error: errServ } = await supabase
-      .from("servidores")
-      .select("id, nombre, activo")
-      .eq("cedula", cedula.trim())
+      .from('servidores')
+      .select('id, activo')
+      .eq('cedula', cedula)
       .maybeSingle();
 
     if (errServ) {
-      console.error("[servidores]", errServ);
-      return NextResponse.json({ error: "Error consultando servidor" }, { status: 500 });
+      return NextResponse.json({ error: 'Error consultando servidor' }, { status: 500 });
     }
-    if (!servidor || servidor.activo === false) {
-      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+    if (!servidor) {
+      return NextResponse.json({ error: 'Servidor no encontrado' }, { status: 404 });
+    }
+    if (servidor.activo === false) {
+      return NextResponse.json({ error: 'Usuario inactivo' }, { status: 403 });
     }
 
-    // 2) ¿Tiene rol ADMIN vigente? (Coordinador/Director) -> /panel
-    const { data: adminRow, error: errAdmin } = await supabase
-      .from("servidores")
-      .select(`
-        id,
-        servidores_roles!inner(rol, vigente)
-      `)
-      .eq("id", servidor.id)
-      .eq("servidores_roles.vigente", true)
-      .in("servidores_roles.rol", ["Coordinador", "Director"])
-      .limit(1)
+    const servidorId = servidor.id;
+
+    // 2) Roles por servidor_id (vigente=true)
+    const { data: contacto, error: errC } = await supabase
+      .from('asignaciones_contacto')
+      .select('etapa, dia, semana, vigente')
+      .eq('servidor_id', servidorId)
+      .eq('vigente', true)
       .maybeSingle();
 
-    if (errAdmin) {
-      console.error("[admin check]", errAdmin);
-      return NextResponse.json({ error: "Error validando rol" }, { status: 500 });
+    const { data: maestro, error: errM } = await supabase
+      .from('asignaciones_maestro')
+      .select('etapa, dia, vigente')
+      .eq('servidor_id', servidorId)
+      .eq('vigente', true)
+      .maybeSingle();
+
+    if (errC || errM) {
+      return NextResponse.json({ error: 'Error consultando roles' }, { status: 500 });
     }
 
-    // Si es admin, redirige a /panel
-    if (adminRow?.servidores_roles && Array.isArray(adminRow.servidores_roles) && adminRow.servidores_roles.length > 0) {
-      const rol = String(adminRow.servidores_roles[0].rol); // 'Coordinador' | 'Director'
-      const redirect = roleToRoute(rol);
-      const res = NextResponse.json({ redirect, rol, nombre: servidor.nombre });
-      // Establece cookies de sesión mínimas (sin exponer en URL)
-      // - "ced": cédula en cookie httpOnly para uso en páginas protegidas
-      // - "admin": flag para middleware de /panel
-      const isProd = process.env.NODE_ENV === 'production';
-      res.cookies.set("ced", cedula.trim(), {
-        httpOnly: true,
-        sameSite: "lax",
-        secure: isProd,
-        path: "/",
-        maxAge: 60 * 60 * 6, // 6 horas
-      });
-      res.cookies.set("admin", "1", {
-        httpOnly: true,
-        sameSite: "lax",
-        secure: isProd,
-        path: "/",
-        maxAge: 60 * 60 * 6, // 6 horas
-      });
-      return res;
+    const tieneContacto = !!contacto;
+    const tieneMaestro = !!maestro;
+
+    if (!tieneContacto && !tieneMaestro) {
+      return NextResponse.json({ error: 'No tiene roles asignados' }, { status: 401 });
     }
 
-    // 3) No es admin -> resuelve rol básico (tu lógica existente)
-    // Si ya tienes esta RPC, la usamos; si no, devuelve null y caerá a /login
-    const { data: rolBasico, error: errBasic } = await supabase
-      .rpc("fn_resolver_rol", { p_cedula: cedula.trim() });
+    // 3) Decidir rol y asignación (prioridad contacto; ajusta si prefieres maestro)
+    const rol: 'contacto' | 'maestro' = tieneContacto ? 'contacto' : 'maestro';
+    const asignacion = tieneContacto ? contacto! : maestro!;
+    const redirect = rol === 'contacto' ? '/login/contactos1' : '/login/maestros';
 
-    if (errBasic) {
-      console.error("[fn_resolver_rol]", errBasic);
-      const redirect = roleToRoute(null);
-      return NextResponse.json({ redirect, rol: null, nombre: servidor.nombre });
+    // 4) JWT
+    const secret = process.env.JWT_SECRET;
+    if (!secret) {
+      return NextResponse.json({ error: 'Falta JWT_SECRET en .env' }, { status: 500 });
     }
 
-    const rol = (rolBasico as string | null) || null; // 'maestro' | 'contactos' | null
-    const redirect = roleToRoute(rol);
-    const res = NextResponse.json({ redirect, rol, nombre: servidor.nombre });
-    const isProd = process.env.NODE_ENV === 'production';
-    // Cookie de cédula para que páginas lean la sesión sin URL
-    res.cookies.set("ced", cedula.trim(), {
+    const token = jwt.sign(
+      {
+        cedula,
+        rol,
+        servidorId,
+        etapa: asignacion?.etapa ?? null,
+        dia: asignacion?.dia ?? null,
+        // semana solo aplica a contacto (maestro no tiene semana)
+        semana: rol === 'contacto' ? contacto?.semana ?? null : null,
+      },
+      secret,
+      { expiresIn: '8h' }
+    );
+
+    // 5) Cookies + respuesta
+    const res = NextResponse.json({ redirect });
+
+    // Cookie principal (prod y dev)
+    res.cookies.set('__Host-session', token, {
       httpOnly: true,
-      sameSite: "lax",
       secure: isProd,
-      path: "/",
-      maxAge: 60 * 60 * 6, // 6 horas
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 60 * 60 * 8, // 8h
     });
-    // Asegura que el flag admin esté limpio para no-admin
-    res.cookies.set("admin", "0", {
-      httpOnly: true,
-      sameSite: "lax",
-      secure: isProd,
-      path: "/",
-      maxAge: 60 * 60 * 6,
-    });
+
+    // Compatibilidad con tu panel en desarrollo (lee "session")
+    if (!isProd) {
+      res.cookies.set('session', token, {
+        httpOnly: true,
+        secure: false,
+        sameSite: 'lax',
+        path: '/',
+        maxAge: 60 * 60 * 8,
+      });
+    }
+
     return res;
   } catch (e: any) {
-    console.error("[/api/login] error", e);
-    return NextResponse.json({ error: "Error inesperado" }, { status: 500 });
+    return NextResponse.json(
+      { error: e?.message ?? 'Error interno' },
+      { status: 500 }
+    );
   }
 }
