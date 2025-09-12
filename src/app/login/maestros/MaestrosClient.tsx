@@ -584,7 +584,7 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
             title="Ver estudiantes archivados y reactivar"
           >
             <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M3 6.5A2.5 2.5 0 0 1 5.5 4h13A2.5 2.5 0 0 1 21 6.5V18a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2ZM5 8h14v10H5Zm2-3h10v2H7z" fill="currentColor"/>
+              <path d="M3 6.5A2.5 2.5 0 0 1 5.5 4h13A2.5 2.5 0 0 1 21 6.5V18a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6Zm5 1h8v10H8Z" fill="currentColor"/>
             </svg>
             Banco Archivo
           </button>
@@ -836,7 +836,7 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
                 </div>
                 <button
                   onClick={() => setBancoOpen(false)}
-                  className="rounded-full bg-white/80 hover:bg:white px-4 py-2 text-sm font-semibold ring-1 ring-black/10 shadow-sm"
+                  className="rounded-full bg-white/80 hover:bg:white px-4 py-2 text-sm font-semibold"
                 >
                   Atrás
                 </button>
@@ -1024,6 +1024,10 @@ async function openBanco() {
   }
 }
 
+
+
+
+
 /* ================= Panel derecho (detalle y envío) ================= */
 function FollowUp({
   semana,
@@ -1037,7 +1041,11 @@ function FollowUp({
   row: PendienteRow;
   saving: boolean;
   onSave: (p: { resultado: Resultado; notas?: string }) => Promise<void>;
-}) {
+}) 
+{
+
+
+
   const opciones: { label: string; value: Resultado }[] = [
     { label: 'CONFIRMÓ ASISTENCIA', value: 'confirmo_asistencia' },
     { label: 'NO CONTESTA', value: 'no_contesta' },
@@ -1061,31 +1069,32 @@ function FollowUp({
   }, [row.progreso_id]);
 
   // Observaciones modal state
-  type ObsItem = { fecha: string; notas: string; fuente: 'registro' | 'llamada' };
+  type ObsItem = { 
+    fecha: string; 
+    notas: string; 
+    resultado?: Resultado | null;
+    fuente: 'registro' | 'llamada'; 
+  };
+
   const [obsOpen, setObsOpen] = useState(false);
   const [obsLoading, setObsLoading] = useState(false);
   const [obsItems, setObsItems] = useState<ObsItem[]>([]);
 
-  
+  // 🔎 Cargar observaciones del registro (llamada_intento) para el modal
 const openObsModal = async () => {
   setObsOpen(true);
   setObsLoading(true);
   try {
-    const { data, error } = await supabase
-      .from('llamada_intento')
-      .select('creado_en, notas')
-      .eq('progreso_id', row.progreso_id)
-      .order('creado_en', { ascending: false });
-
+    const { data, error } = await supabase.rpc('fn_observaciones_por_progreso', {
+      p_progreso: row.progreso_id,
+    });
     if (error) throw error;
-
-    const items = (data ?? []).map((r: any) => ({
+    setObsItems((data ?? []).map((r: any) => ({
       fecha: r.creado_en,
       notas: r.notas,
+      resultado: r.resultado,
       fuente: 'llamada' as const,
-    }));
-
-    setObsItems(items);
+    })));
   } catch (e) {
     console.error('No se pudieron cargar observaciones', e);
     setObsItems([]);
@@ -1093,6 +1102,7 @@ const openObsModal = async () => {
     setObsLoading(false);
   }
 };
+
 
 
   const initials =
@@ -1111,118 +1121,118 @@ const openObsModal = async () => {
   return (
     <>
       <div className="animate-cardIn">
-      <div className="mb-4 rounded-2xl ring-1 ring-black/5 bg-[linear-gradient(135deg,#eef3ff,#f6efff)] px-4 py-3 md:px-5 md:py-4 flex items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="grid place-items-center h-10 w-10 md:h-12 md:w-12 rounded-xl text-white font-bold bg-gradient-to-br from-blue-500 to-indigo-500 shadow-sm">
-            {initials}
+        <div className="mb-4 rounded-2xl ring-1 ring-black/5 bg-[linear-gradient(135deg,#eef3ff,#f6efff)] px-4 py-3 md:px-5 md:py-4 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="grid place-items-center h-10 w-10 md:h-12 md:w-12 rounded-xl text-white font-bold bg-gradient-to-br from-blue-500 to-indigo-500 shadow-sm">
+              {initials}
+            </div>
+            <div>
+              <div className="text-base md:text-lg font-semibold text-neutral-900 leading-tight">
+                {row.nombre}
+              </div>
+              <div className="text-[12px] text-neutral-500 leading-none">
+                Semana {semana} • {dia}
+              </div>
+              <div className="text-[11px] text-neutral-600 mt-1 space-y-0.5">
+                {[row.llamada1 ?? null, row.llamada2 ?? null, row.llamada3 ?? null].map((r, idx) => (
+                  <div key={idx}>
+                    Llamada {idx + 1}:{' '}
+                    {r ? (
+                      <span className="font-medium text-neutral-800">{resultadoLabels[r as Resultado]}</span>
+                    ) : (
+                      <span className="italic">sin registro</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
-          <div>
-            <div className="text-base md:text-lg font-semibold text-neutral-900 leading-tight">
-              {row.nombre}
-            </div>
-            <div className="text-[12px] text-neutral-500 leading-none">
-              Semana {semana} • {dia}
-            </div>
-            <div className="text-[11px] text-neutral-600 mt-1 space-y-0.5">
-              {[row.llamada1 ?? null, row.llamada2 ?? null, row.llamada3 ?? null].map((r, idx) => (
-                <div key={idx}>
-                  Llamada {idx + 1}:{' '}
-                  {r ? (
-                    <span className="font-medium text-neutral-800">{resultadoLabels[r as Resultado]}</span>
-                  ) : (
-                    <span className="italic">sin registro</span>
-                  )}
-                </div>
-              ))}
-            </div>
+
+          <div className="shrink-0 flex flex-col items-stretch gap-2">
+            {telHref ? (
+              <a
+                href={telHref}
+                className="inline-flex items-center justify-center gap-2 rounded-full bg-white px-3.5 py-2 text-sm font-semibold ring-1 ring-black/10 shadow-sm hover:shadow-md transition"
+                title={`Llamar a ${row.telefono}`}
+              >
+                <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+                  <path d="M6.6 10.8c1.3 2.5 3.1 4.4 5.6 5.6l2.1-2.1a1 1 0 0 1 1.1-.22c1.2.48 2.6.74 4 .74a1 1 0 0 1 1 1v3.5a1 1 0 0 1-1 1C12.1 20.3 3.7 11.9 3.7 2.7a1 1 0 0 1 1-1H8.2a1 1 0 0 1 1 1c0 1.4.26 2.8.74 4a1 1 0 0 1-.22 1.1l-2.1 2.1Z" fill="currentColor" />
+                </svg>
+                <span>{row.telefono}</span>
+              </a>
+            ) : (
+              <div className="inline-flex items-center gap-2 rounded-full bg-white px-3.5 py-2 text-sm font-semibold ring-1 ring-black/10 shadow-sm">
+                -
+              </div>
+            )}
+
+            {waHref && (
+              <a
+                href={waHref}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center justify-center gap-2 rounded-full bg-[#25D366] text-white px-3.5 py-2 text-sm font-semibold shadow-sm hover:shadow-md transition"
+                title={`Enviar WhatsApp a ${row.telefono}`}
+              >
+                <svg viewBox="0 0 32 32" width="16" height="16" aria-hidden="true">
+                  <path fill="currentColor" d="M19.11 17.64c-.29-.15-1.67-.82-1.93-.91-.26-.1-.45-.15-.64.15-.19.29-.74.91-.9 1.1-.17.19-.33.21-.62.07-.29-.15-1.2-.44-2.28-1.41-.84-.75-1.41-1.67-1.57-1.96-.16-.29-.02-.45.12-.6.12-.12.29-.33.43-.5.14-.17.19-.29.29-.48.1-.19.05-.36-.02-.51-.07-.15-.64-1.54-.88-2.11-.23-.55-.47-.48-.64-.49l-.55-.01c-.19 0-.5.07-.76.36-.26.29-1 1-1 2.43 0 1.43 1.02 2.81 1.16 3 .14.19 2 3.05 4.83 4.28.68.29 1.21.46 1.62.59.68.22 1.29.19 1.78.12.54-.08 1.67-.68 1.91-1.34.24-.66.24-1.22.17-1.34-.07-.12-.26-.19-.55-.34z"/>
+                  <path fill="currentColor" d="M26.77 5.25A12.48 12.48 0 0 0 16 0C7.18 0 0 7.18 0 16c0 2.82.74 5.53 2.15 7.93L0 32l8.25-2.11A15.9 15.9 0 0 0 16 28.5C24.82 28.5 32 21.32 32 12.5c0-3.3-1.23-6.4-3.23-8.75zM16 26.5c-2.52 0-4.86-.75-6.81-2.04l-.49-.32-4.88 1.25 1.3-4.76-.32-.49A10.47 10.47 0 0 1 5.5 16c0-5.8 4.7-10.5 10.5-10.5S26.5 10.2 26.5 16 21.8 26.5 16 26.5z"/>
+                </svg>
+                WhatsApp
+              </a>
+            )}
+
+            <button
+              type="button"
+              onClick={openObsModal}
+              className="inline-flex items-center justify-center gap-2 rounded-full bg-white px-3.5 py-2 text-sm font-semibold ring-1 ring-black/10 shadow-sm hover:shadow-md transition"
+              title="Ver observaciones del registro"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 3C7 3 2.73 6.11 1 10.5 2.73 14.89 7 18 12 18s9.27-3.11 11-7.5C21.27 6.11 17 3 12 3zm0 13c-3.31 0-6-2.69-6-6s2.69-6 6-6 6 2.69 6 6-2.69 6-6 6zm-1-9h2v4h-2zm0 6h2v2h-2z" fill="currentColor"/>
+              </svg>
+              Observaciones
+            </button>
           </div>
         </div>
 
-        <div className="shrink-0 flex flex-col items-stretch gap-2">
-          {telHref ? (
-            <a
-              href={telHref}
-              className="inline-flex items-center justify-center gap-2 rounded-full bg-white px-3.5 py-2 text-sm font-semibold ring-1 ring-black/10 shadow-sm hover:shadow-md transition"
-              title={`Llamar a ${row.telefono}`}
-            >
-              <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
-                <path d="M6.6 10.8c1.3 2.5 3.1 4.4 5.6 5.6l2.1-2.1a1 1 0 0 1 1.1-.22c1.2.48 2.6.74 4 .74a1 1 0 0 1 1 1v3.5a1 1 0 0 1-1 1C12.1 20.3 3.7 11.9 3.7 2.7a1 1 0 0 1 1-1H8.2a1 1 0 0 1 1 1c0 1.4.26 2.8.74 4a1 1 0 0 1-.22 1.1l-2.1 2.1Z" fill="currentColor" />
-              </svg>
-              <span>{row.telefono}</span>
-            </a>
-          ) : (
-            <div className="inline-flex items-center gap-2 rounded-full bg-white px-3.5 py-2 text-sm font-semibold ring-1 ring-black/10 shadow-sm">
-              -
-            </div>
-          )}
+        <div>
+          <label className="text-xs text-neutral-500">Resultado de la llamada</label>
+          <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+            {opciones.map((o) => (
+              <label key={o.value} className="flex items-center gap-2 rounded-lg ring-1 ring-black/10 bg-neutral-50 px-3 py-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="resultado"
+                  className="accent-blue-600"
+                  onChange={() => setResultado(o.value)}
+                  checked={resultado === o.value}
+                />
+                <span className="text-sm">{o.label}</span>
+              </label>
+            ))}
+          </div>
+        </div>
 
-          {waHref && (
-            <a
-              href={waHref}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center justify-center gap-2 rounded-full bg-[#25D366] text-white px-3.5 py-2 text-sm font-semibold shadow-sm hover:shadow-md transition"
-              title={`Enviar WhatsApp a ${row.telefono}`}
-            >
-              <svg viewBox="0 0 32 32" width="16" height="16" aria-hidden="true">
-                <path fill="currentColor" d="M19.11 17.64c-.29-.15-1.67-.82-1.93-.91-.26-.1-.45-.15-.64.15-.19.29-.74.91-.9 1.1-.17.19-.33.21-.62.07-.29-.15-1.2-.44-2.28-1.41-.84-.75-1.41-1.67-1.57-1.96-.16-.29-.02-.45.12-.6.12-.12.29-.33.43-.5.14-.17.19-.29.29-.48.1-.19.05-.36-.02-.51-.07-.15-.64-1.54-.88-2.11-.23-.55-.47-.48-.64-.49l-.55-.01c-.19 0-.5.07-.76.36-.26.29-1 1-1 2.43 0 1.43 1.02 2.81 1.16 3 .14.19 2 3.05 4.83 4.28.68.29 1.21.46 1.62.59.68.22 1.29.19 1.78.12.54-.08 1.67-.68 1.91-1.34.24-.66.24-1.22.17-1.34-.07-.12-.26-.19-.55-.34z"/>
-                <path fill="currentColor" d="M26.77 5.25A12.48 12.48 0 0 0 16 0C7.18 0 0 7.18 0 16c0 2.82.74 5.53 2.15 7.93L0 32l8.25-2.11A15.9 15.9 0 0 0 16 28.5C24.82 28.5 32 21.32 32 12.5c0-3.3-1.23-6.4-3.23-8.75zM16 26.5c-2.52 0-4.86-.75-6.81-2.04l-.49-.32-4.88 1.25 1.3-4.76-.32-.49A10.47 10.47 0 0 1 5.5 16c0-5.8 4.7-10.5 10.5-10.5S26.5 10.2 26.5 16 21.8 26.5 16 26.5z"/>
-              </svg>
-              WhatsApp
-            </a>
-          )}
+        <div className="mt-4">
+          <label className="text-xs text-neutral-500">Observaciones</label>
+          <textarea
+            className="mt-1 w-full min-h-[100px] rounded-lg ring-1 ring-black/10 px-3 py-2 bg-neutral-50 focus:outline-none focus:ring-2 focus:ring-blue-300"
+            placeholder="Escribe aquí las observaciones..."
+            value={obs}
+            onChange={(e) => setObs(e.target.value)}
+          />
+        </div>
 
+        <div className="mt-4">
           <button
-            type="button"
-            onClick={openObsModal}
-            className="inline-flex items-center justify-center gap-2 rounded-full bg-white px-3.5 py-2 text-sm font-semibold ring-1 ring-black/10 shadow-sm hover:shadow-md transition"
-            title="Ver observaciones del registro"
+            disabled={!resultado || saving}
+            onClick={() => resultado && onSave({ resultado, notas: obs })}
+            className="rounded-xl bg-neutral-900 text-white px-4 py-2 shadow-md hover:shadow-lg transition disabled:opacity-60"
           >
-            <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M12 3C7 3 2.73 6.11 1 10.5 2.73 14.89 7 18 12 18s9.27-3.11 11-7.5C21.27 6.11 17 3 12 3zm0 13c-3.31 0-6-2.69-6-6s2.69-6 6-6 6 2.69 6 6-2.69 6-6 6zm-1-9h2v4h-2zm0 6h2v2h-2z" fill="currentColor"/>
-            </svg>
-            Observaciones
+            {saving ? 'Guardando…' : 'Enviar informe'}
           </button>
         </div>
-      </div>
-
-      <div>
-        <label className="text-xs text-neutral-500">Resultado de la llamada</label>
-        <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-          {opciones.map((o) => (
-            <label key={o.value} className="flex items-center gap-2 rounded-lg ring-1 ring-black/10 bg-neutral-50 px-3 py-2 cursor-pointer">
-              <input
-                type="radio"
-                name="resultado"
-                className="accent-blue-600"
-                onChange={() => setResultado(o.value)}
-                checked={resultado === o.value}
-              />
-              <span className="text-sm">{o.label}</span>
-            </label>
-          ))}
-        </div>
-      </div>
-
-      <div className="mt-4">
-        <label className="text-xs text-neutral-500">Observaciones</label>
-        <textarea
-          className="mt-1 w-full min-h-[100px] rounded-lg ring-1 ring-black/10 px-3 py-2 bg-neutral-50 focus:outline-none focus:ring-2 focus:ring-blue-300"
-          placeholder="Escribe aquí las observaciones..."
-          value={obs}
-          onChange={(e) => setObs(e.target.value)}
-        />
-      </div>
-
-      <div className="mt-4">
-        <button
-          disabled={!resultado || saving}
-          onClick={() => resultado && onSave({ resultado, notas: obs })}
-          className="rounded-xl bg-neutral-900 text-white px-4 py-2 shadow-md hover:shadow-lg transition disabled:opacity-60"
-        >
-          {saving ? 'Guardando…' : 'Enviar informe'}
-        </button>
-      </div>
       </div>
 
       {obsOpen && (
@@ -1263,7 +1273,10 @@ const openObsModal = async () => {
                           </span>
                         </div>
                         <div className="mt-2 text-[13px] text-neutral-800 whitespace-pre-wrap">
-                          {it.notas || '-'}
+                          <strong>
+                            {it.resultado ? (resultadoLabels[it.resultado as Resultado] ?? it.resultado) : '—'}
+                          </strong>
+                          {it.notas ? ` — ${it.notas}` : ''}
                         </div>
                       </li>
                     ))}

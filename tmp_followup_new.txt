@@ -1,0 +1,127 @@
+function FollowUp({
+  semana,
+  dia,
+  row,
+  saving,
+  onSave,
+  onOpenObservaciones,
+}: {
+  semana: number;
+  dia: string | null;
+  row: any;
+  saving: boolean;
+  onSave: (p: { resultado: string; notas: string }) => Promise<void>;
+  onOpenObservaciones: () => void;
+}) {
+  const opciones = [
+    { label: 'CONFIRMÓ ASISTENCIA', value: 'confirmo_asistencia' },
+    { label: 'NO CONTESTA', value: 'no_contesta' },
+    { label: 'NO POR AHORA', value: 'no_por_ahora' },
+    { label: 'LLAMAR DE NUEVO', value: 'llamar_de_nuevo' },
+    { label: 'SALIO DE VIAJE', value: 'salio_de_viaje' },
+    { label: 'YA ESTÁ EN PTMD', value: 'ya_esta_en_ptmd' },
+    { label: 'NO TIENE $ TRANSPORTE', value: 'no_tiene_transporte' },
+    { label: 'VIVE FUERA DE LA CIUDAD', value: 'vive_fuera' },
+    { label: 'MURIÓ', value: 'murio' },
+    { label: 'NO ME INTERESA', value: 'rechazado' },
+  ];
+
+  const [resultado, setResultado] = useState<string | null>(null);
+  const [obs, setObs] = useState<string>("");
+
+  // Reinicia observaciones cada vez que cambia el progreso
+  useEffect(() => {
+    setObs("");
+    setResultado(null);
+  }, [row.progreso_id]);
+
+  const initials =
+    (row.nombre ?? "U")
+      .split(" ")
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((p) => p[0]?.toUpperCase())
+      .join("") || "U";
+
+  const telHref = row.telefono ? `tel:${row.telefono.replace(/[^\\d+]/g, "")}` : null;
+
+  return (
+    <div className="animate-cardIn">
+      <div className="mb-4 rounded-2xl ring-1 ring-black/5 bg-[linear-gradient(135deg,#eef3ff,#f6efff)] px-4 py-3 md:px-5 md:py-4 flex items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="grid place-items-center h-10 w-10 md:h-12 md:w-12 rounded-xl text-white font-bold bg-gradient-to-br from-blue-500 to-indigo-500 shadow-sm">
+            {initials}
+          </div>
+          <div>
+            <div className="text-base md:text-lg font-semibold text-neutral-900 leading-tight">
+              {row.nombre ?? "—"}
+            </div>
+            <div className="text-[12px] text-neutral-500 leading-none">
+              Semana {semana} • {dia}
+            </div>
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-2">
+          {telHref && (
+            <a
+              href={telHref}
+              className="inline-flex items-center gap-2 rounded-full bg-white px-3.5 py-2 text-sm font-semibold ring-1 ring-black/10 shadow-sm hover:shadow-md transition"
+              title={`Llamar a ${row.telefono}`}
+            >
+              ?? {row.telefono}
+            </a>
+          )}
+
+          <button
+            onClick={onOpenObservaciones}
+            className="inline-flex items-center gap-2 rounded-full bg-white px-3.5 py-2 text-sm font-semibold ring-1 ring-black/10 shadow-sm hover:shadow-md transition"
+          >
+            ?? Observaciones
+          </button>
+        </div>
+      </div>
+
+      <div>
+        <label className="text-xs text-neutral-500">Resultado de la llamada</label>
+        <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+          {opciones.map((o) => (
+            <label
+              key={o.value}
+              className="flex items-center gap-2 rounded-lg ring-1 ring-black/10 bg-neutral-50 px-3 py-2 cursor-pointer"
+            >
+              <input
+                type="radio"
+                name="resultado"
+                className="accent-blue-600"
+                onChange={() => setResultado(o.value)}
+                checked={resultado === o.value}
+              />
+              <span className="text-sm">{o.label}</span>
+            </label>
+          ))}
+        </div>
+      </div>
+
+      <div className="mt-4">
+        <label className="text-xs text-neutral-500">Observaciones</label>
+        <textarea
+          className="mt-1 w-full min-h-[100px] rounded-lg ring-1 ring-black/10 px-3 py-2 bg-neutral-50 focus:outline-none focus:ring-2 focus:ring-blue-300"
+          placeholder="Escribe aquí las observaciones..."
+          value={obs}
+          onChange={(e) => setObs(e.target.value)}
+        />
+      </div>
+
+      <div className="mt-4">
+        <button
+          disabled={!resultado || saving}
+          onClick={() => resultado && onSave({ resultado, notas: obs })}
+          className="rounded-xl bg-neutral-900 text-white px-4 py-2 shadow-md hover:shadow-lg transition disabled:opacity-60"
+        >
+          {saving ? "Guardando…" : "Enviar informe"}
+        </button>
+      </div>
+    </div>
+  );
+}

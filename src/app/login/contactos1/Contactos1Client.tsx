@@ -174,6 +174,8 @@ export default function Contactos1Client(
   const [agendados, setAgendados] = useState<AgendadoRow[]>([]);
   const [marks, setMarks] = useState<Record<string, 'A' | 'N' | undefined>>({});
   const [savingAg, setSavingAg] = useState(false);
+  // Ref al panel derecho para llevarlo a la vista en móviles
+  const rightPanelRef = useRef<HTMLDivElement | null>(null);
 
   /** ======== Banco Archivo (estado) ======== */
   const [bancoOpen, setBancoOpen] = useState(false);
@@ -191,6 +193,17 @@ export default function Contactos1Client(
   useEffect(() => { diaRef.current = dia; }, [dia]);
   useEffect(() => { asigRef.current = asig; }, [asig]);
   useEffect(() => { pendRef.current = pendientes; }, [pendientes]);
+  // Cuando se selecciona un registro, mostrar el panel derecho y hacer scroll en móviles
+  useEffect(() => {
+    if (selectedId) {
+      // Pequeño delay para asegurar que la sección esté renderizada
+      setTimeout(() => {
+        try {
+          rightPanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        } catch {}
+      }, 0);
+    }
+  }, [selectedId]);
 
   // Inicializar con props opcionales, validando valores
   useEffect(() => {
@@ -750,7 +763,7 @@ export default function Contactos1Client(
           </section>
 
           {/* Panel derecho de llamada */}
-          <section className={`rounded-[16px] bg-white shadow-[0_10px_28px_-14px_rgba(16,24,40,.28)] ring-1 ring-black/5 p-4 md:p-5 ${!selectedId ? 'hidden lg:block' : ''}`}>
+          <section ref={rightPanelRef} className={`rounded-[16px] bg-white shadow-[0_10px_28px_-14px_rgba(16,24,40,.28)] ring-1 ring-black/5 p-4 md:p-5 ${!selectedId ? 'hidden lg:block' : ''}`}>
             {!selectedId ? (
               <div className="grid place-items-center text-neutral-500 h-full">
                 Selecciona un nombre de la lista para llamar / registrar.
@@ -856,7 +869,7 @@ export default function Contactos1Client(
             onClick={() => setBancoOpen(false)}
           />
           <div className="absolute inset-0 grid place-items-center px-4">
-            <div className="w-full max-w-4xl rounded-3xl shadow-[0_20px_60px_-20px_rgba(0,0,0,35)] ring-1 ring-white/40 bg-[linear-gradient(180deg,rgba(255,255,255,65),rgba(255,255,255,45))] backdrop-blur-xl">
+            <div className="w-full max-w-4xl max-h-[96vh] overflow-auto rounded-3xl shadow-[0_20px_60px_-20px_rgba(0,0,0,35)] ring-1 ring-white/40 bg-[linear-gradient(180deg,rgba(255,255,255,65),rgba(255,255,255,45))] backdrop-blur-xl">
               {/* Header */}
               <div className="px-5 md:px-7 py-4 flex items-center justify-between border-b border-white/50">
                 <div>
@@ -1039,6 +1052,47 @@ function FollowUp({
   const [resultado, setResultado] = useState<Resultado | null>(null);
   const [obs, setObs] = useState('');
 
+  // Reiniciar estado cuando cambia el registro seleccionado
+  useEffect(() => {
+    setResultado(null);
+    setObs('');
+  }, [row.progreso_id]);
+
+  // Observaciones modal state
+  type ObsItem = {
+    fecha: string;
+    notas: string;
+    resultado?: Resultado | null;
+    fuente: 'registro' | 'llamada';
+  };
+
+  const [obsOpen, setObsOpen] = useState(false);
+  const [obsLoading, setObsLoading] = useState(false);
+  const [obsItems, setObsItems] = useState<ObsItem[]>([]);
+
+  // Cargar observaciones del registro para el modal
+  const openObsModal = async () => {
+    setObsOpen(true);
+    setObsLoading(true);
+    try {
+      const { data, error } = await supabase.rpc('fn_observaciones_por_progreso', {
+        p_progreso: row.progreso_id,
+      });
+      if (error) throw error;
+      setObsItems((data ?? []).map((r: any) => ({
+        fecha: r.creado_en,
+        notas: r.notas,
+        resultado: r.resultado,
+        fuente: 'llamada' as const,
+      })));
+    } catch (e) {
+      console.error('No se pudieron cargar observaciones', e);
+      setObsItems([]);
+    } finally {
+      setObsLoading(false);
+    }
+  };
+
   const initials =
     (row.nombre ?? 'U')
       .split(' ')
@@ -1050,7 +1104,8 @@ function FollowUp({
   const telHref = row.telefono ? `tel:${row.telefono.replace(/[^\d+]/g, '')}` : null;
 
   return (
-    <div className="animate-cardIn">
+    <div>
+      <div className="animate-cardIn">
       <div className="mb-4 rounded-2xl ring-1 ring-black/5 bg-[linear-gradient(135deg,#eef3ff,#f6efff)] px-4 py-3 md:px-5 md:py-4 flex items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <div className="grid place-items-center h-10 w-10 md:h-12 md:w-12 rounded-xl text-white font-bold bg-gradient-to-br from-blue-500 to-indigo-500 shadow-sm">
@@ -1096,6 +1151,10 @@ function FollowUp({
             </div>
           )}
 
+
+
+          
+
           {row.telefono && (
             <a
               href={`https://wa.me/${row.telefono.replace(/[^\d]/g, '')}?text=${encodeURIComponent('Hola ' + (row.nombre ?? '') + ',')}`}
@@ -1111,6 +1170,17 @@ function FollowUp({
               WhatsApp
             </a>
           )}
+
+          <button
+            onClick={openObsModal}
+            className="inline-flex items-center justify-center gap-2 rounded-full bg-white px-3.5 py-2 text-sm font-semibold ring-1 ring-black/10 shadow-sm hover:shadow-md transition"
+            title="Ver observaciones del registro"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 3C7 3 2.73 6.11 1 10.5 2.73 14.89 7 18 12 18s9.27-3.11 11-7.5C21.27 6.11 17 3 12 3zm0 13c-3.31 0-6-2.69-6-6s2.69-6 6-6 6 2.69 6 6-2.69 6-6 6zm-1-9h2v4h-2zm0 6h2v2h-2z" fill="currentColor"/>
+            </svg>
+            Observaciones
+          </button>
         </div>
       </div>
 
@@ -1151,6 +1221,59 @@ function FollowUp({
           {saving ? 'Guardando…' : 'Enviar informe'}
         </button>
       </div>
+      </div>
+      {obsOpen && (
+        <div className="fixed inset-0 z-[70]">
+          <div
+            className="absolute inset-0 bg-black/30 backdrop-blur-sm"
+            onClick={() => setObsOpen(false)}
+          />
+          <div className="absolute inset-0 grid place-items-center px-4">
+            <div className="w-full max-w-3xl rounded-3xl shadow-[0_20px_60px_-20px_rgba(0,0,0,35)] ring-1 ring-white/40 bg-[linear-gradient(180deg,rgba(255,255,255,65),rgba(255,255,255,45))] backdrop-blur-xl overflow-hidden">
+              <div className="px-5 md:px-7 py-4 flex items-center justify-between border-b border-white/50">
+                <div>
+                  <div className="text-xl md:text-2xl font-semibold text-neutral-900">Observaciones</div>
+                  <div className="text-[12px] text-neutral-600">{row.nombre ?? '-'}</div>
+                </div>
+                <button
+                  onClick={() => setObsOpen(false)}
+                  className="rounded-full bg-white/80 hover:bg:white px-4 py-2 text-sm font-semibold ring-1 ring-black/10 shadow-sm"
+                >
+                  Atras
+                </button>
+              </div>
+              <div className="px-4 md:px-6 py-4">
+                {obsLoading ? (
+                  <div className="py-6 text-center text-neutral-600">Cargando.</div>
+                ) : obsItems.length === 0 ? (
+                  <div className="py-6 text-center text-neutral-500">Sin observaciones registradas.</div>
+                ) : (
+                  <ul className="space-y-3">
+                    {obsItems.map((it, idx) => (
+                      <li key={idx} className="rounded-xl bg-white/70 ring-1 ring-black/10 px-4 py-3 shadow-sm">
+                        <div className="text-sm text-neutral-600 flex items-center justify-between">
+                          <span className="font-medium text-neutral-800">
+                            {new Date(it.fecha).toLocaleString()}
+                          </span>
+                          <span className="text-[11px] inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-neutral-100 ring-1 ring-black/10">
+                            {it.fuente === 'registro' ? 'Registro' : 'Llamada'}
+                          </span>
+                        </div>
+                        <div className="mt-2 text-[13px] text-neutral-800 whitespace-pre-wrap">
+                          <strong>
+                            {it.resultado ? (resultadoLabels[it.resultado as Resultado] ?? it.resultado) : '-'}
+                          </strong>
+                          {it.notas ? ` - ${it.notas}` : ''}
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
