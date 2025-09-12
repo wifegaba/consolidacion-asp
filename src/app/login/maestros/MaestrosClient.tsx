@@ -1121,30 +1121,19 @@ const openObsModal = async () => {
   return (
     <>
       <div className="animate-cardIn">
-        <div className="mb-4 rounded-2xl ring-1 ring-black/5 bg-[linear-gradient(135deg,#eef3ff,#f6efff)] px-4 py-3 md:px-5 md:py-4 flex items-center justify-between gap-4">
+        <div className="mb-4 rounded-2xl ring-1 ring-black/5 bg-[linear-gradient(135deg,#eef3ff,#f6efff)] shadow-[0_18px_40px_-22px_rgba(16,24,40,.45)] px-4 py-3 md:px-5 md:py-4 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <div className="grid place-items-center h-10 w-10 md:h-12 md:w-12 rounded-xl text-white font-bold bg-gradient-to-br from-blue-500 to-indigo-500 shadow-sm">
               {initials}
             </div>
             <div>
-              <div className="text-base md:text-lg font-semibold text-neutral-900 leading-tight">
+              <div className="text-lg md:text-xl font-semibold text-neutral-900 leading-tight">
                 {row.nombre}
               </div>
               <div className="text-[12px] text-neutral-500 leading-none">
                 Semana {semana} • {dia}
               </div>
-              <div className="text-[11px] text-neutral-600 mt-1 space-y-0.5">
-                {[row.llamada1 ?? null, row.llamada2 ?? null, row.llamada3 ?? null].map((r, idx) => (
-                  <div key={idx}>
-                    Llamada {idx + 1}:{' '}
-                    {r ? (
-                      <span className="font-medium text-neutral-800">{resultadoLabels[r as Resultado]}</span>
-                    ) : (
-                      <span className="italic">sin registro</span>
-                    )}
-                  </div>
-                ))}
-              </div>
+             
             </div>
           </div>
 
@@ -1152,7 +1141,7 @@ const openObsModal = async () => {
             {telHref ? (
               <a
                 href={telHref}
-                className="inline-flex items-center justify-center gap-2 rounded-full bg-white px-3.5 py-2 text-sm font-semibold ring-1 ring-black/10 shadow-sm hover:shadow-md transition"
+                className="inline-flex items-center justify-center gap-2 rounded-full bg-white px-3.5 py-2 text-sm font-semibold ring-1 ring-black/10 shadow-sm transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5 hover:bg-white/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-black/20"
                 title={`Llamar a ${row.telefono}`}
               >
                 <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
@@ -1171,7 +1160,7 @@ const openObsModal = async () => {
                 href={waHref}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center justify-center gap-2 rounded-full bg-[#25D366] text-white px-3.5 py-2 text-sm font-semibold shadow-sm hover:shadow-md transition"
+                className="inline-flex items-center justify-center gap-2 rounded-full bg-[#25D366] text-white px-3.5 py-2 text-sm font-semibold shadow-sm transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5 hover:brightness-105 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
                 title={`Enviar WhatsApp a ${row.telefono}`}
               >
                 <svg viewBox="0 0 32 32" width="16" height="16" aria-hidden="true">
@@ -1185,7 +1174,7 @@ const openObsModal = async () => {
             <button
               type="button"
               onClick={openObsModal}
-              className="inline-flex items-center justify-center gap-2 rounded-full bg-white px-3.5 py-2 text-sm font-semibold ring-1 ring-black/10 shadow-sm hover:shadow-md transition"
+              className="inline-flex items-center justify-center gap-2 rounded-full bg-white px-3.5 py-2 text-sm font-semibold ring-1 ring-black/10 shadow-sm transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5 hover:bg-white/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-black/20"
               title="Ver observaciones del registro"
             >
               <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
