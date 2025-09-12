@@ -1061,6 +1061,7 @@ function FollowUp({
 
   const [resultado, setResultado] = useState<Resultado | null>(null);
   const [obs, setObs] = useState('');
+  const [obsCount, setObsCount] = useState<number | null>(null);
 
   // Reiniciar estado cuando cambia el registro seleccionado
   useEffect(() => {
@@ -1079,6 +1080,17 @@ function FollowUp({
   const [obsOpen, setObsOpen] = useState(false);
   const [obsLoading, setObsLoading] = useState(false);
   const [obsItems, setObsItems] = useState<ObsItem[]>([]);
+  const refreshObsCount = useCallback(async () => {
+    try {
+      const { data, error } = await supabase.rpc('fn_observaciones_por_progreso', {
+        p_progreso: row.progreso_id,
+      });
+      if (error) throw error;
+      setObsCount(Array.isArray(data) ? data.length : 0);
+    } catch (e) {
+      setObsCount(0);
+    }
+  }, [row.progreso_id]);
 
   // 🔎 Cargar observaciones del registro (llamada_intento) para el modal
 const openObsModal = async () => {
@@ -1089,15 +1101,18 @@ const openObsModal = async () => {
       p_progreso: row.progreso_id,
     });
     if (error) throw error;
-    setObsItems((data ?? []).map((r: any) => ({
+    const items = (data ?? []).map((r: any) => ({
       fecha: r.creado_en,
       notas: r.notas,
       resultado: r.resultado,
       fuente: 'llamada' as const,
-    })));
+    }));
+    setObsItems(items);
+    setObsCount(items.length);
   } catch (e) {
     console.error('No se pudieron cargar observaciones', e);
     setObsItems([]);
+    setObsCount(0);
   } finally {
     setObsLoading(false);
   }
@@ -1119,8 +1134,11 @@ const openObsModal = async () => {
   const waHref = telDigits ? `https://wa.me/${telDigits}?text=${encodeURIComponent(waText)}` : null;
 
 
-
-  
+  // Cargar conteo al cambiar de registro
+  useEffect(() => {
+    setObsCount(null);
+    void refreshObsCount();
+  }, [row.progreso_id, refreshObsCount]);
 
   return (
     <>
@@ -1164,12 +1182,12 @@ const openObsModal = async () => {
                 href={waHref}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center justify-center gap-2 rounded-full bg-[#25D366] text-white px-3.5 py-2 text-sm font-semibold shadow-sm transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5 hover:brightness-105 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
+                className="inline-flex items-center justify-center gap-2 rounded-full bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200 px-3.5 py-2 text-sm font-semibold shadow-sm transition-all duration-200 hover:bg-emerald-100 hover:shadow-lg hover:-translate-y-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300"
                 title={`Enviar WhatsApp a ${row.telefono}`}
               >
-                <svg viewBox="0 0 32 32" width="16" height="16" aria-hidden="true">
-                  <path fill="currentColor" d="M19.11 17.64c-.29-.15-1.67-.82-1.93-.91-.26-.1-.45-.15-.64.15-.19.29-.74.91-.9 1.1-.17.19-.33.21-.62.07-.29-.15-1.2-.44-2.28-1.41-.84-.75-1.41-1.67-1.57-1.96-.16-.29-.02-.45.12-.6.12-.12.29-.33.43-.5.14-.17.19-.29.29-.48.1-.19.05-.36-.02-.51-.07-.15-.64-1.54-.88-2.11-.23-.55-.47-.48-.64-.49l-.55-.01c-.19 0-.5.07-.76.36-.26.29-1 1-1 2.43 0 1.43 1.02 2.81 1.16 3 .14.19 2 3.05 4.83 4.28.68.29 1.21.46 1.62.59.68.22 1.29.19 1.78.12.54-.08 1.67-.68 1.91-1.34.24-.66.24-1.22.17-1.34-.07-.12-.26-.19-.55-.34z"/>
-                  <path fill="currentColor" d="M26.77 5.25A12.48 12.48 0 0 0 16 0C7.18 0 0 7.18 0 16c0 2.82.74 5.53 2.15 7.93L0 32l8.25-2.11A15.9 15.9 0 0 0 16 28.5C24.82 28.5 32 21.32 32 12.5c0-3.3-1.23-6.4-3.23-8.75zM16 26.5c-2.52 0-4.86-.75-6.81-2.04l-.49-.32-4.88 1.25 1.3-4.76-.32-.49A10.47 10.47 0 0 1 5.5 16c0-5.8 4.7-10.5 10.5-10.5S26.5 10.2 26.5 16 21.8 26.5 16 26.5z"/>
+                <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+                  <path d="M16.9 13.7c-.2-.1-1.2-.6-1.4-.7-.3-.1-.4-.1-.6.1l-.6.7c-.2.2-.4.3-.7.2-.3-.1-1.1-.4-2-1.2-.7-.6-1.2-1.3-1.4-1.6-.2-.3 0-.5.1-.7l.5-.6c.2-.3.1-.4 0-.7-.1-.2-.5-1.2-.7-1.7-.2-.5-.4-.4-.6-.4h-.9c-.3 0-.7.2-.9.5-.3.3-.9 1-.9 2.3 0 1.3 1 2.6 1.1 2.8.1.2 1.9 2.9 4.6 4 .9.4 1.5.5 2 .6.8.1 1.4 0 1.8-.1.6-.2 1.3-.7 1.5-1.3.2-.6.2-1.1.1-1.3 0-.2-.2-.3-.5-.4Z" fill="currentColor"/>
+                  <path d="M20.5 3.5A11 11 0 1 0 4 19l-1 3.6 3.7-1A11 11 0 0 0 21 12a10.9 10.9 0 0 0-3.2-8.5ZM12 20.8c-1.7 0-3.3-.4-4.7-1.3l-.3-.2-3 .8.8-2.9-.2-.3A9 9 0 1 1 12 20.8Z" fill="currentColor"/>
                 </svg>
                 WhatsApp
               </a>
@@ -1178,13 +1196,17 @@ const openObsModal = async () => {
             <button
               type="button"
               onClick={openObsModal}
-              className="inline-flex items-center justify-center gap-2 rounded-full bg-white px-3.5 py-2 text-sm font-semibold ring-1 ring-black/10 shadow-sm transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5 hover:bg-white/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-black/20"
+              disabled={obsCount === 0}
+              className="inline-flex items-center justify-center gap-2 rounded-full bg-white px-3.5 py-2 text-sm font-semibold ring-1 ring-black/10 shadow-sm transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5 hover:bg-white/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-black/20 disabled:opacity-60 disabled:cursor-not-allowed"
               title="Ver observaciones del registro"
             >
               <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
                 <path d="M12 3C7 3 2.73 6.11 1 10.5 2.73 14.89 7 18 12 18s9.27-3.11 11-7.5C21.27 6.11 17 3 12 3zm0 13c-3.31 0-6-2.69-6-6s2.69-6 6-6 6 2.69 6 6-2.69 6-6 6zm-1-9h2v4h-2zm0 6h2v2h-2z" fill="currentColor"/>
               </svg>
               Observaciones
+              <span className="ml-1 inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 text-xs font-semibold rounded-full bg-emerald-50 ring-1 ring-emerald-200 text-emerald-700">
+                {obsCount ?? 0}
+              </span>
             </button>
           </div>
         </div>
@@ -1220,7 +1242,7 @@ const openObsModal = async () => {
         <div className="mt-4">
           <button
             disabled={!resultado || saving}
-            onClick={() => resultado && onSave({ resultado, notas: obs })}
+            onClick={async () => { if (resultado) { await onSave({ resultado, notas: obs }); await refreshObsCount(); } }}
             className="rounded-xl bg-neutral-900 text-white px-4 py-2 shadow-md hover:shadow-lg transition disabled:opacity-60"
           >
             {saving ? 'Guardando…' : 'Enviar informe'}
