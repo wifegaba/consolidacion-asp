@@ -688,7 +688,7 @@ export default function Contactos1Client(
         {/* ===== Lista izquierda / Panel derecho ===== */}
         <div className="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-5 md:gap-6">
           {/* Lista */}
-          <section className="rounded-[16px] bg-white shadow-[0_10px_28px_-14px_rgba(16,24,40,.28)] ring-1 ring-black/5">
+          <section className={`rounded-[16px] bg-white shadow-[0_10px_28px_-14px_rgba(16,24,40,.28)] ring-1 ring-black/5 ${selectedId ? 'hidden lg:block' : ''}`}>
             <header className="px-4 md:px-5 py-3 border-b border-black/5 bg-[linear-gradient(135deg,#eaf3ff,#f6efff)]">
               <h3 className="text-base md:text-lg font-semibold text-neutral-900">Llamadas pendientes</h3>
               <p className="text-neutral-600 text-xs md:text-sm">
@@ -750,19 +750,35 @@ export default function Contactos1Client(
           </section>
 
           {/* Panel derecho de llamada */}
-          <section className="rounded-[16px] bg-white shadow-[0_10px_28px_-14px_rgba(16,24,40,.28)] ring-1 ring-black/5 p-4 md:p-5">
+          <section className={`rounded-[16px] bg-white shadow-[0_10px_28px_-14px_rgba(16,24,40,.28)] ring-1 ring-black/5 p-4 md:p-5 ${!selectedId ? 'hidden lg:block' : ''}`}>
             {!selectedId ? (
               <div className="grid place-items-center text-neutral-500 h-full">
                 Selecciona un nombre de la lista para llamar / registrar.
               </div>
             ) : (
-              <FollowUp
-                semana={semana}
-                dia={dia}
-                row={pendRef.current.find((p) => p.progreso_id === selectedId)!}
-                saving={saving}
-                onSave={enviarResultado}
-              />
+              <>
+                {/* Botón volver: solo móvil */}
+                <div className="mb-3 lg:hidden">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedId(null)}
+                    className="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-semibold ring-1 ring-black/10 hover:bg-neutral-50"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M15.7 5.3a1 1 0 0 1 0 1.4L11.4 11l4.3 4.3a1 1 0 1 1-1.4 1.4l-5-5a1 1 0 0 1 0-1.4l5-5a1 1 0 0 1 1.4 0Z" fill="currentColor"/>
+                    </svg>
+                    Volver
+                  </button>
+                </div>
+
+                <FollowUp
+                  semana={semana}
+                  dia={dia}
+                  row={pendRef.current.find((p) => p.progreso_id === selectedId)!}
+                  saving={saving}
+                  onSave={enviarResultado}
+                />
+              </>
             )}
           </section>
         </div>
@@ -1062,22 +1078,40 @@ function FollowUp({
           </div>
         </div>
 
-        {telHref ? (
-          <a
-            href={telHref}
-            className="shrink-0 inline-flex items-center gap-2 rounded-full bg-white px-3.5 py-2 text-sm font-semibold ring-1 ring-black/10 shadow-sm hover:shadow-md transition"
-            title={`Llamar a ${row.telefono}`}
-          >
-            <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
-              <path d="M6.6 10.8c1.3 2.5 3.1 4.4 5.6 5.6l2.1-2.1a1 1 0 0 1 1.1-.22c1.2.48 2.6.74 4 .74a1 1 0 0 1 1 1v3.5a1 1 0 0 1-1 1C12.1 20.3 3.7 11.9 3.7 2.7a1 1 0 0 1 1-1H8.2a1 1 0 0 1 1 1c0 1.4.26 2.8.74 4a1 1 0 0 1-.22 1.1l-2.1 2.1Z" fill="currentColor" />
-            </svg>
-            <span>{row.telefono}</span>
-          </a>
-        ) : (
-          <div className="shrink-0 inline-flex items-center gap-2 rounded-full bg-white px-3.5 py-2 text-sm font-semibold ring-1 ring-black/10 shadow-sm">
-            —
-          </div>
-        )}
+        <div className="shrink-0 flex flex-col items-stretch gap-2">
+          {telHref ? (
+            <a
+              href={telHref}
+              className="inline-flex items-center justify-center gap-2 rounded-full bg-white px-3.5 py-2 text-sm font-semibold ring-1 ring-black/10 shadow-sm hover:shadow-md transition"
+              title={`Llamar a ${row.telefono}`}
+            >
+              <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+                <path d="M6.6 10.8c1.3 2.5 3.1 4.4 5.6 5.6l2.1-2.1a1 1 0 0 1 1.1-.22c1.2.48 2.6.74 4 .74a1 1 0 0 1 1 1v3.5a1 1 0 0 1-1 1C12.1 20.3 3.7 11.9 3.7 2.7a1 1 0 0 1 1-1H8.2a1 1 0 0 1 1 1c0 1.4.26 2.8.74 4a1 1 0 0 1-.22 1.1l-2.1 2.1Z" fill="currentColor" />
+              </svg>
+              <span>{row.telefono}</span>
+            </a>
+          ) : (
+            <div className="inline-flex items-center gap-2 rounded-full bg-white px-3.5 py-2 text-sm font-semibold ring-1 ring-black/10 shadow-sm">
+              -
+            </div>
+          )}
+
+          {row.telefono && (
+            <a
+              href={`https://wa.me/${row.telefono.replace(/[^\d]/g, '')}?text=${encodeURIComponent('Hola ' + (row.nombre ?? '') + ',')}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center justify-center gap-2 rounded-full bg-[#25D366] text-white px-3.5 py-2 text-sm font-semibold shadow-sm hover:shadow-md transition"
+              title={`Enviar WhatsApp a ${row.telefono}`}
+            >
+              <svg viewBox="0 0 32 32" width="16" height="16" aria-hidden="true">
+                <path fill="currentColor" d="M19.11 17.64c-.29-.15-1.67-.82-1.93-.91-.26-.1-.45-.15-.64.15-.19.29-.74.91-.9 1.1-.17.19-.33.21-.62.07-.29-.15-1.2-.44-2.28-1.41-.84-.75-1.41-1.67-1.57-1.96-.16-.29-.02-.45.12-.6.12-.12.29-.33.43-.5.14-.17.19-.29.29-.48.1-.19.05-.36-.02-.51-.07-.15-.64-1.54-.88-2.11-.23-.55-.47-.48-.64-.49l-.55-.01c-.19 0-.5.07-.76.36-.26.29-1 1-1 2.43 0 1.43 1.02 2.81 1.16 3 .14.19 2 3.05 4.83 4.28.68.29 1.21.46 1.62.59.68.22 1.29.19 1.78.12.54-.08 1.67-.68 1.91-1.34.24-.66.24-1.22.17-1.34-.07-.12-.26-.19-.55-.34z"/>
+                <path fill="currentColor" d="M26.77 5.25A12.48 12.48 0 0 0 16 0C7.18 0 0 7.18 0 16c0 2.82.74 5.53 2.15 7.93L0 32l8.25-2.11A15.9 15.9 0 0 0 16 28.5C24.82 28.5 32 21.32 32 12.5c0-3.3-1.23-6.4-3.23-8.75zM16 26.5c-2.52 0-4.86-.75-6.81-2.04l-.49-.32-4.88 1.25 1.3-4.76-.32-.49A10.47 10.47 0 0 1 5.5 16c0-5.8 4.7-10.5 10.5-10.5S26.5 10.2 26.5 16 21.8 26.5 16 26.5z"/>
+              </svg>
+              WhatsApp
+            </a>
+          )}
+        </div>
       </div>
 
       <div>
