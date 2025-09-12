@@ -1118,6 +1118,10 @@ const openObsModal = async () => {
   const waText = `Hola ${row.nombre}, te escribimos de la iglesia ASP Amamos la presencia de Dios, `;
   const waHref = telDigits ? `https://wa.me/${telDigits}?text=${encodeURIComponent(waText)}` : null;
 
+
+
+  
+
   return (
     <>
       <div className="animate-cardIn">

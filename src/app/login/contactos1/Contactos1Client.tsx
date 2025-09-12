@@ -1118,9 +1118,15 @@ function FollowUp({
             <div className="text-[12px] text-neutral-500 leading-none">
               Semana {semana} • {dia}
             </div>
+
+
+
+
             
           </div>
         </div>
+
+        
 
         <div className="shrink-0 flex flex-col items-stretch gap-2">
           {telHref ? (
