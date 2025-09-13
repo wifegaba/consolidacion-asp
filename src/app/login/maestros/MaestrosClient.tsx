@@ -740,13 +740,20 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
                   </button>
                 </div>
 
-                <FollowUp
-                  semana={semana}
-                  dia={dia}
-                  row={pendRef.current.find((p) => p.progreso_id === selectedId)!}
-                  saving={saving}
-                  onSave={enviarResultado}
-                />
+                {(() => {
+                  const sel = pendRef.current.find((p) => p.progreso_id === selectedId);
+                  return sel ? (
+                    <FollowUp
+                      semana={semana}
+                      dia={dia}
+                      row={sel}
+                      saving={saving}
+                      onSave={enviarResultado}
+                    />
+                  ) : (
+                    <div className="p-6 text-neutral-500">Selecciona un registro válido para continuar.</div>
+                  );
+                })()}
               </>
             )}
           </section>
@@ -1041,8 +1048,7 @@ function FollowUp({
   row: PendienteRow;
   saving: boolean;
   onSave: (p: { resultado: Resultado; notas?: string }) => Promise<void>;
-}) 
-{
+}) {
 
 
 
@@ -1067,7 +1073,15 @@ function FollowUp({
   useEffect(() => {
     setResultado(null);
     setObs('');
-  }, [row.progreso_id]);
+  }, [row?.progreso_id]);
+
+  if (!row) {
+    return (
+      <div className="p-6 text-neutral-500">
+        Selecciona un registro válido para continuar.
+      </div>
+    );
+  }
 
   // Observaciones modal state
   type ObsItem = { 

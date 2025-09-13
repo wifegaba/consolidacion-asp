@@ -769,29 +769,38 @@ export default function Contactos1Client(
                 Selecciona un nombre de la lista para llamar / registrar.
               </div>
             ) : (
-              <>
-                {/* Botón volver: solo móvil */}
-                <div className="mb-3 lg:hidden">
-                  <button
-                    type="button"
-                    onClick={() => setSelectedId(null)}
-                    className="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-semibold ring-1 ring-black/10 hover:bg-neutral-50"
-                  >
-                    <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
-                      <path d="M15.7 5.3a1 1 0 0 1 0 1.4L11.4 11l4.3 4.3a1 1 0 1 1-1.4 1.4l-5-5a1 1 0 0 1 0-1.4l5-5a1 1 0 0 1 1.4 0Z" fill="currentColor"/>
-                    </svg>
-                    Volver
-                  </button>
-                </div>
-
-                <FollowUp
-                  semana={semana}
-                  dia={dia}
-                  row={pendRef.current.find((p) => p.progreso_id === selectedId)!}
-                  saving={saving}
-                  onSave={enviarResultado}
-                />
-              </>
+              (() => {
+                const sel = pendRef.current.find((p) => p.progreso_id === selectedId);
+                if (!sel) {
+                  return (
+                    <div className="p-6 text-neutral-500">Selecciona un registro válido para continuar.</div>
+                  );
+                }
+                return (
+                  <>
+                    {/* Botón volver: solo móvil */}
+                    <div className="mb-3 lg:hidden">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedId(null)}
+                        className="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-semibold ring-1 ring-black/10 hover:bg-neutral-50"
+                      >
+                        <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
+                          <path d="M15.7 5.3a1 1 0 0 1 0 1.4L11.4 11l4.3 4.3a1 1 0 1 1-1.4 1.4l-5-5a1 1 0 0 1 0-1.4l5-5a1 1 0 0 1 1.4 0Z" fill="currentColor"/>
+                        </svg>
+                        Volver
+                      </button>
+                    </div>
+                    <FollowUp
+                      semana={semana}
+                      dia={dia}
+                      row={sel}
+                      saving={saving}
+                      onSave={enviarResultado}
+                    />
+                  </>
+                );
+              })()
             )}
           </section>
         </div>
@@ -1057,7 +1066,7 @@ function FollowUp({
   useEffect(() => {
     setResultado(null);
     setObs('');
-  }, [row.progreso_id]);
+  }, [row?.progreso_id]);
 
   // Observaciones modal state
   type ObsItem = {
@@ -1123,7 +1132,7 @@ const openObsModal = async () => {
   useEffect(() => {
     setObsCount(null);
     void refreshObsCount();
-  }, [row.progreso_id, refreshObsCount]);
+  }, [row?.progreso_id, refreshObsCount]);
 
   return (
     <div>
