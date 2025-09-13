@@ -559,7 +559,7 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
   return (
 <main 
 
-className="min-h-[100dvh] px-5 md:px-8 py-6 bg-[radial-gradient(1200px_600px_at_50%_-200px,#dbeafe_30%,#f8fafc_80%)]"
+className="min-h-[100dvh] px-5 md:px-8 py-6 bg-gradient-to-br from-[#fafaff] via-[#ece9f9] to-[#fafaff]"
   style={{ fontFamily: "-apple-system,BlinkMacSystemFont,'SF Pro Display',Inter,'Helvetica Neue',Arial,sans-serif" }}
 >
 

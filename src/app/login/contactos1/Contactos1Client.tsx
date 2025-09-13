@@ -626,8 +626,7 @@ export default function Contactos1Client(
 
   return (
     <main
-      className="min-h-[100dvh] px-5 md:px-8 py-6 bg-[radial-gradient(1200px_800px_at_-10%_-10%,#e9f0ff,transparent_60%),radial-gradient(1200px_900px_at_110%_10%,#ffe6f4,transparent_55%),linear-gradient(120deg,#f4f7ff,#fef6ff_50%,#eefaff)]"
-      style={{ fontFamily: "-apple-system,BlinkMacSystemFont,'SF Pro Display',Inter,'Helvetica Neue',Arial,sans-serif" }}
+       className="min-h-[100dvh] px-5 md:px-8 py-6 bg-gradient-to-br from-[#fdfbfb] via-[#ebedee] to-[#fdfbfb]"
     >
       <div className="mx-auto w-full max-w-[1260px]">
         {/* ===== Título ===== */}
@@ -1136,7 +1135,7 @@ const openObsModal = async () => {
 
 
 
-  
+
   return (
     <div>
       <div className="animate-cardIn">
