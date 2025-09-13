@@ -421,7 +421,7 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
       const oldMatch = matchAsigRow(oldRow, a, d, s);
       const newMatch = matchAsigRow(newRow, a, d, s);
 
-      // antes NO y ahora SÍ → agregar
+      // antes NO y ahora SÍ ? agregar
       if (!oldMatch && newMatch) {
         if (!pendRef.current.some(p => p.progreso_id === newRow.id)) {
           const { data: per } = await supabase
@@ -445,14 +445,14 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
         return;
       }
 
-      // antes SÍ y ahora NO → quitar
+      // antes SÍ y ahora NO ? quitar
       if (oldMatch && !newMatch) {
         setPendientes(prev => prev.filter(p => p.progreso_id !== newRow.id));
         if (selectedId === newRow.id) setSelectedId(null);
         return;
       }
 
-      // sigue coincidiendo → refrescar silencioso
+      // sigue coincidiendo ? refrescar silencioso
       if (newMatch) refreshQuiet();
     };
 
@@ -511,7 +511,7 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
       }
     });
 
-    // transition_log: refuerzo para transiciones S1→S2, etc.
+    // transition_log: refuerzo para transiciones S1?S2, etc.
     ch.on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'transition_log' }, async (payload) => {
       const progId = payload.new?.progreso_id;
       if (!progId) return;
@@ -520,7 +520,7 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
       refreshQuiet();
     });
 
-    // Otros eventos que impactan vistas → refresco silencioso
+    // Otros eventos que impactan vistas ? refresco silencioso
     ch.on('postgres_changes', { event: '*', schema: 'public', table: 'llamada_intento' }, () => refreshQuiet());
     ch.on('postgres_changes', { event: '*', schema: 'public', table: 'asistencia' }, () => refreshQuiet());
     ch.on('postgres_changes', { event: '*', schema: 'public', table: 'persona' }, () => refreshQuiet());
@@ -981,7 +981,7 @@ async function openBanco() {
       .select('progreso_id,persona_id,nombre,telefono,modulo,semana,dia,creado_en,etapa')
       .eq('dia', asig.dia);
 
-    // 🔑 Filtro correcto: etapaBase + modulo
+    // ?? Filtro correcto: etapaBase + modulo
     q = (q as any).eq('etapa', asig.etapaBase);
     if (asig.etapaBase !== 'Restauracion') {
       q = (q as any).eq('modulo', asig.modulo);
@@ -1075,13 +1075,6 @@ function FollowUp({
     setObs('');
   }, [row?.progreso_id]);
 
-  if (!row) {
-    return (
-      <div className="p-6 text-neutral-500">
-        Selecciona un registro válido para continuar.
-      </div>
-    );
-  }
 
   // Observaciones modal state
   type ObsItem = { 
@@ -1106,7 +1099,7 @@ function FollowUp({
     }
   }, [row.progreso_id]);
 
-  // 🔎 Cargar observaciones del registro (llamada_intento) para el modal
+  // ?? Cargar observaciones del registro (llamada_intento) para el modal
 const openObsModal = async () => {
   setObsOpen(true);
   setObsLoading(true);
@@ -1131,6 +1124,9 @@ const openObsModal = async () => {
     setObsLoading(false);
   }
 };
+
+
+
 
 
 
@@ -1321,3 +1317,4 @@ const openObsModal = async () => {
 }
 
 // Modal Observaciones (dentro de FollowUp render)
+

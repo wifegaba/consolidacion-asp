@@ -1134,6 +1134,9 @@ const openObsModal = async () => {
     void refreshObsCount();
   }, [row?.progreso_id, refreshObsCount]);
 
+
+
+  
   return (
     <div>
       <div className="animate-cardIn">
@@ -1149,6 +1152,8 @@ const openObsModal = async () => {
             <div className="text-[12px] text-neutral-500 leading-none">
               Semana {semana} • {dia}
             </div>
+
+
 
 
 
