@@ -21,19 +21,15 @@ type Registro = {
     semana?: number | null;     // NUEVO: semana actual
 };
 
-type ArchivoItem = {
+// Fila ligera para el modal de pendientes
+type PendienteItem = {
     progreso_id: string;
-    persona_id: string;
-    nombre: string;
+    nombre: string | null;
     telefono: string | null;
-    estudio_dia: AppEstudioDia | null;
-    notas: string | null;
-    modulo: number;
-    semana: number;
-    dia: AppEstudioDia;
-    estado: string;
-    activo: boolean;
-    creado_en: string;
+    semana?: number | null;
+    dia?: AppEstudioDia | null;
+    etapa?: string | null;
+    modulo?: number | null;
 };
 
 type Errores = { nombre?: string | null; telefono?: string | null; };
@@ -139,16 +135,13 @@ export default function PersonaNueva() {
     const [openSugs, setOpenSugs] = useState(false);
     const [active, setActive] = useState(0);
     const [loadingSug, setLoadingSug] = useState(false);
+    const [modoSoloPendientes, setModoSoloPendientes] = useState(false);
 
-    // Banco Archivo
-    const [modalArchivoVisible, setModalArchivoVisible] = useState(false);
-    const [archivoData, setArchivoData] = useState<ArchivoItem[]>([]);
-    const [loadingArchivo, setLoadingArchivo] = useState(false);
-    const [reactivarDesdeArchivo, setReactivarDesdeArchivo] = useState(false);
+    // Modal Pendientes
+    const [modalPendVisible, setModalPendVisible] = useState(false);
+    const [pendLoading, setPendLoading] = useState(false);
+    const [pendientesRows, setPendientesRows] = useState<PendienteItem[]>([]);
 
-    // Refs para IDs seleccionados desde Banco Archivo
-    const personaArchivoIdRef = useRef<string | null>(null);
-    const progresoArchivoIdRef = useRef<string | null>(null); // progreso archivado seleccionado
 
     const cacheSugs = useRef(new Map<string, { ts: number; data: Registro[] }>()).current;
     const TTL_MS = 60_000, MIN_CHARS = 3, DEBOUNCE_MS = 350;
@@ -182,9 +175,7 @@ export default function PersonaNueva() {
         setForm({ nombre: '', telefono: '', destino: [], cultoSeleccionado: '', observaciones: '', cultos: defaultCultos() });
         setErrores({}); setMostrarErrorCulto(false); setMostrarErrorDestino(false);
         setBloquearCultos(false); setModoEdicion(false); setIndiceEdicion(null);
-        setReactivarDesdeArchivo(false);
-        personaArchivoIdRef.current = null;
-        progresoArchivoIdRef.current = null;
+        // limpiar estados de UI auxiliares
        
     };
 
@@ -195,21 +186,6 @@ export default function PersonaNueva() {
         const p_notas = construirNotas();
 
         try {
-            // Reactivación desde Banco Archivo => Semilla 1 Semana 1 (nuevo pendiente)
-            if (reactivarDesdeArchivo && personaArchivoIdRef.current) {
-                const { error } = await supabase.rpc('fn_reactivar_desde_archivo', {
-                    p_progreso: progresoArchivoIdRef.current,
-                    p_persona: personaArchivoIdRef.current,
-                    p_nombre: form.nombre.trim(),
-                    p_telefono: form.telefono.trim(),
-                    p_estudio: p_estudio,
-                    p_notas: p_notas,
-                });
-                if (error) throw error;
-                toast('✅ Reactivado y removido de Banco Archivo. Enviado a Semillas 1 • Semana 1');
-                resetForm();
-                return;
-            }
 
             if (modoEdicion && indiceEdicion) {
                 const { error } = await supabase.rpc('fn_actualizar_persona', {
@@ -262,6 +238,7 @@ export default function PersonaNueva() {
 
     /* ===== Búsqueda (modal) ===== */
     useEffect(() => {
+        if (modoSoloPendientes) return; // No ejecutar búsqueda cuando es modo solo pendientes
         const q = busqueda.trim();
         if (q.length < MIN_CHARS) { setSugs([]); setOpenSugs(false); setActive(0); return; }
 
@@ -333,7 +310,7 @@ export default function PersonaNueva() {
         }, DEBOUNCE_MS);
 
         return () => { cancel = true; clearTimeout(t); };
-    }, [busqueda]);
+    }, [busqueda, modoSoloPendientes]);
 
     /* ===== Inyectar datos al formulario desde búsqueda ===== */
     const selectPersona = (p: Registro) => {
@@ -364,7 +341,7 @@ export default function PersonaNueva() {
         setIndiceEdicion(p.id);
         setBloquearCultos(true);
 
-        setBusqueda(''); setSugs([]); setOpenSugs(false); setModalBuscarVisible(false);
+        setBusqueda(''); setSugs([]); setOpenSugs(false); setModoSoloPendientes(false); setModalBuscarVisible(false);
         setTimeout(() => observacionesRef.current?.focus(), 0);
     };
 
@@ -381,93 +358,94 @@ export default function PersonaNueva() {
         else if (e.key === 'Escape') { setOpenSugs(false); }
     };
 
-    const ghost =
-        openSugs && sugs[0] && sugs[0].nombre.toLowerCase().startsWith(busqueda.toLowerCase())
-            ? sugs[0].nombre.slice(busqueda.length)
-            : '';
+    // Abrir el mismo modal de búsqueda pero mostrando solo "Pendientes"
+    const abrirSoloPendientes = async () => {
+        setModoSoloPendientes(true);
+        setModalBuscarVisible(true);
+        setBusqueda('');
+        setSugs([]);
+        setOpenSugs(false);
+        setLoadingSug(true);
 
-    /* ===== Banco Archivo ===== */
-    const abrirBancoArchivo = async () => {
-        setModalArchivoVisible(true);
-        setLoadingArchivo(true);
         try {
-            const { data, error } = await supabase
-                .from('v_banco_archivo')
-                .select('progreso_id, persona_id, nombre, telefono, estudio_dia, notas, modulo, semana, dia, estado, activo, creado_en')
-                .order('creado_en', { ascending: false });
+            const { data, error } = await supabase.rpc('fn_buscar_persona', { q: '' });
             if (error) throw error;
-            setArchivoData((data || []) as ArchivoItem[]);
+
+            let arr: Registro[] = (data || []).map((r: any) => ({
+                id: r.id,
+                nombre: r.nombre,
+                telefono: r.telefono ?? null,
+                estudioDia: r.estudio_dia ?? null,
+                etapa: (r.etapa as AppEtapa) ?? null,
+                semana: (typeof r.semana === 'number' ? r.semana : null),
+                observaciones: r.observaciones ?? null,
+                // campos adicionales del tipo Registro, no usados aquí
+                fecha: '',
+                preferencias: null,
+                cultosSeleccionados: null,
+            }));
+
+            // 🔹 Filtrar solo pendientes
+            arr = arr.filter(p => p.estudioDia?.toUpperCase() === 'PENDIENTES');
+
+            setSugs(arr);
+            setOpenSugs(arr.length > 0);
+            setActive(0);
         } catch (e) {
             console.error(e);
-            toast('❌ Error cargando Banco Archivo');
+            toast('Error cargando pendientes');
         } finally {
-            setLoadingArchivo(false);
+            setLoadingSug(false);
         }
     };
 
-    const cargarDesdeArchivo = (row: ArchivoItem) => {
-        // Parsear culto de ingreso desde notas (si existiera)
-        const culto = extraerCultoDesdeNotas(row.notas || undefined);
-        let cultosMap: CultosMap = defaultCultos();
-        let cultoSeleccionado = '';
-
-        if (culto.diaKey && culto.hora) {
-            const key = culto.diaKey as DiaKey;
-            cultosMap = { ...defaultCultos(), [key]: culto.hora! } as CultosMap;
-            const diaBonito = key[0] + key.slice(1).toLowerCase();
-            cultoSeleccionado = `${diaBonito} - ${culto.hora}`;
+    // Modal Pendientes: abre y carga lista desde vista histórica
+    const abrirPendientes = async () => {
+        setModalPendVisible(true);
+        setPendLoading(true);
+        try {
+            const { data, error } = await supabase
+                .from('v_llamadas_pendientes_hist')
+                .select('progreso_id,nombre,telefono,semana,dia,etapa,modulo')
+                .order('nombre', { ascending: true });
+            if (error) throw error;
+            setPendientesRows((data || []) as PendienteItem[]);
+        } catch (e) {
+            console.error(e);
+            toast('Error cargando pendientes');
+        } finally {
+            setPendLoading(false);
         }
-
-        // Destino según su último estudio_dia (permitimos cambiarlo)
-        const destino = row.estudio_dia ? [row.estudio_dia.toUpperCase()] : [];
-
-        setForm(f => ({
-            ...f,
-            nombre: row.nombre || '',
-            telefono: row.telefono || '',
-            observaciones: culto.clean || '',
-            destino,
-            cultos: cultosMap,
-            cultoSeleccionado,
-        }));
-
-        setReactivarDesdeArchivo(true);
-        personaArchivoIdRef.current = row.persona_id;
-        progresoArchivoIdRef.current = row.progreso_id;
-
-        // Al reactivar, DEJAMOS elegir de nuevo el culto => no bloqueamos
-        setBloquearCultos(false);
-
-        setModalArchivoVisible(false);
-        setTimeout(() => observacionesRef.current?.focus(), 0);
     };
+
+    // Sugerencia de autocompletado fantasma para el buscador
+    const ghost =
+        openSugs && sugs[0] && (sugs[0].nombre ?? '').toLowerCase().startsWith(busqueda.toLowerCase())
+            ? (sugs[0].nombre ?? '').slice(busqueda.length)
+            : '';
 
     /* ===== UI ===== */
     return (
         <div className="pn-root">
             <div className="formulario-box" id="formulario1">
-                <div className="form-title">
-                    Registro Persona Nueva
-                    {reactivarDesdeArchivo && (
-                        <span className="pill" style={{ marginLeft: 8 }}>Reactiva desde Banco Archivo</span>
-                    )}
-                </div>
+                <div className="form-title">Registro Persona Nueva</div>
 
                 {/* Modal BUSCAR */}
                 {modalBuscarVisible && (
                     <div className="modal-buscar" role="dialog" aria-modal="true">
                         <div className="modal-buscar__box">
                             <button className="modal-buscar__close" aria-label="Cerrar"
-                                    onClick={() => { setBusqueda(''); setSugs([]); setOpenSugs(false); setModalBuscarVisible(false); }}>×</button>
+                                    onClick={() => { setBusqueda(''); setSugs([]); setOpenSugs(false); setModalBuscarVisible(false); setModoSoloPendientes(false); }}>×</button>
 
-                            <h3 className="modal-buscar__heading">Buscar Registros en Base de Datos</h3>
+                            <h3 className="modal-buscar__heading">{modoSoloPendientes ? 'Registros Pendientes' : 'Buscar Registros en Base de Datos'}</h3>
 
                             <div className="search-wrap" onBlur={() => setTimeout(() => setOpenSugs(false), 120)}>
-                                <div className="ghost" aria-hidden>
+                                <div className="ghost" aria-hidden style={{ display: modoSoloPendientes ? 'none' : undefined }}>
                                     <span className="ghost-typed">{busqueda}</span>
                                     <span className="ghost-hint">{ghost}</span>
                                 </div>
                                 <input
+                                    style={{ display: modoSoloPendientes ? 'none' : undefined }}
                                     type="text"
                                     placeholder="Buscar por nombre o teléfono…"
                                     value={busqueda}
@@ -518,54 +496,6 @@ export default function PersonaNueva() {
                     </div>
                 )}
 
-                {/* Modal BANCO ARCHIVO */}
-                {modalArchivoVisible && (
-                    <div className="modal-buscar" role="dialog" aria-modal="true">
-                        <div className="modal-buscar__box">
-                            <button className="modal-buscar__close" aria-label="Cerrar"
-                                    onClick={() => setModalArchivoVisible(false)}>×</button>
-
-                            <h3 className="modal-buscar__heading">Banco Archivo (Archivados)</h3>
-
-                            <div className="tabla-archivo-wrap" style={{ maxHeight: 420, overflow: 'auto' }}>
-                                <table className="tabla-archivo" style={{ width: '100%', borderCollapse: 'collapse' }}>
-                                    <thead>
-                                    <tr>
-                                        <th style={{ textAlign: 'left', padding: '8px' }}>Nombre</th>
-                                        <th style={{ textAlign: 'left', padding: '8px' }}>Teléfono</th>
-                                        <th style={{ textAlign: 'left', padding: '8px' }}>Mód/Sem</th>
-                                        <th style={{ textAlign: 'left', padding: '8px' }}>Día</th>
-                                        <th style={{ textAlign: 'left', padding: '8px' }}>Fecha</th>
-                                        <th style={{ textAlign: 'left', padding: '8px' }}>Acción</th>
-                                    </tr>
-                                    </thead>
-                                    <tbody>
-                                    {loadingArchivo && (
-                                        <tr><td colSpan={6} style={{ padding: 12 }}>Cargando…</td></tr>
-                                    )}
-                                    {!loadingArchivo && archivoData.length === 0 && (
-                                        <tr><td colSpan={6} style={{ padding: 12 }}>Sin registros archivados</td></tr>
-                                    )}
-                                    {!loadingArchivo && archivoData.map((row) => (
-                                        <tr key={row.progreso_id} className="arch-row" style={{ borderTop: '1px solid rgba(255,255,255,0.1)' }}>
-                                            <td style={{ padding: '8px' }}>{row.nombre}</td>
-                                            <td style={{ padding: '8px' }}>{row.telefono ?? '—'}</td>
-                                            <td style={{ padding: '8px' }}>{row.modulo}/{row.semana}</td>
-                                            <td style={{ padding: '8px' }}>{row.dia}</td>
-                                            <td style={{ padding: '8px' }}>{new Date(row.creado_en).toLocaleString()}</td>
-                                            <td style={{ padding: '8px' }}>
-                                                <button className="btn-minimal" onClick={() => cargarDesdeArchivo(row)}>
-                                                    Seleccionar
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
-                )}
 
                 {/* Fila: nombre / teléfono */}
                 <div className="form-row first-row">
@@ -670,15 +600,59 @@ export default function PersonaNueva() {
                     </div>
                 </div>
 
+                {/* Modal PENDIENTES */}
+                {modalPendVisible && (
+                    <div className="modal-buscar" role="dialog" aria-modal="true">
+                        <div className="modal-buscar__box">
+                            <button className="modal-buscar__close" aria-label="Cerrar"
+                                    onClick={() => setModalPendVisible(false)}>×</button>
+
+                            <h3 className="modal-buscar__heading">Pendientes</h3>
+
+                            <div className="tabla-archivo-wrap" style={{ maxHeight: 420, overflow: 'auto' }}>
+                                <table className="tabla-archivo" style={{ width: '100%', borderCollapse: 'collapse' }}>
+                                    <thead>
+                                    <tr>
+                                        <th style={{ textAlign: 'left', padding: '8px' }}>Nombre</th>
+                                        <th style={{ textAlign: 'left', padding: '8px' }}>Teléfono</th>
+                                        <th style={{ textAlign: 'left', padding: '8px' }}>Día</th>
+                                        <th style={{ textAlign: 'left', padding: '8px' }}>Semana</th>
+                                        <th style={{ textAlign: 'left', padding: '8px' }}>Etapa</th>
+                                    </tr>
+                                    </thead>
+                                    <tbody>
+                                    {pendLoading && (
+                                        <tr><td colSpan={5} style={{ padding: 12 }}>Cargando…</td></tr>
+                                    )}
+                                    {!pendLoading && pendientesRows.length === 0 && (
+                                        <tr><td colSpan={5} style={{ padding: 12 }}>Sin pendientes</td></tr>
+                                    )}
+                                    {!pendLoading && pendientesRows.map((row) => (
+                                        <tr key={row.progreso_id} className="arch-row" style={{ borderTop: '1px solid rgba(255,255,255,0.1)' }}>
+                                            <td style={{ padding: '8px' }}>{row.nombre ?? ''}</td>
+                                            <td style={{ padding: '8px' }}>{row.telefono ?? ''}</td>
+                                            <td style={{ padding: '8px' }}>{row.dia ?? ''}</td>
+                                            <td style={{ padding: '8px' }}>{row.semana ?? ''}</td>
+                                            <td style={{ padding: '8px' }}>{row.etapa ?? ''}{row.modulo ? ` ${row.modulo}` : ''}</td>
+                                        </tr>
+                                    ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 {/* Botones */}
                 <div className="btn-container" style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-                    <button className="btn-minimal" onClick={handleGuardar} style={{ backgroundColor: (modoEdicion || reactivarDesdeArchivo) ? 'orange' : '' }}>
-                        {(modoEdicion || reactivarDesdeArchivo) ? 'Actualizar / Reactivar' : 'Guardar'}
+                    <button className="btn-minimal" onClick={handleGuardar} style={{ backgroundColor: (modoEdicion) ? 'orange' : '' }}>
+                        {modoEdicion ? 'Actualizar' : 'Guardar'}
                     </button>
 
                     <button
                         className="btn-minimal btn-buscar"
                         onClick={() => {
+                            setModoSoloPendientes(false);
                             setBusqueda(''); setSugs([]); setOpenSugs(false);
                             setModalBuscarVisible(true); setTimeout(() => inputBusquedaModalRef.current?.focus(), 0);
                         }}
@@ -687,13 +661,13 @@ export default function PersonaNueva() {
                         Buscar
                     </button>
 
-                    {/* Banco Archivo */}
+                    {/* Pendientes */}
                     <button
                         className="btn-minimal"
-                        onClick={abrirBancoArchivo}
-                        title="Abrir Banco Archivo (Archivados)"
+                        onClick={abrirSoloPendientes}
+                        title="Ver registros pendientes"
                     >
-                        Banco Archivo
+                        Pendientes
                     </button>
 
                     {/* Eliminar */}
