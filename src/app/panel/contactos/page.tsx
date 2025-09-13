@@ -5,7 +5,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 
 /* ========= Tipos ========= */
-type AppEstudioDia = 'Domingo' | 'Martes' | 'Virtual';
+type AppEstudioDia = 'Domingo' | 'Martes' | 'Virtual' | 'Pendientes';
 type AppEtapa = 'Semillas' | 'Devocionales' | 'Restauracion';
 
 type Registro = {
@@ -23,13 +23,19 @@ type Registro = {
 
 // Fila ligera para el modal de pendientes
 type PendienteItem = {
-    progreso_id: string;
+    progreso_id?: string;
+    persona_id?: string;
+    id?: string;
     nombre: string | null;
     telefono: string | null;
     semana?: number | null;
     dia?: AppEstudioDia | null;
     etapa?: string | null;
     modulo?: number | null;
+    observaciones?: string | null;
+    creado_en?: string | null;
+    created_at?: string | null;
+    fecha?: string | null;
 };
 
 type Errores = { nombre?: string | null; telefono?: string | null; };
@@ -51,6 +57,7 @@ type FormState = {
     cultoSeleccionado: string;
     observaciones: string;
     cultos: CultosMap;
+    pendienteId?: string | null;
 };
 
 /* ========= Catálogo UI ========= */
@@ -70,10 +77,23 @@ const cultosOpciones: Record<DiaKey, string[]> = {
 
 /* ========= Helpers ========= */
 const toDbEstudio = (arr: string[]): AppEstudioDia =>
-    arr.includes('DOMINGO') ? 'Domingo' : arr.includes('MARTES') ? 'Martes' : 'Virtual';
+    arr.includes('DOMINGO') ? 'Domingo' :
+    arr.includes('MARTES') ? 'Martes' :
+    arr.includes('PENDIENTES') ? 'Pendientes' :
+    arr.includes('VIRTUAL') ? 'Virtual' :
+    'Virtual'; // fallback de seguridad
+
 
 const normaliza = (s: string) =>
     s.toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '');
+
+// Formatea a solo fecha (sin hora)
+const soloFecha = (v?: string | null): string => {
+    if (!v) return '';
+    const d = new Date(v);
+    if (isNaN((d as unknown) as number)) return v.slice(0, 10);
+    try { return d.toLocaleDateString('es-ES'); } catch { return v.slice(0, 10); }
+};
 
 const claveDia = (d: string): DiaKey | null => {
     const t = normaliza(d.trim());
@@ -118,6 +138,7 @@ export default function PersonaNueva() {
         nombre: '', telefono: '', destino: [],
         cultoSeleccionado: '', observaciones: '',
         cultos: defaultCultos(),
+        pendienteId: null,
     });
 
     const [errores, setErrores] = useState<Errores>({});
@@ -154,6 +175,31 @@ export default function PersonaNueva() {
         document.body.appendChild(t); setTimeout(() => t.remove(), 3000);
     };
 
+    // Cargar un registro desde el modal de Pendientes al formulario
+const selectDesdePendiente = (row: PendienteItem) => {
+  const reg: Registro = {
+    id: row.persona_id || '', // este se usa para lógica normal
+    fecha: '',
+    nombre: row.nombre || '',
+    telefono: row.telefono || null,
+    preferencias: null,
+    cultosSeleccionados: null,
+    observaciones: row.observaciones ?? null,
+    estudioDia: 'PENDIENTES',
+    etapa: (row.etapa as AppEtapa) ?? null,
+    semana: typeof row.semana === 'number' ? row.semana : null,
+  };
+
+  setModalPendVisible(false);
+
+  // 👇 Aquí garantizamos que el form.pendienteId sea el UUID real de la tabla pendientes
+  selectPersona(reg, true);
+  setForm(prev => ({ ...prev, pendienteId: row.id })); 
+  setBloquearCultos(false);
+};
+
+
+
     /* ===== Guardar / Actualizar / Reactivar ===== */
     const validar = (): boolean => {
         const err: Errores = {};
@@ -172,7 +218,7 @@ export default function PersonaNueva() {
     };
 
     const resetForm = () => {
-        setForm({ nombre: '', telefono: '', destino: [], cultoSeleccionado: '', observaciones: '', cultos: defaultCultos() });
+        setForm({ nombre: '', telefono: '', destino: [], cultoSeleccionado: '', observaciones: '', cultos: defaultCultos(), pendienteId: null });
         setErrores({}); setMostrarErrorCulto(false); setMostrarErrorDestino(false);
         setBloquearCultos(false); setModoEdicion(false); setIndiceEdicion(null);
         // limpiar estados de UI auxiliares
@@ -180,40 +226,95 @@ export default function PersonaNueva() {
     };
 
     const handleGuardar = async () => {
-        if (!validar()) return;
+  if (!validar()) return;
 
-        const p_estudio: AppEstudioDia = toDbEstudio(form.destino);
-        const p_notas = construirNotas();
+  const p_estudio: AppEstudioDia = toDbEstudio(form.destino);
+  const p_notas = construirNotas();
 
+  try {
+    // 🔹 Caso especial: si viene de Pendientes, SIEMPRE registrar como nuevo
+    if (form.pendienteId) {
+      const { error } = await supabase.rpc('fn_registrar_persona', {
+        p_nombre: form.nombre.trim(),
+        p_telefono: form.telefono.trim(),
+        p_culto: toDbEstudio(form.destino),
+        p_estudio: toDbEstudio(form.destino),
+        p_notas: construirNotas(),
+      });
+      if (error) throw error;
+
+      // 👇 eliminar automáticamente de la tabla pendientes
+      const { error: delError } = await supabase
+        .from('pendientes')
+        .delete()
+        .eq('id', form.pendienteId);
+
+      if (delError) {
+        console.error(delError);
+        toast('Guardado, pero no se pudo eliminar de pendientes');
+      } else {
+        toast('Persona registrada y eliminada de Pendientes');
+      }
+
+      setForm(prev => ({ ...prev, pendienteId: null }));
+
+      // refrescar listado de pendientes si corresponde
+      if (modalPendVisible) {
         try {
+          const { data } = await supabase.rpc('fn_listar_pendientes');
+          setPendientesRows((data || []) as PendienteItem[]);
+        } catch {}
+      }
 
-            if (modoEdicion && indiceEdicion) {
-                const { error } = await supabase.rpc('fn_actualizar_persona', {
-                    p_id: indiceEdicion,
-                    p_nombre: form.nombre.trim(),
-                    p_telefono: form.telefono.trim(),
-                    p_estudio,
-                    p_notas,
-                });
-                if (error) throw error;
-                toast('✅ Registro actualizado');
-            } else {
-                const { error } = await supabase.rpc('fn_registrar_persona', {
-                    p_nombre: form.nombre.trim(),
-                    p_telefono: form.telefono.trim(),
-                    p_culto: p_estudio, // si tu RPC lo usa
-                    p_estudio,
-                    p_notas,
-                });
-                if (error) throw error;
-                toast('✅ Guardado. Enviado a Semillas 1 • Semana 1');
-            }
+      resetForm();
+      return;
+    }
 
-            resetForm();
-        } catch (e) {
-            console.error(e); toast('❌ Error al guardar/actualizar');
-        }
-    };
+    // 🔹 Si el destino es PENDIENTES, usar la nueva función de pendientes
+    if (form.destino.includes('PENDIENTES')) {
+      const { error } = await supabase.rpc('fn_registrar_pendiente', {
+        p_nombre: form.nombre.trim(),
+        p_telefono: form.telefono.trim(),
+        p_destino: 'Pendientes',
+        p_culto: form.cultoSeleccionado || null,
+        p_observaciones: (form.observaciones || '').trim() || null,
+      });
+      if (error) throw error;
+      toast('Registro guardado en Pendientes');
+      resetForm();
+      return;
+    }
+
+    // 🔹 Actualización normal
+    if (modoEdicion && indiceEdicion) {
+      const { error } = await supabase.rpc('fn_actualizar_persona', {
+        p_id: indiceEdicion,
+        p_nombre: form.nombre.trim(),
+        p_telefono: form.telefono.trim(),
+        p_estudio,
+        p_notas,
+      });
+      if (error) throw error;
+      toast('✅ Registro actualizado');
+    } else {
+      const { error } = await supabase.rpc('fn_registrar_persona', {
+        p_nombre: form.nombre.trim(),
+        p_telefono: form.telefono.trim(),
+        p_culto: p_estudio, // si tu RPC lo usa
+        p_estudio,
+        p_notas,
+      });
+      if (error) throw error;
+      toast('✅ Guardado. Enviado a Semillas 1 • Semana 1');
+    }
+
+    resetForm();
+  } catch (e) {
+    console.error(e);
+    toast('❌ Error al guardar/actualizar');
+  }
+};
+
 
     /* ===== ELIMINAR ===== */
     const handleEliminar = async () => {
@@ -313,7 +414,7 @@ export default function PersonaNueva() {
     }, [busqueda, modoSoloPendientes]);
 
     /* ===== Inyectar datos al formulario desde búsqueda ===== */
-    const selectPersona = (p: Registro) => {
+    const selectPersona = (p: Registro, fromPendientes: boolean = false) => {
         const culto = extraerCultoDesdeNotas(p.observaciones);
         let cultosMap: CultosMap = defaultCultos();
         let cultoSeleccionado = '';
@@ -335,6 +436,7 @@ export default function PersonaNueva() {
             destino,
             cultos: cultosMap,
             cultoSeleccionado,
+            pendienteId: fromPendientes ? (p.id || null) : null,
         }));
 
         setModoEdicion(true);
@@ -342,6 +444,30 @@ export default function PersonaNueva() {
         setBloquearCultos(true);
 
         setBusqueda(''); setSugs([]); setOpenSugs(false); setModoSoloPendientes(false); setModalBuscarVisible(false);
+        setTimeout(() => observacionesRef.current?.focus(), 0);
+    };
+
+    // Cargar un registro del modal de Pendientes como NUEVO
+    const selectPendiente = (p: any) => {
+        setForm(f => ({
+            ...f,
+            nombre: p?.nombre || '',
+            telefono: p?.telefono || '',
+            observaciones: (p?.observaciones ?? ''),
+            destino: [],
+            cultos: defaultCultos(),
+            cultoSeleccionado: '',
+            pendienteId: (p?.id ?? p?.progreso_id ?? p?.persona_id ?? null) || null,
+        }));
+        setModoEdicion(false);
+        setIndiceEdicion(null);
+        setBloquearCultos(false);
+        setModalPendVisible(false);
+        setModalBuscarVisible(false);
+        setModoSoloPendientes(false);
+        setBusqueda('');
+        setSugs([]);
+        setOpenSugs(false);
         setTimeout(() => observacionesRef.current?.focus(), 0);
     };
 
@@ -404,10 +530,7 @@ export default function PersonaNueva() {
         setModalPendVisible(true);
         setPendLoading(true);
         try {
-            const { data, error } = await supabase
-                .from('v_llamadas_pendientes_hist')
-                .select('progreso_id,nombre,telefono,semana,dia,etapa,modulo')
-                .order('nombre', { ascending: true });
+            const { data, error } = await supabase.rpc('fn_listar_pendientes');
             if (error) throw error;
             setPendientesRows((data || []) as PendienteItem[]);
         } catch (e) {
@@ -609,7 +732,7 @@ export default function PersonaNueva() {
 
                             <h3 className="modal-buscar__heading">Pendientes</h3>
 
-                            <div className="tabla-archivo-wrap" style={{ maxHeight: 420, overflow: 'auto' }}>
+                            <div className="tabla-archivo-wrap" style={{ maxHeight: 420, overflowY: 'auto', overflowX: 'hidden' }}>
                                 <table className="tabla-archivo" style={{ width: '100%', borderCollapse: 'collapse' }}>
                                     <thead>
                                     <tr>
@@ -628,16 +751,45 @@ export default function PersonaNueva() {
                                         <tr><td colSpan={5} style={{ padding: 12 }}>Sin pendientes</td></tr>
                                     )}
                                     {!pendLoading && pendientesRows.map((row) => (
-                                        <tr key={row.progreso_id} className="arch-row" style={{ borderTop: '1px solid rgba(255,255,255,0.1)' }}>
+                                        <tr
+                                            key={(row.progreso_id ?? row.persona_id ?? row.id ?? Math.random().toString())}
+                                            className="arch-row"
+                                            style={{ borderTop: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer' }}
+                                            title="Cargar en el formulario"
+                                            onClick={() => selectPendiente(row)}
+                                        >
                                             <td style={{ padding: '8px' }}>{row.nombre ?? ''}</td>
                                             <td style={{ padding: '8px' }}>{row.telefono ?? ''}</td>
-                                            <td style={{ padding: '8px' }}>{row.dia ?? ''}</td>
-                                            <td style={{ padding: '8px' }}>{row.semana ?? ''}</td>
-                                            <td style={{ padding: '8px' }}>{row.etapa ?? ''}{row.modulo ? ` ${row.modulo}` : ''}</td>
+                                            <td style={{ padding: '8px' }}>{soloFecha(row.creado_en ?? row.created_at ?? row.fecha ?? '')}</td>
                                         </tr>
                                     ))}
                                     </tbody>
                                 </table>
+                                <style jsx global>{`
+                                  .modal-buscar .tabla-archivo .arch-row { transition: transform .14s ease, background .2s ease, box-shadow .2s ease; }
+                                  .modal-buscar .tabla-archivo .arch-row:hover {
+                                    background: linear-gradient(90deg, rgba(255,255,255,.06), rgba(255,255,255,.12));
+                                    transform: translateY(-1px) scale(1.01);
+                                    box-shadow: 0 6px 18px rgba(0,0,0,.18);
+                                  }
+                                  /* Mostrar solo 3 columnas y renombrar la tercera cabecera */
+                                  .modal-buscar .tabla-archivo thead th:nth-child(3) { position: relative; color: transparent; }
+                                  .modal-buscar .tabla-archivo thead th:nth-child(3)::after { content: 'Fecha de creación'; position: absolute; left: 8px; color: inherit; }
+                                  .modal-buscar .tabla-archivo thead th:nth-child(n+4) { display: none; }
+                                  .modal-buscar .tabla-archivo tbody td:nth-child(n+4) { display: none; }
+                                `}</style>
+                                <style jsx global>{`
+                                  .modal-buscar .tabla-archivo thead th:nth-child(3){ position: relative !important; color: inherit !important; }
+                                  .modal-buscar .tabla-archivo thead th:nth-child(3)::after{ content: 'Fecha' !important; position: absolute; left: 8px; color: inherit !important; }
+                                `}</style>
+                                <style jsx global>{`
+                                  /* Forzar encabezados limpios */
+                                  .modal-buscar .tabla-archivo thead th:nth-child(2){ position: relative; font-size: 0 !important; }
+                                  .modal-buscar .tabla-archivo thead th:nth-child(2)::after{ content: 'Teléfono'; font-size: 14px; position: absolute; left: 8px; color: inherit; }
+                                  .modal-buscar .tabla-archivo thead th:nth-child(3){ position: relative; font-size: 0 !important; }
+                                  .modal-buscar .tabla-archivo thead th:nth-child(3)::after{ content: 'Fecha'; font-size: 14px; position: absolute; left: 8px; color: inherit; }
+                                  .modal-buscar .tabla-archivo thead th:nth-child(n+4){ display:none; }
+                                `}</style>
                             </div>
                         </div>
                     </div>
@@ -664,7 +816,7 @@ export default function PersonaNueva() {
                     {/* Pendientes */}
                     <button
                         className="btn-minimal"
-                        onClick={abrirSoloPendientes}
+                        onClick={abrirPendientes}
                         title="Ver registros pendientes"
                     >
                         Pendientes
