@@ -1186,9 +1186,18 @@ const openObsModal = async () => {
 
           
 
-          {row.telefono && (
+          {(() => {
+            const digits = (row.telefono ?? '').replace(/\D+/g, '');
+            let n = digits;
+            if (n.startsWith('00')) n = n.slice(2);
+            if (!n.startsWith('57')) {
+              n = n.replace(/^0+/, '');
+              if (n.length === 10 && n.startsWith('3')) n = '57' + n; else if (n.length >=7 && n.length <= 10) n = '57' + n;
+            }
+            const href = n ? `https://wa.me/${n}?text=${encodeURIComponent('Hola ' + (row.nombre ?? '') + ',')}` : null;
+            return href ? (
             <a
-              href={`https://wa.me/${row.telefono.replace(/[^\d]/g, '')}?text=${encodeURIComponent('Hola ' + (row.nombre ?? '') + ',')}`}
+              href={href}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center justify-center gap-2 rounded-full bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200 px-3.5 py-2 text-sm font-semibold shadow-sm transition-all duration-200 hover:bg-emerald-100 hover:shadow-lg hover:-translate-y-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300"
@@ -1200,7 +1209,8 @@ const openObsModal = async () => {
               </svg>
               WhatsApp
             </a>
-          )}
+            ) : null;
+          })()}
 
           <button
             onClick={openObsModal}

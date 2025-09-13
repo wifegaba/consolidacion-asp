@@ -1139,9 +1139,16 @@ const openObsModal = async () => {
       .join('') || 'U';
 
   const telHref = row.telefono ? `tel:${row.telefono.replace(/[^\d+]/g, '')}` : null;
-  const telDigits = row.telefono ? row.telefono.replace(/[^\d]/g, '') : null;
+  const normalizeWa = (raw?: string | null): string | null => {
+    const d = (raw ?? '').replace(/\D+/g, '');
+    if (!d) return null; let n = d;
+    if (n.startsWith('00')) n = n.slice(2);
+    if (!n.startsWith('57')) { n = n.replace(/^0+/, ''); if (n.length === 10 && n.startsWith('3')) n = '57'+n; else if (n.length >=7 && n.length <=10) n = '57'+n; }
+    return n;
+  };
+  const waNumber = normalizeWa(row.telefono);
   const waText = `Hola ${row.nombre}, te escribimos de la iglesia ASP Amamos la presencia de Dios, `;
-  const waHref = telDigits ? `https://wa.me/${telDigits}?text=${encodeURIComponent(waText)}` : null;
+  const waHref = waNumber ? `https://wa.me/${waNumber}?text=${encodeURIComponent(waText)}` : null;
 
 
   // Cargar conteo al cambiar de registro
