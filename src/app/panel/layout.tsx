@@ -74,12 +74,18 @@ export default function PanelLayout({ children }: { children: React.ReactNode })
       height={42}
       className="avatar-logo"
     />
-    <div className="user-meta">
-      <span className="user-name">WF SYSTEM S.I</span>
-      <span className="user-email">© Designed by WF SYSTEM</span>
-    </div>
+<div className="user-meta">
+  <span className="user-email">
+    © 2025 Designed by <br />
+    <strong>WF SYSTEM</strong>
+  </span>
+</div>
+
+
   </div>
 </div>
+
+
 
                 </aside>
 

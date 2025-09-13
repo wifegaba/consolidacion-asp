@@ -162,6 +162,8 @@ export default function PersonaNueva() {
     const [modalPendVisible, setModalPendVisible] = useState(false);
     const [pendLoading, setPendLoading] = useState(false);
     const [pendientesRows, setPendientesRows] = useState<PendienteItem[]>([]);
+    const [pendPage, setPendPage] = useState(0);
+    const PEND_PAGE_SIZE = 7;
 
 
     const cacheSugs = useRef(new Map<string, { ts: number; data: Registro[] }>()).current;
@@ -533,6 +535,7 @@ const selectDesdePendiente = (row: PendienteItem) => {
             const { data, error } = await supabase.rpc('fn_listar_pendientes');
             if (error) throw error;
             setPendientesRows((data || []) as PendienteItem[]);
+            setPendPage(0);
         } catch (e) {
             console.error(e);
             toast('Error cargando pendientes');
@@ -750,7 +753,9 @@ const selectDesdePendiente = (row: PendienteItem) => {
                                     {!pendLoading && pendientesRows.length === 0 && (
                                         <tr><td colSpan={5} style={{ padding: 12 }}>Sin pendientes</td></tr>
                                     )}
-                                    {!pendLoading && pendientesRows.map((row) => (
+                                    {!pendLoading && pendientesRows
+                                        .slice(pendPage * PEND_PAGE_SIZE, (pendPage + 1) * PEND_PAGE_SIZE)
+                                        .map((row) => (
                                         <tr
                                             key={(row.progreso_id ?? row.persona_id ?? row.id ?? Math.random().toString())}
                                             className="arch-row"
@@ -765,6 +770,23 @@ const selectDesdePendiente = (row: PendienteItem) => {
                                     ))}
                                     </tbody>
                                 </table>
+                                {(!pendLoading && pendientesRows.length > PEND_PAGE_SIZE) && (
+                                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginTop: 8 }}>
+                                    <button
+                                      className="btn-minimal"
+                                      onClick={() => setPendPage(p => Math.max(0, p - 1))}
+                                      disabled={pendPage === 0}
+                                    >Atrás</button>
+                                    <div style={{ opacity:.8 }}>
+                                      Página {pendPage + 1} de {Math.max(1, Math.ceil(pendientesRows.length / PEND_PAGE_SIZE))}
+                                    </div>
+                                    <button
+                                      className="btn-minimal"
+                                      onClick={() => setPendPage(p => Math.min(Math.ceil(pendientesRows.length / PEND_PAGE_SIZE) - 1, p + 1))}
+                                      disabled={pendPage >= Math.ceil(pendientesRows.length / PEND_PAGE_SIZE) - 1}
+                                    >Siguiente</button>
+                                  </div>
+                                )}
                                 <style jsx global>{`
                                   .modal-buscar .tabla-archivo .arch-row { transition: transform .14s ease, background .2s ease, box-shadow .2s ease; }
                                   .modal-buscar .tabla-archivo .arch-row:hover {
