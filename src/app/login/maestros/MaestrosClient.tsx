@@ -542,24 +542,27 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
   /* ========================= UI ========================= */
   if (!cedula) {
     return (
-      <main className="min-h-[100dvh] grid place-items-center">
-        <div>Error en las Credenciales</div>
+      <main className="min-h-[100dvh] grid place-items-center bg-[linear-gradient(135deg,#e0e7ff,#f5f3ff)]">
+        <div className="rounded-2xl bg-white/60 backdrop-blur-xl px-6 py-4 shadow-[0_8px_32px_rgba(0,0,0,0.25)] ring-1 ring-white/50 text-neutral-900">
+          Error en las Credenciales
+        </div>
       </main>
     );
   }
 
   if (!asig || !dia) {
     return (
-      <main className="min-h-[100dvh] grid place-items-center">
-        <div>Cargando asignación…</div>
+      <main className="min-h-[100dvh] grid place-items-center bg-[linear-gradient(135deg,#e0e7ff,#f5f3ff)]">
+        <div className="rounded-2xl bg-white/60 backdrop-blur-xl px-6 py-4 shadow-[0_8px_32px_rgba(0,0,0,0.25)] ring-1 ring-white/50 text-neutral-900">
+          Cargando asignación…
+        </div>
       </main>
     );
   }
 
   return (
 <main 
-
-className="min-h-[100dvh] px-5 md:px-8 py-6 bg-gradient-to-br from-[#fafaff] via-[#ece9f9] to-[#fafaff]"
+className="min-h-[100dvh] px-5 md:px-8 py-6 bg-[radial-gradient(1200px_600px_at_-10%_-10%,rgba(120,180,255,0.25),transparent),radial-gradient(900px_500px_at_110%_20%,rgba(180,120,255,0.22),transparent),linear-gradient(120deg,#f7f8ff_0%,#eef0ff_35%,#f7f8ff_100%)] supports-[backdrop-filter]:backdrop-blur-2xl"
   style={{ fontFamily: "-apple-system,BlinkMacSystemFont,'SF Pro Display',Inter,'Helvetica Neue',Arial,sans-serif" }}
 >
 
@@ -572,16 +575,16 @@ className="min-h-[100dvh] px-5 md:px-8 py-6 bg-gradient-to-br from-[#fafaff] via
         </section>
 
         {/* ===== Encabezado ===== */}
-        <header className="mb-3 md:mb-4 flex items-baseline gap-3">
+        <header className="mb-3 md:mb-4 flex items-baseline gap-3 rounded-2xl bg-white/55 supports-[backdrop-filter]:bg-white/35 backdrop-blur-xl px-4 py-3 shadow-[0_10px_40px_-20px_rgba(0,0,0,.35)] ring-1 ring-white/60">
           <h1 className="text-[22px] md:text-[28px] font-semibold text-neutral-900">
             Llamadas pendientes {titulo}
           </h1>
-          <span className="text-neutral-500 text-sm">Semana {semana} • {dia}</span>
+          <span className="text-neutral-700 text-sm">Semana {semana} • {dia}</span>
 
           {/* ====== Botón Banco Archivo (añadido) ====== */}
           <button
             onClick={() => openBanco()}
-            className="ml-auto inline-flex items-center gap-2 rounded-xl bg-white px-3 py-1.5 text-sm font-semibold ring-1 ring-black/10 shadow-sm hover:shadow-md transition"
+            className="ml-auto inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-sky-300 via-indigo-300 to-fuchsia-300 text-slate-900 px-3 py-1.5 text-sm font-semibold ring-1 ring-white/50 shadow-[0_6px_20px_rgba(20,150,220,0.35)] hover:scale-[1.02] active:scale-95 transition"
             title="Ver estudiantes archivados y reactivar"
           >
             <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
@@ -592,24 +595,33 @@ className="min-h-[100dvh] px-5 md:px-8 py-6 bg-gradient-to-br from-[#fafaff] via
         </header>
 
         {/* Menú: semanas (1..3) y día bloqueado */}
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="inline-flex items-center gap-2">
-            <span className="text-sm text-neutral-600">Semana:</span>
-            {[1, 2, 3].map((n) => (
-              <button
-                key={n}
-                onClick={() => setSemana(n as Semana)}
-                className={`px-3 py-1.5 rounded-full text-sm font-semibold ring-1 ring-black/10 shadow-sm transition ${
-                  semana === n ? 'bg-neutral-900 text-white' : 'bg-white hover:shadow-md'
-                }`}
-              >
-                {n}
-              </button>
-            ))}
-          </div>
+        <div className="flex flex-wrap items-center gap-3 rounded-2xl bg-white/55 supports-[backdrop-filter]:bg-white/35 backdrop-blur-xl px-3 py-3 shadow-[0_10px_40px_-20px_rgba(0,0,0,.35)] ring-1 ring-white/60">
+         <div className="inline-flex items-center gap-2">
+  <span className="text-sm text-neutral-700">Semana:</span>
+  {[1, 2, 3].map((n) => {
+    const active = semana === (n as 1 | 2 | 3);
+    return (
+      <button
+        key={n}
+        onClick={() => setSemana(n as 1 | 2 | 3)}
+        aria-pressed={active}
+        className={`px-3.5 py-1.5 rounded-full text-sm font-semibold transition
+          ring-1 focus:outline-none focus-visible:ring-2
+          ${active
+            ? 'bg-gradient-to-r from-sky-400 via-indigo-400 to-fuchsia-400 text-white ring-white/60 shadow-[0_6px_18px_rgba(56,189,248,.35)] scale-[1.03]'
+            : 'bg-white/40 text-slate-900 ring-white/60 hover:bg-white/60 hover:ring-white/70'
+          }`}
+        title={`Semana ${n}`}
+      >
+        {n}
+      </button>
+    );
+  })}
+</div>
+
 
           <div className="inline-flex items-center gap-2">
-            <span className="text-sm text-neutral-600">Día:</span>
+            <span className="text-sm text-neutral-700">Día:</span>
             {(['Domingo', 'Martes', 'Virtual'] as Dia[]).map((d) => {
               const disabled = d !== asig.dia;
               return (
@@ -617,9 +629,11 @@ className="min-h-[100dvh] px-5 md:px-8 py-6 bg-gradient-to-br from-[#fafaff] via
                   key={d}
                   disabled={disabled}
                   onClick={() => !disabled && setDia(d)}
-                  className={`px-3 py-1.5 rounded-full text-sm font-semibold ring-1 ring-black/10 shadow-sm transition ${
-                    dia === d ? 'bg-neutral-900 text-white' : 'bg-white hover:shadow-md'
-                  } ${disabled ? 'opacity-40 cursor-not-allowed pointer-events-none hover:shadow-none' : ''}`}
+                  className={`px-3 py-1.5 rounded-full text-sm font-semibold transition ring-1 ${
+                    dia === d
+                      ? 'bg-white/90 text-slate-900 ring-white/70 shadow'
+                      : 'bg-white/40 text-slate-900 ring-white/60 hover:bg-white/60'
+                  } ${disabled ? 'opacity-40 cursor-not-allowed' : ''}`}
                   title={disabled ? 'Solo puedes ver tu día asignado' : 'Cambiar día'}
                 >
                   {d}
@@ -627,85 +641,84 @@ className="min-h-[100dvh] px-5 md:px-8 py-6 bg-gradient-to-br from-[#fafaff] via
               );
             })}
           </div>
-        </div>
 
-        {/* Botón Nueva Alma (debajo de los botones de semana) */}
-        <div className="mt-3">
-          <button
-            type="button"
-            onClick={() => setNuevaAlmaOpen(true)}
-            className="inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2 text-sm font-semibold ring-1 ring-black/10 shadow-sm hover:shadow-md transition"
-            title="Registrar nueva alma"
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M12 5a1 1 0 0 1 1 1v5h5a1 1 0 1 1 0 2h-5v5a1 1 0 1 1-2 0v-5H6a1 1 0 1 1 0-2h5V6a1 1 0 0 1 1-1Z" fill="currentColor"/>
-            </svg>
-            Nueva Alma
-          </button>
-          <button
-            type="button"
-            onClick={() => setServidoresOpen(true)}
-            className="inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2 text-sm font-semibold ring-1 ring-black/10 shadow-sm hover:shadow-md transition ml-2"
-            title="Abrir formulario de Servidores"
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M4 6a2 2 0 0 1 2-2h5v2H6v12h5v2H6a2 2 0 0 1-2-2V6Zm10-2h4a2 2 0 0 1 2 2v3h-2V6h-4V4Zm4 9h2v3a2 2 0 0 1-2 2h-4v-2h4v-3Z" fill="currentColor"/>
-            </svg>
-            Servidores
-          </button>
+          <div className="ml-auto flex gap-2">
+            <button
+              type="button"
+              onClick={() => setNuevaAlmaOpen(true)}
+              className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-sky-300 via-indigo-300 to-fuchsia-300 text-slate-900 px-4 py-2 text-sm font-semibold ring-1 ring-white/50 shadow-[0_6px_20px_rgba(20,150,220,0.35)] hover:scale-[1.02] active:scale-95 transition"
+              title="Registrar nueva alma"
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 5a1 1 0 0 1 1 1v5h5a1 1 0 1 1 0 2h-5v5a1 1 0 1 1-2 0v-5H6a1 1 0 1 1 0-2h5V6a1 1 0 0 1 1-1Z" fill="currentColor"/>
+              </svg>
+              Nueva Alma
+            </button>
+            <button
+              type="button"
+              onClick={() => setServidoresOpen(true)}
+              className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-sky-300 via-indigo-300 to-fuchsia-300 text-slate-900 px-4 py-2 text-sm font-semibold ring-1 ring-white/50 shadow-[0_6px_20px_rgba(20,150,220,0.35)] hover:scale-[1.02] active:scale-95 transition"
+              title="Abrir formulario de Servidores"
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M4 6a2 2 0 0 1 2-2h5v2H6v12h5v2H6a2 2 0 0 1-2-2V6Zm10-2h4a2 2 0 0 1 2 2v3h-2V6h-4V4Zm4 9h2v3a2 2 0 0 1-2 2h-4v-2h4v-3Z" fill="currentColor"/>
+              </svg>
+              Servidores
+            </button>
+          </div>
         </div>
 
         {/* ===== Lista izquierda / Panel derecho ===== */}
         <div className="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-5 md:gap-6">
           {/* Lista */}
-          <section className={`rounded-[16px] bg-white shadow-[0_10px_28px_-14px_rgba(16,24,40,.28)] ring-1 ring-black/5 ${selectedId ? 'hidden lg:block' : ''}`}>
-            <header className="px-4 md:px-5 py-3 border-b border-black/5 bg-[linear-gradient(135deg,#eaf3ff,#f6efff)]">
+          <section className={`rounded-[20px] bg-white/55 supports-[backdrop-filter]:bg-white/35 backdrop-blur-xl shadow-[0_18px_44px_-18px_rgba(0,0,0,.35)] ring-1 ring-white/60 overflow-hidden ${selectedId ? 'hidden lg:block' : ''}`}>
+            <header className="px-4 md:px-5 py-3 border-b border-white/50 bg-[radial-gradient(1200px_200px_at_50%_-20%,rgba(255,255,255,.28),transparent)]">
               <h3 className="text-base md:text-lg font-semibold text-neutral-900">Llamadas pendientes</h3>
-              <p className="text-neutral-600 text-xs md:text-sm">
+              <p className="text-neutral-700 text-xs md:text-sm">
                 {loadingPend ? 'Cargando…' : 'Selecciona un contacto para registrar la llamada.'}
               </p>
             </header>
 
             {pendientes.length === 0 ? (
-              <div className="p-6 text-neutral-500">No hay llamadas con los filtros actuales.</div>
+              <div className="p-6 text-neutral-600">No hay llamadas con los filtros actuales.</div>
             ) : (
-              <ul className="divide-y divide-black/5">
+              <ul className="divide-y divide-white/50">
                 {pendientes.map((c) => (
                   <li
                     key={c.progreso_id}
-                    className={`px-4 md:px-5 py-3 hover:bg-neutral-50 cursor-pointer transition
-                      ${selectedId === c.progreso_id ? 'bg-neutral-50' : ''}
-                      ${c._ui === 'new' ? 'animate-fadeInScale ring-2 ring-emerald-300/60'
+                    className={`px-4 md:px-5 py-3 hover:bg-white/40 cursor-pointer transition
+                      ${selectedId === c.progreso_id ? 'bg-white/50' : ''}
+                      ${c._ui === 'new' ? 'animate-fadeInScale ring-2 ring-emerald-300/60 rounded-lg m-2'
                         : c._ui === 'changed' ? 'animate-flashBg' : ''}`}
                     onClick={() => setSelectedId(c.progreso_id)}
                   >
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex items-start gap-3 min-w-0">
                         <span className={`mt-1 inline-block h-2.5 w-2.5 rounded-full ${
-                          c._ui === 'new' ? 'bg-emerald-500 shadow-[0_0_0_4px_rgba(16,185,129,.25)]' : 'bg-amber-500 shadow-[0_0_0_3px_rgba(251,191,36,.25)]'
+                          c._ui === 'new' ? 'bg-emerald-500 shadow-[0_0_0_4px_rgba(16,185,129,.25)]' : 'bg-amber-400 shadow-[0_0_0_3px_rgba(251,191,36,.25)]'
                         }`} />
                         <div className="min-w-0">
-                          <div className="font-semibold text-neutral-800 leading-tight truncate">{c.nombre}</div>
-                          <div className="mt-0.5 inline-flex items-center gap-1.5 text-neutral-600 text-xs md:text-sm">
+                          <div className="font-semibold text-neutral-900 leading-tight truncate">{c.nombre}</div>
+                          <div className="mt-0.5 inline-flex items-center gap-1.5 text-neutral-700 text-xs md:text-sm">
                             <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" className="opacity-80">
                               <path d="M6.6 10.8c1.3 2.5 3.1 4.4 5.6 5.6l2.1-2.1a1 1 0 0 1 1.1-.22c1.2.48 2.6.74 4 .74a1 1 0 0 1 1 1v3.5a1 1 0 0 1-1 1C12.1 20.3 3.7 11.9 3.7 2.7a1 1 0 0 1 1-1H8.2a1 1 0 0 1 1 1c0 1.4.26 2.8.74 4a1 1 0 0 1-.22 1.1l-2.1 2.1Z" fill="currentColor" />
                             </svg>
                             <span className="truncate">{c.telefono ?? '—'}</span>
                           </div>
                           {c._ui === 'new' && (
-                            <span className="mt-1 inline-flex items-center text-[10px] font-semibold text-emerald-700 bg-emerald-50 rounded-full px-2 py-0.5">
+                            <span className="mt-1 inline-flex items-center text-[10px] font-semibold text-emerald-800 bg-emerald-50 rounded-full px-2 py-0.5 ring-1 ring-emerald-200">
                               Nuevo
                             </span>
                           )}
                         </div>
                       </div>
 
-                      <div className="shrink-0 text-right text-[11px] md:text-xs text-neutral-500 leading-5">
+                      <div className="shrink-0 text-right text-[11px] md:text-xs text-neutral-700 leading-5">
                         {[c.llamada1 ?? null, c.llamada2 ?? null, c.llamada3 ?? null].map((r, idx) => (
                           <div key={idx}>
                             <span className="mr-1">Llamada {idx + 1}:</span>
                             {r ? (
-                              <span className="font-medium text-neutral-700">{resultadoLabels[r as Resultado]}</span>
+                              <span className="font-medium text-neutral-900">{resultadoLabels[r as Resultado]}</span>
                             ) : (
                               <span className="italic">sin registro</span>
                             )}
@@ -720,9 +733,9 @@ className="min-h-[100dvh] px-5 md:px-8 py-6 bg-gradient-to-br from-[#fafaff] via
           </section>
 
           {/* Panel derecho de llamada */}
-          <section className={`rounded-[16px] bg-white shadow-[0_10px_28px_-14px_rgba(16,24,40,.28)] ring-1 ring-black/5 p-4 md:p-5 ${!selectedId ? 'hidden lg:block' : ''}`}>
+          <section className={`rounded-[20px] bg-white/55 supports-[backdrop-filter]:bg-white/35 backdrop-blur-xl shadow-[0_18px_44px_-18px_rgba(0,0,0,.35)] ring-1 ring-white/60 p-4 md:p-5 ${!selectedId ? 'hidden lg:block' : ''}`}>
             {!selectedId ? (
-              <div className="grid place-items-center text-neutral-500 h-full">
+              <div className="grid place-items-center text-neutral-700 h-full">
                 Selecciona un nombre de la lista para llamar / registrar.
               </div>
             ) : (
@@ -732,7 +745,7 @@ className="min-h-[100dvh] px-5 md:px-8 py-6 bg-gradient-to-br from-[#fafaff] via
                   <button
                     type="button"
                     onClick={() => setSelectedId(null)}
-                    className="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-semibold ring-1 ring-black/10 hover:bg-neutral-50"
+                    className="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-semibold ring-1 ring-white/60 bg-white/70 hover:bg-white/90"
                   >
                     <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
                       <path d="M15.7 5.3a1 1 0 0 1 0 1.4L11.4 11l4.3 4.3a1 1 0 1 1-1.4 1.4l-5-5a1 1 0 0 1 0-1.4l5-5a1 1 0 0 1 1.4 0Z" fill="currentColor"/>
@@ -752,7 +765,7 @@ className="min-h-[100dvh] px-5 md:px-8 py-6 bg-gradient-to-br from-[#fafaff] via
                       onSave={enviarResultado}
                     />
                   ) : (
-                    <div className="p-6 text-neutral-500">Selecciona un registro válido para continuar.</div>
+                    <div className="p-6 text-neutral-700">Selecciona un registro válido para continuar.</div>
                   );
                 })()}
               </>
@@ -761,31 +774,31 @@ className="min-h-[100dvh] px-5 md:px-8 py-6 bg-gradient-to-br from-[#fafaff] via
         </div>
 
         {/* ===== Asistencias ===== */}
-        <section className="mt-6 animate-cardIn rounded-[18px] ring-1 ring-black/5 shadow-[0_12px_30px_-16px_rgba(16,24,40,.28)] overflow-hidden bg-white">
-          <div className="flex items-center justify-between px-4 md:px-6 py-3 bg-[linear-gradient(135deg,#eaf3ff,#f8f1ff)]">
+        <section className="mt-6 animate-cardIn rounded-[20px] ring-1 ring-white/60 shadow-[0_18px_44px_-18px_rgba(0,0,0,.35)] overflow-hidden bg-white/55 supports-[backdrop-filter]:bg-white/35 backdrop-blur-xl">
+          <div className="flex items-center justify-between px-4 md:px-6 py-3 bg-[radial-gradient(1200px_200px_at_50%_-20%,rgba(255,255,255,.28),transparent)]">
             <div>
               <h3 className="text-[15px] md:text-base font-semibold text-neutral-900">
                 Listado Estudiantes Día {asig.dia} — {asig.etapaBase === 'Semillas' ? 'Semillas' : asig.etapaBase} {asig.modulo}
               </h3>
-              <p className="text-neutral-500 text-xs">Agendados que confirmaron asistencia.</p>
+              <p className="text-neutral-700 text-xs">Agendados que confirmaron asistencia.</p>
             </div>
-            <div className="text-sm font-semibold rounded-full bg-white px-3 py-1.5 ring-1 ring-black/10 shadow-sm">
+            <div className="text-sm font-semibold rounded-full bg-white/80 px-3 py-1.5 ring-1 ring-white/60 shadow-sm text-neutral-900">
               {asig.dia}
             </div>
           </div>
 
           {loadingAg ? (
-            <div className="px-4 md:px-6 py-10 text-center text-neutral-500">Cargando…</div>
+            <div className="px-4 md:px-6 py-10 text-center text-neutral-700">Cargando…</div>
           ) : agendados.length === 0 ? (
-            <div className="px-4 md:px-6 py-10 text-center text-neutral-500">No hay agendados para tu día asignado.</div>
+            <div className="px-4 md:px-6 py-10 text-center text-neutral-700">No hay agendados para tu día asignado.</div>
           ) : (
             <>
-              <ul className="divide-y divide-black/5">
+              <ul className="divide-y divide-white/50">
                 {agendados.map((e) => (
                   <li key={e.progreso_id} className="px-4 md:px-6 py-3 flex items-center gap-3">
                     <div className="flex-1 min-w-0">
-                      <div className="font-semibold text-neutral-800 truncate">{e.nombre}</div>
-                      <div className="text-neutral-500 text-xs md:text-sm">{e.telefono ?? '—'}</div>
+                      <div className="font-semibold text-neutral-900 truncate">{e.nombre}</div>
+                      <div className="text-neutral-700 text-xs md:text-sm">{e.telefono ?? '—'}</div>
                     </div>
 
                     <label className="inline-flex items-center gap-2 text-sm mr-3">
@@ -811,11 +824,11 @@ className="min-h-[100dvh] px-5 md:px-8 py-6 bg-gradient-to-br from-[#fafaff] via
                 ))}
               </ul>
 
-              <div className="px-4 md:px-6 py-3 bg-neutral-50">
+              <div className="px-4 md:px-6 py-3 bg-white/40">
                 <button
                   disabled={savingAg}
                   onClick={enviarAsistencias}
-                  className="rounded-xl bg-neutral-900 text-white px-4 py-2 shadow-md hover:shadow-lg transition disabled:opacity-60"
+                  className="rounded-xl bg-gradient-to-r from-sky-300 via-indigo-300 to-fuchsia-300 text-slate-900 px-4 py-2 ring-1 ring-white/50 shadow-[0_6px_20px_rgba(20,150,220,0.35)] hover:scale-[1.02] active:scale-95 transition disabled:opacity-60"
                 >
                   {savingAg ? 'Enviando…' : 'Enviar Reporte'}
                 </button>
@@ -833,18 +846,18 @@ className="min-h-[100dvh] px-5 md:px-8 py-6 bg-gradient-to-br from-[#fafaff] via
             onClick={() => setBancoOpen(false)}
           />
           <div className="absolute inset-0 grid place-items-center px-4">
-            <div className="w-full max-w-4xl rounded-3xl shadow-[0_20px_60px_-20px_rgba(0,0,0,35)] ring-1 ring-white/40 bg-[linear-gradient(180deg,rgba(255,255,255,65),rgba(255,255,255,45))] backdrop-blur-xl">
+            <div className="w-full max-w-4xl rounded-3xl shadow-[0_20px_60px_-20px_rgba(0,0,0,35)] ring-1 ring-white/60 bg-[linear-gradient(180deg,rgba(255,255,255,.70),rgba(255,255,255,.45))] backdrop-blur-xl">
               {/* Header */}
               <div className="px-5 md:px-7 py-4 flex items-center justify-between border-b border-white/50">
                 <div>
                   <div className="text-xl md:text-2xl font-semibold text-neutral-900">Banco Archivo (Archivados)</div>
-                  <div className="text-[12px] text-neutral-600">
+                  <div className="text-[12px] text-neutral-700">
                     {asig.etapaBase} {asig.etapaBase !== 'Restauracion' ? asig.modulo : ''} • Día {asig.dia}
                   </div>
                 </div>
                 <button
                   onClick={() => setBancoOpen(false)}
-                  className="rounded-full bg-white/80 hover:bg:white px-4 py-2 text-sm font-semibold"
+                  className="rounded-full bg-white/85 hover:bg-white/95 px-4 py-2 text-sm font-semibold ring-1 ring-white/60 text-neutral-900"
                 >
                   Atrás
                 </button>
@@ -855,7 +868,7 @@ className="min-h-[100dvh] px-5 md:px-8 py-6 bg-gradient-to-br from-[#fafaff] via
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
-                      <tr className="text-left text-neutral-600">
+                      <tr className="text-left text-neutral-800">
                         <th className="py-2 pr-3">Nombre</th>
                         <th className="py-2 pr-3">Teléfono</th>
                         <th className="py-2 pr-3">Módulo</th>
@@ -867,13 +880,13 @@ className="min-h-[100dvh] px-5 md:px-8 py-6 bg-gradient-to-br from-[#fafaff] via
                     </thead>
                     <tbody className="align-top">
                       {bancoLoading ? (
-                        <tr><td colSpan={7} className="py-6 text-center text-neutral-500">Cargando…</td></tr>
+                        <tr><td colSpan={7} className="py-6 text-center text-neutral-700">Cargando…</td></tr>
                       ) : bancoRows.length === 0 ? (
-                        <tr><td colSpan={7} className="py-6 text-center text-neutral-500">Sin registros archivados.</td></tr>
+                        <tr><td colSpan={7} className="py-6 text-center text-neutral-700">Sin registros archivados.</td></tr>
                       ) : bancoRows.map((r) => (
-                        <tr key={r.progreso_id} className="border-t border-black/5">
+                        <tr key={r.progreso_id} className="border-t border-white/50">
                           <td className="py-2 pr-3 font-medium text-neutral-900">{r.nombre}</td>
-                          <td className="py-2 pr-3 text-neutral-700">{r.telefono ?? '—'}</td>
+                          <td className="py-2 pr-3 text-neutral-800">{r.telefono ?? '—'}</td>
                           <td className="py-2 pr-3">{r.modulo ?? '—'}</td>
                           <td className="py-2 pr-3">{r.semana ?? '—'}</td>
                           <td className="py-2 pr-3">{r.dia}</td>
@@ -882,7 +895,7 @@ className="min-h-[100dvh] px-5 md:px-8 py-6 bg-gradient-to-br from-[#fafaff] via
                             <button
                               disabled={!!reactivating[r.progreso_id]}
                               onClick={() => reactivar(r)}
-                              className="inline-flex items-center gap-2 rounded-xl bg-neutral-900 text-white px-3 py-1.5 text-sm shadow-md hover:shadow-lg transition disabled:opacity-60"
+                              className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-sky-300 via-indigo-300 to-fuchsia-300 text-slate-900 px-3 py-1.5 text-sm ring-1 ring-white/50 shadow-[0_6px_20px_rgba(20,150,220,0.35)] transition hover:scale-[1.02] active:scale-95 disabled:opacity-60"
                               title="Reactivar al panel actual"
                             >
                               {reactivating[r.progreso_id] ? 'Reactivando…' : 'Reactivar'}
@@ -904,14 +917,14 @@ className="min-h-[100dvh] px-5 md:px-8 py-6 bg-gradient-to-br from-[#fafaff] via
       {/* Modal Nueva Alma */}
       {nuevaAlmaOpen && (
         <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/40">
-          <div className="relative w-[min(1100px,96vw)] max-h-[96vh] overflow-auto rounded-2xl bg-white shadow-2xl ring-1 ring-black/10">
-            <div className="sticky top-0 z-10 flex items-center justify-between gap-3 px-4 md:px-5 py-3 border-b border-black/10 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/60">
+          <div className="relative w-[min(1100px,96vw)] max-h-[96vh] overflow-auto rounded-2xl bg-white/70 supports-[backdrop-filter]:bg-white/45 backdrop-blur-xl shadow-2xl ring-1 ring-white/60">
+            <div className="sticky top-0 z-10 flex items-center justify-between gap-3 px-4 md:px-5 py-3 border-b border-white/50 bg-white/70 backdrop-blur">
               <h2 className="text-lg font-semibold text-neutral-900">Nueva Alma</h2>
               <div className="flex items-center gap-2">
                 <button
                   type="button"
                   onClick={() => setNuevaAlmaOpen(false)}
-                  className="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-semibold ring-1 ring-black/10 hover:bg-neutral-50"
+                  className="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-semibold ring-1 ring-white/60 bg-white/80 hover:bg-white/95 text-neutral-900"
                 >
                   Atrás
                 </button>
@@ -927,14 +940,14 @@ className="min-h-[100dvh] px-5 md:px-8 py-6 bg-gradient-to-br from-[#fafaff] via
       {/* Modal Servidores */}
       {servidoresOpen && (
         <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/40">
-          <div className="relative w-[min(1200px,96vw)] max-h-[96vh] overflow-auto rounded-2xl bg-white shadow-2xl ring-1 ring-black/10">
-            <div className="sticky top-0 z-10 flex items-center justify-between gap-3 px-4 md:px-5 py-3 border-b border-black/10 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/60">
+          <div className="relative w-[min(1200px,96vw)] max-h-[96vh] overflow-auto rounded-2xl bg-white/70 supports-[backdrop-filter]:bg-white/45 backdrop-blur-xl shadow-2xl ring-1 ring-white/60">
+            <div className="sticky top-0 z-10 flex items-center justify-between gap-3 px-4 md:px-5 py-3 border-b border-white/50 bg-white/70 backdrop-blur">
               <h2 className="text-lg font-semibold text-neutral-900">Servidores</h2>
               <div className="flex items-center gap-2">
                 <button
                   type="button"
                   onClick={() => setServidoresOpen(false)}
-                  className="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-semibold ring-1 ring-black/10 hover:bg-neutral-50"
+                  className="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-semibold ring-1 ring-white/60 bg-white/80 hover:bg-white/95 text-neutral-900"
                 >
                   Atrás
                 </button>
@@ -1130,7 +1143,6 @@ const openObsModal = async () => {
 
 
 
-
   const initials =
     row.nombre
       .split(' ')
@@ -1161,7 +1173,7 @@ const openObsModal = async () => {
   return (
     <>
       <div className="animate-cardIn">
-        <div className="mb-4 rounded-2xl ring-1 ring-black/5 bg-[linear-gradient(135deg,#eef3ff,#f6efff)] shadow-[0_18px_40px_-22px_rgba(16,24,40,.45)] px-4 py-3 md:px-5 md:py-4 flex items-center justify-between gap-4">
+        <div className="mb-4 rounded-2xl ring-1 ring-white/60 bg-white/60 supports-[backdrop-filter]:bg-white/40 backdrop-blur-xl shadow-[0_18px_40px_-22px_rgba(0,0,0,.45)] px-4 py-3 md:px-5 md:py-4 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <div className="grid place-items-center h-10 w-10 md:h-12 md:w-12 rounded-xl text-white font-bold bg-gradient-to-br from-blue-500 to-indigo-500 shadow-sm">
               {initials}
@@ -1170,7 +1182,7 @@ const openObsModal = async () => {
               <div className="text-lg md:text-xl font-semibold text-neutral-900 leading-tight">
                 {row.nombre}
               </div>
-              <div className="text-[12px] text-neutral-500 leading-none">
+              <div className="text-[12px] text-neutral-700 leading-none">
                 Semana {semana} • {dia}
               </div>
              
@@ -1181,7 +1193,7 @@ const openObsModal = async () => {
             {telHref ? (
               <a
                 href={telHref}
-                className="inline-flex items-center justify-center gap-2 rounded-full bg-white px-3.5 py-2 text-sm font-semibold ring-1 ring-black/10 shadow-sm transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5 hover:bg-white/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-black/20"
+                className="inline-flex items-center justify-center gap-2 rounded-full bg-white/85 text-neutral-900 px-3.5 py-2 text-sm font-semibold ring-1 ring-white/60 shadow-sm transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5 hover:bg-white"
                 title={`Llamar a ${row.telefono}`}
               >
                 <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
@@ -1190,7 +1202,7 @@ const openObsModal = async () => {
                 <span>{row.telefono}</span>
               </a>
             ) : (
-              <div className="inline-flex items-center gap-2 rounded-full bg-white px-3.5 py-2 text-sm font-semibold ring-1 ring-black/10 shadow-sm">
+              <div className="inline-flex items-center gap-2 rounded-full bg-white/70 text-neutral-700 px-3.5 py-2 text-sm font-semibold ring-1 ring-white/60 shadow-sm">
                 -
               </div>
             )}
@@ -1215,7 +1227,7 @@ const openObsModal = async () => {
               type="button"
               onClick={openObsModal}
               disabled={obsCount === 0}
-              className="inline-flex items-center justify-center gap-2 rounded-full bg-white px-3.5 py-2 text-sm font-semibold ring-1 ring-black/10 shadow-sm transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5 hover:bg-white/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-black/20 disabled:opacity-60 disabled:cursor-not-allowed"
+              className="inline-flex items-center justify-center gap-2 rounded-full bg-white/85 text-neutral-900 px-3.5 py-2 text-sm font-semibold ring-1 ring-white/60 shadow-sm transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5 hover:bg-white disabled:opacity-60 disabled:cursor-not-allowed"
               title="Ver observaciones del registro"
             >
               <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
@@ -1230,10 +1242,10 @@ const openObsModal = async () => {
         </div>
 
         <div>
-          <label className="text-xs text-neutral-500">Resultado de la llamada</label>
+          <label className="text-xs text-neutral-700">Resultado de la llamada</label>
           <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
             {opciones.map((o) => (
-              <label key={o.value} className="flex items-center gap-2 rounded-lg ring-1 ring-black/10 bg-neutral-50 px-3 py-2 cursor-pointer">
+              <label key={o.value} className="flex items-center gap-2 rounded-lg ring-1 ring-white/60 bg-white/60 supports-[backdrop-filter]:bg-white/40 px-3 py-2 cursor-pointer">
                 <input
                   type="radio"
                   name="resultado"
@@ -1241,16 +1253,16 @@ const openObsModal = async () => {
                   onChange={() => setResultado(o.value)}
                   checked={resultado === o.value}
                 />
-                <span className="text-sm">{o.label}</span>
+                <span className="text-sm text-neutral-900">{o.label}</span>
               </label>
             ))}
           </div>
         </div>
 
         <div className="mt-4">
-          <label className="text-xs text-neutral-500">Observaciones</label>
+          <label className="text-xs text-neutral-700">Observaciones</label>
           <textarea
-            className="mt-1 w-full min-h-[100px] rounded-lg ring-1 ring-black/10 px-3 py-2 bg-neutral-50 focus:outline-none focus:ring-2 focus:ring-blue-300"
+            className="mt-1 w-full min-h-[100px] rounded-lg ring-1 ring-white/60 px-3 py-2 bg-white/60 supports-[backdrop-filter]:bg-white/40 focus:outline-none focus:ring-2 focus:ring-sky-300/60 text-neutral-900 placeholder:text-neutral-500"
             placeholder="Escribe aquí las observaciones..."
             value={obs}
             onChange={(e) => setObs(e.target.value)}
@@ -1261,7 +1273,7 @@ const openObsModal = async () => {
           <button
             disabled={!resultado || saving}
             onClick={async () => { if (resultado) { await onSave({ resultado, notas: obs }); await refreshObsCount(); } }}
-            className="rounded-xl bg-neutral-900 text-white px-4 py-2 shadow-md hover:shadow-lg transition disabled:opacity-60"
+            className="rounded-xl bg-gradient-to-r from-sky-300 via-indigo-300 to-fuchsia-300 text-slate-900 px-4 py-2 ring-1 ring-white/50 shadow-[0_6px_20px_rgba(20,150,220,0.35)] hover:scale-[1.02] active:scale-95 transition disabled:opacity-60"
           >
             {saving ? 'Guardando…' : 'Enviar informe'}
           </button>
@@ -1275,46 +1287,53 @@ const openObsModal = async () => {
             onClick={() => setObsOpen(false)}
           />
           <div className="absolute inset-0 grid place-items-center px-4">
-            <div className="w-full max-w-3xl rounded-3xl shadow-[0_20px_60px_-20px_rgba(0,0,0,35)] ring-1 ring-white/40 bg-[linear-gradient(180deg,rgba(255,255,255,65),rgba(255,255,255,45))] backdrop-blur-xl overflow-hidden">
+            <div className="w-full max-w-3xl rounded-3xl shadow-[0_20px_60px_-20px_rgba(0,0,0,35)] ring-1 ring-white/60 bg-[linear-gradient(180deg,rgba(255,255,255,.70),rgba(255,255,255,.45))] backdrop-blur-xl overflow-hidden">
               <div className="px-5 md:px-7 py-4 flex items-center justify-between border-b border-white/50">
                 <div>
                   <div className="text-xl md:text-2xl font-semibold text-neutral-900">Observaciones</div>
-                  <div className="text-[12px] text-neutral-600">{row.nombre}</div>
+                  <div className="text-[12px] text-neutral-700">{row.nombre}</div>
                 </div>
                 <button
                   onClick={() => setObsOpen(false)}
-                  className="rounded-full bg-white/80 hover:bg:white px-4 py-2 text-sm font-semibold ring-1 ring-black/10 shadow-sm"
+                  className="rounded-full bg-white/85 hover:bg-white/95 px-4 py-2 text-sm font-semibold ring-1 ring-white/60 text-neutral-900"
                 >
                   Atras
                 </button>
               </div>
               <div className="px-4 md:px-6 py-4">
-                {obsLoading ? (
-                  <div className="py-6 text-center text-neutral-600">Cargando.</div>
-                ) : obsItems.length === 0 ? (
-                  <div className="py-6 text-center text-neutral-500">Sin observaciones registradas.</div>
-                ) : (
-                  <ul className="space-y-3">
-                    {obsItems.map((it, idx) => (
-                      <li key={idx} className="rounded-xl bg-white/70 ring-1 ring-black/10 px-4 py-3 shadow-sm">
-                        <div className="text-sm text-neutral-600 flex items-center justify-between">
-                          <span className="font-medium text-neutral-800">
-                            {new Date(it.fecha).toLocaleString()}
-                          </span>
-                          <span className="text-[11px] inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-neutral-100 ring-1 ring-black/10">
-                            {it.fuente === 'registro' ? 'Registro' : 'Llamada'}
-                          </span>
-                        </div>
-                        <div className="mt-2 text-[13px] text-neutral-800 whitespace-pre-wrap">
-                          <strong>
-                            {it.resultado ? (resultadoLabels[it.resultado as Resultado] ?? it.resultado) : '—'}
-                          </strong>
-                          {it.notas ? ` — ${it.notas}` : ''}
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                )}
+                <div className="flex md:block gap-4">
+                 
+
+                  {/* Contenido principal del modal */}
+                  <div className="flex-1 min-w-0">
+                    {obsLoading ? (
+                      <div className="py-6 text-center text-neutral-800">Cargando.</div>
+                    ) : obsItems.length === 0 ? (
+                      <div className="py-6 text-center text-neutral-700">Sin observaciones registradas.</div>
+                    ) : (
+                      <ul className="space-y-3">
+                        {obsItems.map((it, idx) => (
+                          <li key={idx} className="rounded-xl bg-white/70 supports-[backdrop-filter]:bg-white/45 backdrop-blur ring-1 ring-white/60 px-4 py-3 shadow-sm">
+                            <div className="text-sm text-neutral-800 flex items-center justify-between">
+                              <span className="font-medium text-neutral-900">
+                                {new Date(it.fecha).toLocaleString()}
+                              </span>
+                              <span className="text-[11px] inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white/70 ring-1 ring-white/60 text-neutral-900">
+                                {it.fuente === 'registro' ? 'Registro' : 'Llamada'}
+                              </span>
+                            </div>
+                            <div className="mt-2 text-[13px] text-neutral-900 whitespace-pre-wrap">
+                              <strong>
+                                {it.resultado ? (resultadoLabels[it.resultado as Resultado] ?? it.resultado) : '-'}
+                              </strong>
+                              {it.notas ? ` - ${it.notas}` : ''}
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -1325,4 +1344,3 @@ const openObsModal = async () => {
 }
 
 // Modal Observaciones (dentro de FollowUp render)
-
