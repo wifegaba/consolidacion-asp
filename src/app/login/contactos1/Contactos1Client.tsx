@@ -626,12 +626,12 @@ export default function Contactos1Client(
 
   return (
     <main
-       className="min-h-[100dvh] px-5 md:px-8 py-6 bg-gradient-to-br from-[#fdfbfb] via-[#ebedee] to-[#fdfbfb]"
+       className="min-h-[100dvh] px-5 md:px-8 py-6 bg-[radial-gradient(1200px_600px_at_-10%_-10%,rgba(255,255,255,0.85),transparent),radial-gradient(900px_520px_at_110%_10%,rgba(255,255,255,0.75),transparent),radial-gradient(600px_300px_at_50%_120%,rgba(248,250,252,0.9),transparent),linear-gradient(120deg,#fafafa_0%,#f3f4f6_35%,#fafafa_100%)] supports-[backdrop-filter]:backdrop-blur-2xl"
     >
       <div className="mx-auto w-full max-w-[1260px]">
         {/* ===== Título ===== */}
         <section className="mb-6 md:mb-8">
-          <div className="text-[32px] md:text-[44px] font-black leading-none tracking-tight bg-gradient-to-r from-sky-500 via-violet-600 to-fuchsia-500 text-transparent bg-clip-text drop-shadow-sm">
+          <div className="text-[32px] md:text-[44px] font-black leading-none tracking-tight bg-gradient-to-r from-emerald-500 via-teal-600 to-indigo-500 text-transparent bg-clip-text drop-shadow-sm">
             Panel Timoteos
           </div>
         </section>
@@ -646,7 +646,7 @@ export default function Contactos1Client(
           {/* ====== Botón Banco Archivo (añadido) ====== */}
           <button
             onClick={() => openBanco()}
-            className="ml-auto inline-flex items-center gap-2 rounded-xl bg-white px-3 py-1.5 text-sm font-semibold ring-1 ring-black/10 shadow-sm hover:shadow-md transition"
+            className="ml-auto inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-emerald-300 via-teal-300 to-indigo-300 text-slate-900 ring-1 ring-white/50 shadow-[0_6px_20px_rgba(16,185,129,0.30)] px-3 py-1.5 text-sm font-semibold hover:scale-[1.02] active:scale-95 transition"
             title="Ver estudiantes archivados y reactivar"
           >
             <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
@@ -859,7 +859,7 @@ export default function Contactos1Client(
                 <button
                   disabled={savingAg}
                   onClick={enviarAsistencias}
-                  className="rounded-xl bg-neutral-900 text-white px-4 py-2 shadow-md hover:shadow-lg transition disabled:opacity-60"
+                  className="rounded-xl bg-gradient-to-r from-emerald-300 via-teal-300 to-indigo-300 text-slate-900 ring-1 ring-white/50 shadow-[0_6px_20px_rgba(16,185,129,0.30)] px-4 py-2 transition hover:scale-[1.02] active:scale-95 disabled:opacity-60"
                 >
                   {savingAg ? 'Enviando…' : 'Enviar Reporte'}
                 </button>
@@ -926,7 +926,7 @@ export default function Contactos1Client(
                             <button
                               disabled={!!reactivating[r.progreso_id]}
                               onClick={() => reactivar(r)}
-                              className="inline-flex items-center gap-2 rounded-xl bg-neutral-900 text-white px-3 py-1.5 text-sm shadow-md hover:shadow-lg transition disabled:opacity-60"
+                              className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-emerald-300 via-teal-300 to-indigo-300 text-slate-900 ring-1 ring-white/50 shadow-[0_6px_20px_rgba(16,185,129,0.30)] px-3 py-1.5 text-sm transition hover:scale-[1.02] active:scale-95 disabled:opacity-60"
                               title="Reactivar al panel actual"
                             >
                               {reactivating[r.progreso_id] ? 'Reactivando…' : 'Reactivar'}
@@ -1260,7 +1260,7 @@ const openObsModal = async () => {
         <button
           disabled={!resultado || saving}
           onClick={async () => { if (resultado) { await onSave({ resultado, notas: obs || undefined }); await refreshObsCount(); } }}
-          className="rounded-xl bg-neutral-900 text-white px-4 py-2 shadow-md hover:shadow-lg transition disabled:opacity-60"
+          className="rounded-xl bg-gradient-to-r from-emerald-300 via-teal-300 to-indigo-300 text-slate-900 ring-1 ring-white/50 shadow-[0_6px_20px_rgba(16,185,129,0.30)] px-4 py-2 transition hover:scale-[1.02] active:scale-95 disabled:opacity-60"
         >
           {saving ? 'Guardando…' : 'Enviar informe'}
         </button>
@@ -1321,3 +1321,7 @@ const openObsModal = async () => {
     </div>
   );
 }
+
+
+
+

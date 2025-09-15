@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
@@ -79,16 +79,20 @@ const V_BANCO = 'v_banco_archivo';
 /** RPC que re-activa un registro desde Banco Archivo hacia el panel actual */
 const RPC_REACTIVAR = 'fn_reactivar_desde_archivo';
 
+// Duraciones UI centralizadas
+const NEW_UI_MS = 5000;
+const CHANGED_UI_MS = 3000;
+
 const resultadoLabels: Record<Resultado, string> = {
-  confirmo_asistencia: 'CONFIRMÓ ASISTENCIA',
+  confirmo_asistencia: 'CONFIRMÃ“ ASISTENCIA',
   no_contesta: 'NO CONTESTA',
   no_por_ahora: 'NO POR AHORA',
   llamar_de_nuevo: 'LLAMAR DE NUEVO',
   salio_de_viaje: 'SALIO DE VIAJE',
-  ya_esta_en_ptmd: 'YA ESTÁ EN PTMD',
+  ya_esta_en_ptmd: 'YA ESTÃ EN PTMD',
   no_tiene_transporte: 'NO TIENE $ TRANSPORTE',
   vive_fuera: 'VIVE FUERA DE LA CIUDAD',
-  murio: 'MURIÓ',
+  murio: 'MURIÃ“',
   rechazado: 'NO ME INTERESA',
 };
 
@@ -101,7 +105,7 @@ const norm = (t: string) =>
     .toLowerCase()
     .trim();
 
-/** "Semilla 3" | "Devocionales 2" | "Restauracion 1" -> etapaBase + módulo */
+/** "Semilla 3" | "Devocionales 2" | "Restauracion 1" -> etapaBase + mÃ³dulo */
 function mapEtapaDetToBase(etapaDet: string): {
   etapaBase: 'Semillas' | 'Devocionales' | 'Restauracion';
   modulo: 1 | 2 | 3 | 4;
@@ -122,7 +126,7 @@ function mapEtapaDetToBase(etapaDet: string): {
   return { etapaBase: 'Restauracion', modulo: 1, hasModulo: false };
 }
 
-/** Coincidencia de un row de `progreso` con la asignación/día/semana actual */
+/** Coincidencia de un row de `progreso` con la asignaciÃ³n/dÃ­a/semana actual */
 function matchAsigRow(
   row: any,
   asig: MaestroAsignacion,
@@ -141,7 +145,7 @@ function matchAsigRow(
   );
 }
 
-/* ================= Página ================= */
+/* ================= PÃ¡gina ================= */
 export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string }) {
   const router = useRouter();
   const params = useSearchParams();
@@ -177,19 +181,40 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
   const [nuevaAlmaOpen, setNuevaAlmaOpen] = useState(false);
   const [servidoresOpen, setServidoresOpen] = useState(false);
 
-  // refs para estado “vivo” dentro de handlers realtime
+  // refs para estado â€œvivoâ€ dentro de handlers realtime
   const semanaRef = useRef(semana);
   const diaRef = useRef<Dia | null>(dia);
   const asigRef = useRef<MaestroAsignacion | null>(null);
   const pendRef = useRef<PendRowUI[]>([]);
+  const rightPanelRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => { semanaRef.current = semana; }, [semana]);
   useEffect(() => { diaRef.current = dia; }, [dia]);
   useEffect(() => { asigRef.current = asig; }, [asig]);
   useEffect(() => { pendRef.current = pendientes; }, [pendientes]);
 
+  // Cuando se abren modales grandes en responsive, llevar vista al inicio
+  useEffect(() => {
+    if (nuevaAlmaOpen || servidoresOpen) {
+      try { window.scrollTo({ top: 0, behavior: 'auto' }); } catch {}
+    }
+  }, [nuevaAlmaOpen, servidoresOpen]);
+
+  // En responsive: al seleccionar un registro, llevar el panel derecho al inicio
+  useEffect(() => {
+    if (!selectedId) return;
+    // Solo aplicar en pantallas pequeÃ±as (menor a lg)
+    const isLgUp = typeof window !== 'undefined' && window.matchMedia('(min-width: 1024px)').matches;
+    if (isLgUp) return;
+    // Intentar desplazar al inicio del panel derecho y al tope de la ventana
+    try {
+      rightPanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } catch {}
+  }, [selectedId]);
+
   // limpiar resaltado "_ui"
   const clearTimersRef = useRef<Record<string, number>>({});
-  const scheduleClearUI = (id: string, ms = 6000) => {
+  const scheduleClearUI = (id: string, ms = NEW_UI_MS) => {
     if (clearTimersRef.current[id]) window.clearTimeout(clearTimersRef.current[id]);
     clearTimersRef.current[id] = window.setTimeout(() => {
       setPendientes(prev => prev.map(p => p.progreso_id === id ? ({ ...p, _ui: undefined }) : p));
@@ -197,10 +222,10 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
     }, ms);
   };
 
-  /** Para marcar “Nuevo” cuando viene de reactivación */
+  /** Para marcar â€œNuevoâ€ cuando viene de reactivaciÃ³n */
   const rtNewRef = useRef<Set<string>>(new Set());
 
-  // Cargar asignación del maestro (y servidorId para reactivar)
+  // Cargar asignaciÃ³n del maestro (y servidorId para reactivar)
   useEffect(() => {
     (async () => {
       if (!cedula) return;
@@ -272,7 +297,7 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
         let _ui: 'new' | 'changed' | undefined;
         if (rtNewRef.current.has(r.progreso_id)) {
           _ui = 'new';
-          // limpiamos la marca para no forzar “nuevo” en siguientes cargas
+          // limpiamos la marca para no forzar "nuevo" en siguientes cargas
           rtNewRef.current.delete(r.progreso_id);
         } else if (!old) _ui = 'new';
         else if (
@@ -282,11 +307,23 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
           old.nombre !== r.nombre ||
           old.telefono !== r.telefono
         ) _ui = 'changed';
+
+        // Forzar mantener "new" mientras el temporizador siga activo,
+        // incluso si el diff calcula "changed".
+        if (old?._ui === 'new' && clearTimersRef.current[r.progreso_id]) {
+          _ui = 'new';
+        }
         return { ...r, _ui };
       });
 
       setPendientes(next);
-      next.forEach(r => r._ui && scheduleClearUI(r.progreso_id, r._ui === 'new' ? 6000 : 3000));
+      next.forEach(r => {
+        if (!r._ui) return;
+        // No reiniciar el temporizador si ya existe, para no extenderlo sin querer
+        if (!clearTimersRef.current[r.progreso_id]) {
+          scheduleClearUI(r.progreso_id, r._ui === 'new' ? NEW_UI_MS : CHANGED_UI_MS);
+        }
+      });
 
       if (!opts?.quiet) setLoadingPend(false);
     },
@@ -400,7 +437,7 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
 
       const nuevo: PendRowUI = {
         progreso_id: row.id,
-        nombre: per?.nombre ?? '—',
+        nombre: per?.nombre ?? 'â€”',
         telefono: per?.telefono ?? null,
         llamada1: null,
         llamada2: null,
@@ -409,7 +446,7 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
       };
 
       setPendientes(prev => [...prev, nuevo].sort((a, b) => a.nombre.localeCompare(b.nombre)));
-      scheduleClearUI(row.id, 6000);
+      scheduleClearUI(row.id, NEW_UI_MS);
     };
 
     const tryPatchProgresoUpdate = async (oldRow: any, newRow: any) => {
@@ -421,7 +458,7 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
       const oldMatch = matchAsigRow(oldRow, a, d, s);
       const newMatch = matchAsigRow(newRow, a, d, s);
 
-      // antes NO y ahora SÍ ? agregar
+      // antes NO y ahora SÃ ? agregar
       if (!oldMatch && newMatch) {
         if (!pendRef.current.some(p => p.progreso_id === newRow.id)) {
           const { data: per } = await supabase
@@ -432,7 +469,7 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
 
           const nuevo: PendRowUI = {
             progreso_id: newRow.id,
-            nombre: per?.nombre ?? '—',
+            nombre: per?.nombre ?? 'â€”',
             telefono: per?.telefono ?? null,
             llamada1: null,
             llamada2: null,
@@ -440,12 +477,12 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
             _ui: 'new',
           };
           setPendientes(prev => [...prev, nuevo].sort((a, b) => a.nombre.localeCompare(b.nombre)));
-          scheduleClearUI(newRow.id, 6000);
+          scheduleClearUI(newRow.id, NEW_UI_MS);
         }
         return;
       }
 
-      // antes SÍ y ahora NO ? quitar
+      // antes SÃ y ahora NO ? quitar
       if (oldMatch && !newMatch) {
         setPendientes(prev => prev.filter(p => p.progreso_id !== newRow.id));
         if (selectedId === newRow.id) setSelectedId(null);
@@ -474,7 +511,7 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
     const channelName = `rt-maestros-${cedula}`;
     const ch = supabase.channel(channelName);
 
-    // Logs de diagnóstico (activar con ?rtlog=1)
+    // Logs de diagnÃ³stico (activar con ?rtlog=1)
     ch.on('postgres_changes', { event: '*', schema: 'public', table: 'progreso' }, (p: any) => {
       if (rtDebug) rtLog('ev:progreso', p?.eventType, { old: p?.old?.id, new: p?.new?.id });
     });
@@ -554,37 +591,39 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
     return (
       <main className="min-h-[100dvh] grid place-items-center bg-[linear-gradient(135deg,#e0e7ff,#f5f3ff)]">
         <div className="rounded-2xl bg-white/60 backdrop-blur-xl px-6 py-4 shadow-[0_8px_32px_rgba(0,0,0,0.25)] ring-1 ring-white/50 text-neutral-900">
-          Cargando asignación…
+          Cargando asignaciÃ³nâ€¦
         </div>
       </main>
     );
   }
 
   return (
-<main 
-className="min-h-[100dvh] px-5 md:px-8 py-6 bg-[radial-gradient(1200px_600px_at_-10%_-10%,rgba(120,180,255,0.25),transparent),radial-gradient(900px_500px_at_110%_20%,rgba(180,120,255,0.22),transparent),linear-gradient(120deg,#f7f8ff_0%,#eef0ff_35%,#f7f8ff_100%)] supports-[backdrop-filter]:backdrop-blur-2xl"
-  style={{ fontFamily: "-apple-system,BlinkMacSystemFont,'SF Pro Display',Inter,'Helvetica Neue',Arial,sans-serif" }}
->
+<main className="min-h-[100dvh] px-5 md:px-8 py-6 bg-[radial-gradient(1200px_600px_at_-10%_-10%,rgba(120,180,255,0.25),transparent),radial-gradient(900px_500px_at_110%_20%,rgba(96,165,250,0.20),transparent),radial-gradient(circle_at_bottom_right,rgba(56,189,248,0.18),transparent),linear-gradient(120deg,#f7f8ff_0%,#eef0ff_35%,#f7f8ff_100%)] supports-[backdrop-filter]:backdrop-blur-2xl">
+
+
+
+
+
 
       <div className="mx-auto w-full max-w-[1260px]">
-        {/* ===== Título ===== */}
+        {/* ===== TÃ­tulo ===== */}
         <section className="mb-6 md:mb-8">
-          <div className="text-[32px] md:text-[44px] font-black leading-none tracking-tight bg-gradient-to-r from-sky-500 via-violet-600 to-fuchsia-500 text-transparent bg-clip-text drop-shadow-sm">
+          <div className="text-[32px] md:text-[44px] font-black leading-none tracking-tight bg-gradient-to-r from-sky-500 via-indigo-600 to-cyan-500 text-transparent bg-clip-text drop-shadow-sm">
             Panel de Coordinadores
           </div>
         </section>
 
         {/* ===== Encabezado ===== */}
-        <header className="mb-3 md:mb-4 flex items-baseline gap-3 rounded-2xl bg-white/55 supports-[backdrop-filter]:bg-white/35 backdrop-blur-xl px-4 py-3 shadow-[0_10px_40px_-20px_rgba(0,0,0,.35)] ring-1 ring-white/60">
+        <header className="mb-3 md:mb-4 flex items-baseline gap-3 rounded-2xl px-4 py-3 shadow-[0_10px_40px_-20px_rgba(0,0,0,.35)] ring-1 ring-white/60 backdrop-blur-xl bg-[radial-gradient(900px_220px_at_0%_-20%,rgba(56,189,248,0.18),transparent),radial-gradient(900px_240px_at_120%_-30%,rgba(99,102,241,0.16),transparent),linear-gradient(135deg,rgba(255,255,255,.78),rgba(255,255,255,.48))] supports-[backdrop-filter]:bg-[radial-gradient(900px_220px_at_0%_-20%,rgba(56,189,248,0.18),transparent),radial-gradient(900px_240px_at_120%_-30%,rgba(99,102,241,0.16),transparent),linear-gradient(135deg,rgba(255,255,255,.68),rgba(255,255,255,.40))]">
           <h1 className="text-[22px] md:text-[28px] font-semibold text-neutral-900">
             Llamadas pendientes {titulo}
           </h1>
-          <span className="text-neutral-700 text-sm">Semana {semana} • {dia}</span>
+          <span className="text-neutral-700 text-sm">Semana {semana} â€¢ {dia}</span>
 
-          {/* ====== Botón Banco Archivo (añadido) ====== */}
+          {/* ====== BotÃ³n Banco Archivo (aÃ±adido) ====== */}
           <button
             onClick={() => openBanco()}
-            className="ml-auto inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-sky-300 via-indigo-300 to-fuchsia-300 text-slate-900 px-3 py-1.5 text-sm font-semibold ring-1 ring-white/50 shadow-[0_6px_20px_rgba(20,150,220,0.35)] hover:scale-[1.02] active:scale-95 transition"
+            className="ml-auto inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-sky-300 via-indigo-300 to-cyan-300 text-slate-900 ring-1 ring-white/50 shadow-[0_6px_20px_rgba(20,150,220,0.35)] px-3 py-1.5 text-sm font-semibold hover:scale-[1.02] active:scale-95 transition"
             title="Ver estudiantes archivados y reactivar"
           >
             <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
@@ -594,7 +633,7 @@ className="min-h-[100dvh] px-5 md:px-8 py-6 bg-[radial-gradient(1200px_600px_at_
           </button>
         </header>
 
-        {/* Menú: semanas (1..3) y día bloqueado */}
+        {/* MenÃº: semanas (1..3) y dÃ­a bloqueado */}
         <div className="flex flex-wrap items-center gap-3 rounded-2xl bg-white/55 supports-[backdrop-filter]:bg-white/35 backdrop-blur-xl px-3 py-3 shadow-[0_10px_40px_-20px_rgba(0,0,0,.35)] ring-1 ring-white/60">
          <div className="inline-flex items-center gap-2">
   <span className="text-sm text-neutral-700">Semana:</span>
@@ -608,7 +647,7 @@ className="min-h-[100dvh] px-5 md:px-8 py-6 bg-[radial-gradient(1200px_600px_at_
         className={`px-3.5 py-1.5 rounded-full text-sm font-semibold transition
           ring-1 focus:outline-none focus-visible:ring-2
           ${active
-            ? 'bg-gradient-to-r from-sky-400 via-indigo-400 to-fuchsia-400 text-white ring-white/60 shadow-[0_6px_18px_rgba(56,189,248,.35)] scale-[1.03]'
+            ? 'bg-gradient-to-r from-sky-400 via-indigo-400 to-cyan-400 text-white ring-1 ring-white/60 shadow-[0_6px_18px_rgba(56,189,248,.35)] scale-[1.03]'
             : 'bg-white/40 text-slate-900 ring-white/60 hover:bg-white/60 hover:ring-white/70'
           }`}
         title={`Semana ${n}`}
@@ -621,7 +660,7 @@ className="min-h-[100dvh] px-5 md:px-8 py-6 bg-[radial-gradient(1200px_600px_at_
 
 
           <div className="inline-flex items-center gap-2">
-            <span className="text-sm text-neutral-700">Día:</span>
+            <span className="text-sm text-neutral-700">DÃ­a:</span>
             {(['Domingo', 'Martes', 'Virtual'] as Dia[]).map((d) => {
               const disabled = d !== asig.dia;
               return (
@@ -634,7 +673,7 @@ className="min-h-[100dvh] px-5 md:px-8 py-6 bg-[radial-gradient(1200px_600px_at_
                       ? 'bg-white/90 text-slate-900 ring-white/70 shadow'
                       : 'bg-white/40 text-slate-900 ring-white/60 hover:bg-white/60'
                   } ${disabled ? 'opacity-40 cursor-not-allowed' : ''}`}
-                  title={disabled ? 'Solo puedes ver tu día asignado' : 'Cambiar día'}
+                  title={disabled ? 'Solo puedes ver tu dÃ­a asignado' : 'Cambiar dÃ­a'}
                 >
                   {d}
                 </button>
@@ -646,7 +685,7 @@ className="min-h-[100dvh] px-5 md:px-8 py-6 bg-[radial-gradient(1200px_600px_at_
             <button
               type="button"
               onClick={() => setNuevaAlmaOpen(true)}
-              className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-sky-300 via-indigo-300 to-fuchsia-300 text-slate-900 px-4 py-2 text-sm font-semibold ring-1 ring-white/50 shadow-[0_6px_20px_rgba(20,150,220,0.35)] hover:scale-[1.02] active:scale-95 transition"
+              className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-sky-300 via-indigo-300 to-cyan-300 text-slate-900 ring-1 ring-white/50 shadow-[0_6px_20px_rgba(20,150,220,0.35)] px-4 py-2 text-sm font-semibold hover:scale-[1.02] active:scale-95 transition"
               title="Registrar nueva alma"
             >
               <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
@@ -657,7 +696,7 @@ className="min-h-[100dvh] px-5 md:px-8 py-6 bg-[radial-gradient(1200px_600px_at_
             <button
               type="button"
               onClick={() => setServidoresOpen(true)}
-              className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-sky-300 via-indigo-300 to-fuchsia-300 text-slate-900 px-4 py-2 text-sm font-semibold ring-1 ring-white/50 shadow-[0_6px_20px_rgba(20,150,220,0.35)] hover:scale-[1.02] active:scale-95 transition"
+              className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-sky-300 via-indigo-300 to-cyan-300 text-slate-900 ring-1 ring-white/50 shadow-[0_6px_20px_rgba(20,150,220,0.35)] px-4 py-2 text-sm font-semibold hover:scale-[1.02] active:scale-95 transition"
               title="Abrir formulario de Servidores"
             >
               <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
@@ -672,10 +711,10 @@ className="min-h-[100dvh] px-5 md:px-8 py-6 bg-[radial-gradient(1200px_600px_at_
         <div className="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-5 md:gap-6">
           {/* Lista */}
           <section className={`rounded-[20px] bg-white/55 supports-[backdrop-filter]:bg-white/35 backdrop-blur-xl shadow-[0_18px_44px_-18px_rgba(0,0,0,.35)] ring-1 ring-white/60 overflow-hidden ${selectedId ? 'hidden lg:block' : ''}`}>
-            <header className="px-4 md:px-5 py-3 border-b border-white/50 bg-[radial-gradient(1200px_200px_at_50%_-20%,rgba(255,255,255,.28),transparent)]">
+            <header className="px-4 md:px-5 py-3 border-b border-white/50 backdrop-blur-xl bg-[radial-gradient(900px_200px_at_0%_-30%,rgba(56,189,248,0.16),transparent),radial-gradient(900px_240px_at_110%_-40%,rgba(99,102,241,0.14),transparent),linear-gradient(135deg,rgba(255,255,255,.70),rgba(255,255,255,.45))] supports-[backdrop-filter]:bg-[radial-gradient(900px_200px_at_0%_-30%,rgba(56,189,248,0.16),transparent),radial-gradient(900px_240px_at_110%_-40%,rgba(99,102,241,0.14),transparent),linear-gradient(135deg,rgba(255,255,255,.62),rgba(255,255,255,.38))]">
               <h3 className="text-base md:text-lg font-semibold text-neutral-900">Llamadas pendientes</h3>
               <p className="text-neutral-700 text-xs md:text-sm">
-                {loadingPend ? 'Cargando…' : 'Selecciona un contacto para registrar la llamada.'}
+                {loadingPend ? 'Cargandoâ€¦' : 'Selecciona un contacto para registrar la llamada.'}
               </p>
             </header>
 
@@ -688,14 +727,15 @@ className="min-h-[100dvh] px-5 md:px-8 py-6 bg-[radial-gradient(1200px_600px_at_
                     key={c.progreso_id}
                     className={`px-4 md:px-5 py-3 hover:bg-white/40 cursor-pointer transition
                       ${selectedId === c.progreso_id ? 'bg-white/50' : ''}
-                      ${c._ui === 'new' ? 'animate-fadeInScale ring-2 ring-emerald-300/60 rounded-lg m-2'
-                        : c._ui === 'changed' ? 'animate-flashBg' : ''}`}
+                      rounded-lg m-2 ring-2 ${c._ui === 'new' ? 'ring-emerald-300/60 animate-fadeInScale' : 'ring-transparent'}
+                      ${c._ui === 'changed' ? 'animate-flashBg' : ''}
+                      transition-[box-shadow] duration-500`}
                     onClick={() => setSelectedId(c.progreso_id)}
                   >
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex items-start gap-3 min-w-0">
                         <span className={`mt-1 inline-block h-2.5 w-2.5 rounded-full ${
-                          c._ui === 'new' ? 'bg-emerald-500 shadow-[0_0_0_4px_rgba(16,185,129,.25)]' : 'bg-amber-400 shadow-[0_0_0_3px_rgba(251,191,36,.25)]'
+                          c._ui === 'new' ? 'bg-emerald-500 shadow-[0_0_0_4px_rgba(16,185,129,.25)] animate-newUiFade-5s' : 'bg-amber-400 shadow-[0_0_0_3px_rgba(251,191,36,.25)]'
                         }`} />
                         <div className="min-w-0">
                           <div className="font-semibold text-neutral-900 leading-tight truncate">{c.nombre}</div>
@@ -703,10 +743,10 @@ className="min-h-[100dvh] px-5 md:px-8 py-6 bg-[radial-gradient(1200px_600px_at_
                             <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" className="opacity-80">
                               <path d="M6.6 10.8c1.3 2.5 3.1 4.4 5.6 5.6l2.1-2.1a1 1 0 0 1 1.1-.22c1.2.48 2.6.74 4 .74a1 1 0 0 1 1 1v3.5a1 1 0 0 1-1 1C12.1 20.3 3.7 11.9 3.7 2.7a1 1 0 0 1 1-1H8.2a1 1 0 0 1 1 1c0 1.4.26 2.8.74 4a1 1 0 0 1-.22 1.1l-2.1 2.1Z" fill="currentColor" />
                             </svg>
-                            <span className="truncate">{c.telefono ?? '—'}</span>
+                            <span className="truncate">{c.telefono ?? 'â€”'}</span>
                           </div>
                           {c._ui === 'new' && (
-                            <span className="mt-1 inline-flex items-center text-[10px] font-semibold text-emerald-800 bg-emerald-50 rounded-full px-2 py-0.5 ring-1 ring-emerald-200">
+                            <span className="mt-1 inline-flex items-center text-[10px] font-semibold text-emerald-800 bg-emerald-50 rounded-full px-2 py-0.5 ring-1 ring-emerald-200 animate-newUiFade-5s">
                               Nuevo
                             </span>
                           )}
@@ -733,14 +773,14 @@ className="min-h-[100dvh] px-5 md:px-8 py-6 bg-[radial-gradient(1200px_600px_at_
           </section>
 
           {/* Panel derecho de llamada */}
-          <section className={`rounded-[20px] bg-white/55 supports-[backdrop-filter]:bg-white/35 backdrop-blur-xl shadow-[0_18px_44px_-18px_rgba(0,0,0,.35)] ring-1 ring-white/60 p-4 md:p-5 ${!selectedId ? 'hidden lg:block' : ''}`}>
+          <section ref={rightPanelRef} className={`rounded-[20px] bg-white/55 supports-[backdrop-filter]:bg-white/35 backdrop-blur-xl shadow-[0_18px_44px_-18px_rgba(0,0,0,.35)] ring-1 ring-white/60 p-4 md:p-5 ${!selectedId ? 'hidden lg:block' : ''}`}>
             {!selectedId ? (
               <div className="grid place-items-center text-neutral-700 h-full">
                 Selecciona un nombre de la lista para llamar / registrar.
               </div>
             ) : (
               <>
-                {/* Botón volver: solo móvil */}
+                {/* BotÃ³n volver: solo mÃ³vil */}
                 <div className="mb-3 lg:hidden">
                   <button
                     type="button"
@@ -765,7 +805,7 @@ className="min-h-[100dvh] px-5 md:px-8 py-6 bg-[radial-gradient(1200px_600px_at_
                       onSave={enviarResultado}
                     />
                   ) : (
-                    <div className="p-6 text-neutral-700">Selecciona un registro válido para continuar.</div>
+                    <div className="p-6 text-neutral-700">Selecciona un registro vÃ¡lido para continuar.</div>
                   );
                 })()}
               </>
@@ -775,10 +815,10 @@ className="min-h-[100dvh] px-5 md:px-8 py-6 bg-[radial-gradient(1200px_600px_at_
 
         {/* ===== Asistencias ===== */}
         <section className="mt-6 animate-cardIn rounded-[20px] ring-1 ring-white/60 shadow-[0_18px_44px_-18px_rgba(0,0,0,.35)] overflow-hidden bg-white/55 supports-[backdrop-filter]:bg-white/35 backdrop-blur-xl">
-          <div className="flex items-center justify-between px-4 md:px-6 py-3 bg-[radial-gradient(1200px_200px_at_50%_-20%,rgba(255,255,255,.28),transparent)]">
+          <div className="flex items-center justify-between px-4 md:px-6 py-3 backdrop-blur-xl bg-[radial-gradient(900px_200px_at_0%_-30%,rgba(56,189,248,0.16),transparent),radial-gradient(900px_240px_at_110%_-40%,rgba(99,102,241,0.14),transparent),linear-gradient(135deg,rgba(255,255,255,.70),rgba(255,255,255,.45))] supports-[backdrop-filter]:bg-[radial-gradient(900px_200px_at_0%_-30%,rgba(56,189,248,0.16),transparent),radial-gradient(900px_240px_at_110%_-40%,rgba(99,102,241,0.14),transparent),linear-gradient(135deg,rgba(255,255,255,.62),rgba(255,255,255,.38))]">
             <div>
               <h3 className="text-[15px] md:text-base font-semibold text-neutral-900">
-                Listado Estudiantes Día {asig.dia} — {asig.etapaBase === 'Semillas' ? 'Semillas' : asig.etapaBase} {asig.modulo}
+                Listado Estudiantes DÃ­a {asig.dia} â€” {asig.etapaBase === 'Semillas' ? 'Semillas' : asig.etapaBase} {asig.modulo}
               </h3>
               <p className="text-neutral-700 text-xs">Agendados que confirmaron asistencia.</p>
             </div>
@@ -788,9 +828,9 @@ className="min-h-[100dvh] px-5 md:px-8 py-6 bg-[radial-gradient(1200px_600px_at_
           </div>
 
           {loadingAg ? (
-            <div className="px-4 md:px-6 py-10 text-center text-neutral-700">Cargando…</div>
+            <div className="px-4 md:px-6 py-10 text-center text-neutral-700">Cargandoâ€¦</div>
           ) : agendados.length === 0 ? (
-            <div className="px-4 md:px-6 py-10 text-center text-neutral-700">No hay agendados para tu día asignado.</div>
+            <div className="px-4 md:px-6 py-10 text-center text-neutral-700">No hay agendados para tu dÃ­a asignado.</div>
           ) : (
             <>
               <ul className="divide-y divide-white/50">
@@ -798,7 +838,7 @@ className="min-h-[100dvh] px-5 md:px-8 py-6 bg-[radial-gradient(1200px_600px_at_
                   <li key={e.progreso_id} className="px-4 md:px-6 py-3 flex items-center gap-3">
                     <div className="flex-1 min-w-0">
                       <div className="font-semibold text-neutral-900 truncate">{e.nombre}</div>
-                      <div className="text-neutral-700 text-xs md:text-sm">{e.telefono ?? '—'}</div>
+                      <div className="text-neutral-700 text-xs md:text-sm">{e.telefono ?? 'â€”'}</div>
                     </div>
 
                     <label className="inline-flex items-center gap-2 text-sm mr-3">
@@ -808,7 +848,7 @@ className="min-h-[100dvh] px-5 md:px-8 py-6 bg-[radial-gradient(1200px_600px_at_
                         onChange={() => toggleMark(e.progreso_id, 'A')}
                         className="accent-emerald-600"
                       />
-                      Asistió
+                      AsistiÃ³
                     </label>
 
                     <label className="inline-flex items-center gap-2 text-sm">
@@ -816,9 +856,9 @@ className="min-h-[100dvh] px-5 md:px-8 py-6 bg-[radial-gradient(1200px_600px_at_
                         type="checkbox"
                         checked={marks[e.progreso_id] === 'N'}
                         onChange={() => toggleMark(e.progreso_id, 'N')}
-                        className="accent-rose-600"
+                        className="accent-sky-600"
                       />
-                      No asistió
+                      No asistiÃ³
                     </label>
                   </li>
                 ))}
@@ -828,9 +868,9 @@ className="min-h-[100dvh] px-5 md:px-8 py-6 bg-[radial-gradient(1200px_600px_at_
                 <button
                   disabled={savingAg}
                   onClick={enviarAsistencias}
-                  className="rounded-xl bg-gradient-to-r from-sky-300 via-indigo-300 to-fuchsia-300 text-slate-900 px-4 py-2 ring-1 ring-white/50 shadow-[0_6px_20px_rgba(20,150,220,0.35)] hover:scale-[1.02] active:scale-95 transition disabled:opacity-60"
+                  className="rounded-xl bg-gradient-to-r from-sky-300 via-indigo-300 to-cyan-300 text-slate-900 ring-1 ring-white/50 shadow-[0_6px_20px_rgba(20,150,220,0.35)] px-4 py-2 hover:scale-[1.02] active:scale-95 transition disabled:opacity-60"
                 >
-                  {savingAg ? 'Enviando…' : 'Enviar Reporte'}
+                  {savingAg ? 'Enviandoâ€¦' : 'Enviar Reporte'}
                 </button>
               </div>
             </>
@@ -845,21 +885,21 @@ className="min-h-[100dvh] px-5 md:px-8 py-6 bg-[radial-gradient(1200px_600px_at_
             className="absolute inset-0 bg-black/30 backdrop-blur-sm"
             onClick={() => setBancoOpen(false)}
           />
-          <div className="absolute inset-0 grid place-items-center px-4">
-            <div className="w-full max-w-4xl rounded-3xl shadow-[0_20px_60px_-20px_rgba(0,0,0,35)] ring-1 ring-white/60 bg-[linear-gradient(180deg,rgba(255,255,255,.70),rgba(255,255,255,.45))] backdrop-blur-xl">
+          <div className="absolute inset-0 px-4 py-4">
+            <div className="w-full max-w-md sm:max-w-lg md:max-w-4xl md:absolute md:top-1/2 md:left-1/2 md:-translate-x-1/2 md:-translate-y-1/2 max-h-[90vh] md:max-h-[96vh] overflow-auto rounded-3xl shadow-[0_20px_60px_-20px_rgba(0,0,0,35)] ring-1 ring-white/60 bg-[linear-gradient(180deg,rgba(255,255,255,.70),rgba(255,255,255,.45))] backdrop-blur-xl">
               {/* Header */}
               <div className="px-5 md:px-7 py-4 flex items-center justify-between border-b border-white/50">
                 <div>
                   <div className="text-xl md:text-2xl font-semibold text-neutral-900">Banco Archivo (Archivados)</div>
                   <div className="text-[12px] text-neutral-700">
-                    {asig.etapaBase} {asig.etapaBase !== 'Restauracion' ? asig.modulo : ''} • Día {asig.dia}
+                    {asig.etapaBase} {asig.etapaBase !== 'Restauracion' ? asig.modulo : ''} â€¢ DÃ­a {asig.dia}
                   </div>
                 </div>
                 <button
                   onClick={() => setBancoOpen(false)}
                   className="rounded-full bg-white/85 hover:bg-white/95 px-4 py-2 text-sm font-semibold ring-1 ring-white/60 text-neutral-900"
                 >
-                  Atrás
+                  AtrÃ¡s
                 </button>
               </div>
 
@@ -870,35 +910,35 @@ className="min-h-[100dvh] px-5 md:px-8 py-6 bg-[radial-gradient(1200px_600px_at_
                     <thead>
                       <tr className="text-left text-neutral-800">
                         <th className="py-2 pr-3">Nombre</th>
-                        <th className="py-2 pr-3">Teléfono</th>
-                        <th className="py-2 pr-3">Módulo</th>
+                        <th className="py-2 pr-3">TelÃ©fono</th>
+                        <th className="py-2 pr-3">MÃ³dulo</th>
                         <th className="py-2 pr-3">Semana</th>
-                        <th className="py-2 pr-3">Día</th>
+                        <th className="py-2 pr-3">DÃ­a</th>
                         <th className="py-2 pr-3">Archivado</th>
-                        <th className="py-2 pr-3 text-right">Acción</th>
+                        <th className="py-2 pr-3 text-right">AcciÃ³n</th>
                       </tr>
                     </thead>
                     <tbody className="align-top">
                       {bancoLoading ? (
-                        <tr><td colSpan={7} className="py-6 text-center text-neutral-700">Cargando…</td></tr>
+                        <tr><td colSpan={7} className="py-6 text-center text-neutral-700">Cargandoâ€¦</td></tr>
                       ) : bancoRows.length === 0 ? (
                         <tr><td colSpan={7} className="py-6 text-center text-neutral-700">Sin registros archivados.</td></tr>
                       ) : bancoRows.map((r) => (
                         <tr key={r.progreso_id} className="border-t border-white/50">
                           <td className="py-2 pr-3 font-medium text-neutral-900">{r.nombre}</td>
-                          <td className="py-2 pr-3 text-neutral-800">{r.telefono ?? '—'}</td>
-                          <td className="py-2 pr-3">{r.modulo ?? '—'}</td>
-                          <td className="py-2 pr-3">{r.semana ?? '—'}</td>
+                          <td className="py-2 pr-3 text-neutral-800">{r.telefono ?? 'â€”'}</td>
+                          <td className="py-2 pr-3">{r.modulo ?? 'â€”'}</td>
+                          <td className="py-2 pr-3">{r.semana ?? 'â€”'}</td>
                           <td className="py-2 pr-3">{r.dia}</td>
                           <td className="py-2 pr-3">{new Date(r.creado_en).toLocaleString()}</td>
                           <td className="py-2 pr-0 text-right">
                             <button
                               disabled={!!reactivating[r.progreso_id]}
                               onClick={() => reactivar(r)}
-                              className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-sky-300 via-indigo-300 to-fuchsia-300 text-slate-900 px-3 py-1.5 text-sm ring-1 ring-white/50 shadow-[0_6px_20px_rgba(20,150,220,0.35)] transition hover:scale-[1.02] active:scale-95 disabled:opacity-60"
+                              className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-sky-300 via-indigo-300 to-cyan-300 text-slate-900 ring-1 ring-white/50 shadow-[0_6px_20px_rgba(20,150,220,0.35)] px-3 py-1.5 text-sm transition hover:scale-[1.02] active:scale-95 disabled:opacity-60"
                               title="Reactivar al panel actual"
                             >
-                              {reactivating[r.progreso_id] ? 'Reactivando…' : 'Reactivar'}
+                              {reactivating[r.progreso_id] ? 'Reactivandoâ€¦' : 'Reactivar'}
                             </button>
                           </td>
                         </tr>
@@ -916,7 +956,7 @@ className="min-h-[100dvh] px-5 md:px-8 py-6 bg-[radial-gradient(1200px_600px_at_
       {/* Animaciones / estilos */}
       {/* Modal Nueva Alma */}
       {nuevaAlmaOpen && (
-        <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/40">
+        <div className="fixed inset-0 z-[1000] flex justify-center items-start md:items-start overflow-y-auto bg-black/40 pt-4 md:pt-4">
           <div className="relative w-[min(1100px,96vw)] max-h-[96vh] overflow-auto rounded-2xl bg-white/70 supports-[backdrop-filter]:bg-white/45 backdrop-blur-xl shadow-2xl ring-1 ring-white/60">
             <div className="sticky top-0 z-10 flex items-center justify-between gap-3 px-4 md:px-5 py-3 border-b border-white/50 bg-white/70 backdrop-blur">
               <h2 className="text-lg font-semibold text-neutral-900">Nueva Alma</h2>
@@ -926,7 +966,7 @@ className="min-h-[100dvh] px-5 md:px-8 py-6 bg-[radial-gradient(1200px_600px_at_
                   onClick={() => setNuevaAlmaOpen(false)}
                   className="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-semibold ring-1 ring-white/60 bg-white/80 hover:bg-white/95 text-neutral-900"
                 >
-                  Atrás
+                  AtrÃ¡s
                 </button>
               </div>
             </div>
@@ -939,7 +979,7 @@ className="min-h-[100dvh] px-5 md:px-8 py-6 bg-[radial-gradient(1200px_600px_at_
 
       {/* Modal Servidores */}
       {servidoresOpen && (
-        <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/40">
+        <div className="fixed inset-0 z-[1000] flex justify-center items-start md:items-start overflow-y-auto bg-black/40 pt-4 md:pt-4">
           <div className="relative w-[min(1200px,96vw)] max-h-[96vh] overflow-auto rounded-2xl bg-white/70 supports-[backdrop-filter]:bg-white/45 backdrop-blur-xl shadow-2xl ring-1 ring-white/60">
             <div className="sticky top-0 z-10 flex items-center justify-between gap-3 px-4 md:px-5 py-3 border-b border-white/50 bg-white/70 backdrop-blur">
               <h2 className="text-lg font-semibold text-neutral-900">Servidores</h2>
@@ -949,7 +989,7 @@ className="min-h-[100dvh] px-5 md:px-8 py-6 bg-[radial-gradient(1200px_600px_at_
                   onClick={() => setServidoresOpen(false)}
                   className="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-semibold ring-1 ring-white/60 bg-white/80 hover:bg-white/95 text-neutral-900"
                 >
-                  Atrás
+                  AtrÃ¡s
                 </button>
               </div>
             </div>
@@ -979,6 +1019,13 @@ className="min-h-[100dvh] px-5 md:px-8 py-6 bg-[radial-gradient(1200px_600px_at_
           100% { background-color: transparent; }
         }
         .animate-flashBg { animation: flashBg 1.2s ease-out 1; }
+
+        /* Suave fade-out para indicadores de "Nuevo" (pÃ­ldora y Ã³valo) */
+        @keyframes newUiFade {
+          0%, 82% { opacity: 1; }
+          100% { opacity: 0; }
+        }
+        .animate-newUiFade-5s { animation: newUiFade 5s ease-out forwards; }
       `}</style>
     </main>
   );
@@ -1049,7 +1096,7 @@ async function openBanco() {
 
 
 
-/* ================= Panel derecho (detalle y envío) ================= */
+/* ================= Panel derecho (detalle y envÃ­o) ================= */
 function FollowUp({
   semana,
   dia,
@@ -1067,15 +1114,15 @@ function FollowUp({
 
 
   const opciones: { label: string; value: Resultado }[] = [
-    { label: 'CONFIRMÓ ASISTENCIA', value: 'confirmo_asistencia' },
+    { label: 'CONFIRMÃ“ ASISTENCIA', value: 'confirmo_asistencia' },
     { label: 'NO CONTESTA', value: 'no_contesta' },
     { label: 'NO POR AHORA', value: 'no_por_ahora' },
     { label: 'LLAMAR DE NUEVO', value: 'llamar_de_nuevo' },
     { label: 'SALIO DE VIAJE', value: 'salio_de_viaje' },
-    { label: 'YA ESTÁ EN PTMD', value: 'ya_esta_en_ptmd' },
+    { label: 'YA ESTÃ EN PTMD', value: 'ya_esta_en_ptmd' },
     { label: 'NO TIENE $ TRANSPORTE', value: 'no_tiene_transporte' },
     { label: 'VIVE FUERA DE LA CIUDAD', value: 'vive_fuera' },
-    { label: 'MURIÓ', value: 'murio' },
+    { label: 'MURIÃ“', value: 'murio' },
     { label: 'NO ME INTERESA', value: 'rechazado' },
   ];
 
@@ -1173,7 +1220,7 @@ const openObsModal = async () => {
   return (
     <>
       <div className="animate-cardIn">
-        <div className="mb-4 rounded-2xl ring-1 ring-white/60 bg-white/60 supports-[backdrop-filter]:bg-white/40 backdrop-blur-xl shadow-[0_18px_40px_-22px_rgba(0,0,0,.45)] px-4 py-3 md:px-5 md:py-4 flex items-center justify-between gap-4">
+        <div className="mb-4 rounded-2xl ring-1 ring-white/60 bg-white/60 supports-[backdrop-filter]:bg-white/40 backdrop-blur-xl shadow-[0_18px_40px_-22px_rgba(0,0,0,.45)] px-4 py-3 md:px-5 md:py-4 flex flex-col md:flex-row items-stretch md:items-center md:justify-between gap-3 md:gap-4 overflow-hidden">
           <div className="flex items-center gap-3">
             <div className="grid place-items-center h-10 w-10 md:h-12 md:w-12 rounded-xl text-white font-bold bg-gradient-to-br from-blue-500 to-indigo-500 shadow-sm">
               {initials}
@@ -1183,23 +1230,23 @@ const openObsModal = async () => {
                 {row.nombre}
               </div>
               <div className="text-[12px] text-neutral-700 leading-none">
-                Semana {semana} • {dia}
+                Semana {semana} â€¢ {dia}
               </div>
              
             </div>
           </div>
 
-          <div className="shrink-0 flex flex-col items-stretch gap-2">
+          <div className="shrink-0 flex flex-col items-stretch gap-2 w-full md:w-auto min-w-0">
             {telHref ? (
               <a
                 href={telHref}
-                className="inline-flex items-center justify-center gap-2 rounded-full bg-white/85 text-neutral-900 px-3.5 py-2 text-sm font-semibold ring-1 ring-white/60 shadow-sm transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5 hover:bg-white"
+                className="inline-flex items-center justify-center gap-2 rounded-full bg-white/85 text-neutral-900 px-3.5 py-2 text-sm font-semibold ring-1 ring-white/60 shadow-sm transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5 hover:bg-white w-full sm:w-auto max-w-full"
                 title={`Llamar a ${row.telefono}`}
               >
                 <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
                   <path d="M6.6 10.8c1.3 2.5 3.1 4.4 5.6 5.6l2.1-2.1a1 1 0 0 1 1.1-.22c1.2.48 2.6.74 4 .74a1 1 0 0 1 1 1v3.5a1 1 0 0 1-1 1C12.1 20.3 3.7 11.9 3.7 2.7a1 1 0 0 1 1-1H8.2a1 1 0 0 1 1 1c0 1.4.26 2.8.74 4a1 1 0 0 1-.22 1.1l-2.1 2.1Z" fill="currentColor" />
                 </svg>
-                <span>{row.telefono}</span>
+                <span className="truncate max-w-full">{row.telefono}</span>
               </a>
             ) : (
               <div className="inline-flex items-center gap-2 rounded-full bg-white/70 text-neutral-700 px-3.5 py-2 text-sm font-semibold ring-1 ring-white/60 shadow-sm">
@@ -1212,7 +1259,7 @@ const openObsModal = async () => {
                 href={waHref}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center justify-center gap-2 rounded-full bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200 px-3.5 py-2 text-sm font-semibold shadow-sm transition-all duration-200 hover:bg-emerald-100 hover:shadow-lg hover:-translate-y-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300"
+                className="inline-flex items-center justify-center gap-2 rounded-full bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200 px-3.5 py-2 text-sm font-semibold shadow-sm transition-all duration-200 hover:bg-emerald-100 hover:shadow-lg hover:-translate-y-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300 w-full sm:w-auto max-w-full"
                 title={`Enviar WhatsApp a ${row.telefono}`}
               >
                 <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
@@ -1227,7 +1274,7 @@ const openObsModal = async () => {
               type="button"
               onClick={openObsModal}
               disabled={obsCount === 0}
-              className="inline-flex items-center justify-center gap-2 rounded-full bg-white/85 text-neutral-900 px-3.5 py-2 text-sm font-semibold ring-1 ring-white/60 shadow-sm transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5 hover:bg-white disabled:opacity-60 disabled:cursor-not-allowed"
+              className="inline-flex items-center justify-center gap-2 rounded-full bg-white/85 text-neutral-900 px-3.5 py-2 text-sm font-semibold ring-1 ring-white/60 shadow-sm transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5 hover:bg-white disabled:opacity-60 disabled:cursor-not-allowed w-full sm:w-auto max-w-full"
               title="Ver observaciones del registro"
             >
               <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
@@ -1263,7 +1310,7 @@ const openObsModal = async () => {
           <label className="text-xs text-neutral-700">Observaciones</label>
           <textarea
             className="mt-1 w-full min-h-[100px] rounded-lg ring-1 ring-white/60 px-3 py-2 bg-white/60 supports-[backdrop-filter]:bg-white/40 focus:outline-none focus:ring-2 focus:ring-sky-300/60 text-neutral-900 placeholder:text-neutral-500"
-            placeholder="Escribe aquí las observaciones..."
+            placeholder="Escribe aquÃ­ las observaciones..."
             value={obs}
             onChange={(e) => setObs(e.target.value)}
           />
@@ -1273,9 +1320,9 @@ const openObsModal = async () => {
           <button
             disabled={!resultado || saving}
             onClick={async () => { if (resultado) { await onSave({ resultado, notas: obs }); await refreshObsCount(); } }}
-            className="rounded-xl bg-gradient-to-r from-sky-300 via-indigo-300 to-fuchsia-300 text-slate-900 px-4 py-2 ring-1 ring-white/50 shadow-[0_6px_20px_rgba(20,150,220,0.35)] hover:scale-[1.02] active:scale-95 transition disabled:opacity-60"
+            className="rounded-xl bg-gradient-to-r from-sky-300 via-indigo-300 to-cyan-300 text-slate-900 ring-1 ring-white/50 shadow-[0_6px_20px_rgba(20,150,220,0.35)] px-4 py-2 hover:scale-[1.02] active:scale-95 transition disabled:opacity-60"
           >
-            {saving ? 'Guardando…' : 'Enviar informe'}
+            {saving ? 'Guardandoâ€¦' : 'Enviar informe'}
           </button>
         </div>
       </div>
@@ -1283,47 +1330,47 @@ const openObsModal = async () => {
       {obsOpen && (
         <div className="fixed inset-0 z-[70]">
           <div
-            className="absolute inset-0 bg-black/30 backdrop-blur-sm"
+            className="absolute inset-0 bg-black/50 backdrop-blur-md"
             onClick={() => setObsOpen(false)}
           />
-          <div className="absolute inset-0 grid place-items-center px-4">
-            <div className="w-full max-w-3xl rounded-3xl shadow-[0_20px_60px_-20px_rgba(0,0,0,35)] ring-1 ring-white/60 bg-[linear-gradient(180deg,rgba(255,255,255,.70),rgba(255,255,255,.45))] backdrop-blur-xl overflow-hidden">
-              <div className="px-5 md:px-7 py-4 flex items-center justify-between border-b border-white/50">
+          <div className="absolute inset-0 flex justify-center items-start md:items-center overflow-y-auto px-0 md:px-4 pt-4 md:pt-6 pb-0">
+            <div className="w-full min-h-[100dvh] md:h-auto max-w-none md:max-w-4xl rounded-none md:rounded-[28px] shadow-[0_30px_80px_-20px_rgba(0,0,0,.45)] ring-0 md:ring-1 ring-neutral-200 bg-white overflow-auto md:overflow-hidden">
+              <div className="px-4 md:px-7 py-4 md:py-5 flex items-center justify-between border-b border-neutral-200 sticky top-0 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/80 z-10">
                 <div>
-                  <div className="text-xl md:text-2xl font-semibold text-neutral-900">Observaciones</div>
-                  <div className="text-[12px] text-neutral-700">{row.nombre}</div>
+                  <div className="text-2xl md:text-3xl font-semibold text-neutral-900">Observaciones</div>
+                  <div className="text-[13px] text-neutral-500">{row.nombre ?? '-'}</div>
                 </div>
                 <button
                   onClick={() => setObsOpen(false)}
-                  className="rounded-full bg-white/85 hover:bg-white/95 px-4 py-2 text-sm font-semibold ring-1 ring-white/60 text-neutral-900"
+                  className="rounded-full bg-white px-4 py-2 text-sm font-semibold ring-1 ring-neutral-200 text-neutral-900 shadow-sm hover:bg-neutral-50"
                 >
                   Atras
                 </button>
               </div>
-              <div className="px-4 md:px-6 py-4">
+              <div className="px-4 md:px-6 py-4 md:py-5">
                 <div className="flex md:block gap-4">
                  
 
                   {/* Contenido principal del modal */}
                   <div className="flex-1 min-w-0">
                     {obsLoading ? (
-                      <div className="py-6 text-center text-neutral-800">Cargando.</div>
+                      <div className="py-6 text-center text-neutral-600">Cargando.</div>
                     ) : obsItems.length === 0 ? (
-                      <div className="py-6 text-center text-neutral-700">Sin observaciones registradas.</div>
+                      <div className="py-6 text-center text-neutral-500">Sin observaciones registradas.</div>
                     ) : (
                       <ul className="space-y-3">
                         {obsItems.map((it, idx) => (
-                          <li key={idx} className="rounded-xl bg-white/70 supports-[backdrop-filter]:bg-white/45 backdrop-blur ring-1 ring-white/60 px-4 py-3 shadow-sm">
-                            <div className="text-sm text-neutral-800 flex items-center justify-between">
-                              <span className="font-medium text-neutral-900">
+                          <li key={idx} className="rounded-2xl bg-white ring-1 ring-neutral-200 px-4 py-3 shadow-sm">
+                            <div className="text-sm text-neutral-600 flex items-center justify-between">
+                              <span className="font-medium text-neutral-800">
                                 {new Date(it.fecha).toLocaleString()}
                               </span>
-                              <span className="text-[11px] inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white/70 ring-1 ring-white/60 text-neutral-900">
+                              <span className="text-[11px] inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-neutral-100 ring-1 ring-neutral-200 text-neutral-600">
                                 {it.fuente === 'registro' ? 'Registro' : 'Llamada'}
                               </span>
                             </div>
                             <div className="mt-2 text-[13px] text-neutral-900 whitespace-pre-wrap">
-                              <strong>
+                              <strong className="font-semibold">
                                 {it.resultado ? (resultadoLabels[it.resultado as Resultado] ?? it.resultado) : '-'}
                               </strong>
                               {it.notas ? ` - ${it.notas}` : ''}
