@@ -6,10 +6,7 @@
     --foreground: #171717;
 }
 
-@theme inline {
-    --color-background: var(--background);
-    --color-foreground: var(--foreground);
-}
+
 
 /* scroll siempre visible para evitar saltos */
 html { overflow-y: scroll; }

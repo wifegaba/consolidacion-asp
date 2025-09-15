@@ -626,9 +626,12 @@ export default function Contactos1Client(
 
   return (
     <main
-       className="min-h-[100dvh] px-5 md:px-8 py-6 bg-[radial-gradient(1200px_600px_at_-10%_-10%,rgba(255,255,255,0.85),transparent),radial-gradient(900px_520px_at_110%_10%,rgba(255,255,255,0.75),transparent),radial-gradient(600px_300px_at_50%_120%,rgba(248,250,252,0.9),transparent),linear-gradient(120deg,#fafafa_0%,#f3f4f6_35%,#fafafa_100%)] supports-[backdrop-filter]:backdrop-blur-2xl"
+       className="relative min-h-[100dvh] px-5 md:px-8 py-6 overflow-hidden supports-[backdrop-filter]:backdrop-blur-2xl"
     >
-      <div className="mx-auto w-full max-w-[1260px]">
+      <div
+        className="absolute inset-0 z-0 bg-white bg-no-repeat filter blur-[80px] [background-image:radial-gradient(circle_at_top_right,rgba(56,193,182,0.5),transparent_70%)]"
+      />
+      <div className="relative z-10 mx-auto w-full max-w-[1260px]">
         {/* ===== Título ===== */}
         <section className="mb-6 md:mb-8">
           <div className="text-[32px] md:text-[44px] font-black leading-none tracking-tight bg-gradient-to-r from-emerald-500 via-teal-600 to-indigo-500 text-transparent bg-clip-text drop-shadow-sm">
@@ -871,78 +874,77 @@ export default function Contactos1Client(
 
       {/* ===== Modal Banco Archivo (Mac 2025 / glass) ===== */}
       {bancoOpen && (
-        <div className="fixed inset-0 z-[60]">
+        <div className="fixed inset-0 z-[60] flex justify-center items-start pt-8 md:pt-12">
           <div
-            className="absolute inset-0 bg-black/30 backdrop-blur-sm"
-            onClick={() => setBancoOpen(false)}
+        className="absolute inset-0 bg-black/30 backdrop-blur-sm"
+        onClick={() => setBancoOpen(false)}
           />
-          <div className="absolute inset-0 grid place-items-center px-4">
-            <div className="w-full max-w-4xl max-h-[96vh] overflow-auto rounded-3xl shadow-[0_20px_60px_-20px_rgba(0,0,0,35)] ring-1 ring-white/40 bg-[linear-gradient(180deg,rgba(255,255,255,65),rgba(255,255,255,45))] backdrop-blur-xl">
-              {/* Header */}
-              <div className="px-5 md:px-7 py-4 flex items-center justify-between border-b border-white/50">
-                <div>
-                  <div className="text-xl md:text-2xl font-semibold text-neutral-900">Banco Archivo (Archivados)</div>
-                  <div className="text-[12px] text-neutral-600">
-                    {asig.etapaBase} {asig.etapaBase !== 'Restauracion' ? asig.modulo : ''} • Día {asig.dia}
-                  </div>
-                </div>
-                <button
-                  onClick={() => setBancoOpen(false)}
-                  className="rounded-full bg-white/80 hover:bg:white px-4 py-2 text-sm font-semibold ring-1 ring-black/10 shadow-sm"
-                >
-                  Atrás
-                </button>
-              </div>
-
-              {/* Tabla */}
-              <div className="px-4 md:px-6 py-3">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="text-left text-neutral-600">
-                        <th className="py-2 pr-3">Nombre</th>
-                        <th className="py-2 pr-3">Teléfono</th>
-                        <th className="py-2 pr-3">Módulo</th>
-                        <th className="py-2 pr-3">Semana</th>
-                        <th className="py-2 pr-3">Día</th>
-                        <th className="py-2 pr-3">Archivado</th>
-                        <th className="py-2 pr-3 text-right">Acción</th>
-                      </tr>
-                    </thead>
-                    <tbody className="align-top">
-                      {bancoLoading ? (
-                        <tr><td colSpan={7} className="py-6 text-center text-neutral-500">Cargando…</td></tr>
-                      ) : bancoRows.length === 0 ? (
-                        <tr><td colSpan={7} className="py-6 text-center text-neutral-500">Sin registros archivados.</td></tr>
-                      ) : bancoRows.map((r) => (
-                        <tr key={r.progreso_id} className="border-t border-black/5">
-                          <td className="py-2 pr-3 font-medium text-neutral-900">{r.nombre ?? '—'}</td>
-                          <td className="py-2 pr-3 text-neutral-700">{r.telefono ?? '—'}</td>
-                          <td className="py-2 pr-3">{r.modulo ?? '—'}</td>
-                          <td className="py-2 pr-3">{r.semana ?? '—'}</td>
-                          <td className="py-2 pr-3">{r.dia}</td>
-                          <td className="py-2 pr-3">{new Date(r.creado_en).toLocaleString()}</td>
-                          <td className="py-2 pr-0 text-right">
-                            <button
-                              disabled={!!reactivating[r.progreso_id]}
-                              onClick={() => reactivar(r)}
-                              className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-emerald-300 via-teal-300 to-indigo-300 text-slate-900 ring-1 ring-white/50 shadow-[0_6px_20px_rgba(16,185,129,0.30)] px-3 py-1.5 text-sm transition hover:scale-[1.02] active:scale-95 disabled:opacity-60"
-                              title="Reactivar al panel actual"
-                            >
-                              {reactivating[r.progreso_id] ? 'Reactivando…' : 'Reactivar'}
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
+          <div className="relative w-full max-w-md sm:max-w-lg md:max-w-4xl max-h-[90vh] md:max-h-[96vh] overflow-auto rounded-3xl shadow-[0_20px_60px_-20px_rgba(0,0,0,35)] ring-1 ring-white/60 bg-[linear-gradient(180deg,rgba(255,255,255,.70),rgba(255,255,255,.45))] backdrop-blur-xl">
+        {/* Header */}
+        <div className="px-5 md:px-7 py-4 flex items-center justify-between border-b border-white/50">
+          <div>
+            <div className="text-xl md:text-2xl font-semibold text-neutral-900">Banco Archivo (Archivados)</div>
+            <div className="text-[12px] text-neutral-700">
+          {asig.etapaBase} {asig.etapaBase !== 'Restauracion' ? asig.modulo : ''} • Día {asig.dia}
             </div>
+          </div>
+          <button
+            onClick={() => setBancoOpen(false)}
+            className="rounded-full bg-white/85 hover:bg-white/95 px-4 py-2 text-sm font-semibold ring-1 ring-white/60 text-neutral-900"
+          >
+            Atrás
+          </button>
+        </div>
+
+        {/* Tabla */}
+        <div className="px-4 md:px-6 py-3">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+          <thead>
+            <tr className="text-left text-neutral-800">
+              <th className="py-2 pr-3">Nombre</th>
+              <th className="py-2 pr-3">Teléfono</th>
+              <th className="py-2 pr-3">Módulo</th>
+              <th className="py-2 pr-3">Semana</th>
+              <th className="py-2 pr-3">Día</th>
+              <th className="py-2 pr-3">Archivado</th>
+              <th className="py-2 pr-3 text-right">Acción</th>
+            </tr>
+          </thead>
+          <tbody className="align-top">
+            {bancoLoading ? (
+              <tr><td colSpan={7} className="py-6 text-center text-neutral-700">Cargando…</td></tr>
+            ) : bancoRows.length === 0 ? (
+              <tr><td colSpan={7} className="py-6 text-center text-neutral-700">Sin registros archivados.</td></tr>
+            ) : bancoRows.map((r) => (
+              <tr key={r.progreso_id} className="border-t border-white/50">
+            <td className="py-2 pr-3 font-medium text-neutral-900">{r.nombre}</td>
+            <td className="py-2 pr-3 text-neutral-800">{r.telefono ?? '—'}</td>
+            <td className="py-2 pr-3">{r.modulo ?? '—'}</td>
+            <td className="py-2 pr-3">{r.semana ?? '—'}</td>
+            <td className="py-2 pr-3">{r.dia}</td>
+            <td className="py-2 pr-3">{new Date(r.creado_en).toLocaleString()}</td>
+            <td className="py-2 pr-0 text-right">
+              <button
+                disabled={!!reactivating[r.progreso_id]}
+                onClick={() => reactivar(r)}
+                className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-sky-300 via-indigo-300 to-cyan-300 text-slate-900 ring-1 ring-white/50 shadow-[0_6px_20px_rgba(20,150,220,0.35)] px-3 py-1.5 text-sm transition hover:scale-[1.02] active:scale-95 disabled:opacity-60"
+                title="Reactivar al panel actual"
+              >
+                {reactivating[r.progreso_id] ? 'Reactivando…' : 'Reactivar'}
+              </button>
+            </td>
+              </tr>
+            ))}
+          </tbody>
+            </table>
+          </div>
+        </div>
+
           </div>
         </div>
       )}
+
 
       {/* Animaciones / estilos */}
       <style jsx global>{`
@@ -1321,7 +1323,5 @@ const openObsModal = async () => {
     </div>
   );
 }
-
-
 
 

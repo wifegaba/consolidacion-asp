@@ -84,15 +84,15 @@ const NEW_UI_MS = 5000;
 const CHANGED_UI_MS = 3000;
 
 const resultadoLabels: Record<Resultado, string> = {
-  confirmo_asistencia: 'CONFIRMÃ“ ASISTENCIA',
+  confirmo_asistencia: 'CONFIRMÓ ASISTENCIA',
   no_contesta: 'NO CONTESTA',
   no_por_ahora: 'NO POR AHORA',
   llamar_de_nuevo: 'LLAMAR DE NUEVO',
   salio_de_viaje: 'SALIO DE VIAJE',
-  ya_esta_en_ptmd: 'YA ESTÃ EN PTMD',
+  ya_esta_en_ptmd: 'YA ESTÁ EN PTMD',
   no_tiene_transporte: 'NO TIENE $ TRANSPORTE',
   vive_fuera: 'VIVE FUERA DE LA CIUDAD',
-  murio: 'MURIÃ“',
+  murio: 'MURIÓ',
   rechazado: 'NO ME INTERESA',
 };
 
@@ -105,7 +105,7 @@ const norm = (t: string) =>
     .toLowerCase()
     .trim();
 
-/** "Semilla 3" | "Devocionales 2" | "Restauracion 1" -> etapaBase + mÃ³dulo */
+/** "Semilla 3" | "Devocionales 2" | "Restauracion 1" -> etapaBase + módulo */
 function mapEtapaDetToBase(etapaDet: string): {
   etapaBase: 'Semillas' | 'Devocionales' | 'Restauracion';
   modulo: 1 | 2 | 3 | 4;
@@ -126,7 +126,7 @@ function mapEtapaDetToBase(etapaDet: string): {
   return { etapaBase: 'Restauracion', modulo: 1, hasModulo: false };
 }
 
-/** Coincidencia de un row de `progreso` con la asignaciÃ³n/dÃ­a/semana actual */
+/** Coincidencia de un row de `progreso` con la asignación/día/semana actual */
 function matchAsigRow(
   row: any,
   asig: MaestroAsignacion,
@@ -145,7 +145,7 @@ function matchAsigRow(
   );
 }
 
-/* ================= PÃ¡gina ================= */
+/* ================= Página ================= */
 export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string }) {
   const router = useRouter();
   const params = useSearchParams();
@@ -181,7 +181,7 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
   const [nuevaAlmaOpen, setNuevaAlmaOpen] = useState(false);
   const [servidoresOpen, setServidoresOpen] = useState(false);
 
-  // refs para estado â€œvivoâ€ dentro de handlers realtime
+  // refs para estado “vivo” dentro de handlers realtime
   const semanaRef = useRef(semana);
   const diaRef = useRef<Dia | null>(dia);
   const asigRef = useRef<MaestroAsignacion | null>(null);
@@ -202,7 +202,7 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
   // En responsive: al seleccionar un registro, llevar el panel derecho al inicio
   useEffect(() => {
     if (!selectedId) return;
-    // Solo aplicar en pantallas pequeÃ±as (menor a lg)
+    // Solo aplicar en pantallas pequeñas (menor a lg)
     const isLgUp = typeof window !== 'undefined' && window.matchMedia('(min-width: 1024px)').matches;
     if (isLgUp) return;
     // Intentar desplazar al inicio del panel derecho y al tope de la ventana
@@ -222,10 +222,10 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
     }, ms);
   };
 
-  /** Para marcar â€œNuevoâ€ cuando viene de reactivaciÃ³n */
+  /** Para marcar “Nuevo” cuando viene de reactivación */
   const rtNewRef = useRef<Set<string>>(new Set());
 
-  // Cargar asignaciÃ³n del maestro (y servidorId para reactivar)
+  // Cargar asignación del maestro (y servidorId para reactivar)
   useEffect(() => {
     (async () => {
       if (!cedula) return;
@@ -437,7 +437,7 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
 
       const nuevo: PendRowUI = {
         progreso_id: row.id,
-        nombre: per?.nombre ?? 'â€”',
+        nombre: per?.nombre ?? '—',
         telefono: per?.telefono ?? null,
         llamada1: null,
         llamada2: null,
@@ -458,7 +458,7 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
       const oldMatch = matchAsigRow(oldRow, a, d, s);
       const newMatch = matchAsigRow(newRow, a, d, s);
 
-      // antes NO y ahora SÃ ? agregar
+      // antes NO y ahora SÍ ? agregar
       if (!oldMatch && newMatch) {
         if (!pendRef.current.some(p => p.progreso_id === newRow.id)) {
           const { data: per } = await supabase
@@ -469,7 +469,7 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
 
           const nuevo: PendRowUI = {
             progreso_id: newRow.id,
-            nombre: per?.nombre ?? 'â€”',
+            nombre: per?.nombre ?? '—',
             telefono: per?.telefono ?? null,
             llamada1: null,
             llamada2: null,
@@ -482,7 +482,7 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
         return;
       }
 
-      // antes SÃ y ahora NO ? quitar
+      // antes SÍ y ahora NO ? quitar
       if (oldMatch && !newMatch) {
         setPendientes(prev => prev.filter(p => p.progreso_id !== newRow.id));
         if (selectedId === newRow.id) setSelectedId(null);
@@ -511,7 +511,7 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
     const channelName = `rt-maestros-${cedula}`;
     const ch = supabase.channel(channelName);
 
-    // Logs de diagnÃ³stico (activar con ?rtlog=1)
+    // Logs de diagnóstico (activar con ?rtlog=1)
     ch.on('postgres_changes', { event: '*', schema: 'public', table: 'progreso' }, (p: any) => {
       if (rtDebug) rtLog('ev:progreso', p?.eventType, { old: p?.old?.id, new: p?.new?.id });
     });
@@ -591,7 +591,7 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
     return (
       <main className="min-h-[100dvh] grid place-items-center bg-[linear-gradient(135deg,#e0e7ff,#f5f3ff)]">
         <div className="rounded-2xl bg-white/60 backdrop-blur-xl px-6 py-4 shadow-[0_8px_32px_rgba(0,0,0,0.25)] ring-1 ring-white/50 text-neutral-900">
-          Cargando asignaciÃ³nâ€¦
+          Cargando asignación…
         </div>
       </main>
     );
@@ -606,7 +606,7 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
 
 
       <div className="mx-auto w-full max-w-[1260px]">
-        {/* ===== TÃ­tulo ===== */}
+        {/* ===== Título ===== */}
         <section className="mb-6 md:mb-8">
           <div className="text-[32px] md:text-[44px] font-black leading-none tracking-tight bg-gradient-to-r from-sky-500 via-indigo-600 to-cyan-500 text-transparent bg-clip-text drop-shadow-sm">
             Panel de Coordinadores
@@ -618,9 +618,9 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
           <h1 className="text-[22px] md:text-[28px] font-semibold text-neutral-900">
             Llamadas pendientes {titulo}
           </h1>
-          <span className="text-neutral-700 text-sm">Semana {semana} â€¢ {dia}</span>
+          <span className="text-neutral-700 text-sm">Semana {semana} • {dia}</span>
 
-          {/* ====== BotÃ³n Banco Archivo (aÃ±adido) ====== */}
+          {/* ====== Botón Banco Archivo (añadido) ====== */}
           <button
             onClick={() => openBanco()}
             className="ml-auto inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-sky-300 via-indigo-300 to-cyan-300 text-slate-900 ring-1 ring-white/50 shadow-[0_6px_20px_rgba(20,150,220,0.35)] px-3 py-1.5 text-sm font-semibold hover:scale-[1.02] active:scale-95 transition"
@@ -633,7 +633,7 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
           </button>
         </header>
 
-        {/* MenÃº: semanas (1..3) y dÃ­a bloqueado */}
+        {/* Menú: semanas (1..3) y día bloqueado */}
         <div className="flex flex-wrap items-center gap-3 rounded-2xl bg-white/55 supports-[backdrop-filter]:bg-white/35 backdrop-blur-xl px-3 py-3 shadow-[0_10px_40px_-20px_rgba(0,0,0,.35)] ring-1 ring-white/60">
          <div className="inline-flex items-center gap-2">
   <span className="text-sm text-neutral-700">Semana:</span>
@@ -660,7 +660,7 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
 
 
           <div className="inline-flex items-center gap-2">
-            <span className="text-sm text-neutral-700">DÃ­a:</span>
+            <span className="text-sm text-neutral-700">Día:</span>
             {(['Domingo', 'Martes', 'Virtual'] as Dia[]).map((d) => {
               const disabled = d !== asig.dia;
               return (
@@ -673,7 +673,7 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
                       ? 'bg-white/90 text-slate-900 ring-white/70 shadow'
                       : 'bg-white/40 text-slate-900 ring-white/60 hover:bg-white/60'
                   } ${disabled ? 'opacity-40 cursor-not-allowed' : ''}`}
-                  title={disabled ? 'Solo puedes ver tu dÃ­a asignado' : 'Cambiar dÃ­a'}
+                  title={disabled ? 'Solo puedes ver tu día asignado' : 'Cambiar día'}
                 >
                   {d}
                 </button>
@@ -714,7 +714,7 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
             <header className="px-4 md:px-5 py-3 border-b border-white/50 backdrop-blur-xl bg-[radial-gradient(900px_200px_at_0%_-30%,rgba(56,189,248,0.16),transparent),radial-gradient(900px_240px_at_110%_-40%,rgba(99,102,241,0.14),transparent),linear-gradient(135deg,rgba(255,255,255,.70),rgba(255,255,255,.45))] supports-[backdrop-filter]:bg-[radial-gradient(900px_200px_at_0%_-30%,rgba(56,189,248,0.16),transparent),radial-gradient(900px_240px_at_110%_-40%,rgba(99,102,241,0.14),transparent),linear-gradient(135deg,rgba(255,255,255,.62),rgba(255,255,255,.38))]">
               <h3 className="text-base md:text-lg font-semibold text-neutral-900">Llamadas pendientes</h3>
               <p className="text-neutral-700 text-xs md:text-sm">
-                {loadingPend ? 'Cargandoâ€¦' : 'Selecciona un contacto para registrar la llamada.'}
+                {loadingPend ? 'Cargando…' : 'Selecciona un contacto para registrar la llamada.'}
               </p>
             </header>
 
@@ -743,7 +743,7 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
                             <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" className="opacity-80">
                               <path d="M6.6 10.8c1.3 2.5 3.1 4.4 5.6 5.6l2.1-2.1a1 1 0 0 1 1.1-.22c1.2.48 2.6.74 4 .74a1 1 0 0 1 1 1v3.5a1 1 0 0 1-1 1C12.1 20.3 3.7 11.9 3.7 2.7a1 1 0 0 1 1-1H8.2a1 1 0 0 1 1 1c0 1.4.26 2.8.74 4a1 1 0 0 1-.22 1.1l-2.1 2.1Z" fill="currentColor" />
                             </svg>
-                            <span className="truncate">{c.telefono ?? 'â€”'}</span>
+                            <span className="truncate">{c.telefono ?? '—'}</span>
                           </div>
                           {c._ui === 'new' && (
                             <span className="mt-1 inline-flex items-center text-[10px] font-semibold text-emerald-800 bg-emerald-50 rounded-full px-2 py-0.5 ring-1 ring-emerald-200 animate-newUiFade-5s">
@@ -780,7 +780,7 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
               </div>
             ) : (
               <>
-                {/* BotÃ³n volver: solo mÃ³vil */}
+                {/* Botón volver: solo móvil */}
                 <div className="mb-3 lg:hidden">
                   <button
                     type="button"
@@ -805,7 +805,7 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
                       onSave={enviarResultado}
                     />
                   ) : (
-                    <div className="p-6 text-neutral-700">Selecciona un registro vÃ¡lido para continuar.</div>
+                    <div className="p-6 text-neutral-700">Selecciona un registro válido para continuar.</div>
                   );
                 })()}
               </>
@@ -818,7 +818,7 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
           <div className="flex items-center justify-between px-4 md:px-6 py-3 backdrop-blur-xl bg-[radial-gradient(900px_200px_at_0%_-30%,rgba(56,189,248,0.16),transparent),radial-gradient(900px_240px_at_110%_-40%,rgba(99,102,241,0.14),transparent),linear-gradient(135deg,rgba(255,255,255,.70),rgba(255,255,255,.45))] supports-[backdrop-filter]:bg-[radial-gradient(900px_200px_at_0%_-30%,rgba(56,189,248,0.16),transparent),radial-gradient(900px_240px_at_110%_-40%,rgba(99,102,241,0.14),transparent),linear-gradient(135deg,rgba(255,255,255,.62),rgba(255,255,255,.38))]">
             <div>
               <h3 className="text-[15px] md:text-base font-semibold text-neutral-900">
-                Listado Estudiantes DÃ­a {asig.dia} â€” {asig.etapaBase === 'Semillas' ? 'Semillas' : asig.etapaBase} {asig.modulo}
+                Listado Estudiantes Día {asig.dia} — {asig.etapaBase === 'Semillas' ? 'Semillas' : asig.etapaBase} {asig.modulo}
               </h3>
               <p className="text-neutral-700 text-xs">Agendados que confirmaron asistencia.</p>
             </div>
@@ -828,9 +828,9 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
           </div>
 
           {loadingAg ? (
-            <div className="px-4 md:px-6 py-10 text-center text-neutral-700">Cargandoâ€¦</div>
+            <div className="px-4 md:px-6 py-10 text-center text-neutral-700">Cargando…</div>
           ) : agendados.length === 0 ? (
-            <div className="px-4 md:px-6 py-10 text-center text-neutral-700">No hay agendados para tu dÃ­a asignado.</div>
+            <div className="px-4 md:px-6 py-10 text-center text-neutral-700">No hay agendados para tu día asignado.</div>
           ) : (
             <>
               <ul className="divide-y divide-white/50">
@@ -838,7 +838,7 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
                   <li key={e.progreso_id} className="px-4 md:px-6 py-3 flex items-center gap-3">
                     <div className="flex-1 min-w-0">
                       <div className="font-semibold text-neutral-900 truncate">{e.nombre}</div>
-                      <div className="text-neutral-700 text-xs md:text-sm">{e.telefono ?? 'â€”'}</div>
+                      <div className="text-neutral-700 text-xs md:text-sm">{e.telefono ?? '—'}</div>
                     </div>
 
                     <label className="inline-flex items-center gap-2 text-sm mr-3">
@@ -848,7 +848,7 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
                         onChange={() => toggleMark(e.progreso_id, 'A')}
                         className="accent-emerald-600"
                       />
-                      AsistiÃ³
+                      Asistió
                     </label>
 
                     <label className="inline-flex items-center gap-2 text-sm">
@@ -858,7 +858,7 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
                         onChange={() => toggleMark(e.progreso_id, 'N')}
                         className="accent-sky-600"
                       />
-                      No asistiÃ³
+                      No asistió
                     </label>
                   </li>
                 ))}
@@ -870,7 +870,7 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
                   onClick={enviarAsistencias}
                   className="rounded-xl bg-gradient-to-r from-sky-300 via-indigo-300 to-cyan-300 text-slate-900 ring-1 ring-white/50 shadow-[0_6px_20px_rgba(20,150,220,0.35)] px-4 py-2 hover:scale-[1.02] active:scale-95 transition disabled:opacity-60"
                 >
-                  {savingAg ? 'Enviandoâ€¦' : 'Enviar Reporte'}
+                  {savingAg ? 'Enviando…' : 'Enviar Reporte'}
                 </button>
               </div>
             </>
@@ -880,79 +880,83 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
 
       {/* ===== Modal Banco Archivo (Mac 2025 / glass) ===== */}
       {bancoOpen && (
-        <div className="fixed inset-0 z-[60]">
+        <div className="fixed inset-0 z-[60] flex justify-center items-start pt-8 md:pt-12">
           <div
-            className="absolute inset-0 bg-black/30 backdrop-blur-sm"
-            onClick={() => setBancoOpen(false)}
+        className="absolute inset-0 bg-black/30 backdrop-blur-sm"
+        onClick={() => setBancoOpen(false)}
           />
-          <div className="absolute inset-0 px-4 py-4">
-            <div className="w-full max-w-md sm:max-w-lg md:max-w-4xl md:absolute md:top-1/2 md:left-1/2 md:-translate-x-1/2 md:-translate-y-1/2 max-h-[90vh] md:max-h-[96vh] overflow-auto rounded-3xl shadow-[0_20px_60px_-20px_rgba(0,0,0,35)] ring-1 ring-white/60 bg-[linear-gradient(180deg,rgba(255,255,255,.70),rgba(255,255,255,.45))] backdrop-blur-xl">
-              {/* Header */}
-              <div className="px-5 md:px-7 py-4 flex items-center justify-between border-b border-white/50">
-                <div>
-                  <div className="text-xl md:text-2xl font-semibold text-neutral-900">Banco Archivo (Archivados)</div>
-                  <div className="text-[12px] text-neutral-700">
-                    {asig.etapaBase} {asig.etapaBase !== 'Restauracion' ? asig.modulo : ''} â€¢ DÃ­a {asig.dia}
-                  </div>
-                </div>
-                <button
-                  onClick={() => setBancoOpen(false)}
-                  className="rounded-full bg-white/85 hover:bg-white/95 px-4 py-2 text-sm font-semibold ring-1 ring-white/60 text-neutral-900"
-                >
-                  AtrÃ¡s
-                </button>
-              </div>
-
-              {/* Tabla */}
-              <div className="px-4 md:px-6 py-3">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="text-left text-neutral-800">
-                        <th className="py-2 pr-3">Nombre</th>
-                        <th className="py-2 pr-3">TelÃ©fono</th>
-                        <th className="py-2 pr-3">MÃ³dulo</th>
-                        <th className="py-2 pr-3">Semana</th>
-                        <th className="py-2 pr-3">DÃ­a</th>
-                        <th className="py-2 pr-3">Archivado</th>
-                        <th className="py-2 pr-3 text-right">AcciÃ³n</th>
-                      </tr>
-                    </thead>
-                    <tbody className="align-top">
-                      {bancoLoading ? (
-                        <tr><td colSpan={7} className="py-6 text-center text-neutral-700">Cargandoâ€¦</td></tr>
-                      ) : bancoRows.length === 0 ? (
-                        <tr><td colSpan={7} className="py-6 text-center text-neutral-700">Sin registros archivados.</td></tr>
-                      ) : bancoRows.map((r) => (
-                        <tr key={r.progreso_id} className="border-t border-white/50">
-                          <td className="py-2 pr-3 font-medium text-neutral-900">{r.nombre}</td>
-                          <td className="py-2 pr-3 text-neutral-800">{r.telefono ?? 'â€”'}</td>
-                          <td className="py-2 pr-3">{r.modulo ?? 'â€”'}</td>
-                          <td className="py-2 pr-3">{r.semana ?? 'â€”'}</td>
-                          <td className="py-2 pr-3">{r.dia}</td>
-                          <td className="py-2 pr-3">{new Date(r.creado_en).toLocaleString()}</td>
-                          <td className="py-2 pr-0 text-right">
-                            <button
-                              disabled={!!reactivating[r.progreso_id]}
-                              onClick={() => reactivar(r)}
-                              className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-sky-300 via-indigo-300 to-cyan-300 text-slate-900 ring-1 ring-white/50 shadow-[0_6px_20px_rgba(20,150,220,0.35)] px-3 py-1.5 text-sm transition hover:scale-[1.02] active:scale-95 disabled:opacity-60"
-                              title="Reactivar al panel actual"
-                            >
-                              {reactivating[r.progreso_id] ? 'Reactivandoâ€¦' : 'Reactivar'}
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
+          <div className="relative w-full max-w-md sm:max-w-lg md:max-w-4xl max-h-[90vh] md:max-h-[96vh] overflow-auto rounded-3xl shadow-[0_20px_60px_-20px_rgba(0,0,0,35)] ring-1 ring-white/60 bg-[linear-gradient(180deg,rgba(255,255,255,.70),rgba(255,255,255,.45))] backdrop-blur-xl">
+        {/* Header */}
+        <div className="px-5 md:px-7 py-4 flex items-center justify-between border-b border-white/50">
+          <div>
+            <div className="text-xl md:text-2xl font-semibold text-neutral-900">Banco Archivo (Archivados)</div>
+            <div className="text-[12px] text-neutral-700">
+          {asig.etapaBase} {asig.etapaBase !== 'Restauracion' ? asig.modulo : ''} • Día {asig.dia}
             </div>
+          </div>
+          <button
+            onClick={() => setBancoOpen(false)}
+            className="rounded-full bg-white/85 hover:bg-white/95 px-4 py-2 text-sm font-semibold ring-1 ring-white/60 text-neutral-900"
+          >
+            Atrás
+          </button>
+        </div>
+
+        {/* Tabla */}
+        <div className="px-4 md:px-6 py-3">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+          <thead>
+            <tr className="text-left text-neutral-800">
+              <th className="py-2 pr-3">Nombre</th>
+              <th className="py-2 pr-3">Teléfono</th>
+              <th className="py-2 pr-3">Módulo</th>
+              <th className="py-2 pr-3">Semana</th>
+              <th className="py-2 pr-3">Día</th>
+              <th className="py-2 pr-3">Archivado</th>
+              <th className="py-2 pr-3 text-right">Acción</th>
+            </tr>
+          </thead>
+          <tbody className="align-top">
+            {bancoLoading ? (
+              <tr><td colSpan={7} className="py-6 text-center text-neutral-700">Cargando…</td></tr>
+            ) : bancoRows.length === 0 ? (
+              <tr><td colSpan={7} className="py-6 text-center text-neutral-700">Sin registros archivados.</td></tr>
+            ) : bancoRows.map((r) => (
+              <tr key={r.progreso_id} className="border-t border-white/50">
+            <td className="py-2 pr-3 font-medium text-neutral-900">{r.nombre}</td>
+            <td className="py-2 pr-3 text-neutral-800">{r.telefono ?? '—'}</td>
+            <td className="py-2 pr-3">{r.modulo ?? '—'}</td>
+            <td className="py-2 pr-3">{r.semana ?? '—'}</td>
+            <td className="py-2 pr-3">{r.dia}</td>
+            <td className="py-2 pr-3">{new Date(r.creado_en).toLocaleString()}</td>
+            <td className="py-2 pr-0 text-right">
+              <button
+                disabled={!!reactivating[r.progreso_id]}
+                onClick={() => reactivar(r)}
+                className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-sky-300 via-indigo-300 to-cyan-300 text-slate-900 ring-1 ring-white/50 shadow-[0_6px_20px_rgba(20,150,220,0.35)] px-3 py-1.5 text-sm transition hover:scale-[1.02] active:scale-95 disabled:opacity-60"
+                title="Reactivar al panel actual"
+              >
+                {reactivating[r.progreso_id] ? 'Reactivando…' : 'Reactivar'}
+              </button>
+            </td>
+              </tr>
+            ))}
+          </tbody>
+            </table>
+          </div>
+        </div>
+
           </div>
         </div>
       )}
 
+
+
+
+
+
+      
       {/* Animaciones / estilos */}
       {/* Modal Nueva Alma */}
       {nuevaAlmaOpen && (
@@ -966,7 +970,7 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
                   onClick={() => setNuevaAlmaOpen(false)}
                   className="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-semibold ring-1 ring-white/60 bg-white/80 hover:bg-white/95 text-neutral-900"
                 >
-                  AtrÃ¡s
+                  Atrás
                 </button>
               </div>
             </div>
@@ -989,7 +993,7 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
                   onClick={() => setServidoresOpen(false)}
                   className="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-semibold ring-1 ring-white/60 bg-white/80 hover:bg-white/95 text-neutral-900"
                 >
-                  AtrÃ¡s
+                  Atrás
                 </button>
               </div>
             </div>
@@ -1020,7 +1024,7 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
         }
         .animate-flashBg { animation: flashBg 1.2s ease-out 1; }
 
-        /* Suave fade-out para indicadores de "Nuevo" (pÃ­ldora y Ã³valo) */
+        /* Suave fade-out para indicadores de "Nuevo" (píldora y óvalo) */
         @keyframes newUiFade {
           0%, 82% { opacity: 1; }
           100% { opacity: 0; }
@@ -1096,7 +1100,7 @@ async function openBanco() {
 
 
 
-/* ================= Panel derecho (detalle y envÃ­o) ================= */
+/* ================= Panel derecho (detalle y envío) ================= */
 function FollowUp({
   semana,
   dia,
@@ -1114,15 +1118,15 @@ function FollowUp({
 
 
   const opciones: { label: string; value: Resultado }[] = [
-    { label: 'CONFIRMÃ“ ASISTENCIA', value: 'confirmo_asistencia' },
+    { label: 'CONFIRMÓ ASISTENCIA', value: 'confirmo_asistencia' },
     { label: 'NO CONTESTA', value: 'no_contesta' },
     { label: 'NO POR AHORA', value: 'no_por_ahora' },
     { label: 'LLAMAR DE NUEVO', value: 'llamar_de_nuevo' },
     { label: 'SALIO DE VIAJE', value: 'salio_de_viaje' },
-    { label: 'YA ESTÃ EN PTMD', value: 'ya_esta_en_ptmd' },
+    { label: 'YA ESTÁ EN PTMD', value: 'ya_esta_en_ptmd' },
     { label: 'NO TIENE $ TRANSPORTE', value: 'no_tiene_transporte' },
     { label: 'VIVE FUERA DE LA CIUDAD', value: 'vive_fuera' },
-    { label: 'MURIÃ“', value: 'murio' },
+    { label: 'MURIÓ', value: 'murio' },
     { label: 'NO ME INTERESA', value: 'rechazado' },
   ];
 
@@ -1230,7 +1234,7 @@ const openObsModal = async () => {
                 {row.nombre}
               </div>
               <div className="text-[12px] text-neutral-700 leading-none">
-                Semana {semana} â€¢ {dia}
+                Semana {semana} • {dia}
               </div>
              
             </div>
@@ -1310,7 +1314,7 @@ const openObsModal = async () => {
           <label className="text-xs text-neutral-700">Observaciones</label>
           <textarea
             className="mt-1 w-full min-h-[100px] rounded-lg ring-1 ring-white/60 px-3 py-2 bg-white/60 supports-[backdrop-filter]:bg-white/40 focus:outline-none focus:ring-2 focus:ring-sky-300/60 text-neutral-900 placeholder:text-neutral-500"
-            placeholder="Escribe aquÃ­ las observaciones..."
+            placeholder="Escribe aquí las observaciones..."
             value={obs}
             onChange={(e) => setObs(e.target.value)}
           />
@@ -1322,7 +1326,7 @@ const openObsModal = async () => {
             onClick={async () => { if (resultado) { await onSave({ resultado, notas: obs }); await refreshObsCount(); } }}
             className="rounded-xl bg-gradient-to-r from-sky-300 via-indigo-300 to-cyan-300 text-slate-900 ring-1 ring-white/50 shadow-[0_6px_20px_rgba(20,150,220,0.35)] px-4 py-2 hover:scale-[1.02] active:scale-95 transition disabled:opacity-60"
           >
-            {saving ? 'Guardandoâ€¦' : 'Enviar informe'}
+            {saving ? 'Guardando…' : 'Enviar informe'}
           </button>
         </div>
       </div>
