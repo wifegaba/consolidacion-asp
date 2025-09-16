@@ -218,6 +218,132 @@ body{margin:0;
 .badge.programado{ background:#eef2ff; color: var(--accent); }
 .row-actions{ display:flex; gap:8px; }
 
+/* Card base con panel emergente */
+.kpi-expandable {
+  position: relative;
+  overflow: visible; /* para permitir que el panel se expanda fuera */
+}
+
+.kpi-panel {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: 12px;
+  width: 420px; /* default en desktop */
+  max-width: 90vw; /* nunca más grande que el viewport */
+  background: linear-gradient(135deg, rgba(255,255,255,0.9), rgba(245,247,250,0.9));
+  backdrop-filter: blur(18px) saturate(150%);
+  border: 1px solid rgba(255,255,255,0.4);
+  border-radius: 20px;
+  box-shadow: 0 16px 40px rgba(0,0,0,0.15);
+  padding: 20px;
+  opacity: 0;
+  transform: scale(0.95) translateY(-10px);
+  transform-origin: top left;
+  pointer-events: none;
+  transition: all 0.45s cubic-bezier(0.25, 0.8, 0.25, 1);
+  z-index: 20;
+}
+
+/* Header dentro del panel */
+.panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  margin-bottom: 12px;
+  gap: 12px;
+}
+
+.back-btn {
+  background: transparent;
+  border: none;
+  color: #0ea5e9;
+  font-weight: 600;
+  cursor: pointer;
+  font-size: 0.95rem;
+  transition: color 0.2s;
+}
+
+.back-btn:hover {
+  color: #0284c7;
+}
+
+/* Responsive: panel como drawer superior */
+@media (max-width: 768px) {
+  .kpi-panel {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: auto;
+    width: 100%;
+    height: auto;
+    max-height: 80vh;
+    border-radius: 0 0 20px 20px;
+    margin: 0;
+    transform-origin: top center;
+    overflow-y: auto;
+  }
+
+  .kpi-panel.open {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+    pointer-events: auto;
+  }
+}
+
+
+
+
+
+
+/* Mostrar al hover */
+.kpi-expandable:hover .kpi-panel {
+  opacity: 1;
+  transform: scale(1) translateY(0);
+  pointer-events: auto;
+}
+
+/* Título */
+.kpi-panel .panel-title {
+  font-size: 1rem;
+  font-weight: 600;
+  margin-bottom: 12px;
+  background: linear-gradient(90deg, #0ea5e9, #6366f1);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Tabla interior */
+.panel-table {
+  display: grid;
+  gap: 6px;
+}
+
+.panel-table .table-row {
+  display: grid;
+  grid-template-columns: 1fr 60px 60px 60px;
+  padding: 6px 0;
+  font-size: 0.9rem;
+  border-bottom: 1px solid rgba(0,0,0,0.05);
+}
+
+.panel-table .header {
+  font-weight: 600;
+  color: #555;
+}
+
+
+
+
+
+
+
+
+
+
+
+
 /* ====== Responsive ====== */
 @media (max-width: 1200px){
     .kpi-row{ grid-template-columns: repeat(2, 1fr); }
@@ -308,4 +434,7 @@ body{margin:0;
 
     /* Smaller icons for mobile bottom bar */
     .nav-icon{ width:16px; height:16px; min-width:16px; }
+
+
+    
 }
