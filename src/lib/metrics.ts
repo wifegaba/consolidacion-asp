@@ -250,3 +250,34 @@ export async function getAsistenciasPorEtapa(range: Range = 'month'): Promise<
 
   return Array.from(grupos.entries()).map(([etapa, v]) => ({ etapa, ...v }));
 }
+
+
+/* ---------- Agendados por semana (vista v_agendados) ---------- */
+export async function getAgendadosPorSemana(): Promise<
+  Array<{ etapa_modulo: string; agendados_pendientes: number }>
+> {
+  const supabase = getClient();
+
+  const { data, error } = await supabase
+    .from('v_agendados')
+    .select('etapa, modulo');
+
+  if (error) {
+    console.error('getAgendadosPorSemana:', error.message);
+    return [];
+  }
+  if (!data) return [];
+
+  // Agrupamos manualmente porque Supabase no hace group by directo con count
+  const agg = new Map<string, number>();
+
+  for (const row of data as { etapa: string; modulo: number }[]) {
+    const key = `${row.etapa} ${row.modulo}`;
+    agg.set(key, (agg.get(key) ?? 0) + 1);
+  }
+
+  return Array.from(agg.entries()).map(([etapa_modulo, agendados_pendientes]) => ({
+    etapa_modulo,
+    agendados_pendientes,
+  }));
+}
