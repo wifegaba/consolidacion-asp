@@ -16,6 +16,10 @@ import {
 } from "recharts";
 
 
+
+
+
+
 type DetalleSeccionesProps = {
   asistEtapas: any[];
   agendados?: { etapa_modulo: string; agendados_pendientes: number }[];

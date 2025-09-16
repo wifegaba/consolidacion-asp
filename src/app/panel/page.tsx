@@ -18,6 +18,10 @@ function formatNumber(n: number) {
   return new Intl.NumberFormat("es-CO").format(n);
 }
 
+
+
+
+
 export default async function Page() {
   // Totales base
   const totalContactos    = await getContactosCount();

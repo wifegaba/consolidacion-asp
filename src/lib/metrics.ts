@@ -68,6 +68,10 @@ export async function getServidoresCount(): Promise<number> {
   return count ?? 0;
 }
 
+
+
+
+
 /* ---------- Restauración (progreso activos en etapa=Restauracion) ---------- */
 export async function getRestauracionCount(): Promise<number> {
   const supabase = getClient();
