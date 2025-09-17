@@ -47,18 +47,32 @@ export default async function Page() {
 
       {/* KPI Row */}
       <div className="kpi-row">
-        <ContactosWidget label="Contactos" value={formatNumber(totalContactos)} delta="+" />
 
-        <article className="kpi-card" aria-label="Servidores">
+
+        <article className="kpi-card contactos" aria-label="Contactos">
+  <div className="kpi-top">
+    <span className="kpi-label">Contactos</span>
+  </div>
+  <div className="kpi-value">{formatNumber(totalContactos)}</div>
+  <span className="text-sm font-medium text-green-500">+</span>
+</article>
+
+       
+       
+       
+        <article className="kpi-card servidores" aria-label="Servidores">
           <div className="kpi-top"><span className="kpi-label">Servidores</span></div>
           <div className="kpi-value">{formatNumber(totalServidores)}</div>
         </article>
 
+     
+     
+    
         {/* KPI Asistencias */}
         <article
-          className="kpi-card clickable"
+          className="kpi-card asistencias"
           data-key="asistencias"
-        >
+        >  
 <div className="flex items-center justify-between">
   <span className="kpi-label">Asistencias</span>
 </div>
@@ -77,7 +91,7 @@ export default async function Page() {
 
         {/* KPI Agendados (NUEVA) */}
         <article
-          className="kpi-card clickable"
+          className="kpi-card agendados"
           data-key="agendados"
         >
             
