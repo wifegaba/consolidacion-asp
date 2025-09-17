@@ -1,5 +1,6 @@
 // src/lib/metrics.ts
 import { createClient } from '@supabase/supabase-js';
+import { unstable_noStore as noStore } from "next/cache";
 
 export type Range = 'today' | 'week' | 'month' | undefined;
 
