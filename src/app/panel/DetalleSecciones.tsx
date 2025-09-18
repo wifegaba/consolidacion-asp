@@ -210,7 +210,7 @@ export default function DetalleSecciones({
 
           {/* PANEL DERECHO */}
           <section className="card premium-glass animate-slideIn panel-compact">
-            <div className="card-head pb-0 compact-head">
+            <div className="card-head pb-0">
               <h2 className="card-title">Detalle por etapa</h2>
             </div>
 

@@ -92,12 +92,51 @@ const cultosOpciones: Record<DiaKey, string[]> = {
     SÁBADO: ['Ayuno Familiar', 'Jóvenes'],
 };
 
-const ROLES_FILA_1 = ['Logistica', 'Contactos', 'Maestros', 'Practicantes'];
-const ROLES_FILA_2 = ['Timoteos', 'Coordinador', 'Director'];
+const ROLES_FILA_1 = ['Logistica', 'Contactos', 'Maestros'];
+const ROLES_FILA_2 = ['Director'];
+
+const ROLE_UI_LABEL: Record<string, string> = {
+    Maestros: 'Coordinadores',
+    Contactos: 'Timoteos',
+};
+
+const uiRoleLabel = (v: string) => ROLE_UI_LABEL[v] ?? v;
 
 const trim = (s: string) => (s ?? '').trim();
 const esVacio = (s: string) => !trim(s);
 
+
+
+type AsigBase = { id?: number; vigente?: boolean };
+
+const getVigente = <T extends AsigBase>(arr?: T[]) =>
+  (arr ?? []).find(a => !!a.vigente) ?? (arr && arr.length ? arr[0] : undefined);
+
+const comparaMasReciente = (a?: AsigBase[], b?: AsigBase[]) => {
+  const ida = a?.[0]?.id ?? -1;   // se asume orden DESC por id en la query
+  const idb = b?.[0]?.id ?? -1;
+  return ida >= idb ? 'contactos' : 'maestros';
+};
+
+// Devuelve 'Contactos' | 'Maestros' | ''
+const rolDesdeServidor = (s: ServidorRow): 'Contactos' | 'Maestros' | '' => {
+  const vigC = (s.asignaciones_contacto ?? []).some(x => x.vigente);
+  const vigM = (s.asignaciones_maestro ?? []).some(x => x.vigente);
+
+  if (vigC) return 'Contactos';
+  if (vigM) return 'Maestros';
+
+  const hasC = (s.asignaciones_contacto?.length ?? 0) > 0;
+  const hasM = (s.asignaciones_maestro?.length ?? 0) > 0;
+  if (!hasC && !hasM) return '';
+
+  return comparaMasReciente(s.asignaciones_contacto, s.asignaciones_maestro) === 'contactos'
+    ? 'Contactos'
+    : 'Maestros';
+};
+
+const getVigenteContacto = (s: ServidorRow) => getVigente(s.asignaciones_contacto);
+const getVigenteMaestro  = (s: ServidorRow) => getVigente(s.asignaciones_maestro);
 const norm = (t: string) =>
     (t ?? '')
         .normalize('NFD')
@@ -219,7 +258,7 @@ export default function Servidores() {
     const [timoteoModalVisible, setTimoteoModalVisible] = useState(false);
 
     // Semana (solo Contactos)
-    const [contactosSemana, setContactosSemana] = useState<string>('');
+    const [contactosSemana, setContactosSemana] = useState<string>('Semana 1');
     // Día PTM
     const [contactosDia, setContactosDia] = useState<AppEstudioDia | ''>('');
 
@@ -408,46 +447,62 @@ export default function Servidores() {
     };
 
     const pickResult = (s: ServidorRow) => {
-        setForm((prev) => ({
-            ...prev,
-            nombre: s.nombre ?? '',
-            telefono: s.telefono ?? '',
-            cedula: s.cedula ?? '',
-            rol:
-                s.asignaciones_contacto && s.asignaciones_contacto.length > 0
-                    ? 'Contactos'
-                    : s.asignaciones_maestro && s.asignaciones_maestro.length > 0
-                        ? 'Maestros'
-                        : '',
-        }));
+  // Determina rol correcto: vigente > más reciente
+  const rol = rolDesdeServidor(s);
 
-        if (s.asignaciones_contacto && s.asignaciones_contacto.length > 0) {
-            const a = s.asignaciones_contacto[0];
-            setContactosDia(a.dia);
-            setContactosSemana(`Semana ${a.semana}`);
-            if (a.etapa === 'Semillas') selectNivel('Semillas', nivelSemillasSel || '1');
-            if (a.etapa === 'Devocionales') selectNivel('Devocionales', nivelDevSel || '1');
-            if (a.etapa === 'Restauracion') selectNivel('Restauración', nivelResSel || '1');
-        } else if (s.asignaciones_maestro && s.asignaciones_maestro.length > 0) {
-            const a = s.asignaciones_maestro[0];
-            setContactosDia(a.dia);
-            const det = parseEtapaDetFromDb(a.etapa);
-            if (det) selectNivel(det.grupoUI, det.num);
-            else {
-                if (a.etapa === 'Semillas') selectNivel('Semillas', nivelSemillasSel || '1');
-                if (a.etapa === 'Devocionales') selectNivel('Devocionales', nivelDevSel || '1');
-                if (a.etapa === 'Restauracion') selectNivel('Restauración', nivelResSel || '1');
-            }
-            setContactosSemana(''); // Maestros no usa semana
-        } else {
-            setContactosDia('');
-            setContactosSemana('');
-            setNivelSeleccionado('');
-            setNivelSemillasSel('');
-            setNivelDevSel('');
-            setNivelResSel('');
-        }
-    };
+  setForm(prev => ({
+    ...prev,
+    nombre: s.nombre ?? '',
+    telefono: s.telefono ?? '',
+    cedula: s.cedula ?? '',
+    rol,
+  }));
+
+  if (rol === 'Contactos') {
+    const a = getVigenteContacto(s);
+    if (a) {
+      setContactosDia(a.dia);
+      setContactosSemana(`Semana ${a.semana ?? 1}`);
+      if (a.etapa === 'Semillas')         selectNivel('Semillas',      nivelSemillasSel || '1');
+      else if (a.etapa === 'Devocionales') selectNivel('Devocionales',  nivelDevSel      || '1');
+      else if (a.etapa === 'Restauracion') selectNivel('Restauración',  nivelResSel      || '1');
+    } else {
+      setContactosDia('');
+      setContactosSemana('Semana 1');
+      setNivelSeleccionado('');
+      setNivelSemillasSel('');
+      setNivelDevSel('');
+      setNivelResSel('');
+    }
+  } else if (rol === 'Maestros') {
+    const a = getVigenteMaestro(s);
+    if (a) {
+      setContactosDia(a.dia);
+      const det = parseEtapaDetFromDb(a.etapa);
+      if (det) selectNivel(det.grupoUI, det.num);
+      else {
+        if (a.etapa === 'Semillas')         selectNivel('Semillas',      nivelSemillasSel || '1');
+        else if (a.etapa === 'Devocionales') selectNivel('Devocionales',  nivelDevSel      || '1');
+        else if (a.etapa === 'Restauracion') selectNivel('Restauración',  nivelResSel      || '1');
+      }
+      setContactosSemana('');
+    } else {
+      setContactosDia('');
+      setContactosSemana('Semana 1');
+      setNivelSeleccionado('');
+      setNivelSemillasSel('');
+      setNivelDevSel('');
+      setNivelResSel('');
+    }
+  } else {
+    setContactosDia('');
+    setContactosSemana('Semana 1');
+    setNivelSeleccionado('');
+    setNivelSemillasSel('');
+    setNivelDevSel('');
+    setNivelResSel('');
+  }
+};
 
     // Cargar observaciones al abrir el detalle
     useEffect(() => {
@@ -515,7 +570,7 @@ export default function Servidores() {
         });
         setErrores({});
         setEditMode(false);
-        setContactosSemana('');
+        setContactosSemana('Semana 1');
         setContactosDia('');
         setNivelSeleccionado('');
         setNivelSemillasSel('');
@@ -1033,37 +1088,6 @@ export default function Servidores() {
                                 style={{ flex: '1 1 auto', overflow: 'visible' }}
                             >
                                 <div className="srv-modal-grid">
-                                    {rolEs(form.rol, 'Contactos') && (
-                                        <section className="srv-card" ref={modalSemanaRef}>
-                                            <h4 className="srv-card__title">Selecciona la Semana</h4>
-                                            <div className="srv-card__content">
-                                                <div className="srv-roles-grid srv-roles-grid--weeks">
-                                                    {['Semana 1', 'Semana 2', 'Semana 3'].map((sem) => (
-                                                        <label key={sem} className="srv-radio">
-                                                            <input
-                                                                type="radio"
-                                                                name="sem-contactos"
-                                                                className="srv-radio-input"
-                                                                checked={contactosSemana === sem}
-                                                                onChange={() => { setContactosSemana(sem); if (guidedError?.key === 'semana') setGuidedError(null); }}
-                                                            />
-                                                            <div className="srv-radio-card">
-                                                                <span className="srv-radio-dot" />
-                                                                <span className="srv-radio-text">{sem}</span>
-                                                            </div>
-                                                        </label>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                            {guidedError?.key === 'semana' && (
-                                                <div className="srv-callout" role="alert" style={{ marginTop: 8 }}>
-                                                    <span className="srv-callout-icon">!</span>
-                                                    {guidedError.msg}
-                                                </div>
-                                            )}
-                                        </section>
-                                    )}
-
                                     <section className="srv-card" ref={modalDiaRef}>
                                         <h4 className="srv-card__title">Día PTM</h4>
                                         <div className="srv-card__content">
@@ -1256,7 +1280,7 @@ export default function Servidores() {
                                     />
                                     <div className="srv-radio-card">
                                         <span className="srv-radio-dot" />
-                                        <span className="srv-radio-text">{r}</span>
+                                        <span className="srv-radio-text">{uiRoleLabel(r)}</span>
                                     </div>
                                 </label>
                             );
@@ -1427,7 +1451,12 @@ export default function Servidores() {
                                     <div className="list-cell col-ced" role="cell">{s.cedula || '—'}</div>
                                     <div className="list-cell col-etp" role="cell">{etapaDiaFromRow(s).etapa}</div>
                                     <div className="list-cell col-dia" role="cell">{etapaDiaFromRow(s).dia}</div>
-                                    <div className="list-cell col-rol" role="cell">{(s.asignaciones_contacto?.some(a=>a?.vigente) ? 'Contactos' : (s.asignaciones_maestro?.some(a=>a?.vigente) ? 'Maestros' : '—'))}</div>
+                                    <div className="list-cell col-rol" role="cell">{(() => {
+                                        const rawRol = s.asignaciones_contacto?.some(a => a?.vigente)
+                                            ? 'Contactos'
+                                            : (s.asignaciones_maestro?.some(a => a?.vigente) ? 'Maestros' : '—');
+                                        return uiRoleLabel(rawRol);
+                                    })()}</div>
                                     <div className="list-cell col-act" role="cell">
                                         <button className="srv-btn list-select" onClick={() => { applyPick(s); cerrarListado(); }}>Seleccionar</button>
                                     </div>
@@ -1493,7 +1522,7 @@ export default function Servidores() {
                         </span>
                                                 <span className="meta-dot">•</span>
                                                 <span className="meta-item">
-                          <label>Rol:</label> {roleFromRow(s)}
+                          <label>Rol:</label> {uiRoleLabel(roleFromRow(s))}
                         </span>
                                                 <span className="meta-dot">•</span>
                                                 <span className="meta-item">
@@ -1539,7 +1568,7 @@ export default function Servidores() {
                                             <div className="view-row"><label>Nombre:</label> <span>{detalleSel.nombre || '—'}</span></div>
                                             <div className="view-row"><label>Teléfono:</label> <span>{detalleSel.telefono || '—'}</span></div>
                                             <div className="view-row"><label>Cédula:</label> <span>{detalleSel.cedula || '—'}</span></div>
-                                            <div className="view-row"><label>Rol:</label> <span>{roleFromRow(detalleSel)}</span></div>
+                                            <div className="view-row"><label>Rol:</label> <span>{uiRoleLabel(roleFromRow(detalleSel))}</span></div>
                                             <div className="view-row"><label>Día:</label> <span>{((detalleSel.asignaciones_contacto?.find(a => a.vigente)?.dia ?? detalleSel.asignaciones_maestro?.find(a => a.vigente)?.dia) || (detalleSel.asignaciones_contacto?.find(a => a.vigente)?.dia ?? detalleSel.asignaciones_maestro?.find(a => a.vigente)?.dia) || '—')}</span></div>
                                             <div className="view-row"><label>Etapa:</label> <span>{((detalleSel.asignaciones_contacto?.find(a => a.vigente)?.etapa ?? detalleSel.asignaciones_maestro?.find(a => a.vigente)?.etapa) || (detalleSel.asignaciones_contacto?.find(a => a.vigente)?.etapa ?? detalleSel.asignaciones_maestro?.find(a => a.vigente)?.etapa) || '—')}</span></div>
                                         </div>
