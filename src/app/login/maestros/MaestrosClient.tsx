@@ -118,6 +118,24 @@ const LEFT_PANEL_VARIANTS = {
   }
 };
 
+const RIGHT_PANEL_VARIANTS = {
+  initial: { opacity: 0, x: 160, scale: 0.96, filter: 'blur(14px)' },
+  animate: {
+    opacity: 1,
+    x: 0,
+    scale: 1,
+    filter: 'blur(0px)',
+    transition: { duration: 0.6, ease: EASE_SMOOTH }
+  },
+  exit: {
+    opacity: 0,
+    x: -110,
+    scale: 0.97,
+    filter: 'blur(10px)',
+    transition: { duration: 0.45, ease: EASE_EXIT }
+  }
+};
+
 const LIST_WRAPPER_VARIANTS = {
   initial: {
     transition: { staggerChildren: 0.035, staggerDirection: -1 }
@@ -228,7 +246,7 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
   const diaRef = useRef<Dia | null>(dia);
   const asigRef = useRef<MaestroAsignacion | null>(null);
   const pendRef = useRef<PendRowUI[]>([]);
-  const rightPanelRef = useRef<HTMLDivElement | null>(null);
+  const rightPanelRef = useRef<HTMLElement | null>(null);
 
 
   useEffect(() => { semanaRef.current = semana; }, [semana]);
@@ -841,44 +859,54 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
         
 
           {/* Panel derecho de llamada */}
-          <section ref={rightPanelRef} className={`rounded-[20px] bg-white/55 supports-[backdrop-filter]:bg-white/35 backdrop-blur-xl shadow-[0_18px_44px_-18px_rgba(0,0,0,.35)] ring-1 ring-white/60 p-4 md:p-5 ${!selectedId ? 'hidden lg:block' : ''}`}>
-            {!selectedId ? (
-              <div className="grid place-items-center text-neutral-700 h-full">
-                Selecciona un nombre de la lista para llamar / registrar.
-              </div>
-            ) : (
-              <>
-                {/* Botón volver: solo móvil */}
-                <div className="mb-3 lg:hidden">
-                  <button
-                    type="button"
-                    onClick={() => setSelectedId(null)}
-                    className="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-semibold ring-1 ring-white/60 bg-white/70 hover:bg-white/90"
-                  >
-                    <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
-                      <path d="M15.7 5.3a1 1 0 0 1 0 1.4L11.4 11l4.3 4.3a1 1 0 1 1-1.4 1.4l-5-5a1 1 0 0 1 0-1.4l5-5a1 1 0 0 1 1.4 0Z" fill="currentColor"/>
-                    </svg>
-                    Volver
-                  </button>
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.section
+              key={selectedId ?? 'empty'}
+              ref={rightPanelRef}
+              variants={RIGHT_PANEL_VARIANTS}
+              initial="initial"
+              animate="animate"
+              exit="exit"
+              className={`rounded-[20px] bg-white/55 supports-[backdrop-filter]:bg-white/35 backdrop-blur-xl shadow-[0_18px_44px_-18px_rgba(0,0,0,.35)] ring-1 ring-white/60 p-4 md:p-5 ${!selectedId ? 'hidden lg:block' : ''}`}
+            >
+              {!selectedId ? (
+                <div className="grid place-items-center text-neutral-700 h-full">
+                  Selecciona un nombre de la lista para llamar / registrar.
                 </div>
+              ) : (
+                <>
+                  {/* Boton volver: solo movil */}
+                  <div className="mb-3 lg:hidden">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedId(null)}
+                      className="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-semibold ring-1 ring-white/60 bg-white/70 hover:bg-white/90"
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M15.7 5.3a1 1 0 0 1 0 1.4L11.4 11l4.3 4.3a1 1 0 1 1-1.4 1.4l-5-5a1 1 0 0 1 0-1.4l5-5a1 1 0 0 1 1.4 0Z" fill="currentColor"/>
+                      </svg>
+                      Volver
+                    </button>
+                  </div>
 
-                {(() => {
-                  const sel = pendRef.current.find((p) => p.progreso_id === selectedId);
-                  return sel ? (
-                    <FollowUp
-                      semana={semana}
-                      dia={dia}
-                      row={sel}
-                      saving={saving}
-                      onSave={enviarResultado}
-                    />
-                  ) : (
-                    <div className="p-6 text-neutral-700">Selecciona un registro válido para continuar.</div>
-                  );
-                })()}
-              </>
-            )}
-          </section>
+                  {(() => {
+                    const sel = pendRef.current.find((p) => p.progreso_id === selectedId);
+                    return sel ? (
+                      <FollowUp
+                        semana={semana}
+                        dia={dia}
+                        row={sel}
+                        saving={saving}
+                        onSave={enviarResultado}
+                      />
+                    ) : (
+                      <div className="p-6 text-neutral-700">Selecciona un registro valido para continuar.</div>
+                    );
+                  })()}
+                </>
+              )}
+            </motion.section>
+          </AnimatePresence>
         </div>
 
         {/* ===== Asistencias ===== */}
