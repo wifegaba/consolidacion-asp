@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabaseClient';
 import { getPersonaIdDesdeProgreso, getObservacionesPersona } from '@/lib/api';
 import PersonaNueva from '@/app/panel/contactos/page';
 import Servidores from '@/app/panel/servidores/page';
+import { AnimatePresence, motion } from "framer-motion";
 
 /* ================= Tipos ================= */
 type Dia = 'Domingo' | 'Martes' | 'Virtual';
@@ -83,6 +84,9 @@ const RPC_REACTIVAR = 'fn_reactivar_desde_archivo';
 const NEW_UI_MS = 5000;
 const CHANGED_UI_MS = 3000;
 
+const EASE_SMOOTH = [0.16, 1, 0.3, 1] as const;
+const EASE_EXIT = [0.7, 0, 0.84, 0] as const;
+
 const resultadoLabels: Record<Resultado, string> = {
   confirmo_asistencia: 'CONFIRMÓ ASISTENCIA',
   no_contesta: 'NO CONTESTA',
@@ -94,6 +98,44 @@ const resultadoLabels: Record<Resultado, string> = {
   vive_fuera: 'VIVE FUERA DE LA CIUDAD',
   murio: 'MURIÓ',
   rechazado: 'NO ME INTERESA',
+};
+
+const LEFT_PANEL_VARIANTS = {
+  initial: { opacity: 0, x: 160, scale: 0.96, filter: 'blur(14px)' },
+  animate: {
+    opacity: 1,
+    x: 0,
+    scale: 1,
+    filter: 'blur(0px)',
+    transition: { duration: 0.6, ease: EASE_SMOOTH }
+  },
+  exit: {
+    opacity: 0,
+    x: -110,
+    scale: 0.97,
+    filter: 'blur(10px)',
+    transition: { duration: 0.45, ease: EASE_EXIT }
+  }
+};
+
+const LIST_WRAPPER_VARIANTS = {
+  initial: {
+    transition: { staggerChildren: 0.035, staggerDirection: -1 }
+  },
+  animate: {
+    transition: { delayChildren: 0.12, staggerChildren: 0.055 }
+  }
+};
+
+const LIST_ITEM_VARIANTS = {
+  initial: { opacity: 0, x: 28, y: 14, scale: 0.97 },
+  animate: {
+    opacity: 1,
+    x: 0,
+    y: 0,
+    scale: 1,
+    transition: { duration: 0.5, ease: EASE_SMOOTH }
+  }
 };
 
 /* ================= Helpers ================= */
@@ -187,6 +229,8 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
   const asigRef = useRef<MaestroAsignacion | null>(null);
   const pendRef = useRef<PendRowUI[]>([]);
   const rightPanelRef = useRef<HTMLDivElement | null>(null);
+
+
   useEffect(() => { semanaRef.current = semana; }, [semana]);
   useEffect(() => { diaRef.current = dia; }, [dia]);
   useEffect(() => { asigRef.current = asig; }, [asig]);
@@ -710,67 +754,91 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
         {/* ===== Lista izquierda / Panel derecho ===== */}
         <div className="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-5 md:gap-6">
           {/* Lista */}
-          <section className={`rounded-[20px] bg-white/55 supports-[backdrop-filter]:bg-white/35 backdrop-blur-xl shadow-[0_18px_44px_-18px_rgba(0,0,0,.35)] ring-1 ring-white/60 overflow-hidden ${selectedId ? 'hidden lg:block' : ''}`}>
-            <header className="px-4 md:px-5 py-3 border-b border-white/50 backdrop-blur-xl bg-[radial-gradient(900px_200px_at_0%_-30%,rgba(56,189,248,0.16),transparent),radial-gradient(900px_240px_at_110%_-40%,rgba(99,102,241,0.14),transparent),linear-gradient(135deg,rgba(255,255,255,.70),rgba(255,255,255,.45))] supports-[backdrop-filter]:bg-[radial-gradient(900px_200px_at_0%_-30%,rgba(56,189,248,0.16),transparent),radial-gradient(900px_240px_at_110%_-40%,rgba(99,102,241,0.14),transparent),linear-gradient(135deg,rgba(255,255,255,.62),rgba(255,255,255,.38))]">
-              <h3 className="text-base md:text-lg font-semibold text-neutral-900">Llamadas pendientes</h3>
-              <p className="text-neutral-700 text-xs md:text-sm">
-                {loadingPend ? 'Cargando…' : 'Selecciona un contacto para registrar la llamada.'}
-              </p>
-            </header>
+<section className={`rounded-[20px] bg-white/55 supports-[backdrop-filter]:bg-white/35 backdrop-blur-xl shadow-[0_18px_44px_-18px_rgba(0,0,0,.35)] ring-1 ring-white/60 overflow-hidden ${selectedId ? 'hidden lg:block' : ''}`}>
+  <header className="px-4 md:px-5 py-3 border-b border-white/50 backdrop-blur-xl bg-[radial-gradient(900px_200px_at_0%_-30%,rgba(56,189,248,0.16),transparent),radial-gradient(900px_240px_at_110%_-40%,rgba(99,102,241,0.14),transparent),linear-gradient(135deg,rgba(255,255,255,.70),rgba(255,255,255,.45))] supports-[backdrop-filter]:bg-[radial-gradient(900px_200px_at_0%_-30%,rgba(56,189,248,0.16),transparent),radial-gradient(900px_240px_at_110%_-40%,rgba(99,102,241,0.14),transparent),linear-gradient(135deg,rgba(255,255,255,.62),rgba(255,255,255,.38))]">
+    <h3 className="text-base md:text-lg font-semibold text-neutral-900">Llamadas pendientes</h3>
+    <p className="text-neutral-700 text-xs md:text-sm">
+      {loadingPend ? 'Cargando…' : 'Selecciona un contacto para registrar la llamada.'}
+    </p>
+  </header>
 
-            {pendientes.length === 0 ? (
-              <div className="p-6 text-neutral-600">No hay llamadas con los filtros actuales.</div>
-            ) : (
-              <ul className="divide-y divide-white/50">
-                {pendientes.map((c) => (
-                  <li
-                    key={c.progreso_id}
-                    className={`px-4 md:px-5 py-3 hover:bg-white/40 cursor-pointer transition
-                      ${selectedId === c.progreso_id ? 'bg-white/50' : ''}
-                      rounded-lg m-2 ring-2 ${c._ui === 'new' ? 'ring-emerald-300/60 animate-fadeInScale' : 'ring-transparent'}
-                      ${c._ui === 'changed' ? 'animate-flashBg' : ''}
-                      transition-[box-shadow] duration-500`}
-                    onClick={() => setSelectedId(c.progreso_id)}
-                  >
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="flex items-start gap-3 min-w-0">
-                        <span className={`mt-1 inline-block h-2.5 w-2.5 rounded-full ${
-                          c._ui === 'new' ? 'bg-emerald-500 shadow-[0_0_0_4px_rgba(16,185,129,.25)] animate-newUiFade-5s' : 'bg-amber-400 shadow-[0_0_0_3px_rgba(251,191,36,.25)]'
-                        }`} />
-                        <div className="min-w-0">
-                          <div className="font-semibold text-neutral-900 leading-tight truncate">{c.nombre}</div>
-                          <div className="mt-0.5 inline-flex items-center gap-1.5 text-neutral-700 text-xs md:text-sm">
-                            <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" className="opacity-80">
-                              <path d="M6.6 10.8c1.3 2.5 3.1 4.4 5.6 5.6l2.1-2.1a1 1 0 0 1 1.1-.22c1.2.48 2.6.74 4 .74a1 1 0 0 1 1 1v3.5a1 1 0 0 1-1 1C12.1 20.3 3.7 11.9 3.7 2.7a1 1 0 0 1 1-1H8.2a1 1 0 0 1 1 1c0 1.4.26 2.8.74 4a1 1 0 0 1-.22 1.1l-2.1 2.1Z" fill="currentColor" />
-                            </svg>
-                            <span className="truncate">{c.telefono ?? '—'}</span>
-                          </div>
-                          {c._ui === 'new' && (
-                            <span className="mt-1 inline-flex items-center text-[10px] font-semibold text-emerald-800 bg-emerald-50 rounded-full px-2 py-0.5 ring-1 ring-emerald-200 animate-newUiFade-5s">
-                              Nuevo
-                            </span>
-                          )}
-                        </div>
+  {/* Contenedor animado premium (solo izquierda) */}
+  <div className="relative overflow-hidden grid">
+    <AnimatePresence mode="wait" initial={false}>
+      <motion.div
+        key={`${dia}-${semana}-${pendientes.length}`}
+        variants={LEFT_PANEL_VARIANTS}
+        initial="initial"
+        animate="animate"
+        exit="exit"
+        className="col-start-1 row-start-1"
+      >
+        {pendientes.length === 0 ? (
+          <div className="p-6 text-neutral-600">No hay llamadas con los filtros actuales.</div>
+        ) : (
+          <motion.ul
+            variants={LIST_WRAPPER_VARIANTS}
+            initial="initial"
+            animate="animate"
+            className="divide-y divide-white/50"
+          >
+            {pendientes.map((c) => (
+              <motion.li
+                key={c.progreso_id}
+                variants={LIST_ITEM_VARIANTS}
+                layout
+                className={`px-4 md:px-5 py-3 hover:bg-white/40 cursor-pointer transition
+                  ${selectedId === c.progreso_id ? 'bg-white/50' : ''}
+                  rounded-lg m-2 ring-2 ${c._ui === 'new' ? 'ring-emerald-300/60 animate-fadeInScale' : 'ring-transparent'}
+                  ${c._ui === 'changed' ? 'animate-flashBg' : ''}
+                  transition-[box-shadow] duration-500`}
+                onClick={() => setSelectedId(c.progreso_id)}
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex items-start gap-3 min-w-0">
+                    <span className={`mt-1 inline-block h-2.5 w-2.5 rounded-full ${
+                      c._ui === 'new'
+                        ? 'bg-emerald-500 shadow-[0_0_0_4px_rgba(16,185,129,.25)] animate-newUiFade-5s'
+                        : 'bg-amber-400 shadow-[0_0_0_3px_rgba(251,191,36,.25)]'
+                    }`} />
+                    <div className="min-w-0">
+                      <div className="font-semibold text-neutral-900 leading-tight truncate">{c.nombre}</div>
+                      <div className="mt-0.5 inline-flex items-center gap-1.5 text-neutral-700 text-xs md:text-sm">
+                        <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" className="opacity-80">
+                          <path d="M6.6 10.8c1.3 2.5 3.1 4.4 5.6 5.6l2.1-2.1a1 1 0 0 1 1.1-.22c1.2.48 2.6.74 4 .74a1 1 0 0 1 1 1v3.5a1 1 0 0 1-1 1C12.1 20.3 3.7 11.9 3.7 2.7a1 1 0 0 1 1-1H8.2a1 1 0 0 1 1 1c0 1.4.26 2.8.74 4a1 1 0 0 1-.22 1.1l-2.1 2.1Z" fill="currentColor" />
+                        </svg>
+                        <span className="truncate">{c.telefono ?? '—'}</span>
                       </div>
-
-                      <div className="shrink-0 text-right text-[11px] md:text-xs text-neutral-700 leading-5">
-                        {[c.llamada1 ?? null, c.llamada2 ?? null, c.llamada3 ?? null].map((r, idx) => (
-                          <div key={idx}>
-                            <span className="mr-1">Llamada {idx + 1}:</span>
-                            {r ? (
-                              <span className="font-medium text-neutral-900">{resultadoLabels[r as Resultado]}</span>
-                            ) : (
-                              <span className="italic">sin registro</span>
-                            )}
-                          </div>
-                        ))}
-                      </div>
+                      {c._ui === 'new' && (
+                        <span className="mt-1 inline-flex items-center text-[10px] font-semibold text-emerald-800 bg-emerald-50 rounded-full px-2 py-0.5 ring-1 ring-emerald-200 animate-newUiFade-5s">
+                          Nuevo
+                        </span>
+                      )}
                     </div>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
+                  </div>
+
+                  <div className="shrink-0 text-right text-[11px] md:text-xs text-neutral-700 leading-5">
+                    {[c.llamada1 ?? null, c.llamada2 ?? null, c.llamada3 ?? null].map((r, idx) => (
+                      <div key={idx}>
+                        <span className="mr-1">Llamada {idx + 1}:</span>
+                        {r ? (
+                          <span className="font-medium text-neutral-900">{resultadoLabels[r as Resultado]}</span>
+                        ) : (
+                          <span className="italic">sin registro</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </motion.li>
+            ))}
+          </motion.ul>
+        )}
+      </motion.div>
+    </AnimatePresence>
+  </div>
+</section>
+        
 
           {/* Panel derecho de llamada */}
           <section ref={rightPanelRef} className={`rounded-[20px] bg-white/55 supports-[backdrop-filter]:bg-white/35 backdrop-blur-xl shadow-[0_18px_44px_-18px_rgba(0,0,0,.35)] ring-1 ring-white/60 p-4 md:p-5 ${!selectedId ? 'hidden lg:block' : ''}`}>
@@ -1024,12 +1092,7 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
         }
         .animate-flashBg { animation: flashBg 1.2s ease-out 1; }
 
-        /* Suave fade-out para indicadores de "Nuevo" (píldora y óvalo) */
-        @keyframes newUiFade {
-          0%, 82% { opacity: 1; }
-          100% { opacity: 0; }
-        }
-        .animate-newUiFade-5s { animation: newUiFade 5s ease-out forwards; }
+    
       `}</style>
     </main>
   );

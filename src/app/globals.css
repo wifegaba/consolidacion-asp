@@ -19,3 +19,77 @@ body {
 }
 
 
+@keyframes tabIn {
+  0%   { opacity:0; transform:translateY(8px) scale(0.985); filter:blur(2px); }
+  60%  { opacity:.9; }
+  100% { opacity:1; transform:translateY(0) scale(1); filter:blur(0); }
+}
+.animate-tabIn { animation: tabIn .36s cubic-bezier(.22,1,.36,1) both; }
+
+.tabs-ink {
+  transition:
+    left .28s cubic-bezier(.22,1,.36,1),
+    width .28s cubic-bezier(.22,1,.36,1),
+    transform .28s cubic-bezier(.22,1,.36,1),
+    opacity .2s ease-out;
+  will-change: left, transform;
+}
+
+@keyframes claimPaneIn {
+  0%   { opacity:0; transform:translateX(64px) scale(.95); filter:blur(10px); }
+  55%  { opacity:1; transform:translateX(-18px) scale(1.02); filter:blur(2px); }
+  100% { opacity:1; transform:translateX(0) scale(1); filter:blur(0); }
+}
+.animate-claimPane {
+  position: relative;
+  animation: claimPaneIn .56s cubic-bezier(.16,1,.3,1) both;
+  will-change: transform, opacity, filter;
+  backface-visibility: hidden;
+}
+
+.pane-claim::before {
+  content: '';
+  position: absolute;
+  inset: -28% -60%;
+  background: linear-gradient(120deg, rgba(59,130,246,.45), rgba(14,165,233,.18));
+  transform: translateX(58%) skewX(-10deg);
+  opacity: 0;
+  pointer-events: none;
+  filter: blur(22px);
+  mix-blend-mode: screen;
+  animation: claimPaneSweep .6s cubic-bezier(.22,1,.36,1) .06s both;
+}
+
+@keyframes claimPaneSweep {
+  0%   { opacity:0; transform:translateX(60%) skewX(-12deg); }
+  32%  { opacity:.7; }
+  100% { opacity:0; transform:translateX(-12%) skewX(-4deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-tabIn,
+  .tabs-ink,
+  .animate-claimPane,
+  .pane-claim::before {
+    animation:none !important;
+    transition:none !important;
+    transform:none !important;
+    filter:none !important;
+    opacity:1 !important;
+  }
+}
+
+
+
+@keyframes enterFromRight { from {opacity:0; transform:translateX(24px);} to {opacity:1; transform:translateX(0);} }
+@keyframes enterFromLeft  { from {opacity:0; transform:translateX(-24px);} to {opacity:1; transform:translateX(0);} }
+@keyframes leaveToLeft  { from {opacity:1; transform:translateX(0);} to {opacity:0; transform:translateX(-24px);} }
+@keyframes leaveToRight { from {opacity:1; transform:translateX(0);} to {opacity:0; transform:translateX(24px);} }
+
+.panel-enter { position: relative; animation:.36s cubic-bezier(.22,1,.36,1) both; }
+.panel-leave { position:absolute; inset:0; animation:.36s cubic-bezier(.22,1,.36,1) both; pointer-events:none; }
+
+.enter-right { animation-name: enterFromRight; }
+.enter-left  { animation-name: enterFromLeft; }
+.leave-left  { animation-name: leaveToLeft; }
+.leave-right { animation-name: leaveToRight; }
