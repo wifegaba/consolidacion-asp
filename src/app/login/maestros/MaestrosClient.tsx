@@ -136,6 +136,49 @@ const RIGHT_PANEL_VARIANTS = {
   }
 };
 
+const MODAL_BACKDROP_VARIANTS = {
+  initial: { opacity: 0, backdropFilter: 'blur(0px)' },
+  animate: {
+    opacity: 1,
+    backdropFilter: 'blur(18px)',
+    transition: { duration: 0.6, ease: EASE_SMOOTH }
+  },
+  exit: {
+    opacity: 0,
+    backdropFilter: 'blur(0px)',
+    transition: { duration: 0.45, ease: EASE_EXIT }
+  }
+};
+
+const MODAL_PANEL_VARIANTS = {
+  initial: {
+    opacity: 0,
+    y: 56,
+    scale: 0.9,
+    rotateX: 8,
+    filter: 'blur(26px)',
+    transformPerspective: 1400
+  },
+  animate: {
+    opacity: 1,
+    y: 0,
+    scale: 1,
+    rotateX: 0,
+    filter: 'blur(0px)',
+    transformPerspective: 1400,
+    transition: { duration: 0.65, ease: EASE_SMOOTH }
+  },
+  exit: {
+    opacity: 0,
+    y: -40,
+    scale: 0.94,
+    rotateX: -6,
+    filter: 'blur(22px)',
+    transformPerspective: 1400,
+    transition: { duration: 0.5, ease: EASE_EXIT }
+  }
+};
+
 const LIST_WRAPPER_VARIANTS = {
   initial: {
     transition: { staggerChildren: 0.035, staggerDirection: -1 }
@@ -1055,50 +1098,78 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
       
       {/* Animaciones / estilos */}
       {/* Modal Nueva Alma */}
-      {nuevaAlmaOpen && (
-        <div className="fixed inset-0 z-[1000] flex justify-center items-start md:items-start overflow-y-auto bg-black/40 pt-4 md:pt-4">
-          <div className="relative w-[min(1100px,96vw)] max-h-[96vh] overflow-auto rounded-2xl bg-white/70 supports-[backdrop-filter]:bg-white/45 backdrop-blur-xl shadow-2xl ring-1 ring-white/60">
-            <div className="sticky top-0 z-10 flex items-center justify-between gap-3 px-4 md:px-5 py-3 border-b border-white/50 bg-white/70 backdrop-blur">
-              <h2 className="text-lg font-semibold text-neutral-900">Nueva Alma</h2>
-              <div className="flex items-center gap-2">
+      <AnimatePresence mode="wait" initial={false}>
+        {nuevaAlmaOpen && (
+          <motion.div
+            key="modal-nueva-alma"
+            className="fixed inset-0 z-[1000] flex min-h-[100dvh] items-start justify-center overflow-y-auto px-1.5 pt-0 pb-6 md:px-4 md:pt-4 md:pb-10 bg-[radial-gradient(1200px_850px_at_50%_-10%,rgba(191,219,254,0.24),transparent),radial-gradient(900px_620px_at_90%_0%,rgba(165,180,252,0.28),rgba(15,23,42,0.78))] supports-[backdrop-filter]:backdrop-blur-[22px]"
+            variants={MODAL_BACKDROP_VARIANTS}
+            initial="initial"
+            animate="animate"
+            exit="exit"
+            onClick={(event) => { if (event.target === event.currentTarget) { setNuevaAlmaOpen(false); } }}
+          >
+            <motion.div
+              variants={MODAL_PANEL_VARIANTS}
+              initial="initial"
+              animate="animate"
+              exit="exit"
+              className="relative w-[min(1100px,96vw)] max-h-[96vh] overflow-hidden rounded-[32px] border border-white/35 bg-[linear-gradient(160deg,rgba(255,255,255,0.94),rgba(240,244,255,0.74))] supports-[backdrop-filter]:bg-white/65 supports-[backdrop-filter]:backdrop-blur-[32px] shadow-[0_48px_140px_-50px_rgba(15,23,42,0.7)] ring-1 ring-white/50"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div className="sticky top-0 z-10 flex items-center justify-end px-3 md:px-5 py-2 border-b border-white/60 bg-white/70 supports-[backdrop-filter]:bg-white/55 backdrop-blur">
                 <button
                   type="button"
                   onClick={() => setNuevaAlmaOpen(false)}
-                  className="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-semibold ring-1 ring-white/60 bg-white/80 hover:bg-white/95 text-neutral-900"
+                  className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ring-1 ring-white/60 bg-white/80 text-neutral-800 shadow-sm backdrop-blur-sm transition-all duration-200 hover:bg-white hover:ring-white/80 hover:shadow-[0_18px_38px_-22px_rgba(15,23,42,0.55)] hover:-translate-y-0.5 md:px-3.5"
                 >
-                  Atrás
+                  Cerrar
                 </button>
               </div>
-            </div>
-            <div className="px-3 md:px-5 py-4">
-              <PersonaNueva />
-            </div>
-          </div>
-        </div>
-      )}
+              <div className="max-h-[calc(96vh-48px)] overflow-y-auto px-3 md:px-6 pb-4 pt-0">
+                <PersonaNueva />
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Modal Servidores */}
-      {servidoresOpen && (
-        <div className="fixed inset-0 z-[1000] flex justify-center items-start md:items-start overflow-y-auto bg-black/40 pt-4 md:pt-4">
-          <div className="relative w-[min(1200px,96vw)] max-h-[96vh] overflow-auto rounded-2xl bg-white/70 supports-[backdrop-filter]:bg-white/45 backdrop-blur-xl shadow-2xl ring-1 ring-white/60">
-            <div className="sticky top-0 z-10 flex items-center justify-between gap-3 px-4 md:px-5 py-3 border-b border-white/50 bg-white/70 backdrop-blur">
-              <h2 className="text-lg font-semibold text-neutral-900">Servidores</h2>
-              <div className="flex items-center gap-2">
+      <AnimatePresence mode="wait" initial={false}>
+        {servidoresOpen && (
+          <motion.div
+            key="modal-servidores"
+            className="fixed inset-0 z-[1000] flex min-h-[100dvh] items-start justify-center overflow-y-auto px-1.5 pt-0 pb-6 md:px-4 md:pt-4 md:pb-10 bg-[radial-gradient(1200px_850px_at_20%_-20%,rgba(125,211,252,0.22),transparent),radial-gradient(900px_620px_at_80%_0%,rgba(196,181,253,0.26),rgba(15,23,42,0.78))] supports-[backdrop-filter]:backdrop-blur-[22px]"
+            variants={MODAL_BACKDROP_VARIANTS}
+            initial="initial"
+            animate="animate"
+            exit="exit"
+            onClick={(event) => { if (event.target === event.currentTarget) { setServidoresOpen(false); } }}
+          >
+            <motion.div
+              variants={MODAL_PANEL_VARIANTS}
+              initial="initial"
+              animate="animate"
+              exit="exit"
+              className="relative w-[min(1200px,96vw)] max-h-[96vh] overflow-hidden rounded-[32px] border border-white/35 bg-[linear-gradient(160deg,rgba(255,255,255,0.94),rgba(236,241,255,0.72))] supports-[backdrop-filter]:bg-white/65 supports-[backdrop-filter]:backdrop-blur-[32px] shadow-[0_48px_140px_-50px_rgba(15,23,42,0.7)] ring-1 ring-white/50"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div className="sticky top-0 z-10 flex items-center justify-end px-3 md:px-5 py-2 border-b border-white/60 bg-white/70 supports-[backdrop-filter]:bg-white/55 backdrop-blur">
                 <button
                   type="button"
                   onClick={() => setServidoresOpen(false)}
-                  className="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-semibold ring-1 ring-white/60 bg-white/80 hover:bg-white/95 text-neutral-900"
+                  className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ring-1 ring-white/60 bg-white/80 text-neutral-800 shadow-sm backdrop-blur-sm transition-all duration-200 hover:bg-white hover:ring-white/80 hover:shadow-[0_18px_38px_-22px_rgba(15,23,42,0.55)] hover:-translate-y-0.5 md:px-3.5"
                 >
-                  Atrás
+                  Cerrar
                 </button>
               </div>
-            </div>
-            <div className="px-3 md:px-5 py-4">
-              <Servidores />
-            </div>
-          </div>
-        </div>
-      )}
+              <div className="max-h-[calc(96vh-48px)] overflow-y-auto px-3 md:px-6 pb-4 pt-0">
+                <Servidores />
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <style jsx global>{`
         @keyframes cardIn {
@@ -1321,7 +1392,7 @@ const openObsModal = async () => {
               {initials}
             </div>
             <div>
-              <div className="text-lg md:text-xl font-semibold text-neutral-900 leading-tight">
+              <div className="text-lg md:text-lg font-semibold text-neutral-900 leading-tight">
                 {row.nombre}
               </div>
               <div className="text-[12px] text-neutral-700 leading-none">
