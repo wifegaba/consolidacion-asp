@@ -75,6 +75,8 @@ type ObservacionRow = {
 
 /* ========= Constantes / Helpers ========= */
 
+const ADMIN_PASSWORD = 'Josmith2022';
+
 // Mínimo de caracteres para disparar la búsqueda online
 const MIN_SEARCH = 2;
 
@@ -212,6 +214,7 @@ export default function Servidores() {
     const modalSemanaRef = useRef<HTMLDivElement | null>(null);
     const modalDiaRef = useRef<HTMLDivElement | null>(null);
     const modalEtapasRef = useRef<HTMLDivElement | null>(null);
+    const adminPasswordRef = useRef<HTMLInputElement | null>(null);
 
     const [form, setForm] = useState<FormState>({
         nombre: '',
@@ -256,10 +259,60 @@ export default function Servidores() {
 
     // Modo edición (cuando eliges un registro desde Buscar)
     const [editMode, setEditMode] = useState(false);
+    const [cedulaUnlocked, setCedulaUnlocked] = useState(true);
+    const [adminPassModalVisible, setAdminPassModalVisible] = useState(false);
+    const [adminPassValue, setAdminPassValue] = useState('');
+    const [adminPassError, setAdminPassError] = useState<string | null>(null);
+
 
     useEffect(() => {
-        
-    }, []);
+        if (editMode) {
+            setCedulaUnlocked(false);
+            setAdminPassModalVisible(false);
+            setAdminPassValue('');
+            setAdminPassError(null);
+        } else {
+            setCedulaUnlocked(true);
+        }
+    }, [editMode]);
+
+    useEffect(() => {
+        if (adminPassModalVisible) {
+            const timer = setTimeout(() => adminPasswordRef.current?.focus(), 50);
+            return () => clearTimeout(timer);
+        }
+        return undefined;
+    }, [adminPassModalVisible]);
+
+    const openAdminPassModal = () => {
+        setAdminPassValue('');
+        setAdminPassError(null);
+        setAdminPassModalVisible(true);
+    };
+
+    const closeAdminPassModal = () => {
+        setAdminPassModalVisible(false);
+        setAdminPassValue('');
+        setAdminPassError(null);
+    };
+
+    const handleAdminPassSubmit = (event?: React.FormEvent) => {
+        if (event) event.preventDefault();
+        const pass = trim(adminPassValue);
+        if (!pass) {
+            setAdminPassError('Ingresa la contrasena del administrador.');
+            return;
+        }
+        if (pass !== ADMIN_PASSWORD) {
+            setAdminPassError('Contrasena incorrecta.');
+            return;
+        }
+        setCedulaUnlocked(true);
+        closeAdminPassModal();
+        requestAnimationFrame(() => {
+            inputCedulaRef.current?.focus();
+        });
+    };
 
     /* ========================= MODALES ========================= */
     const [contactosModalVisible, setContactosModalVisible] = useState(false);
@@ -578,6 +631,10 @@ export default function Servidores() {
         });
         setErrores({});
         setEditMode(false);
+        setCedulaUnlocked(true);
+        setAdminPassModalVisible(false);
+        setAdminPassValue('');
+        setAdminPassError(null);
         setContactosSemana('Semana 1');
         setContactosDia('');
         setNivelSeleccionado('');
@@ -1237,15 +1294,28 @@ export default function Servidores() {
                         <input
                             type="text"
                             ref={inputCedulaRef}
-                            value={editMode ? maskCedulaValue(form.cedula) : form.cedula}
+                            value={editMode && !cedulaUnlocked ? maskCedulaValue(form.cedula) : form.cedula}
                             onChange={(e) => {
+                                if (editMode && !cedulaUnlocked) return;
                                 setForm((f) => ({ ...f, cedula: e.target.value }));
                                 if (e.target.value.trim()) setErrores((prev) => ({ ...prev, cedula: null }));
                                 if (guidedError?.key === 'cedula' && e.target.value.trim()) setGuidedError(null);
                             }}
-                            placeholder="Cédula"
+                            onFocus={(e) => {
+                                if (editMode && !cedulaUnlocked) {
+                                    e.target.blur();
+                                    openAdminPassModal();
+                                }
+                            }}
+                            onMouseDown={(e) => {
+                                if (editMode && !cedulaUnlocked) {
+                                    e.preventDefault();
+                                    openAdminPassModal();
+                                }
+                            }}
+                            placeholder="CǸdula"
                             className={errores.cedula ? 'srv-input-error' : ''}
-                            disabled={editMode}
+                            readOnly={editMode && !cedulaUnlocked}
                         />
                         {guidedError?.key === 'cedula' && (
                             <div className="srv-callout" role="alert">
@@ -1627,6 +1697,40 @@ export default function Servidores() {
                 </div>
             )}
 
+
+
+            {adminPassModalVisible && (
+                <div className="srv-modal" role="dialog" aria-modal="true">
+                    <div className="srv-modal__box premium-box">
+                        <button className="srv-modal__close" aria-label="Cerrar" onClick={closeAdminPassModal}>×</button>
+                        <div className="premium-content">
+                            <h4 className="premium-title">Acceso premium requerido</h4>
+                            <p className="premium-text">Ingresa la contrasena del administrador para editar la cedula.</p>
+                            <form onSubmit={handleAdminPassSubmit}>
+                                <label className="premium-label" htmlFor="admin-pass">Contrasena del administrador</label>
+                                <input
+                                    id="admin-pass"
+                                    ref={adminPasswordRef}
+                                    type="password"
+                                    value={adminPassValue}
+                                    onChange={(e) => {
+                                        setAdminPassValue(e.target.value);
+                                        if (adminPassError) setAdminPassError(null);
+                                    }}
+                                    className={adminPassError ? 'srv-input-error' : ''}
+                                    placeholder="********"
+                                    autoComplete="off"
+                                />
+                                {adminPassError && <div className="srv-error">** {adminPassError}</div>}
+                                <div className="srv-actions" style={{ marginTop: 18 }}>
+                                    <button type="button" className="srv-btn" onClick={closeAdminPassModal}>Cancelar</button>
+                                    <button type="submit" className="srv-btn srv-btn-primary">Desbloquear</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            )}
             {/* Confirmación de eliminación */}
             {detalleVisible && confirmDetalleDelete && detalleSel && (
                 <div className="srv-modal" role="dialog" aria-modal="true">
@@ -1930,6 +2034,22 @@ export default function Servidores() {
                     cursor: pointer; font-size: 16px; line-height: 1; opacity: .85;
                     box-shadow: inset 1px 1px 3px rgba(255,255,255,.85), inset -1px -1px 3px rgba(0,0,0,.05);
                 }
+                .premium-box{
+                    max-width: 420px;
+                    padding: 24px 24px 18px;
+                    border-radius: 22px;
+                    background: linear-gradient(180deg, rgba(255,255,255,.96), rgba(242,246,255,.94));
+                    box-shadow: inset 2px 2px 8px rgba(255,255,255,.85), inset -2px -2px 6px rgba(0,0,0,.05), 0 18px 32px rgba(0,0,0,.12);
+                }
+                .premium-content{ display:flex; flex-direction:column; gap:12px; }
+                .premium-title{ margin:0; font-size:20px; font-weight:800; color:#10224c; }
+                .premium-text{ margin:0; font-size:14px; color:#30426a; line-height:1.5; }
+                .premium-label{ display:block; margin-bottom:6px; font-weight:600; color:#22345a; }
+                .premium-content input[type="password"]{ width:100%; padding:10px 14px; border-radius:12px; border:1px solid rgba(16,36,92,.18); background: linear-gradient(180deg, rgba(255,255,255,.96), rgba(247,249,255,.92)); box-shadow: inset 1px 1px 3px rgba(255,255,255,.85), inset -1px -1px 3px rgba(0,0,0,.05); font-size:14px; }
+                .premium-content input[type="password"]:focus{ outline:none; border-color:rgba(78,118,255,.45); box-shadow: inset 1px 1px 3px rgba(255,255,255,.9), 0 0 0 3px rgba(88,132,255,.22); }
+                .srv-btn-primary{ background: linear-gradient(180deg, #5f8dff, #3f6be8); color:#fff; font-weight:700; box-shadow: inset 1px 1px 3px rgba(255,255,255,.25), 0 10px 20px rgba(68,102,220,.22); }
+                .srv-btn-primary:hover{ filter:brightness(1.03); box-shadow: inset 1px 1px 3px rgba(255,255,255,.25), 0 12px 24px rgba(68,102,220,.3); }
+                .srv-btn-primary:active{ transform:translateY(0.5px); }
                 /* Confirmación eliminar */
                 .confirm-box{
                     max-width: 520px;
