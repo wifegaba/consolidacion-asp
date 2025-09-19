@@ -105,6 +105,14 @@ const uiRoleLabel = (v: string) => ROLE_UI_LABEL[v] ?? v;
 const trim = (s: string) => (s ?? '').trim();
 const esVacio = (s: string) => !trim(s);
 
+const maskCedulaValue = (value?: string | null) => {
+    const base = trim(value ?? '');
+    if (!base) return '';
+    return base.replace(/\S/g, '*');
+};
+
+const maskCedulaDisplay = (value?: string | null) => maskCedulaValue(value) || '—';
+
 
 
 type AsigBase = { id?: number; vigente?: boolean };
@@ -1229,7 +1237,7 @@ export default function Servidores() {
                         <input
                             type="text"
                             ref={inputCedulaRef}
-                            value={form.cedula}
+                            value={editMode ? maskCedulaValue(form.cedula) : form.cedula}
                             onChange={(e) => {
                                 setForm((f) => ({ ...f, cedula: e.target.value }));
                                 if (e.target.value.trim()) setErrores((prev) => ({ ...prev, cedula: null }));
@@ -1237,6 +1245,7 @@ export default function Servidores() {
                             }}
                             placeholder="Cédula"
                             className={errores.cedula ? 'srv-input-error' : ''}
+                            disabled={editMode}
                         />
                         {guidedError?.key === 'cedula' && (
                             <div className="srv-callout" role="alert">
@@ -1448,7 +1457,7 @@ export default function Servidores() {
                                     <div className="list-cell col-idx" role="cell">{(listPage-1)*listPageSize + i + 1}</div>
                                     <div className="list-cell col-name" role="cell">{s.nombre || '—'}</div>
                                     <div className="list-cell col-tel" role="cell">{s.telefono || '—'}</div>
-                                    <div className="list-cell col-ced" role="cell">{s.cedula || '—'}</div>
+                                    <div className="list-cell col-ced" role="cell">{maskCedulaDisplay(s.cedula)}</div>
                                     <div className="list-cell col-etp" role="cell">{etapaDiaFromRow(s).etapa}</div>
                                     <div className="list-cell col-dia" role="cell">{etapaDiaFromRow(s).dia}</div>
                                     <div className="list-cell col-rol" role="cell">{(() => {
@@ -1518,7 +1527,7 @@ export default function Servidores() {
                         </span>
                                                 <span className="meta-dot">•</span>
                                                 <span className="meta-item">
-                          <label>Cédula:</label> {s.cedula || '—'}
+                          <label>Cédula:</label> {maskCedulaDisplay(s.cedula)}
                         </span>
                                                 <span className="meta-dot">•</span>
                                                 <span className="meta-item">
@@ -1567,7 +1576,7 @@ export default function Servidores() {
                                         <div className="view-grid">
                                             <div className="view-row"><label>Nombre:</label> <span>{detalleSel.nombre || '—'}</span></div>
                                             <div className="view-row"><label>Teléfono:</label> <span>{detalleSel.telefono || '—'}</span></div>
-                                            <div className="view-row"><label>Cédula:</label> <span>{detalleSel.cedula || '—'}</span></div>
+                                            <div className="view-row"><label>Cédula:</label> <span>{maskCedulaDisplay(detalleSel.cedula)}</span></div>
                                             <div className="view-row"><label>Rol:</label> <span>{uiRoleLabel(roleFromRow(detalleSel))}</span></div>
                                             <div className="view-row"><label>Día:</label> <span>{((detalleSel.asignaciones_contacto?.find(a => a.vigente)?.dia ?? detalleSel.asignaciones_maestro?.find(a => a.vigente)?.dia) || (detalleSel.asignaciones_contacto?.find(a => a.vigente)?.dia ?? detalleSel.asignaciones_maestro?.find(a => a.vigente)?.dia) || '—')}</span></div>
                                             <div className="view-row"><label>Etapa:</label> <span>{((detalleSel.asignaciones_contacto?.find(a => a.vigente)?.etapa ?? detalleSel.asignaciones_maestro?.find(a => a.vigente)?.etapa) || (detalleSel.asignaciones_contacto?.find(a => a.vigente)?.etapa ?? detalleSel.asignaciones_maestro?.find(a => a.vigente)?.etapa) || '—')}</span></div>
@@ -1630,7 +1639,7 @@ export default function Servidores() {
                             </p>
                             <div className="confirm-data">
                                 <div><strong>Nombre:</strong> {detalleSel.nombre || '—'}</div>
-                                <div><strong>Cédula:</strong> {detalleSel.cedula || '—'}</div>
+                                <div><strong>Cédula:</strong> {maskCedulaDisplay(detalleSel.cedula)}</div>
                             </div>
                             <div className="srv-actions" style={{ marginTop: 14 }}>
                                 <button className="srv-btn" onClick={() => setConfirmDetalleDelete(false)}>Cancelar</button>
