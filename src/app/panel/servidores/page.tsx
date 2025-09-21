@@ -202,7 +202,48 @@ const etapaDiaFromRow = (s: ServidorRow): { etapa: string; dia: string } => {
   const am = s.asignaciones_maestro?.find(a => a?.vigente);
   return { etapa: (ac?.etapa ?? am?.etapa ?? '—') as string, dia: (ac?.dia ?? am?.dia ?? '—') as string };
 };
-;
+
+type ModalTransitionState = 'entering' | 'entered' | 'exiting';
+
+const MODAL_TRANSITION_MS = 220;
+
+const useModalTransition = (isVisible: boolean, duration = MODAL_TRANSITION_MS) => {
+    const [shouldRender, setShouldRender] = useState(isVisible);
+    const [transitionState, setTransitionState] = useState<ModalTransitionState>(
+        isVisible ? 'entered' : 'exiting'
+    );
+
+    useEffect(() => {
+        let timeoutId: ReturnType<typeof setTimeout> | null = null;
+        let rafId: number | null = null;
+        let rafId2: number | null = null;
+
+        if (isVisible) {
+            setShouldRender(true);
+            setTransitionState('entering');
+
+            rafId = requestAnimationFrame(() => {
+                rafId2 = requestAnimationFrame(() => {
+                    setTransitionState('entered');
+                });
+            });
+        } else if (shouldRender) {
+            setTransitionState('exiting');
+            timeoutId = setTimeout(() => {
+                setShouldRender(false);
+            }, duration);
+        }
+
+        return () => {
+            if (timeoutId) clearTimeout(timeoutId);
+            if (rafId) cancelAnimationFrame(rafId);
+            if (rafId2) cancelAnimationFrame(rafId2);
+        };
+    }, [isVisible, duration, shouldRender]);
+
+    return { shouldRender, transitionState };
+};
+
 
 /* ========= Componente ========= */
 export default function Servidores() {
@@ -215,6 +256,7 @@ export default function Servidores() {
     const modalDiaRef = useRef<HTMLDivElement | null>(null);
     const modalEtapasRef = useRef<HTMLDivElement | null>(null);
     const adminPasswordRef = useRef<HTMLInputElement | null>(null);
+    const adminPassDismissedAt = useRef<number>(0);
 
     const [form, setForm] = useState<FormState>({
         nombre: '',
@@ -285,15 +327,23 @@ export default function Servidores() {
     }, [adminPassModalVisible]);
 
     const openAdminPassModal = () => {
+        if (adminPassModalVisible) return;
+        const now = Date.now();
+        if (now - adminPassDismissedAt.current < 250) return;
+        adminPassDismissedAt.current = 0;
         setAdminPassValue('');
         setAdminPassError(null);
         setAdminPassModalVisible(true);
     };
 
     const closeAdminPassModal = () => {
+        adminPassDismissedAt.current = Date.now();
         setAdminPassModalVisible(false);
         setAdminPassValue('');
         setAdminPassError(null);
+        requestAnimationFrame(() => {
+            if (!cedulaUnlocked) inputCedulaRef.current?.blur();
+        });
     };
 
     const handleAdminPassSubmit = (event?: React.FormEvent) => {
@@ -317,6 +367,9 @@ export default function Servidores() {
     /* ========================= MODALES ========================= */
     const [contactosModalVisible, setContactosModalVisible] = useState(false);
     const [timoteoModalVisible, setTimoteoModalVisible] = useState(false);
+
+    const contactosModalTransition = useModalTransition(contactosModalVisible);
+    const timoteoModalTransition = useModalTransition(timoteoModalVisible);
 
     // Semana (solo Contactos)
     const [contactosSemana, setContactosSemana] = useState<string>('Semana 1');
@@ -1083,10 +1136,16 @@ export default function Servidores() {
                 </div>
 
                 {/* Modal TIMOTEO */}
-                {timoteoModalVisible && (
-                    <div className="srv-modal" role="dialog" aria-modal="true">
+                {timoteoModalTransition.shouldRender && (
+                    <div
+                        className="srv-modal"
+                        role="dialog"
+                        aria-modal="true"
+                        data-state={timoteoModalTransition.transitionState}
+                    >
                         <div
                             className="srv-modal__box"
+                            data-state={timoteoModalTransition.transitionState}
                             style={{ maxWidth: 640, padding: '24px 24px 18px', borderRadius: 18 }}
                         >
                             <button className="srv-modal__close" aria-label="Cerrar" onClick={() => setTimoteoModalVisible(false)}>
@@ -1131,10 +1190,16 @@ export default function Servidores() {
                 )}
 
                 {/* Modal CONTACTOS / MAESTROS */}
-                {contactosModalVisible && (
-                    <div className="srv-modal" role="dialog" aria-modal="true">
+                {contactosModalTransition.shouldRender && (
+                    <div
+                        className="srv-modal"
+                        role="dialog"
+                        aria-modal="true"
+                        data-state={contactosModalTransition.transitionState}
+                    >
                         <div
                             className="srv-modal__box"
+                            data-state={contactosModalTransition.transitionState}
                             style={{
                                 width: rolEs(form.rol, 'Maestros') ? 'min(92vw, 820px)' : 'min(92vw, 1000px)',
                                 maxHeight: '92vh',

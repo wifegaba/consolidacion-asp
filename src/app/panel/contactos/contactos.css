@@ -1,4 +1,4 @@
-/* =========================
+﻿/* =========================
    Estilos del formulario
    (migrados desde styled-jsx)
    ========================= */
@@ -34,10 +34,10 @@
     max-height: 900px;
     overflow-y: auto;
     border-radius: 24px;
-    min-height: 0;                 /* no forzar altura mínima */
+    min-height: 0;                 /* no forzar altura mÃ­nima */
 }
 
-/* Título */
+/* TÃ­tulo */
 .pn-root .form-title{
     margin: 2px 6px;
     padding: 0;
@@ -52,7 +52,7 @@
     display:block;
     width: 180px;
     height: 4px;
-    margin: 10px auto 28px;        /* espacio tras el título */
+    margin: 10px auto 28px;        /* espacio tras el tÃ­tulo */
     border-radius: 999px;
     background: linear-gradient(90deg,#93c5fd,#60a5fa 60%,#a78bfa);
     opacity:.65;
@@ -148,7 +148,7 @@
 }
 .pn-root .observaciones-estilo::placeholder{ color:#3b82f6; }
 
-/* Validación */
+/* ValidaciÃ³n */
 .pn-root .input-error{
     background:#ffeef0;
     box-shadow: inset 2px 2px 6px #e57373, inset -2px -2px 6px #fff;
@@ -173,13 +173,8 @@
 }
 
 /* Modal buscar */
-.pn-root .modal-buscar{ position:fixed; inset:0; display:flex; justify-content:center; align-items:center; background:rgba(13,23,43,.45); z-index:10000; }
-.pn-root .modal-buscar__box{
-    position:relative; width:min(820px, 94vw); padding:26px 24px 24px; border-radius:22px;
-    background: linear-gradient(145deg, rgba(255,255,255,.24), rgba(230,233,239,.28));
-    border:1px solid rgba(255,255,255,.35); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
-    box-shadow: 0 20px 80px rgba(0,0,0,.35), inset 0 0 1px rgba(255,255,255,.2);
-}
+
+
 .pn-root .modal-buscar__close{
     position:absolute; top:8px; right:10px; width:36px; height:36px; border:none; border-radius:50%;
     background:rgba(255,255,255,.6); color:#111827; font-size:22px; cursor:pointer; box-shadow:0 2px 8px rgba(0,0,0,.2);
@@ -222,7 +217,7 @@
 @media (max-width:768px){
     .pn-root{ padding:10px; }
     .pn-root #formulario1{ padding:20px 16px; }
-    /* Cultos: 2x2 y tamaño reducido */
+    /* Cultos: 2x2 y tamaÃ±o reducido */
     .pn-root .cultos-row{
         display:grid;
         grid-template-columns: repeat(2, 1fr);
@@ -235,12 +230,12 @@
         margin-bottom: .25rem;
     }
     .pn-root .culto-box{
-        padding:6px 8px;         /* más pequeño en móvil */
-        font-size:.9rem;         /* reducir tipografía */
+        padding:6px 8px;         /* mÃ¡s pequeÃ±o en mÃ³vil */
+        font-size:.9rem;         /* reducir tipografÃ­a */
         border-radius:12px;
     }
 
-    /* Botonera: 2x2 en móvil */
+    /* Botonera: 2x2 en mÃ³vil */
     .pn-root .btn-container{
         display:grid;                 /* sobreescribe el flex por clase */
         grid-template-columns: repeat(2, 1fr);
@@ -248,10 +243,26 @@
     }
     .pn-root .btn-container .btn-minimal{
         width: 100%;                  /* que llenen su celda */
-        padding: .7rem 1rem;          /* un poco más compactos */
+        padding: .7rem 1rem;          /* un poco mÃ¡s compactos */
         font-size: 0.95rem;
     }
 }
 
 
 
+\n.pn-root .modal-buscar{
+    position:fixed; inset:0; display:flex; justify-content:center; align-items:center;
+    background:rgba(13,23,43,.45); z-index:10000;
+    opacity:0; animation: pnModalFadeIn .25s ease forwards;
+    will-change: opacity;
+}
+.pn-root .modal-buscar__box{
+    position:relative; width:min(820px, 94vw); padding:26px 24px 24px; border-radius:22px;
+    background: linear-gradient(145deg, rgba(255,255,255,.24), rgba(230,233,239,.28));
+    box-shadow: 0 20px 80px rgba(0,0,0,.35), inset 0 0 1px rgba(255,255,255,.2);
+    opacity:0; transform: translateY(16px) scale(.96);
+    animation: pnModalSlideIn .28s cubic-bezier(.22,.61,.36,1) forwards;
+    will-change: transform, opacity;
+}
+@keyframes pnModalFadeIn{ to { opacity:1; } }
+@keyframes pnModalSlideIn{ to { opacity:1; transform: translateY(0) scale(1); } }

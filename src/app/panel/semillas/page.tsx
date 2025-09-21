@@ -904,27 +904,7 @@ export default function PageSemillas() {
                     .seed-modal button{ width: 100%; }
                 }
 
-@keyframes premiumFade {
-    0% {
-      opacity: 0;
-      transform: scale(0.96) translateY(20px);
-      filter: blur(6px) brightness(1.1);
-    }
-    50% {
-      opacity: 1;
-      transform: scale(1.02) translateY(-4px);
-      filter: blur(0) brightness(1.05);
-    }
-    100% {
-      opacity: 1;
-      transform: scale(1) translateY(0);
-      filter: blur(0) brightness(1);
-    }
-  }
-  .animate-premiumFade {
-    animation: premiumFade 0.9s cubic-bezier(0.22, 1, 0.36, 1) both;
-  }
-
+Codex: Set API Key
 
 
 

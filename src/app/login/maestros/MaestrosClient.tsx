@@ -6,7 +6,9 @@ import { supabase } from '@/lib/supabaseClient';
 import { getPersonaIdDesdeProgreso, getObservacionesPersona } from '@/lib/api';
 import PersonaNueva from '@/app/panel/contactos/page';
 import Servidores from '@/app/panel/servidores/page';
-import { AnimatePresence, motion } from "framer-motion";
+import { motion, AnimatePresence, type Variants } from "framer-motion";
+
+
 
 /* ================= Tipos ================= */
 type Dia = 'Domingo' | 'Martes' | 'Virtual';
@@ -54,6 +56,67 @@ type AgendadoRow = {
   semana: number;
 };
 
+// === Transición estilo Dribbble (Shared Axis X) ===
+const EASE: [number, number, number, number] = [0.2, 0.8, 0.2, 1];
+const DUR_IN = 0.24;
+const DUR_OUT = 0.18;
+
+// Hook para dirección (→ abrir, ← volver)
+// Hook para dirección (→ abrir, ← volver)
+// Hook para dirección (→ abrir, ← volver)
+function useDirection<T>(value: T | null | undefined) {
+  const prev = useRef<T | null | undefined>(value);
+  const dir = useRef<1 | -1>(1);
+  useEffect(() => {
+    if (prev.current == null && value != null) dir.current = 1;       // vacío -> algo
+    else if (prev.current != null && value == null) dir.current = -1; // algo -> vacío
+    else if (prev.current !== value) dir.current = 1;                 // A -> B
+    prev.current = value;
+  }, [value]);
+  return dir.current;
+}
+
+
+
+
+const MAC2025_PANEL_VARIANTS = {
+  initial: {
+    opacity: 0,
+    y: 48,
+    scale: 0.98,
+    filter: 'blur(10px)',
+    boxShadow: '0 12px 36px -12px rgba(30,41,59,0.10)'
+  },
+  animate: {
+    opacity: 1,
+    y: 0,
+    scale: 1,
+    filter: 'blur(0px)',
+    boxShadow: '0 24px 80px -24px rgba(30,41,59,0.18)',
+    transition: {
+      duration: 0.32
+    }
+  },
+  exit: {
+    opacity: 0,
+    y: -32,
+    scale: 0.97,
+    filter: 'blur(8px)',
+    boxShadow: '0 12px 36px -12px rgba(30,41,59,0.08)',
+    transition: { duration: 0.22 }
+  }
+};
+
+
+
+
+
+
+
+           
+
+
+
 /** ======== Banco Archivo ======== */
 type BancoRow = {
   progreso_id: string;
@@ -66,6 +129,10 @@ type BancoRow = {
   creado_en: string;
   etapa: 'Semillas' | 'Devocionales' | 'Restauracion';
 };
+
+
+
+
 
 /* ================= Constantes ================= */
 const V_PEND_HIST   = 'v_llamadas_pendientes_hist';
@@ -290,6 +357,8 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
   const asigRef = useRef<MaestroAsignacion | null>(null);
   const pendRef = useRef<PendRowUI[]>([]);
   const rightPanelRef = useRef<HTMLElement | null>(null);
+const dir = useDirection(selectedId);
+
 
 
   useEffect(() => { semanaRef.current = semana; }, [semana]);
@@ -305,17 +374,17 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
   }, [nuevaAlmaOpen, servidoresOpen]);
 
   // En responsive: al seleccionar un registro, llevar el panel derecho al inicio
-  useEffect(() => {
-    if (!selectedId) return;
-    // Solo aplicar en pantallas pequeñas (menor a lg)
-    const isLgUp = typeof window !== 'undefined' && window.matchMedia('(min-width: 1024px)').matches;
-    if (isLgUp) return;
-    // Intentar desplazar al inicio del panel derecho y al tope de la ventana
-    try {
-      rightPanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    } catch {}
-  }, [selectedId]);
+ useEffect(() => {
+  if (!selectedId) return;
+  // Solo aplicar en pantallas pequeñas (menor a lg)
+  const isLgUp = typeof window !== 'undefined' && window.matchMedia('(min-width: 1024px)').matches;
+  if (isLgUp) return;
+  // Intentar desplazar al inicio del panel derecho y al tope de la ventana
+  try {
+    rightPanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  } catch {}
+}, [selectedId]);
 
   // limpiar resaltado "_ui"
   const clearTimersRef = useRef<Record<string, number>>({});
@@ -900,57 +969,73 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
     </AnimatePresence>
   </div>
 </section>
+
+
+
+
+
+        
+{/* Panel derecho de llamada – Animación premium Mac 2025 */}
+<section
+  ref={rightPanelRef}
+  className={`relative overflow-hidden transform-gpu rounded-[20px] bg-white/55 supports-[backdrop-filter]:bg-white/35 backdrop-blur-xl shadow-[0_18px_44px_-18px_rgba(0,0,0,.35)] ring-1 ring-white/60 p-4 md:p-5 ${!selectedId ? 'hidden lg:block' : ''}`}
+  style={{ isolation: 'isolate', minHeight: 340, contain: 'layout paint', transform: 'translateZ(0)' }}
+>
+  <AnimatePresence initial={false} mode="wait">
+    <motion.div
+      key={selectedId ?? 'empty'}
+      variants={MAC2025_PANEL_VARIANTS}
+      initial="initial"
+      animate="animate"
+      exit="exit"
+      layout
+      className="relative transform-gpu will-change-transform will-change-opacity"
+      style={{ transformOrigin: '50% 50%' }}
+    >
+      {/* Elimina el scrim/cross-fade aquí */}
+      {/* ...resto del contenido igual... */}
+      {!selectedId ? (
+        <div className="grid place-items-center text-neutral-700 h-full min-h-[300px]">
+          Selecciona un nombre de la lista para llamar / registrar.
+        </div>
+      ) : (
+        <>
+          {/* Botón volver: solo móvil */}
+          <div className="mb-3 lg:hidden">
+            <button
+              type="button"
+              onClick={() => setSelectedId(null)}
+              className="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-semibold ring-1 ring-white/60 bg-white/70 hover:bg-white/90"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M15.7 5.3a1 1 0 0 1 0 1.4L11.4 11l4.3 4.3a1 1 0 1 1-1.4 1.4l-5-5a1 1 0 0 1 0-1.4l5-5a1 1 0 0 1 1.4 0Z" fill="currentColor"/>
+              </svg>
+              Volver
+            </button>
+          </div>
+          {(() => {
+            const sel = pendRef.current.find((p) => p.progreso_id === selectedId);
+            return sel ? (
+              <FollowUp
+                semana={semana}
+                dia={dia}
+                row={sel}
+                saving={saving}
+                onSave={enviarResultado}
+              />
+            ) : (
+              <div className="p-6 text-neutral-700">Selecciona un registro válido para continuar.</div>
+            );
+          })()}
+        </>
+      )}
+    </motion.div>
+  </AnimatePresence>
+</section>
+
         
 
-          {/* Panel derecho de llamada */}
-          <AnimatePresence mode="wait" initial={false}>
-            <motion.section
-              key={selectedId ?? 'empty'}
-              ref={rightPanelRef}
-              variants={RIGHT_PANEL_VARIANTS}
-              initial="initial"
-              animate="animate"
-              exit="exit"
-              className={`rounded-[20px] bg-white/55 supports-[backdrop-filter]:bg-white/35 backdrop-blur-xl shadow-[0_18px_44px_-18px_rgba(0,0,0,.35)] ring-1 ring-white/60 p-4 md:p-5 ${!selectedId ? 'hidden lg:block' : ''}`}
-            >
-              {!selectedId ? (
-                <div className="grid place-items-center text-neutral-700 h-full">
-                  Selecciona un nombre de la lista para llamar / registrar.
-                </div>
-              ) : (
-                <>
-                  {/* Boton volver: solo movil */}
-                  <div className="mb-3 lg:hidden">
-                    <button
-                      type="button"
-                      onClick={() => setSelectedId(null)}
-                      className="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-semibold ring-1 ring-white/60 bg-white/70 hover:bg-white/90"
-                    >
-                      <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
-                        <path d="M15.7 5.3a1 1 0 0 1 0 1.4L11.4 11l4.3 4.3a1 1 0 1 1-1.4 1.4l-5-5a1 1 0 0 1 0-1.4l5-5a1 1 0 0 1 1.4 0Z" fill="currentColor"/>
-                      </svg>
-                      Volver
-                    </button>
-                  </div>
 
-                  {(() => {
-                    const sel = pendRef.current.find((p) => p.progreso_id === selectedId);
-                    return sel ? (
-                      <FollowUp
-                        semana={semana}
-                        dia={dia}
-                        row={sel}
-                        saving={saving}
-                        onSave={enviarResultado}
-                      />
-                    ) : (
-                      <div className="p-6 text-neutral-700">Selecciona un registro valido para continuar.</div>
-                    );
-                  })()}
-                </>
-              )}
-            </motion.section>
-          </AnimatePresence>
         </div>
 
         {/* ===== Asistencias ===== */}
