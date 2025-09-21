@@ -728,8 +728,21 @@ const selectDesdePendiente = (row: PendienteItem) => {
 
                 {/* Modal PENDIENTES */}
                 {modalPendVisible && (
-                    <div className="modal-buscar" role="dialog" aria-modal="true">
-                        <div className="modal-buscar__box">
+                    <div className="modal-buscar fixed inset-0 z-50 flex items-center justify-center" role="dialog" aria-modal="true">
+                                                <div
+                                                    className="modal-buscar__box"
+                                                    style={{
+                                                        maxWidth: 540,
+                                                        width: '100%',
+                                                        background: 'linear-gradient(120deg,rgba(255,255,255,0.82),rgba(230,240,255,0.68))',
+                                                        backdropFilter: 'blur(18px)',
+                                                        WebkitBackdropFilter: 'blur(18px)',
+                                                        borderRadius: '2rem',
+                                                        boxShadow: '0 12px 48px -12px rgba(30,41,59,0.18)',
+                                                        border: '1.5px solid rgba(255,255,255,0.45)',
+                                                        padding: '1.5rem 1.5rem 1.2rem 1.5rem',
+                                                    }}
+                                                >
                             <button className="modal-buscar__close" aria-label="Cerrar"
                                     onClick={() => setModalPendVisible(false)}>×</button>
 

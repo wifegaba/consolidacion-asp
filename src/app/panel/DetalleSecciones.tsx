@@ -123,7 +123,7 @@ export default function DetalleSecciones({
       {view === "asistencias" && (
         <>
           {/* PANEL IZQUIERDO */}
-          <section className="card premium-glass animate-slideIn relative panel-compact">
+          <section className="card premium-glass glass-chart-premium animate-slideIn relative panel-compact">
             <div className="card-head">
               <h2 className="card-title">Gráfico de Asistencias</h2>
             </div>
@@ -155,9 +155,9 @@ export default function DetalleSecciones({
                 </div>
               </div>
 
-              {/* Donut */}
+              {/* Donut + Premium Center */}
               <div className="panel-chart relative flex items-center justify-center">
-                <ResponsiveContainer width="100%" height="100%" className="donut-chart">
+                <ResponsiveContainer width="100%" height="100%" className="donut-chart z-10">
                   <PieChart>
                     <defs>
                       <linearGradient id="gradOk" x1="0" y1="0" x2="0" y2="1">
@@ -197,12 +197,12 @@ export default function DetalleSecciones({
                   </PieChart>
                 </ResponsiveContainer>
 
-                {/* Centro */}
-                <div className="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none donut-center">
-                  <p className="text-3xl leading-tight font-extrabold text-gray-900 tabular-nums">
+                {/* Centro premium animado */}
+                <div className="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none donut-center z-20">
+                  <p className="premium-animated-number text-5xl leading-tight font-extrabold text-gray-900 tabular-nums drop-shadow-lg animate-premium-glow">
                     {animatedTotal.toLocaleString()}
                   </p>
-                  <p className="text-gray-500 text-xs mt-0.5">Total</p>
+                  <p className="text-gray-500 text-xs mt-0.5 font-semibold tracking-wide uppercase">Total</p>
                 </div>
               </div>
             </div>

@@ -4,8 +4,10 @@ import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
 import { getPersonaIdDesdeProgreso, getObservacionesPersona } from '@/lib/api';
-import PersonaNueva from '@/app/panel/contactos/page';
-import Servidores from '@/app/panel/servidores/page';
+import dynamic from 'next/dynamic';
+
+const PersonaNueva = dynamic(() => import('@/app/panel/contactos/page'), { ssr: false });
+const Servidores = dynamic(() => import('@/app/panel/servidores/page'), { ssr: false });
 import { motion, AnimatePresence, type Variants } from "framer-motion";
 
 
@@ -75,6 +77,11 @@ function useDirection<T>(value: T | null | undefined) {
   }, [value]);
   return dir.current;
 }
+
+
+
+
+
 
 
 
@@ -1184,22 +1191,14 @@ const dir = useDirection(selectedId);
       
       {/* Animaciones / estilos */}
       {/* Modal Nueva Alma */}
-      <AnimatePresence mode="wait" initial={false}>
+      <AnimatePresence mode="sync" initial={false}>
         {nuevaAlmaOpen && (
-          <motion.div
+          <div
             key="modal-nueva-alma"
             className="fixed inset-0 z-[1000] flex min-h-[100dvh] items-start justify-center overflow-y-auto px-1.5 pt-0 pb-6 md:px-4 md:pt-4 md:pb-10 bg-[radial-gradient(1200px_850px_at_50%_-10%,rgba(191,219,254,0.24),transparent),radial-gradient(900px_620px_at_90%_0%,rgba(165,180,252,0.28),rgba(15,23,42,0.78))] supports-[backdrop-filter]:backdrop-blur-[22px]"
-            variants={MODAL_BACKDROP_VARIANTS}
-            initial="initial"
-            animate="animate"
-            exit="exit"
             onClick={(event) => { if (event.target === event.currentTarget) { setNuevaAlmaOpen(false); } }}
           >
-            <motion.div
-              variants={MODAL_PANEL_VARIANTS}
-              initial="initial"
-              animate="animate"
-              exit="exit"
+            <div
               className="relative w-[min(1100px,96vw)] max-h-[96vh] overflow-hidden rounded-[32px] border border-white/35 bg-[linear-gradient(160deg,rgba(255,255,255,0.94),rgba(240,244,255,0.74))] supports-[backdrop-filter]:bg-white/65 supports-[backdrop-filter]:backdrop-blur-[32px] shadow-[0_48px_140px_-50px_rgba(15,23,42,0.7)] ring-1 ring-white/50"
               onClick={(event) => event.stopPropagation()}
             >
@@ -1215,28 +1214,20 @@ const dir = useDirection(selectedId);
               <div className="max-h-[calc(96vh-48px)] overflow-y-auto px-3 md:px-6 pb-4 pt-0">
                 <PersonaNueva />
               </div>
-            </motion.div>
-          </motion.div>
+            </div>
+          </div>
         )}
       </AnimatePresence>
 
       {/* Modal Servidores */}
-      <AnimatePresence mode="wait" initial={false}>
+      <AnimatePresence mode="sync" initial={false}>
         {servidoresOpen && (
-          <motion.div
+          <div
             key="modal-servidores"
             className="fixed inset-0 z-[1000] flex min-h-[100dvh] items-start justify-center overflow-y-auto px-1.5 pt-0 pb-6 md:px-4 md:pt-4 md:pb-10 bg-[radial-gradient(1200px_850px_at_20%_-20%,rgba(125,211,252,0.22),transparent),radial-gradient(900px_620px_at_80%_0%,rgba(196,181,253,0.26),rgba(15,23,42,0.78))] supports-[backdrop-filter]:backdrop-blur-[22px]"
-            variants={MODAL_BACKDROP_VARIANTS}
-            initial="initial"
-            animate="animate"
-            exit="exit"
             onClick={(event) => { if (event.target === event.currentTarget) { setServidoresOpen(false); } }}
           >
-            <motion.div
-              variants={MODAL_PANEL_VARIANTS}
-              initial="initial"
-              animate="animate"
-              exit="exit"
+            <div
               className="relative w-[min(1200px,96vw)] max-h-[96vh] overflow-hidden rounded-[32px] border border-white/35 bg-[linear-gradient(160deg,rgba(255,255,255,0.94),rgba(236,241,255,0.72))] supports-[backdrop-filter]:bg-white/65 supports-[backdrop-filter]:backdrop-blur-[32px] shadow-[0_48px_140px_-50px_rgba(15,23,42,0.7)] ring-1 ring-white/50"
               onClick={(event) => event.stopPropagation()}
             >
@@ -1252,8 +1243,8 @@ const dir = useDirection(selectedId);
               <div className="max-h-[calc(96vh-48px)] overflow-y-auto px-3 md:px-6 pb-4 pt-0">
                 <Servidores />
               </div>
-            </motion.div>
-          </motion.div>
+            </div>
+          </div>
         )}
       </AnimatePresence>
 

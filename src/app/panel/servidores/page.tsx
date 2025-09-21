@@ -1378,7 +1378,7 @@ export default function Servidores() {
                                     openAdminPassModal();
                                 }
                             }}
-                            placeholder="CǸdula"
+                            placeholder="Cédula"
                             className={errores.cedula ? 'srv-input-error' : ''}
                             readOnly={editMode && !cedulaUnlocked}
                         />
