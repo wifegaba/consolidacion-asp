@@ -1,7 +1,106 @@
-'use client';
+
+"use client";
 
 import React from 'react';
 import { createClient } from '@supabase/supabase-js';
+
+// Nuevo: Widget KPI realtime para servidores activos
+export function ServidoresKPIRealtime({ label, initialValue, className }: { label: string; initialValue: number; className?: string }) {
+    const [count, setCount] = React.useState(initialValue);
+    const [burst, setBurst] = React.useState(false);
+    const btnRef = React.useRef<HTMLButtonElement>(null);
+    React.useEffect(() => {
+        const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+        const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+        const supabase = createClient(url, anon);
+        let channel: any;
+        let mounted = true;
+        async function fetchCount(withPulse = false) {
+            const { count: newCount, error } = await supabase
+                .from('servidores')
+                .select('id', { count: 'exact', head: true })
+                .eq('activo', true);
+            if (!error && typeof newCount === 'number' && mounted) {
+                if (newCount !== count) {
+                    setBurst(false);
+                    setTimeout(() => setBurst(true), 10);
+                }
+                setCount(newCount);
+                if (withPulse && btnRef.current) {
+                    btnRef.current.classList.remove('pulse-realtime');
+                    void btnRef.current.offsetWidth;
+                    btnRef.current.classList.add('pulse-realtime');
+                }
+            }
+        }
+        fetchCount();
+        channel = supabase.channel('rt-servidores-kpi');
+        channel.on('postgres_changes', { event: '*', schema: 'public', table: 'servidores' }, () => fetchCount(true));
+        channel.subscribe();
+        return () => {
+            mounted = false;
+            if (channel) supabase.removeChannel(channel);
+        };
+    }, []);
+    return (
+        <button ref={btnRef} className={`kpi-card kpi-button${className ? ' ' + className : ''}`} aria-label={label}>
+            <div className="kpi-top">
+                <span className="kpi-label">{label}</span>
+            </div>
+            <div className={`kpi-value${burst ? ' burst' : ''}`}>{count.toLocaleString('es-CO')}</div>
+        </button>
+    );
+}
+
+// Nuevo: Widget KPI con realtime
+export function ContactosKPIRealtime({ label, initialValue, delta, className }: { label: string; initialValue: number; delta?: string; className?: string }) {
+    const [count, setCount] = React.useState(initialValue);
+    const [burst, setBurst] = React.useState(false);
+    const btnRef = React.useRef<HTMLButtonElement>(null);
+    React.useEffect(() => {
+        const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+        const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+        const supabase = createClient(url, anon);
+        let channel: any;
+        let mounted = true;
+        // Función para obtener el count actual
+        async function fetchCount(withPulse = false) {
+            const { count: newCount, error } = await supabase
+                .from('persona')
+                .select('id', { count: 'exact', head: true });
+            if (!error && typeof newCount === 'number' && mounted) {
+                if (newCount !== count) {
+                    setBurst(false);
+                    setTimeout(() => setBurst(true), 10);
+                }
+                setCount(newCount);
+                if (withPulse && btnRef.current) {
+                    btnRef.current.classList.remove('pulse-realtime');
+                    void btnRef.current.offsetWidth;
+                    btnRef.current.classList.add('pulse-realtime');
+                }
+            }
+        }
+        fetchCount();
+        // Suscribirse a cambios en persona
+        channel = supabase.channel('rt-contactos-kpi');
+        channel.on('postgres_changes', { event: '*', schema: 'public', table: 'persona' }, () => fetchCount(true));
+        channel.subscribe();
+        return () => {
+            mounted = false;
+            if (channel) supabase.removeChannel(channel);
+        };
+    }, []);
+    return (
+        <button ref={btnRef} className={`kpi-card kpi-button${className ? ' ' + className : ''}`} aria-label={label}>
+            <div className="kpi-top">
+                <span className="kpi-label">{label}</span>
+                {delta && <span className="kpi-delta">{delta}</span>}
+            </div>
+            <div className={`kpi-value${burst ? ' burst' : ''}`}>{count.toLocaleString('es-CO')}</div>
+        </button>
+    );
+}
 
 type Props = {
     label: string;
@@ -19,30 +118,7 @@ type Persona = {
     semana: number | null;
 };
 
-export default function ContactosWidget({ label, value, delta }: Props) {
-    const [open, setOpen] = React.useState(false);
-
-    return (
-        <>
-            <button
-                className="kpi-card kpi-button"
-                aria-label={label}
-                onClick={() => setOpen(true)}
-            >
-                <div className="kpi-top">
-                    <span className="kpi-label">{label}</span>
-                    {delta && <span className="kpi-delta">{delta}</span>}
-                </div>
-                <div className="kpi-value">{value}</div>
-            </button>
-
-            {open && <ContactosModal onClose={() => setOpen(false)} />}
-            <style jsx global>{`
-        .kpi-button { text-align: left; cursor: pointer; }
-      `}</style>
-        </>
-    );
-}
+// Mantener el widget original para el modal, pero exportar el KPI realtime arriba
 
 function ContactosModal({ onClose }: { onClose: () => void }) {
     const [q, setQ] = React.useState('');

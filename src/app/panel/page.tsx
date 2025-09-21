@@ -1,7 +1,7 @@
 // app/panel/page.tsx
 export const dynamic = "force-dynamic";
 
-import ContactosWidget from "@/components/ContactosWidget";
+import { ContactosKPIRealtime, ServidoresKPIRealtime } from "@/components/ContactosWidget";
 import {
   getContactosCount,
   getServidoresCount,
@@ -40,59 +40,45 @@ export default async function Page() {
       {/* 👇 Habilita Realtime para las tarjetas del dashboard */}
       <RtDashboardWatch />
 
-      <header className="toolbar">
-        <div className="toolbar-left">
-          <h1 className="title">Dashboard</h1>
-          <span className="subtitle">Panel de Información</span>
-        </div>
-      </header>
 
-      {/* KPI Row */}
       <div className="kpi-row">
+        <div className="kpi-row-group">
+          <ContactosKPIRealtime label="Contactos" initialValue={totalContactos} delta={"+"} className="contactos" />
+          <ServidoresKPIRealtime label="Servidores" initialValue={totalServidores} className="servidores" />
+        </div>
+        <div className="kpi-row-group">
+          {/* KPI Asistencias */}
+          <article
+            className="kpi-card asistencias"
+            data-key="asistencias"
+          >
+            <div className="flex items-center justify-between">
+              <span className="kpi-label">Asistencias</span>
+            </div>
 
-        <article className="kpi-card contactos" aria-label="Contactos">
-          <div className="kpi-top">
-            <span className="kpi-label">Contactos</span>
-          </div>
-          <div className="kpi-value">{formatNumber(totalContactos)}</div>
-          <span className="text-sm font-medium text-green-500">+</span>
-        </article>
+            <div className="flex items-center gap-6 mt-2">
+              <div className="kpi-value">{formatNumber(asistMesDetalle.total)}</div>
+              <span className="flex items-center gap-4 text-sm font-medium">
+                <span className="text-green-600">{asistMesDetalle.confirmados} ✔</span>
+                <span className="text-red-600">{asistMesDetalle.noAsistieron} ✘</span>
+              </span>
+            </div>
+          </article>
 
-        <article className="kpi-card servidores" aria-label="Servidores">
-          <div className="kpi-top"><span className="kpi-label">Servidores</span></div>
-          <div className="kpi-value">{formatNumber(totalServidores)}</div>
-        </article>
+          {/* KPI Agendados (NUEVA) */}
+          <article
+            className="kpi-card agendados"
+            data-key="agendados"
+          >
+            <div className="kpi-top flex w-full items-center justify-between">
+              <span className="kpi-label">Agendados</span>
+              <span className="text-sm font-medium">{agendados.length} etapas</span>
+            </div>
 
-        {/* KPI Asistencias */}
-        <article
-          className="kpi-card asistencias"
-          data-key="asistencias"
-        >
-          <div className="flex items-center justify-between">
-            <span className="kpi-label">Asistencias</span>
-          </div>
+            <div className="kpi-value">{formatNumber(agendadosTotal)}</div>
 
-          <div className="flex items-center gap-6 mt-2">
-            <div className="kpi-value">{formatNumber(asistMesDetalle.total)}</div>
-            <span className="flex items-center gap-4 text-sm font-medium">
-              <span className="text-green-600">{asistMesDetalle.confirmados} ✔</span>
-              <span className="text-red-600">{asistMesDetalle.noAsistieron} ✘</span>
-            </span>
-          </div>
-        </article>
-
-        {/* KPI Agendados (NUEVA) */}
-        <article
-          className="kpi-card agendados"
-          data-key="agendados"
-        >
-          <div className="kpi-top flex w-full items-center justify-between">
-            <span className="kpi-label">Agendados</span>
-            <span className="text-sm font-medium">{agendados.length} etapas</span>
-          </div>
-
-          <div className="kpi-value">{formatNumber(agendadosTotal)}</div>
-        </article>
+          </article>
+        </div>
       </div>
 
       {/* Grid dinámico (UNA sola instancia) */}
