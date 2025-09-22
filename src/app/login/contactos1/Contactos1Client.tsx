@@ -651,11 +651,14 @@ export default function Contactos1Client(
 
         {/* ===== Encabezado ===== */}
 
-        <header className="mb-3 md:mb-4 flex items-baseline gap-3">
+         <header className="mb-3 md:mb-4 flex items-baseline gap-3 rounded-2xl px-4 py-3 shadow-[0_10px_40px_-20px_rgba(0,0,0,.35)] ring-1 ring-white/60 backdrop-blur-xl bg-[radial-gradient(900px_220px_at_0%_-20%,rgba(56,189,248,0.18),transparent),radial-gradient(900px_240px_at_120%_-30%,rgba(99,102,241,0.16),transparent),linear-gradient(135deg,rgba(255,255,255,.78),rgba(255,255,255,.48))] supports-[backdrop-filter]:bg-[radial-gradient(900px_220px_at_0%_-20%,rgba(56,189,248,0.18),transparent),radial-gradient(900px_240px_at_120%_-30%,rgba(99,102,241,0.16),transparent),linear-gradient(135deg,rgba(255,255,255,.68),rgba(255,255,255,.40))]">
           <h1 className="text-[22px] md:text-[28px] font-semibold text-neutral-900">
-            Llamadas pendientes {titulo}
+            {nombre || 'Servidor'}
           </h1>
-          <span className="text-neutral-500 text-sm">Semana {semana} • {dia}</span>
+          <span className="text-neutral-700 text-sm">Timoteo  - {titulo || '-'}
+          </span>
+
+          <span className="text-neutral-700 text-sm">  •  {dia}</span>
 
           <div className="ml-auto flex gap-2">
             {/* Botón Persona Nueva */}
