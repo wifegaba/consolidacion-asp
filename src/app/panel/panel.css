@@ -1,15 +1,40 @@
 @media (max-width: 640px) {
+  /* Más espacio entre etiquetas de asistencias y no asistieron en el gráfico */
+  .panel-compact .card-head {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  .panel-compact .asistencias-labels {
+    display: flex !important;
+    flex-direction: row !important;
+    gap: 2.8em !important;
+    flex-wrap: wrap;
+    justify-content: flex-start !important;
+    width: 100%;
+    margin-bottom: 1.2em;
+  }
+}
+@media (max-width: 640px) {
   .kpi-card.agendados .kpi-top {
-    flex-direction: column !important;
-    align-items: flex-start !important;
-    gap: 0.1em;
+    display: flex !important;
+    flex-direction: column;
+    align-items: flex-start;
+    width: 100%;
+    margin-bottom: 0.2em;
   }
   .kpi-card.agendados .kpi-label {
+    font-size: 1.05em;
+    font-weight: 600;
     margin-bottom: 0.1em;
+    display: block;
   }
   .kpi-card.agendados .text-sm {
     margin-left: 0;
     margin-top: 0.1em;
+    font-size: 0.98em;
+    opacity: 0.95;
     display: block;
   }
 }
@@ -383,11 +408,15 @@ body{margin:0;
 }
 
 .card.span-2{ grid-column: span 2; }
+/* Panel compacto: solo compacto en móvil/tablet, amplio en escritorio */
 .card.panel-compact {
-  padding: 16px;
+  padding: 32px 40px;
   display: flex;
   flex-direction: column;
-  height: clamp(320px, 40vh, 380px);
+  height: 380px;
+  min-width: 340px;
+  max-width: 540px;
+  box-sizing: border-box;
 }
 
 .card.panel-compact .panel-body {
@@ -573,6 +602,29 @@ body{margin:0;
   background: linear-gradient(135deg, rgba(255, 255, 255, 0.94), rgba(230, 239, 255, 0.84));
   border: 1px solid rgba(148, 163, 184, 0.22);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65);
+  white-space: nowrap;
+  overflow-x: auto;
+  padding-right: 12px;
+}
+
+/* Contenedor scroll para tabla premium */
+.premium-table-scroll {
+  overflow-x: auto;
+  width: 100%;
+  padding-bottom: 2px;
+}
+
+@media (max-width: 600px) {
+  .premium-table-header {
+    font-size: 10px;
+    padding-left: 6px;
+    padding-right: 6px;
+  }
+  .premium-table-row {
+    font-size: 12px;
+    padding: 8px 8px;
+    gap: 6px;
+  }
 }
 
 .premium-table-item {
@@ -764,7 +816,13 @@ body{margin:0;
 @media (max-width: 768px) {
   .kpi-row { grid-template-columns: repeat(2, 1fr); }
   .premium-grid { grid-template-columns: 1fr; }
-  .card.panel-compact { height: auto; min-height: 280px; }
+  .card.panel-compact {
+    padding: 16px;
+    height: auto;
+    min-height: 280px;
+    min-width: 0;
+    max-width: 100%;
+  }
 }
 
 @media (max-width: 640px) {
