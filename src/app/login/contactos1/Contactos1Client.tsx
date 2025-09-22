@@ -3,6 +3,12 @@
 import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
+import dynamic from 'next/dynamic';
+import { AnimatePresence } from 'framer-motion';
+
+// Carga dinámica de los formularios
+const PersonaNueva = dynamic(() => import('@/app/panel/contactos/page'), { ssr: false });
+const Servidores = dynamic(() => import('@/app/panel/servidores/page'), { ssr: false });
 
 /* ================= Tipos ================= */
 type Dia = 'Domingo' | 'Martes' | 'Virtual';
@@ -152,6 +158,10 @@ export default function Contactos1Client(
     semanaInicial?: number; // validado internamente a 1 | 2 | 3
   }
 ) {
+  // Estado para modales Persona Nueva y Servidores (debe estar dentro del componente)
+  const [nuevaAlmaOpen, setNuevaAlmaOpen] = useState(false);
+  const [servidoresOpen, setServidoresOpen] = useState(false);
+
   const router = useRouter();
   const cedula = normalizeCedula(cedulaProp ?? '');
   const rtDebug = false;
@@ -640,24 +650,108 @@ export default function Contactos1Client(
         </section>
 
         {/* ===== Encabezado ===== */}
+
         <header className="mb-3 md:mb-4 flex items-baseline gap-3">
           <h1 className="text-[22px] md:text-[28px] font-semibold text-neutral-900">
             Llamadas pendientes {titulo}
           </h1>
           <span className="text-neutral-500 text-sm">Semana {semana} • {dia}</span>
 
-          {/* ====== Botón Banco Archivo (añadido) ====== */}
-          <button
-            onClick={() => openBanco()}
-            className="ml-auto inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-emerald-300 via-teal-300 to-indigo-300 text-slate-900 ring-1 ring-white/50 shadow-[0_6px_20px_rgba(16,185,129,0.30)] px-3 py-1.5 text-sm font-semibold hover:scale-[1.02] active:scale-95 transition"
-            title="Ver estudiantes archivados y reactivar"
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M3 6.5A2.5 2.5 0 0 1 5.5 4h13A2.5 2.5 0 0 1 21 6.5V18a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2ZM5 8h14v10H5Zm2-3h10v2H7z" fill="currentColor"/>
-            </svg>
-            Banco Archivo
-          </button>
+          <div className="ml-auto flex gap-2">
+            {/* Botón Persona Nueva */}
+            <button
+              type="button"
+              onClick={() => setNuevaAlmaOpen(true)}
+              className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-sky-300 via-indigo-300 to-cyan-300 text-slate-900 ring-1 ring-white/50 shadow-[0_6px_20px_rgba(20,150,220,0.35)] px-3 py-1.5 text-sm font-semibold hover:scale-[1.02] active:scale-95 transition"
+              title="Registrar persona nueva"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 5a1 1 0 0 1 1 1v5h5a1 1 0 1 1 0 2h-5v5a1 1 0 1 1-2 0v-5H6a1 1 0 1 1 0-2h5V6a1 1 0 0 1 1-1Z" fill="currentColor"/>
+              </svg>
+              Persona Nueva
+            </button>
+            {/* Botón Servidores */}
+            <button
+              type="button"
+              onClick={() => setServidoresOpen(true)}
+              className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-sky-300 via-indigo-300 to-cyan-300 text-slate-900 ring-1 ring-white/50 shadow-[0_6px_20px_rgba(20,150,220,0.35)] px-3 py-1.5 text-sm font-semibold hover:scale-[1.02] active:scale-95 transition"
+              title="Abrir formulario de Servidores"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M4 6a2 2 0 0 1 2-2h5v2H6v12h5v2H6a2 2 0 0 1-2-2V6Zm10-2h4a2 2 0 0 1 2 2v3h-2V6h-4V4Zm4 9h2v3a2 2 0 0 1-2 2h-4v-2h4v-3Z" fill="currentColor"/>
+              </svg>
+              Servidores
+            </button>
+            {/* Botón Banco Archivo (ya existente) */}
+            <button
+              onClick={() => openBanco()}
+              className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-emerald-300 via-teal-300 to-indigo-300 text-slate-900 ring-1 ring-white/50 shadow-[0_6px_20px_rgba(16,185,129,0.30)] px-3 py-1.5 text-sm font-semibold hover:scale-[1.02] active:scale-95 transition"
+              title="Ver estudiantes archivados y reactivar"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M3 6.5A2.5 2.5 0 0 1 5.5 4h13A2.5 2.5 0 0 1 21 6.5V18a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2ZM5 8h14v10H5Zm2-3h10v2H7z" fill="currentColor"/>
+              </svg>
+              Banco Archivo
+            </button>
+          </div>
         </header>
+      {/* Modal Persona Nueva */}
+      <AnimatePresence mode="sync" initial={false}>
+        {nuevaAlmaOpen && (
+          <div
+            key="modal-nueva-alma"
+            className="fixed inset-0 z-[1000] flex min-h-[100dvh] items-start justify-center overflow-y-auto px-1.5 pt-0 pb-6 md:px-4 md:pt-4 md:pb-10 bg-[radial-gradient(1200px_850px_at_50%_-10%,rgba(191,219,254,0.24),transparent),radial-gradient(900px_620px_at_90%_0%,rgba(165,180,252,0.28),rgba(15,23,42,0.78))] supports-[backdrop-filter]:backdrop-blur-[22px]"
+            onClick={(event) => { if (event.target === event.currentTarget) { setNuevaAlmaOpen(false); } }}
+          >
+            <div
+              className="relative w-[min(1100px,96vw)] max-h-[96vh] overflow-hidden rounded-[32px] border border-white/35 bg-[linear-gradient(160deg,rgba(255,255,255,0.94),rgba(240,244,255,0.74))] supports-[backdrop-filter]:bg-white/65 supports-[backdrop-filter]:backdrop-blur-[32px] shadow-[0_48px_140px_-50px_rgba(15,23,42,0.7)] ring-1 ring-white/50"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div className="sticky top-0 z-10 flex items-center justify-end px-3 md:px-5 py-2 border-b border-white/60 bg-white/70 supports-[backdrop-filter]:bg-white/55 backdrop-blur">
+                <button
+                  type="button"
+                  onClick={() => setNuevaAlmaOpen(false)}
+                  className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ring-1 ring-white/60 bg-white/80 text-neutral-800 shadow-sm backdrop-blur-sm transition-all duration-200 hover:bg-white hover:ring-white/80 hover:shadow-[0_18px_38px_-22px_rgba(15,23,42,0.55)] hover:-translate-y-0.5 md:px-3.5"
+                >
+                  Cerrar
+                </button>
+              </div>
+              <div className="max-h-[calc(96vh-48px)] overflow-y-auto px-3 md:px-6 pb-4 pt-0">
+                <PersonaNueva />
+              </div>
+            </div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Modal Servidores */}
+      <AnimatePresence mode="sync" initial={false}>
+        {servidoresOpen && (
+          <div
+            key="modal-servidores"
+            className="fixed inset-0 z-[1000] flex min-h-[100dvh] items-start justify-center overflow-y-auto px-1.5 pt-0 pb-6 md:px-4 md:pt-4 md:pb-10 bg-[radial-gradient(1200px_850px_at_20%_-20%,rgba(125,211,252,0.22),transparent),radial-gradient(900px_620px_at_80%_0%,rgba(196,181,253,0.26),rgba(15,23,42,0.78))] supports-[backdrop-filter]:backdrop-blur-[22px]"
+            onClick={(event) => { if (event.target === event.currentTarget) { setServidoresOpen(false); } }}
+          >
+            <div
+              className="relative w-[min(1200px,96vw)] max-h-[96vh] overflow-hidden rounded-[32px] border border-white/35 bg-[linear-gradient(160deg,rgba(255,255,255,0.94),rgba(236,241,255,0.72))] supports-[backdrop-filter]:bg-white/65 supports-[backdrop-filter]:backdrop-blur-[32px] shadow-[0_48px_140px_-50px_rgba(15,23,42,0.7)] ring-1 ring-white/50"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div className="sticky top-0 z-10 flex items-center justify-end px-3 md:px-5 py-2 border-b border-white/60 bg-white/70 supports-[backdrop-filter]:bg-white/55 backdrop-blur">
+                <button
+                  type="button"
+                  onClick={() => setServidoresOpen(false)}
+                  className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ring-1 ring-white/60 bg-white/80 text-neutral-800 shadow-sm backdrop-blur-sm transition-all duration-200 hover:bg-white hover:ring-white/80 hover:shadow-[0_18px_38px_-22px_rgba(15,23,42,0.55)] hover:-translate-y-0.5 md:px-3.5"
+                >
+                  Cerrar
+                </button>
+              </div>
+              <div className="max-h-[calc(96vh-48px)] overflow-y-auto px-3 md:px-6 pb-4 pt-0">
+                <Servidores />
+              </div>
+            </div>
+          </div>
+        )}
+      </AnimatePresence>
 
 
         

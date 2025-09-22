@@ -2,6 +2,8 @@ import { Suspense } from "react";
 import { cookies } from "next/headers";
 import jwt from "jsonwebtoken";
 import Contactos1Client from "./Contactos1Client";
+import "../../panel/contactos/contactos.css";
+import "../../panel/servidores/servidores.css";
 
 export const dynamic = "force-dynamic";
 export const fetchCache = "force-no-store";
