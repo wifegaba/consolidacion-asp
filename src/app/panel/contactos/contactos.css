@@ -246,6 +246,37 @@
         padding: .7rem 1rem;          /* un poco mÃ¡s compactos */
         font-size: 0.95rem;
     }
+
+    /* Asegura que la lista de sugerencias esté por encima de todo en móvil */
+    .pn-root .sug-list {
+        z-index: 9999 !important;
+    }
+
+    /* Modal buscar responsive: centrado y sin desbordes */
+    .pn-root .modal-buscar__box {
+        width: 98vw !important;
+        max-width: 420px !important;
+        min-width: unset !important;
+        left: 50%;
+        transform: translateX(-50%) scale(1) !important;
+        box-sizing: border-box;
+        padding: 18px 6px 16px !important;
+        margin: 0 auto;
+    }
+        .pn-root .modal-buscar__box {
+            width: 94vw !important;
+            max-width: 340px !important;
+            min-width: unset !important;
+            left: 50%;
+            transform: translateX(-50%) scale(1) !important;
+            box-sizing: border-box;
+            padding: 14px 2vw 12px !important;
+            margin: 0 auto;
+        }
+    .pn-root .modal-buscar {
+        align-items: flex-start !important;
+        padding-top: 18vw;
+    }
 }
 
 

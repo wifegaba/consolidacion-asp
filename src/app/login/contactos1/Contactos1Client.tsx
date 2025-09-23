@@ -636,15 +636,21 @@ export default function Contactos1Client(
 
   return (
     <main
-       className="relative min-h-[100dvh] px-5 md:px-8 py-6 overflow-hidden supports-[backdrop-filter]:backdrop-blur-2xl"
+      className="relative min-h-[100dvh] px-5 md:px-8 py-6 overflow-hidden supports-[backdrop-filter]:backdrop-blur-2xl"
     >
       <div
-        className="absolute inset-0 z-0 bg-white bg-no-repeat filter blur-[80px] [background-image:radial-gradient(circle_at_top_right,rgba(56,193,182,0.5),transparent_70%)]"
+        className="absolute inset-0 z-0"
+        style={{
+          background: "#ffffff",
+          backgroundImage: `radial-gradient(circle at top right, rgba(70, 130, 180, 0.5), transparent 70%)`,
+          filter: "blur(80px)",
+          backgroundRepeat: "no-repeat",
+        }}
       />
       <div className="relative z-10 mx-auto w-full max-w-[1260px]">
         {/* ===== Título ===== */}
         <section className="mb-6 md:mb-8">
-          <div className="text-[32px] md:text-[44px] font-black leading-none tracking-tight bg-gradient-to-r from-emerald-500 via-teal-600 to-indigo-500 text-transparent bg-clip-text drop-shadow-sm">
+          <div className="text-[32px] md:text-[44px] font-black leading-none tracking-tight bg-gradient-to-r from-neutral-900 via-zinc-700 to-neutral-400 text-transparent bg-clip-text drop-shadow-[0_2px_16px_rgba(0,0,0,0.18)]">
             Panel Timoteos
           </div>
         </section>
@@ -661,34 +667,10 @@ export default function Contactos1Client(
           <span className="text-neutral-700 text-sm">  •  {dia}</span>
 
           <div className="ml-auto flex gap-2">
-            {/* Botón Persona Nueva */}
-            <button
-              type="button"
-              onClick={() => setNuevaAlmaOpen(true)}
-              className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-sky-300 via-indigo-300 to-cyan-300 text-slate-900 ring-1 ring-white/50 shadow-[0_6px_20px_rgba(20,150,220,0.35)] px-3 py-1.5 text-sm font-semibold hover:scale-[1.02] active:scale-95 transition"
-              title="Registrar persona nueva"
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M12 5a1 1 0 0 1 1 1v5h5a1 1 0 1 1 0 2h-5v5a1 1 0 1 1-2 0v-5H6a1 1 0 1 1 0-2h5V6a1 1 0 0 1 1-1Z" fill="currentColor"/>
-              </svg>
-              Persona Nueva
-            </button>
-            {/* Botón Servidores */}
-            <button
-              type="button"
-              onClick={() => setServidoresOpen(true)}
-              className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-sky-300 via-indigo-300 to-cyan-300 text-slate-900 ring-1 ring-white/50 shadow-[0_6px_20px_rgba(20,150,220,0.35)] px-3 py-1.5 text-sm font-semibold hover:scale-[1.02] active:scale-95 transition"
-              title="Abrir formulario de Servidores"
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M4 6a2 2 0 0 1 2-2h5v2H6v12h5v2H6a2 2 0 0 1-2-2V6Zm10-2h4a2 2 0 0 1 2 2v3h-2V6h-4V4Zm4 9h2v3a2 2 0 0 1-2 2h-4v-2h4v-3Z" fill="currentColor"/>
-              </svg>
-              Servidores
-            </button>
             {/* Botón Banco Archivo (ya existente) */}
             <button
               onClick={() => openBanco()}
-              className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-emerald-300 via-teal-300 to-indigo-300 text-slate-900 ring-1 ring-white/50 shadow-[0_6px_20px_rgba(16,185,129,0.30)] px-3 py-1.5 text-sm font-semibold hover:scale-[1.02] active:scale-95 transition"
+              className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-yellow-50 via-yellow-100 to-white text-neutral-700 ring-1 ring-yellow-100 shadow-[0_4px_16px_rgba(255,235,150,0.13)] px-3 py-1.5 text-sm font-semibold hover:scale-[1.04] active:scale-95 transition"
               title="Ver estudiantes archivados y reactivar"
             >
               <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
@@ -759,21 +741,29 @@ export default function Contactos1Client(
 
         
 
-        {/* Menú: semanas (1..3) y día bloqueado */}
-        <div className="flex flex-wrap items-center gap-3">
+
+        {/* Tarjeta de semanas y botones (igual que Maestros) */}
+        <div className="flex flex-wrap items-center gap-3 rounded-2xl bg-white/55 supports-[backdrop-filter]:bg-white/35 backdrop-blur-xl px-3 py-3 shadow-[0_10px_40px_-20px_rgba(0,0,0,.35)] ring-1 ring-white/60 mb-4">
           <div className="inline-flex items-center gap-2">
             <span className="text-sm text-neutral-600">Semana:</span>
-            {[1, 2, 3].map((n) => (
-              <button
-                key={n}
-                onClick={() => setSemana(n as Semana)}
-                className={`px-3 py-1.5 rounded-full text-sm font-semibold ring-1 ring-black/10 shadow-sm transition ${
-                  semana === n ? 'bg-neutral-900 text-white' : 'bg-white hover:shadow-md'
-                }`}
-              >
-                {n}
-              </button>
-            ))}
+            {[1, 2, 3].map((n) => {
+              const active = semana === n;
+              return (
+                <button
+                  key={n}
+                  onClick={() => setSemana(n as Semana)}
+                  aria-pressed={active}
+                  className={`px-3.5 py-1.5 rounded-full text-sm font-semibold transition ring-1 focus:outline-none focus-visible:ring-2 ${
+                    active
+                      ? 'bg-gradient-to-r from-sky-400 via-indigo-400 to-cyan-400 text-white ring-1 ring-white/60 shadow-[0_6px_18px_rgba(56,189,248,.35)] scale-[1.03]'
+                      : 'bg-white/40 text-slate-900 ring-white/60 hover:bg-white/60 hover:ring-white/70'
+                  }`}
+                  title={`Semana ${n}`}
+                >
+                  {n}
+                </button>
+              );
+            })}
           </div>
 
           <div className="inline-flex items-center gap-2">
@@ -785,15 +775,44 @@ export default function Contactos1Client(
                   key={d}
                   disabled={disabled}
                   onClick={() => !disabled && setDia(d)}
-                  className={`px-3 py-1.5 rounded-full text-sm font-semibold ring-1 ring-black/10 shadow-sm transition ${
-                    dia === d ? 'bg-neutral-900 text-white' : 'bg-white hover:shadow-md'
-                  } ${disabled ? 'opacity-40 cursor-not-allowed pointer-events-none hover:shadow-none' : ''}`}
+                  className={`px-3 py-1.5 rounded-full text-sm font-semibold transition ring-1 ${
+                    dia === d
+                      ? 'bg-white/90 text-slate-900 ring-white/70 shadow'
+                      : 'bg-white/40 text-slate-900 ring-white/60 hover:bg-white/60'
+                  } ${disabled ? 'opacity-40 cursor-not-allowed' : ''}`}
                   title={disabled ? 'Solo puedes ver tu día asignado' : 'Cambiar día'}
                 >
                   {d}
                 </button>
               );
             })}
+          </div>
+
+          <div className="ml-auto flex gap-2">
+            {/* Botón Persona Nueva */}
+            <button
+              type="button"
+              onClick={() => setNuevaAlmaOpen(true)}
+              className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-yellow-50 via-yellow-100 to-white text-neutral-700 ring-1 ring-yellow-100 shadow-[0_4px_16px_rgba(255,235,150,0.13)] px-4 py-2 text-sm font-semibold hover:scale-[1.04] active:scale-95 transition"
+              title="Registrar persona nueva"
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 5a1 1 0 0 1 1 1v5h5a1 1 0 1 1 0 2h-5v5a1 1 0 1 1-2 0v-5H6a1 1 0 1 1 0-2h5V6a1 1 0 0 1 1-1Z" fill="currentColor"/>
+              </svg>
+              Persona Nueva
+            </button>
+            {/* Botón Servidores */}
+            <button
+              type="button"
+              onClick={() => setServidoresOpen(true)}
+              className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-yellow-50 via-yellow-100 to-white text-neutral-700 ring-1 ring-yellow-100 shadow-[0_4px_16px_rgba(255,235,150,0.13)] px-4 py-2 text-sm font-semibold hover:scale-[1.04] active:scale-95 transition"
+              title="Abrir formulario de Servidores"
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M4 6a2 2 0 0 1 2-2h5v2H6v12h5v2H6a2 2 0 0 1-2-2V6Zm10-2h4a2 2 0 0 1 2 2v3h-2V6h-4V4Zm4 9h2v3a2 2 0 0 1-2 2h-4v-2h4v-3Z" fill="currentColor"/>
+              </svg>
+              Servidores
+            </button>
           </div>
         </div>
 
@@ -1025,7 +1044,7 @@ export default function Contactos1Client(
               <button
                 disabled={!!reactivating[r.progreso_id]}
                 onClick={() => reactivar(r)}
-                className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-sky-300 via-indigo-300 to-cyan-300 text-slate-900 ring-1 ring-white/50 shadow-[0_6px_20px_rgba(20,150,220,0.35)] px-3 py-1.5 text-sm transition hover:scale-[1.02] active:scale-95 disabled:opacity-60"
+                className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-yellow-50 via-yellow-100 to-white text-neutral-700 ring-1 ring-yellow-100 shadow-[0_4px_16px_rgba(255,235,150,0.13)] px-3 py-1.5 text-sm transition hover:scale-[1.04] active:scale-95 disabled:opacity-60"
                 title="Reactivar al panel actual"
               >
                 {reactivating[r.progreso_id] ? 'Reactivando…' : 'Reactivar'}
