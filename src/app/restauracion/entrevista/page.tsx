@@ -527,7 +527,7 @@ const SECTION = {
                             ref={dropRef}
                             className="w-40 h-40 rounded-2xl bg-slate-100 ring-1 ring-slate-200 overflow-hidden flex items-center justify-center photo-drop"
                             title="Arrastra una imagen o haz clic para seleccionar"
-                            onClick={() => document.getElementById("file-foto")?.click()}
+                            onClick={() => document.getElementById('file-foto')?.click()}
                             role="button"
                             tabIndex={0}
                           >
@@ -540,16 +540,58 @@ const SECTION = {
                               </div>
                             )}
                           </div>
-                          <label className="block">
-                            <span className="sr-only">Subir foto</span>
-                            <input
-                              id="file-foto"
-                              type="file"
-                              accept="image/*"
-                              onChange={(e) => onChange("foto", e.target.files?.[0] ?? null)}
-                              className="block w-full text-sm text-slate-600 file:mr-3 file:rounded-full file:border-0 file:bg-slate-900 file:px-4 file:py-2 file:text-white hover:file:opacity-90"
-                            />
-                          </label>
+                          {/* === REEMPLAZO: controles de archivo/cámara con íconos Mac-2025 === */}
+
+{/* Inputs ocultos (evita “sin archivo seleccionados”) */}
+<input
+  id="file-foto"
+  type="file"
+  accept="image/*"
+  style={{ display: "none" }}
+  onChange={(e) => onChange("foto", e.target.files?.[0] ?? null)}
+/>
+
+<input
+  id="file-foto-cam"
+  type="file"
+  accept="image/*"
+  capture="environment"
+  style={{ display: "none" }}
+  onChange={(e) => onChange("foto", e.target.files?.[0] ?? null)}
+/>
+
+{/* Botonera premium */}
+<div className="flex w-full items-center justify-center gap-3">
+  {/* Botón: Archivo */}
+  <button
+    type="button"
+    onClick={() => document.getElementById("file-foto")?.click()}
+    className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white/70 ring-1 ring-white/60 shadow-[0_10px_28px_-14px_rgba(15,23,42,.25)] hover:scale-[1.02] transition-transform select-none"
+    aria-label="Seleccionar archivo de imagen"
+  >
+    {/* Ícono Archivo (estilo mac 2025) */}
+    <svg width="22" height="22" viewBox="0 0 24 24" className="text-slate-700" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <path d="M7 3h6l4 4v12a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z" />
+      <path d="M13 3v4h4" />
+    </svg>
+    <span className="text-sm font-semibold text-slate-700">Archivo</span>
+  </button>
+
+  {/* Botón: Cámara */}
+  <button
+    type="button"
+    onClick={() => document.getElementById("file-foto-cam")?.click()}
+    className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-indigo-500 to-sky-500 text-white font-semibold shadow-[0_10px_28px_-14px_rgba(99,102,241,.45)] hover:scale-[1.02] transition-transform select-none"
+    aria-label="Tomar foto con cámara"
+  >
+    {/* Ícono Cámara (estilo mac 2025) */}
+    <svg width="22" height="22" viewBox="0 0 24 24" className="text-white" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <path d="M4 8h3l2-2h6l2 2h3a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-6a2 2 0 0 1 2-2Z" />
+      <circle cx="12" cy="13" r="3.2" />
+    </svg>
+    <span className="text-sm">Cámara</span>
+  </button>
+</div>
                         </div>
                         {/* Campos personales */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1041,60 +1083,128 @@ const SECTION = {
           box-shadow: 0 0 0 6px #6c63ff22, 0 0 0 12px #5bc2ff1a;
         }
 
+
+
+
         /* Inputs */
-        .input-premium{
-          width:100%;
-          border-radius: var(--mac-radius);
-          border:1.5px solid rgba(108,99,255,0.13);
-          background: linear-gradient(120deg, #fff 70%, #f5f3ff 100%);
-          box-shadow: var(--mac-shadow);
-          padding:.75rem 1.1rem;
-          font-size:1rem; color:#23223a;
-          transition: box-shadow .18s, border .18s, transform .08s;
-          outline:none; backdrop-filter: blur(8px);
-        }
-        .input-base {
-          width: 100%;
-          border-radius: 1.25rem;
-          background: rgba(255,255,255,0.7);
-          backdrop-filter: blur(8px);
-          padding: .75rem 1.1rem;
-          outline: none;
-          transition: box-shadow .18s, border .18s, transform .08s;
-          border: 1.5px solid rgba(255,255,255,0.6);
-          box-shadow: 0 8px 24px -8px rgba(0,0,0,.25);
-          font-size: 1rem;
-          color: #23223a;
-        }
-        .input-base:focus {
-          border-color: var(--mac-accent);
-          box-shadow: 0 0 0 3px #6c63ff33, var(--mac-shadow-strong);
-        }
+       .input-premium{
+  width:100%;
+  border:0; border-bottom:1.6px solid #e2e8f0;
+  border-radius:0; background:transparent;
+  padding:.95rem .25rem .7rem;
+  font-size:1rem; color:#0b1220; outline:0;
+  backdrop-filter:blur(6px);
+  transition:border-color .16s, box-shadow .16s, transform .08s;
+}
+
+
+
+        .input-base{
+  width:100%;
+  border-radius:16px; border:1px solid #e6e9f2;
+  background:linear-gradient(120deg,#fff 70%,#f6f7ff 100%);
+  box-shadow: inset 8px 8px 18px #e8ebf5, inset -8px -8px 18px #ffffff;
+  padding:.95rem 1.1rem; color:#23223a; outline:0;
+  transition:box-shadow .18s, border .18s;
+}
+       .input-base:focus{
+   border-color:#7c7bff;
+  box-shadow: inset 12px 12px 26px #e6e9f5, inset -12px -12px 26px #ffffff,
+              0 0 0 3px #7c7bff33;
+}
         .input-premium:focus{
           border-color: var(--mac-accent);
           box-shadow: 0 0 0 3px #6c63ff33, var(--mac-shadow-strong);
           transform: translateY(-1px);
           animation: macPulse .18s;
         }
+       
+.input-premium::placeholder{ color:#9aa5b1 }
+.input-premium:focus{
+  border-bottom-color:#6366f1;
+  box-shadow:0 14px 28px -22px rgba(99,102,241,.45), 0 1px 0 0 #6366f1 inset;
+  transform:translateY(-1px);
+}    
+
+
+.input-neum-inset{
+ 
+}
+.input-neum-inset:focus{
+  border-color:#7c7bff;
+  box-shadow: inset 12px 12px 26px #e6e9f5, inset -12px -12px 26px #ffffff,
+              0 0 0 3px #7c7bff33;
+}
+
+       
+      
+
+
+
+
         @keyframes macPulse{0%{box-shadow:0 0 0 0 var(--mac-accent2)}100%{box-shadow:0 0 0 3px #a084ff33}}
         .label-premium{ font-size:.76rem; font-weight:700; color:#6c63ff; letter-spacing:.01em; }
 
-        /* Chips (pill toggles) */
-        .chip{
-          display:inline-flex; align-items:center; gap:.55em;
-          border-radius:999px;
-          background: linear-gradient(90deg, #f7f7fd 60%, #ecebff 100%);
-          border: 1.2px solid #ecebff;
-          box-shadow: 0 2px 12px -6px #6c63ff22;
-          padding:.52em 1.2em; font-size:.98rem; color:#5a5a7a; cursor:pointer;
-          transition: background .18s, color .18s, box-shadow .18s, transform .12s;
-          user-select:none;
-        }
-        .chip:hover{ transform: translateY(-1px); }
-        .chip[data-checked="true"]{
-          background: linear-gradient(90deg, var(--mac-accent) 60%, var(--mac-accent2) 100%);
-          color:#fff; border-color: transparent; box-shadow: 0 6px 18px -8px var(--mac-accent2);
-        }
+
+
+
+
+        /* === CHIPS PREMIUM 2025 (selección) === */
+.chip{
+  --glow: rgba(99,102,241,.18);
+  --grad1:#6366F1; --grad2:#0EA5E9;
+  --glass: rgba(255,255,255,.72);
+
+  position:relative;
+  display:inline-flex; align-items:center; gap:.55em;
+  padding:.56em 1.15em;
+  border-radius:999px;
+  border:1.4px solid #e6e9f2;
+  background:
+    linear-gradient(#fff,#fff) padding-box,
+    linear-gradient(90deg,#eef2ff,#e0f2ff) border-box;
+  color:#465066; font-weight:700; font-size:.95rem;
+  box-shadow: 0 8px 22px -14px rgba(2,6,23,.18);
+  backdrop-filter:saturate(1.05) blur(3px);
+  transition: transform .12s, box-shadow .18s, border-color .18s, filter .14s, background .18s;
+  cursor:pointer; user-select:none;
+}
+.chip:hover{ transform: translateY(-1px); filter: brightness(1.03); }
+.chip:active{ transform: translateY(0); }
+
+.chip[data-checked="true"]{
+  border-color: transparent;
+  background:
+    linear-gradient(#fff0,#fff0) padding-box,
+    linear-gradient(90deg,var(--grad1),var(--grad2)) border-box;
+  color:#0b1020;
+  box-shadow: 0 10px 28px -12px var(--glow);
+}
+.chip[data-checked="true"]::before{
+  /* brillo interno suave tipo mac */
+  content:""; position:absolute; inset:1.6px; border-radius:999px;
+  background: radial-gradient(120% 120% at 20% 0%, #ffffff66 0%, transparent 50%);
+  pointer-events:none;
+}
+
+.chip:focus-visible{
+  outline: none;
+  box-shadow: 0 0 0 3px #a5b4ff55, 0 10px 28px -12px var(--glow);
+}
+
+/* Tamaños (opcional) */
+.chip.sm{ padding:.42em .9em; font-size:.88rem }
+.chip.lg{ padding:.7em 1.35em; font-size:1.02rem }
+
+/* Estado deshabilitado */
+.chip[aria-disabled="true"]{
+  opacity:.55; cursor:not-allowed; filter:grayscale(.1);
+}
+
+
+
+
+
 
         /* Nav secciones */
     .nav-chip{

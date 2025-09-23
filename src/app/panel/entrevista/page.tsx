@@ -381,7 +381,7 @@ export default function EntrevistaPage() {
                     ref={dropRef}
                     className="w-56 h-56 rounded-2xl bg-slate-100 ring-1 ring-slate-200 overflow-hidden flex items-center justify-center photo-drop"
                     title="Arrastra una imagen o haz clic para seleccionar"
-                    onClick={() => document.getElementById("file-foto")?.click()}
+                    onClick={() => document.getElementById('file-foto')?.click()}
                     role="button"
                     tabIndex={0}
                   >
@@ -394,8 +394,8 @@ export default function EntrevistaPage() {
                       </div>
                     )}
                   </div>
-                  <label className="block">
-                    <span className="sr-only">Subir foto</span>
+                  <label className="block w-full">
+                    <span className="sr-only">Seleccionar archivo</span>
                     <input
                       id="file-foto"
                       type="file"
@@ -404,6 +404,21 @@ export default function EntrevistaPage() {
                       className="block w-full text-sm text-slate-600 file:mr-3 file:rounded-full file:border-0 file:bg-slate-900 file:px-4 file:py-2 file:text-white hover:file:opacity-90"
                     />
                   </label>
+                  <button
+                    type="button"
+                    className="mt-2 px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-semibold shadow hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                    onClick={() => document.getElementById('file-foto-cam')?.click()}
+                  >
+                    Tomar foto con cámara
+                  </button>
+                  <input
+                    id="file-foto-cam"
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    style={{ display: 'none' }}
+                    onChange={(e) => onChange("foto", e.target.files?.[0] ?? null)}
+                  />
                 </div>
 
                 {/* Campos personales */}
