@@ -5,7 +5,7 @@ import { supabase } from "../../../lib/supabaseClient";
 /** =======================================================
  *  Consulta de entrevistas — Modal premium con CE refs
  *  + Carga/actualización de foto (Supabase Storage)
- *  + Preview instantáneo y cache de URLs firmadas en tabla
+ *  + Preview instantáneo, compresión y cache de URLs firmadas
  *  Archivo: src/app/restauracion/consultar/page.tsx
  *  NOTA: Pega este archivo COMPLETO (sin omitir líneas).
  *  =======================================================
@@ -96,6 +96,20 @@ function bustUrl(u?: string | null) {
   const sep = u.includes("?") ? "&" : "?";
   return `${u}${sep}v=${Date.now()}`;
 }
+
+/** Placeholder inline (evita 404 a /avatar-placeholder.svg) */
+const PLACEHOLDER_SVG =
+  "data:image/svg+xml;utf8," +
+  encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+      <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stop-color="#6366f1"/><stop offset="1" stop-color="#a855f7"/>
+      </linearGradient></defs>
+      <rect width="64" height="64" rx="999" fill="url(#g)"/>
+      <circle cx="32" cy="24" r="12" fill="rgba(255,255,255,.85)"/>
+      <path d="M8,60a24,24 0 0 1 48,0" fill="rgba(255,255,255,.85)"/>
+    </svg>`
+  );
 
 // ---------------------- Campo editable (CE refs) ----------------------
 type CEProps = {
@@ -231,6 +245,54 @@ function DetalleEntrevista({
       setF(k as any, v as any);
     };
 
+  // --------- COMPRESIÓN CLIENTE ----------
+  function downscaleImage(file: File, maxSide = 720, quality = 0.82): Promise<File> {
+    return new Promise((resolve) => {
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+      img.onload = () => {
+        const { width, height } = img;
+        let w = width;
+        let h = height;
+        if (w > h && w > maxSide) {
+          h = Math.round((h * maxSide) / w);
+          w = maxSide;
+        } else if (h >= w && h > maxSide) {
+          w = Math.round((w * maxSide) / h);
+          h = maxSide;
+        }
+        const canvas = document.createElement("canvas");
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+          URL.revokeObjectURL(url);
+          resolve(file);
+          return;
+        }
+        ctx.drawImage(img, 0, 0, w, h);
+        canvas.toBlob(
+          (blob) => {
+            URL.revokeObjectURL(url);
+            if (!blob) return resolve(file);
+            const f = new File([blob], file.name.replace(/\.\w+$/, ".webp"), {
+              type: "image/webp",
+              lastModified: Date.now(),
+            });
+            resolve(f);
+          },
+          "image/webp",
+          quality
+        );
+      };
+      img.onerror = () => {
+        URL.revokeObjectURL(url);
+        resolve(file);
+      };
+      img.src = url;
+    });
+  }
+
   async function handleUpdate() {
     if (!edit) {
       setEdit(true);
@@ -358,33 +420,36 @@ function DetalleEntrevista({
       alert("Selecciona una imagen válida.");
       return;
     }
-    if (file.size > 6 * 1024 * 1024) {
-      alert("La imagen supera 6MB. Comprime antes de subir.");
+    if (file.size > 12 * 1024 * 1024) {
+      alert("La imagen supera 12MB.");
       return;
     }
 
-    // Preview INMEDIATO en modal y en la fila seleccionada (campo efímero)
-    const tempUrl = URL.createObjectURL(file);
+    // 1) Comprimir/redimensionar (rápido de subir)
+    const compact = await downscaleImage(file, 720, 0.82);
+
+    // 2) Preview INMEDIATO con el archivo comprimido
+    const tempUrl = URL.createObjectURL(compact);
     tempObjUrlRef.current = tempUrl;
     setLocalSignedUrl(tempUrl);
     onUpdated({ ...form, _tempPreview: tempUrl }); // no tocamos foto_path aún
 
     setUploadingFoto(true);
     const oldPath = form.foto_path || undefined;
-    const path = `fotos/${row.id}-${Date.now()}${extFromMime(file.type)}`;
+    const path = `fotos/${row.id}-${Date.now()}${extFromMime(compact.type)}`;
 
     try {
-      // Subir a Storage
+      // 3) Subir a Storage (sin caché para que aparezca al toque)
       const up = await supabase.storage
         .from("entrevistas-fotos")
-        .upload(path, file, {
-          cacheControl: "3600",
+        .upload(path, compact, {
+          cacheControl: "0",
           upsert: true,
-          contentType: file.type,
+          contentType: compact.type || "image/webp",
         });
       if (up.error) throw up.error;
 
-      // Actualizar DB
+      // 4) Actualizar DB
       const { data: updated, error: upErr } = await supabase
         .from("entrevistas")
         .update({ foto_path: path, updated_at: new Date().toISOString() })
@@ -393,7 +458,7 @@ function DetalleEntrevista({
         .single();
       if (upErr) throw upErr;
 
-      // Firmar URL para preview (con bust)
+      // 5) Firmar URL para preview (con bust)
       const signed = await supabase.storage
         .from("entrevistas-fotos")
         .createSignedUrl(path, 60 * 10); // 10 min
@@ -401,12 +466,12 @@ function DetalleEntrevista({
 
       const signedBusted = bustUrl(signed.data?.signedUrl) ?? null;
 
-      // Borrar imagen previa (si había)
+      // 6) Borrar imagen previa (si había)
       if (oldPath) {
         await supabase.storage.from("entrevistas-fotos").remove([oldPath]);
       }
 
-      // Refrescar estado local y notificar padre (quitamos _tempPreview)
+      // 7) Refrescar estado local y notificar padre (quitamos _tempPreview)
       setF("foto_path", path);
       setLocalSignedUrl(signedBusted);
       onUpdated({ ...(updated as Entrevista), _tempPreview: null });
@@ -445,7 +510,7 @@ function DetalleEntrevista({
             {/* Avatar clickeable (no altera layout general) */}
             <div className="relative">
               <img
-                src={localSignedUrl ?? "/avatar-placeholder.svg"}
+                src={localSignedUrl ?? PLACEHOLDER_SVG}
                 alt={form.nombre ?? "avatar"}
                 width={56}
                 height={56}
@@ -496,7 +561,7 @@ function DetalleEntrevista({
             </div>
           </div>
 
-          <div className="flex items-center gap-2 modal-header-btns-col-mobile">
+          <div className="flex items-center gap-2">
             <button
               onClick={onClose}
               className="px-3 py-1.5 text-sm font-medium rounded-full transition ring-1 ring-zinc-200 bg-white/70 supports-[backdrop-filter]:bg-white/40 hover:bg-white/80 text-zinc-700"
@@ -519,9 +584,9 @@ function DetalleEntrevista({
                 "px-3 py-1.5 text-sm font-medium rounded-full transition disabled:opacity-60",
                 btnUpdateClass
               )}
-              title={edit ? "Guardar cambios" : "Actualizar"}
+              title={edit ? "Guardar cambios" : "Editar"}
             >
-              {edit ? (saving ? "Guardando…" : "Guardar") : "Actualizar"}
+              {edit ? (saving ? "Guardando…" : "Guardar") : "Editar"}
             </button>
           </div>
         </header>
@@ -651,13 +716,11 @@ export default function Page() {
   async function getSignedUrlCached(path?: string | null) {
     if (!path) return null;
     if (fotoUrls[path]) return fotoUrls[path];
-    const { data, error } = await supabase.storage
+    const { data } = await supabase.storage
       .from("entrevistas-fotos")
       .createSignedUrl(path, 60 * 10);
     const url = bustUrl(data?.signedUrl) ?? null;
-    if (!error && url) {
-      setFotoUrls((m) => ({ ...m, [path]: url }));
-    }
+    if (url) setFotoUrls((m) => ({ ...m, [path]: url }));
     return url;
   }
 
@@ -704,6 +767,34 @@ export default function Page() {
       return (ak > bk ? 1 : -1) * dir;
     });
   }, [rows, q, sort]);
+
+  // Prefetch de URLs firmadas para las primeras filas visibles (reduce “lag”)
+  useEffect(() => {
+    const TO_PREFETCH = Math.min(30, filtered.length);
+    const paths = Array.from(
+      new Set(
+        filtered.slice(0, TO_PREFETCH).map((r) => r.foto_path).filter(Boolean) as string[]
+      )
+    );
+    if (paths.length === 0) return;
+    Promise.all(
+      paths.map((p) =>
+        supabase.storage
+          .from("entrevistas-fotos")
+          .createSignedUrl(p, 60 * 10)
+          .then(({ data }) => ({ p, url: bustUrl(data?.signedUrl) ?? null }))
+          .catch(() => ({ p, url: null }))
+      )
+    ).then((pairs) => {
+      setFotoUrls((m) => {
+        const next = { ...m };
+        pairs.forEach(({ p, url }) => {
+          if (p && url) next[p] = url;
+        });
+        return next;
+      });
+    });
+  }, [filtered]);
 
   // Abrir modal: obtener Signed URL si hay foto y precachear
   async function openRow(row: Entrevista) {
@@ -796,7 +887,7 @@ export default function Page() {
 
     return (
       <img
-        src={url || "/avatar-placeholder.svg"}
+        src={url || PLACEHOLDER_SVG}
         alt="avatar"
         width={28}
         height={28}
@@ -926,18 +1017,6 @@ export default function Page() {
           onDeleted={onDeleted}
         />
       )}
-
-      <style jsx global>{`
-        @media (max-width: 640px) {
-          .modal-header-btns-col-mobile {
-            flex-direction: column !important;
-            align-items: flex-end !important;
-            gap: 0.5rem !important;
-            width: auto;
-            margin-top: 0;
-          }
-        }
-      `}</style>
     </div>
   );
 }
