@@ -2,6 +2,7 @@
 import { guardarEntrevista } from "../../../services/entrevistas";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { removeBackground } from "@imgly/background-removal";
 
 /* =========================================
   Tipos y esquema (sin libs externas)
@@ -284,6 +285,68 @@ const SECTION = {
     setSeccion(next);
   }
   const [values, setValues] = useState<FormValues>({ ...INITIAL });
+ 
+ 
+ // ⛔️ elimina el uso de { backgroundColor: "white" }
+// ✅ recortamos y luego “horneamos” fondo blanco con canvas
+
+const [procesandoFoto, setProcesandoFoto] = useState(false);
+
+/** Pega un PNG con transparencia sobre fondo blanco y devuelve un File JPG liviano */
+async function pegarSobreBlanco(blob: Blob, nombreBase: string): Promise<File> {
+  const img = await createImageBitmap(blob);
+  const canvas = document.createElement("canvas");
+  canvas.width = img.width;
+  canvas.height = img.height;
+  const ctx = canvas.getContext("2d")!;
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.drawImage(img, 0, 0);
+  const outBlob: Blob = await new Promise((resolve) =>
+    canvas.toBlob((b) => resolve(b as Blob), "image/jpeg", 0.92)
+  );
+  return new File([outBlob], `${nombreBase}_white.jpg`, { type: "image/jpeg" });
+}
+
+/** Recorta fondo con IMG.LY y devuelve un File con fondo BLANCO ya aplicado */
+async function aFondoBlanco(file: File): Promise<File> {
+  // 1) recorte (PNG con transparencia)
+  const cutBlob = await removeBackground(file, {
+    // opcional: formateo de salida del recorte
+    output: { format: "image/png" },
+    // puedes añadir `model: "isnet"` si lo deseas; respeta los tipos
+  });
+
+  // 2) hornear en blanco con canvas
+  const base = file.name.replace(/\.[^/.]+$/, "");
+  return await pegarSobreBlanco(cutBlob as Blob, base);
+}
+
+/** Maneja Archivo/Cámara y guarda la foto con fondo blanco en tu estado */
+async function handleFotoAutoWhite(e: React.ChangeEvent<HTMLInputElement>) {
+  const f = e.target.files?.[0];
+  if (!f) return;
+  try {
+    setProcesandoFoto(true);
+    const whiteFile = await aFondoBlanco(f);
+    setValues((v) => ({ ...v, foto: whiteFile })); // tu lógica existente
+  } finally {
+    setProcesandoFoto(false);
+  }
+}
+
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
   // Eliminado errores globales
   const [okMsg, setOkMsg] = useState<string>("");
   const [saving, setSaving] = useState(false);
@@ -515,7 +578,7 @@ const SECTION = {
                   initial="enter"
                   animate="center"
                   exit="exit"
-                  className="absolute inset-0 transform-gpu will-change-transform will-change-[filter,opacity] h-full min-h-0 max-h-full overflow-y-auto pr-2"
+                  className="absolute inset-0 transform-gpu will-change-transform will-change-[filter,opacity] h-full min-h-0 max-h-full overflow-y-auto pr-2 section-scroll-fix"
                 >
                   {seccion === 'personales' && (
                     <section id="s-personal" className="card-premium p-4 md:p-6">
@@ -523,23 +586,32 @@ const SECTION = {
                       <div className="grid grid-cols-1 md:grid-cols-[180px_1fr] gap-6">
                         {/* Foto */}
                         <div className="flex flex-col items-center gap-3">
-                          <div
-                            ref={dropRef}
-                            className="w-40 h-40 rounded-2xl bg-slate-100 ring-1 ring-slate-200 overflow-hidden flex items-center justify-center photo-drop"
-                            title="Arrastra una imagen o haz clic para seleccionar"
-                            onClick={() => document.getElementById('file-foto')?.click()}
-                            role="button"
-                            tabIndex={0}
-                          >
-                            {previewFoto ? (
-                              // eslint-disable-next-line @next/next/no-img-element
-                              <img src={previewFoto} alt="foto" className="w-full h-full object-cover" />
-                            ) : (
-                              <div className="text-center text-slate-400 text-xs leading-tight">
-                                Arrastra o <span className="underline">sube</span> tu foto
-                              </div>
-                            )}
-                          </div>
+                         <div
+  ref={dropRef}
+  className="w-40 h-40 rounded-2xl bg-slate-100 ring-1 ring-slate-200 overflow-hidden flex items-center justify-center photo-drop relative" // <-- + relative
+  title="Arrastra una imagen o haz clic para seleccionar"
+  onClick={() => document.getElementById('file-foto')?.click()}
+  role="button"
+  tabIndex={0}
+  aria-busy={procesandoFoto ? true : undefined}
+>
+  {previewFoto ? (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img src={previewFoto} alt="foto" className="w-full h-full object-cover" />
+  ) : (
+    <div className="text-center text-slate-400 text-xs leading-tight">
+      Arrastra o <span className="underline">sube</span> tu foto
+    </div>
+  )}
+
+  {/* Overlay mientras se procesa la foto */}
+  {procesandoFoto && (
+    <div className="absolute inset-0 grid place-items-center bg-white/70 backdrop-blur-sm text-slate-700 text-xs font-semibold">
+      Procesando foto…
+    </div>
+  )}
+</div>
+
                           {/* === REEMPLAZO: controles de archivo/cámara con íconos Mac-2025 === */}
 
 {/* Inputs ocultos (evita “sin archivo seleccionados”) */}
@@ -548,7 +620,7 @@ const SECTION = {
   type="file"
   accept="image/*"
   style={{ display: "none" }}
-  onChange={(e) => onChange("foto", e.target.files?.[0] ?? null)}
+  onChange={handleFotoAutoWhite}
 />
 
 <input
@@ -557,8 +629,9 @@ const SECTION = {
   accept="image/*"
   capture="environment"
   style={{ display: "none" }}
-  onChange={(e) => onChange("foto", e.target.files?.[0] ?? null)}
+  onChange={handleFotoAutoWhite}
 />
+
 
 {/* Botonera premium */}
 <div className="flex w-full items-center justify-center gap-3">
@@ -916,6 +989,25 @@ const SECTION = {
                           />
                         </div>
                       </div>
+                      {/* Botones Guardar y Limpiar solo en móvil, centrados y compactos */}
+                      <div className="flex lg:hidden justify-center mt-6 mb-2">
+                        <button
+                          type="button"
+                          onClick={() => { setValues({ ...INITIAL }); setOkMsg(""); }}
+                          className="btn-secondary btn-mobile-action mx-2"
+                        >
+                          Limpiar
+                        </button>
+                        <button
+                          id="btn-guardar-mobile"
+                          type="submit"
+                          form="form-entrevista"
+                          className="btn-primary btn-mobile-action mx-2"
+                          disabled={saving}
+                        >
+                          {saving ? "Guardando…" : "Guardar"}
+                        </button>
+                      </div>
                     </section>
                   )}
                 </motion.div>
@@ -925,9 +1017,10 @@ const SECTION = {
             {/* FOOTER actions sticky eliminados, botones solo en el aside */}
           </form>
 
-          {/* Aside: nav sticky + tips */}
+          {/* Aside: nav sticky + tips (solo desktop) */}
           <aside className="hidden lg:block">
             <div className="sticky top-6 space-y-4">
+              {/* ...existing code for aside... */}
               <nav className="rounded-2xl bg-white/70 ring-1 ring-white/60 shadow-[0_16px_48px_-18px_rgba(15,23,42,.22)] p-3">
                 <p className="text-xs font-semibold text-slate-600 px-2 pb-2">Secciones</p>
                 <ul className="space-y-1">
@@ -937,6 +1030,7 @@ const SECTION = {
                     </button>
                     {isSeccionCompleta('personales') && (
                       <span className="inline-flex items-center justify-center ml-1">
+                        {/* ...existing check icon... */}
                         <svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg" className="drop-shadow-[0_2px_6px_rgba(16,185,129,0.18)]">
                           <circle cx="11" cy="11" r="10" fill="url(#mac2025green)"/>
                           <path d="M7.5 11.5L10 14L15 9" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -956,6 +1050,7 @@ const SECTION = {
                     </button>
                     {isSeccionCompleta('generales') && (
                       <span className="inline-flex items-center justify-center ml-1">
+                        {/* ...existing check icon... */}
                         <svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg" className="drop-shadow-[0_2px_6px_rgba(16,185,129,0.18)]">
                           <circle cx="11" cy="11" r="10" fill="url(#mac2025green)"/>
                           <path d="M7.5 11.5L10 14L15 9" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -975,6 +1070,7 @@ const SECTION = {
                     </button>
                     {isSeccionCompleta('espirituales') && (
                       <span className="inline-flex items-center justify-center ml-1">
+                        {/* ...existing check icon... */}
                         <svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg" className="drop-shadow-[0_2px_6px_rgba(16,185,129,0.18)]">
                           <circle cx="11" cy="11" r="10" fill="url(#mac2025green)"/>
                           <path d="M7.5 11.5L10 14L15 9" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -994,6 +1090,7 @@ const SECTION = {
                     </button>
                     {isSeccionCompleta('evaluacion') && (
                       <span className="inline-flex items-center justify-center ml-1">
+                        {/* ...existing check icon... */}
                         <svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg" className="drop-shadow-[0_2px_6px_rgba(16,185,129,0.18)]">
                           <circle cx="11" cy="11" r="10" fill="url(#mac2025green)"/>
                           <path d="M7.5 11.5L10 14L15 9" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -1031,6 +1128,23 @@ const SECTION = {
               </div>
             </div>
           </aside>
+
+          {/* Navegación inferior responsive solo móvil */}
+          <nav className="lg:hidden fixed bottom-0 left-0 w-full z-50 bg-white/90 border-t border-slate-200 flex justify-between items-center px-2 py-1 shadow-[0_-2px_16px_-6px_rgba(99,102,241,0.10)]">
+            {["personales", "generales", "espirituales", "evaluacion"].map((sec, idx) => (
+              <button
+                key={sec}
+                type="button"
+                className={`flex-1 mx-1 my-1 rounded-full h-12 flex flex-col items-center justify-center font-bold text-base transition-all duration-150 ${seccion === sec ? 'bg-indigo-500 text-white scale-105 shadow-lg' : 'bg-white text-indigo-500 border border-indigo-200'}`}
+                onClick={() => irA(sec as Seccion, 1)}
+                aria-label={`Ir a sección ${idx + 1}`}
+              >
+                <span className="text-xs font-medium mt-0.5" style={{fontSize:'0.72rem'}}>
+                  {sec === 'personales' ? 'Personal' : sec === 'generales' ? 'General' : sec === 'espirituales' ? 'Espiritual' : 'Evaluación'}
+                </span>
+              </button>
+            ))}
+          </nav>
         </div>
       </motion.div>
 
@@ -1049,7 +1163,74 @@ const SECTION = {
       </AnimatePresence>
 
       {/* Estilos globales premium 2025 */}
-      <style jsx global>{`
+  <style jsx global>{`
+        /* Botones compactos para acciones en móvil */
+        .btn-mobile-action {
+          font-size: 0.98rem;
+          padding: 0.55em 1.1em;
+          min-width: 90px;
+          min-height: 36px;
+          border-radius: 12px;
+        }
+        /* Fix para que el último campo no quede oculto tras la barra inferior en móvil */
+        .section-scroll-fix {
+          padding-bottom: 1.5rem;
+        }
+        @media (max-width: 1023px) {
+          .section-scroll-fix {
+            padding-bottom: 4.5rem;
+          }
+        }
+        /* Navegación inferior responsive */
+        nav.lg\\:hidden.fixed.bottom-0 {
+          display: flex;
+          min-height: 48px;
+          height: 52px;
+          padding-top: 0.25rem;
+          padding-bottom: 0.25rem;
+        }
+        @media (min-width: 1024px) {
+          nav.lg\\:hidden.fixed.bottom-0 {
+            display: none !important;
+          }
+        }
+        @media (max-width: 1023px) {
+          aside.lg\\:block {
+            display: none !important;
+          }
+        }
+        .nav-bottom-btn {
+          transition: all 0.16s;
+          font-weight: 700;
+          border-radius: 999px;
+          min-width: 38px;
+          min-height: 38px;
+          height: 38px;
+          max-height: 40px;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          font-size: 1rem;
+          padding: 0.25rem 0.25rem 0.1rem 0.25rem;
+        }
+        .nav-bottom-btn span.text-xs {
+          font-size: 0.66rem !important;
+        }
+        .nav-bottom-btn.active {
+          background: linear-gradient(90deg,#6366f1,#0ea5e9);
+          color: #fff;
+          box-shadow: 0 4px 18px -6px #6366f155;
+          transform: scale(1.08);
+        }
+        .nav-bottom-btn:not(.active) {
+          background: #fff;
+          color: #6366f1;
+          border: 1.5px solid #e0e7ef;
+        }
+        .nav-bottom-btn span {
+          line-height: 1.1;
+        }
         :root {
           --mac-accent: #6c63ff;
           --mac-accent2: #5bc2ff;

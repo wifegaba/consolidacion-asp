@@ -9,6 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@imgly/background-removal": "^1.7.0",
     "@supabase/supabase-js": "^2.57.0",
     "aos": "^2.3.4",
     "bcryptjs": "^3.0.2",
