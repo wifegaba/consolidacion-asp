@@ -1,6 +1,7 @@
 "use client";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "../../../lib/supabaseClient";
+import { removeBackground } from "@imgly/background-removal";
 
 /** =======================================================
  *  Consulta de entrevistas — Modal premium con CE refs
@@ -414,6 +415,26 @@ function DetalleEntrevista({
     }
   }
 
+  // --------- QUITAR FONDO Y PEGAR EN BLANCO (cliente, sin cambiar UI) ----------
+  async function toWhiteBackground(file: File): Promise<File> {
+    // 1) Recorte con transparencia (PNG) — todo en el cliente
+    const cutBlob = await removeBackground(file, { output: { format: "image/png" } });
+    // 2) Pegar sobre fondo blanco (JPEG)
+    const img = await createImageBitmap(cutBlob as Blob);
+    const canvas = document.createElement("canvas");
+    canvas.width = img.width;
+    canvas.height = img.height;
+    const ctx = canvas.getContext("2d")!;
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(img, 0, 0);
+    const whiteBlob: Blob = await new Promise((resolve) =>
+      canvas.toBlob((b) => resolve(b as Blob), "image/jpeg", 0.95)
+    );
+    const base = file.name.replace(/\.[^/.]+$/, "");
+    return new File([whiteBlob], `${base}_white.jpg`, { type: "image/jpeg", lastModified: Date.now() });
+  }
+
   // --------- CARGA / CAMBIO DE FOTO ----------
   async function handleChangeFoto(file: File) {
     if (!file.type.startsWith("image/")) {
@@ -425,21 +446,31 @@ function DetalleEntrevista({
       return;
     }
 
-    // 1) Comprimir/redimensionar (rápido de subir)
-    const compact = await downscaleImage(file, 720, 0.82);
+    // 0) Procesar a fondo blanco (cliente) — Reusa overlay existente (uploadingFoto)
+    setUploadingFoto(true);
+    let whiteFile: File;
+    try {
+      whiteFile = await toWhiteBackground(file);
+    } catch (e) {
+      // Si falla el modelo, seguimos con el original para no bloquear flujo
+      console.warn("Background removal falló, uso original:", e);
+      whiteFile = file;
+    }
 
-    // 2) Preview INMEDIATO con el archivo comprimido
+    // 1) Comprimir/redimensionar (rápido de subir)
+    const compact = await downscaleImage(whiteFile, 720, 0.82);
+
+    // 2) Preview INMEDIATO con el archivo ya blanco+compacto
     const tempUrl = URL.createObjectURL(compact);
     tempObjUrlRef.current = tempUrl;
     setLocalSignedUrl(tempUrl);
     onUpdated({ ...form, _tempPreview: tempUrl }); // no tocamos foto_path aún
 
-    setUploadingFoto(true);
     const oldPath = form.foto_path || undefined;
     const path = `fotos/${row.id}-${Date.now()}${extFromMime(compact.type)}`;
 
     try {
-      // 3) Subir a Storage (sin caché para que aparezca al toque)
+      // 3) Subir a Storage
       const up = await supabase.storage
         .from("entrevistas-fotos")
         .upload(path, compact, {
@@ -554,10 +585,7 @@ function DetalleEntrevista({
               <h3 className="text-lg font-semibold text-zinc-800">
                 {form.nombre ?? "Consulta de entrevista"}
               </h3>
-              <p className="text-xs text-zinc-500 mt-1">
-                Creada: {formatDateTime(row.created_at)} · Actualizada:{" "}
-                {formatDateTime(row.updated_at)}
-              </p>
+              
             </div>
           </div>
 
@@ -897,7 +925,7 @@ export default function Page() {
   }
 
   return (
-    <div className="min-h-[calc(100vh-120px)] w-full relative">
+    <div className="min-h[calc(100vh-120px)] w-full relative">
       {/* Glow premium */}
       <div
         className="absolute inset-0 -z-10"

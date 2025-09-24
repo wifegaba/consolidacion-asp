@@ -1,6 +1,6 @@
 "use client";
 import { guardarEntrevista } from "../../../services/entrevistas";
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { removeBackground } from "@imgly/background-removal";
 
@@ -8,7 +8,7 @@ import { removeBackground } from "@imgly/background-removal";
   Tipos y esquema (sin libs externas)
 ========================================= */
 
-// ========== Tipos para validación inline premium ========== 
+// ========== Tipos para validación inline premium ==========
 type FieldKey =
   | 'nombre' | 'cedula' | 'email' | 'telefono' | 'fechaNac' | 'direccion'
   | 'lugarNac' | 'estadoCivil' | 'ocupacion';
@@ -130,68 +130,66 @@ export default function EntrevistaPage() {
     if (!v || v.trim().length < 3) return 'Dirección es obligatoria (mín. 3).';
   }
 
-/* =========================================
-   Hooks premium 2025: autosave + scrollspy
-========================================= */
-function useAutoSave<T>(key: string, state: T, setState: (v: T) => void) {
-  // hidrata al cargar
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem(key);
-      if (raw) setState({ ...(JSON.parse(raw) as T) });
-    } catch {}
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // guarda con debounce
-  const timeout = useRef<number | null>(null);
-  useEffect(() => {
-    if (timeout.current) window.clearTimeout(timeout.current);
-    timeout.current = window.setTimeout(() => {
+  /* =========================================
+     Hooks premium 2025: autosave + scrollspy
+  ========================================= */
+  function useAutoSave<T>(key: string, state: T, setState: (v: T) => void) {
+    // hidrata al cargar
+    useEffect(() => {
       try {
-        localStorage.setItem(key, JSON.stringify(state));
+        const raw = localStorage.getItem(key);
+        if (raw) setState({ ...(JSON.parse(raw) as T) });
       } catch {}
-    }, 450);
-    return () => {
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    // guarda con debounce
+    const timeout = useRef<number | null>(null);
+    useEffect(() => {
       if (timeout.current) window.clearTimeout(timeout.current);
-    };
-  }, [key, state]);
-}
+      timeout.current = window.setTimeout(() => {
+        try {
+          localStorage.setItem(key, JSON.stringify(state));
+        } catch {}
+      }, 450);
+      return () => {
+        if (timeout.current) window.clearTimeout(timeout.current);
+      };
+    }, [key, state]);
+  }
 
-function useScrollSpy(ids: string[]) {
-  const [active, setActive] = useState<string>(ids[0] ?? "");
-  useEffect(() => {
-    const obs = new IntersectionObserver(
-      (entries) => {
-        const vis = entries
-          .filter((e) => e.isIntersecting)
-          .sort((a, b) => (a.target as HTMLElement).offsetTop - (b.target as HTMLElement).offsetTop);
-        if (vis[0]) setActive(`#${vis[0].target.id}`);
-      },
-      { rootMargin: "-40% 0px -55% 0px", threshold: 0.01 }
-    );
-    ids.forEach((id) => {
-      const el = document.getElementById(id);
-      if (el) obs.observe(el);
-    });
-    return () => obs.disconnect();
-  }, [ids]);
-  return active;
-}
+  function useScrollSpy(ids: string[]) {
+    const [active, setActive] = useState<string>(ids[0] ?? "");
+    useEffect(() => {
+      const obs = new IntersectionObserver(
+        (entries) => {
+          const vis = entries
+            .filter((e) => e.isIntersecting)
+            .sort((a, b) => (a.target as HTMLElement).offsetTop - (b.target as HTMLElement).offsetTop);
+          if (vis[0]) setActive(`#${vis[0].target.id}`);
+        },
+        { rootMargin: "-40% 0px -55% 0px", threshold: 0.01 }
+      );
+      ids.forEach((id) => {
+        const el = document.getElementById(id);
+        if (el) obs.observe(el);
+      });
+      return () => obs.disconnect();
+    }, [ids]);
+    return active;
+  }
 
-/* =========================================
-   Variants framer-motion
-========================================= */
-const REVEAL = {
-  initial: { clipPath: "inset(0 0 100% 0 round 24px)", opacity: 0.6 },
-  animate: { clipPath: "inset(0 0 0% 0 round 24px)", opacity: 1, transition: { duration: 0.75, ease: [0.42, 0, 0.58, 1] as [number, number, number, number] } },
-};
-const SECTION = {
-  initial: { y: 28, opacity: 0, scale: 0.98 },
-  animate: { y: 0, opacity: 1, scale: 1, transition: { duration: 0.6, type: "spring" as const, bounce: 0.22 } },
-};
-
-// ...existing code...
+  /* =========================================
+     Variants framer-motion
+  ========================================= */
+  const REVEAL = {
+    initial: { clipPath: "inset(0 0 100% 0 round 24px)", opacity: 0.6 },
+    animate: { clipPath: "inset(0 0 0% 0 round 24px)", opacity: 1, transition: { duration: 0.75, ease: [0.42, 0, 0.58, 1] as [number, number, number, number] } },
+  };
+  const SECTION = {
+    initial: { y: 28, opacity: 0, scale: 0.98 },
+    animate: { y: 0, opacity: 1, scale: 1, transition: { duration: 0.6, type: "spring" as const, bounce: 0.22 } },
+  };
 
   // Determina si una sección está completa (puedes ajustar la lógica según tus reglas)
   function isSeccionCompleta(seccion: string): boolean {
@@ -233,18 +231,19 @@ const SECTION = {
     }
     if (seccion === 'evaluacion') {
       return (
-  typeof values.aspectoFeliz === 'boolean' &&
-  typeof values.muyInteresado === 'boolean' &&
-  typeof values.interviene === 'boolean' &&
-  values.cambiosFisicos !== undefined &&
-  values.promovido !== undefined &&
-  values.notas !== undefined &&
-  values.cambiosFisicos !== '' &&
-  values.notas !== ''
+        typeof values.aspectoFeliz === 'boolean' &&
+        typeof values.muyInteresado === 'boolean' &&
+        typeof values.interviene === 'boolean' &&
+        values.cambiosFisicos !== undefined &&
+        values.promovido !== undefined &&
+        values.notas !== undefined &&
+        values.cambiosFisicos !== '' &&
+        values.notas !== ''
       );
     }
     return false;
   }
+
   // --- Animación premium entre secciones ---
   type Seccion = "personales" | "generales" | "espirituales" | "evaluacion";
   const [seccion, setSeccion] = useState<Seccion>("personales");
@@ -284,69 +283,67 @@ const SECTION = {
     setDireccion(dir);
     setSeccion(next);
   }
+
   const [values, setValues] = useState<FormValues>({ ...INITIAL });
- 
- 
- // ⛔️ elimina el uso de { backgroundColor: "white" }
-// ✅ recortamos y luego “horneamos” fondo blanco con canvas
 
-const [procesandoFoto, setProcesandoFoto] = useState(false);
+  // ======= Foto: auto fondo blanco + overlay + preview sin fugas =======
+  const [procesandoFoto, setProcesandoFoto] = useState(false);
+  const [previewFoto, setPreviewFoto] = useState<string>("");
 
-/** Pega un PNG con transparencia sobre fondo blanco y devuelve un File JPG liviano */
-async function pegarSobreBlanco(blob: Blob, nombreBase: string): Promise<File> {
-  const img = await createImageBitmap(blob);
-  const canvas = document.createElement("canvas");
-  canvas.width = img.width;
-  canvas.height = img.height;
-  const ctx = canvas.getContext("2d")!;
-  ctx.fillStyle = "#ffffff";
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-  ctx.drawImage(img, 0, 0);
-  const outBlob: Blob = await new Promise((resolve) =>
-    canvas.toBlob((b) => resolve(b as Blob), "image/jpeg", 0.92)
-  );
-  return new File([outBlob], `${nombreBase}_white.jpg`, { type: "image/jpeg" });
-}
-
-/** Recorta fondo con IMG.LY y devuelve un File con fondo BLANCO ya aplicado */
-async function aFondoBlanco(file: File): Promise<File> {
-  // 1) recorte (PNG con transparencia)
-  const cutBlob = await removeBackground(file, {
-    // opcional: formateo de salida del recorte
-    output: { format: "image/png" },
-    // puedes añadir `model: "isnet"` si lo deseas; respeta los tipos
-  });
-
-  // 2) hornear en blanco con canvas
-  const base = file.name.replace(/\.[^/.]+$/, "");
-  return await pegarSobreBlanco(cutBlob as Blob, base);
-}
-
-/** Maneja Archivo/Cámara y guarda la foto con fondo blanco en tu estado */
-async function handleFotoAutoWhite(e: React.ChangeEvent<HTMLInputElement>) {
-  const f = e.target.files?.[0];
-  if (!f) return;
-  try {
-    setProcesandoFoto(true);
-    const whiteFile = await aFondoBlanco(f);
-    setValues((v) => ({ ...v, foto: whiteFile })); // tu lógica existente
-  } finally {
-    setProcesandoFoto(false);
+  /** Pega un PNG con transparencia sobre fondo blanco y devuelve un File JPG liviano */
+  async function pegarSobreBlanco(blob: Blob, nombreBase: string): Promise<File> {
+    const img = await createImageBitmap(blob);
+    const canvas = document.createElement("canvas");
+    canvas.width = img.width;
+    canvas.height = img.height;
+    const ctx = canvas.getContext("2d")!;
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(img, 0, 0);
+    const outBlob: Blob = await new Promise((resolve) =>
+      canvas.toBlob((b) => resolve(b as Blob), "image/jpeg", 0.92)
+    );
+    return new File([outBlob], `${nombreBase}_white.jpg`, { type: "image/jpeg" });
   }
-}
 
- 
- 
- 
- 
- 
- 
- 
- 
- 
- 
- 
- 
+  /** Recorta fondo con IMG.LY y devuelve un File con fondo BLANCO ya aplicado */
+  async function aFondoBlanco(file: File): Promise<File> {
+    // 1) recorte (PNG con transparencia)
+    const cutBlob = await removeBackground(file, {
+      output: { format: "image/png" },
+    });
+    // 2) hornear en blanco con canvas
+    const base = file.name.replace(/\.[^/.]+$/, "");
+    return await pegarSobreBlanco(cutBlob as Blob, base);
+  }
+
+  /** Maneja Archivo/Cámara y guarda la foto con fondo blanco en tu estado */
+  async function handleFotoAutoWhite(e: React.ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    try {
+      setProcesandoFoto(true);
+      const whiteFile = await aFondoBlanco(f);
+      setValues((v) => ({ ...v, foto: whiteFile }));
+    } finally {
+      setProcesandoFoto(false);
+    }
+  }
+
+  // Preview seguro (crea y revoca URL del File)
+  useEffect(() => {
+    let url: string | null = null;
+    if (values?.foto && values.foto instanceof File) {
+      url = URL.createObjectURL(values.foto);
+      setPreviewFoto(url);
+    } else {
+      setPreviewFoto("");
+    }
+    return () => {
+      if (url) URL.revokeObjectURL(url);
+    };
+  }, [values.foto]);
+
   // Eliminado errores globales
   const [okMsg, setOkMsg] = useState<string>("");
   const [saving, setSaving] = useState(false);
@@ -381,7 +378,6 @@ async function handleFotoAutoWhite(e: React.ChangeEvent<HTMLInputElement>) {
       case 'cedula': return vCedula(v);
       case 'email':  return vEmail(v);
       case 'fechaNac': return vFecha(v);
-      // agrega más si aplica
       default: return undefined;
     }
   }
@@ -442,23 +438,6 @@ async function handleFotoAutoWhite(e: React.ChangeEvent<HTMLInputElement>) {
     }
   }
 
-  const previewFoto = useMemo(() => {
-    if (!values.foto || !(values.foto instanceof File)) return "";
-    const url = URL.createObjectURL(values.foto);
-    return url;
-  }, [values.foto]);
-
-  // Limpieza del objeto URL para evitar memory leaks
-  useEffect(() => {
-    let url: string | undefined;
-    if (values.foto && values.foto instanceof File) {
-      url = URL.createObjectURL(values.foto);
-    }
-    return () => {
-      if (url) URL.revokeObjectURL(url);
-    };
-  }, [values.foto]);
-
   // Atajos: Guardar (Ctrl/Cmd+S) y saltos rápidos
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -475,18 +454,26 @@ async function handleFotoAutoWhite(e: React.ChangeEvent<HTMLInputElement>) {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  // Drag & drop sobre la tarjeta de foto
+  // Drag & drop sobre la tarjeta de foto (ahora también auto-fondo blanco)
   const dropRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
     const el = dropRef.current;
     if (!el) return;
     const over = (ev: DragEvent) => { ev.preventDefault(); el.classList.add("drop-on"); };
     const leave = () => el.classList.remove("drop-on");
-    const drop = (ev: DragEvent) => {
+    const drop = async (ev: DragEvent) => {
       ev.preventDefault();
       el.classList.remove("drop-on");
       const file = ev.dataTransfer?.files?.[0];
-      if (file && file.type.startsWith("image/")) onChange("foto", file);
+      if (file && file.type.startsWith("image/")) {
+        try {
+          setProcesandoFoto(true);
+          const whiteFile = await aFondoBlanco(file);
+          setValues(v => ({ ...v, foto: whiteFile }));
+        } finally {
+          setProcesandoFoto(false);
+        }
+      }
     };
     el.addEventListener("dragover", over); el.addEventListener("dragleave", leave); el.addEventListener("drop", drop);
     return () => { el.removeEventListener("dragover", over); el.removeEventListener("dragleave", leave); el.removeEventListener("drop", drop); };
@@ -554,7 +541,6 @@ async function handleFotoAutoWhite(e: React.ChangeEvent<HTMLInputElement>) {
           {/* Formulario */}
           <form id="form-entrevista" onSubmit={onSubmit} className="space-y-6 md:space-y-8 flex flex-col h-full min-h-0">
 
-
             <AnimatePresence>
               {okMsg && (
                 <motion.div
@@ -586,86 +572,82 @@ async function handleFotoAutoWhite(e: React.ChangeEvent<HTMLInputElement>) {
                       <div className="grid grid-cols-1 md:grid-cols-[180px_1fr] gap-6">
                         {/* Foto */}
                         <div className="flex flex-col items-center gap-3">
-                         <div
-  ref={dropRef}
-  className="w-40 h-40 rounded-2xl bg-slate-100 ring-1 ring-slate-200 overflow-hidden flex items-center justify-center photo-drop relative" // <-- + relative
-  title="Arrastra una imagen o haz clic para seleccionar"
-  onClick={() => document.getElementById('file-foto')?.click()}
-  role="button"
-  tabIndex={0}
-  aria-busy={procesandoFoto ? true : undefined}
->
-  {previewFoto ? (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img src={previewFoto} alt="foto" className="w-full h-full object-cover" />
-  ) : (
-    <div className="text-center text-slate-400 text-xs leading-tight">
-      Arrastra o <span className="underline">sube</span> tu foto
-    </div>
-  )}
+                          <div
+                            ref={dropRef}
+                            className="w-40 h-40 rounded-2xl bg-slate-100 ring-1 ring-slate-200 overflow-hidden flex items-center justify-center photo-drop relative"
+                            title="Arrastra una imagen o haz clic para seleccionar"
+                            onClick={() => document.getElementById('file-foto')?.click()}
+                            role="button"
+                            tabIndex={0}
+                            aria-busy={procesandoFoto ? true : undefined}
+                          >
+                            {previewFoto ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img src={previewFoto} alt="foto" className="w-full h-full object-cover" />
+                            ) : (
+                              <div className="text-center text-slate-400 text-xs leading-tight">
+                                Arrastra o <span className="underline">sube</span> tu foto
+                              </div>
+                            )}
 
-  {/* Overlay mientras se procesa la foto */}
-  {procesandoFoto && (
-    <div className="absolute inset-0 grid place-items-center bg-white/70 backdrop-blur-sm text-slate-700 text-xs font-semibold">
-      Procesando foto…
-    </div>
-  )}
-</div>
+                            {/* Overlay mientras se procesa la foto */}
+                            {procesandoFoto && (
+                              <div className="absolute inset-0 grid place-items-center bg-white/70 backdrop-blur-sm text-slate-700 text-xs font-semibold">
+                                Procesando foto…
+                              </div>
+                            )}
+                          </div>
 
-                          {/* === REEMPLAZO: controles de archivo/cámara con íconos Mac-2025 === */}
+                          {/* Inputs ocultos */}
+                          <input
+                            id="file-foto"
+                            type="file"
+                            accept="image/*"
+                            style={{ display: "none" }}
+                            onChange={handleFotoAutoWhite}
+                          />
 
-{/* Inputs ocultos (evita “sin archivo seleccionados”) */}
-<input
-  id="file-foto"
-  type="file"
-  accept="image/*"
-  style={{ display: "none" }}
-  onChange={handleFotoAutoWhite}
-/>
+                          <input
+                            id="file-foto-cam"
+                            type="file"
+                            accept="image/*"
+                            capture="environment"
+                            style={{ display: "none" }}
+                            onChange={handleFotoAutoWhite}
+                          />
 
-<input
-  id="file-foto-cam"
-  type="file"
-  accept="image/*"
-  capture="environment"
-  style={{ display: "none" }}
-  onChange={handleFotoAutoWhite}
-/>
+                          {/* Botonera premium */}
+                          <div className="flex w-full items-center justify-center gap-3">
+                            {/* Botón: Archivo */}
+                            <button
+                              type="button"
+                              onClick={() => document.getElementById("file-foto")?.click()}
+                              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white/70 ring-1 ring-white/60 shadow-[0_10px_28px_-14px_rgba(15,23,42,.25)] hover:scale-[1.02] transition-transform select-none"
+                              aria-label="Seleccionar archivo de imagen"
+                            >
+                              <svg width="22" height="22" viewBox="0 0 24 24" className="text-slate-700" fill="none" stroke="currentColor" strokeWidth="1.8">
+                                <path d="M7 3h6l4 4v12a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z" />
+                                <path d="M13 3v4h4" />
+                              </svg>
+                              <span className="text-sm font-semibold text-slate-700">Archivo</span>
+                            </button>
 
-
-{/* Botonera premium */}
-<div className="flex w-full items-center justify-center gap-3">
-  {/* Botón: Archivo */}
-  <button
-    type="button"
-    onClick={() => document.getElementById("file-foto")?.click()}
-    className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white/70 ring-1 ring-white/60 shadow-[0_10px_28px_-14px_rgba(15,23,42,.25)] hover:scale-[1.02] transition-transform select-none"
-    aria-label="Seleccionar archivo de imagen"
-  >
-    {/* Ícono Archivo (estilo mac 2025) */}
-    <svg width="22" height="22" viewBox="0 0 24 24" className="text-slate-700" fill="none" stroke="currentColor" strokeWidth="1.8">
-      <path d="M7 3h6l4 4v12a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z" />
-      <path d="M13 3v4h4" />
-    </svg>
-    <span className="text-sm font-semibold text-slate-700">Archivo</span>
-  </button>
-
-  {/* Botón: Cámara */}
-  <button
-    type="button"
-    onClick={() => document.getElementById("file-foto-cam")?.click()}
-    className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-indigo-500 to-sky-500 text-white font-semibold shadow-[0_10px_28px_-14px_rgba(99,102,241,.45)] hover:scale-[1.02] transition-transform select-none"
-    aria-label="Tomar foto con cámara"
-  >
-    {/* Ícono Cámara (estilo mac 2025) */}
-    <svg width="22" height="22" viewBox="0 0 24 24" className="text-white" fill="none" stroke="currentColor" strokeWidth="1.8">
-      <path d="M4 8h3l2-2h6l2 2h3a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-6a2 2 0 0 1 2-2Z" />
-      <circle cx="12" cy="13" r="3.2" />
-    </svg>
-    <span className="text-sm">Cámara</span>
-  </button>
-</div>
+                            {/* Botón: Cámara */}
+                            <button
+                              type="button"
+                              onClick={() => document.getElementById("file-foto-cam")?.click()}
+                              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-indigo-500 to-sky-500 text-white font-semibold shadow-[0_10px_28px_-14px_rgba(99,102,241,.45)] hover:scale-[1.02] transition-transform select-none"
+                              aria-label="Tomar foto con cámara"
+                            >
+                              <svg width="22" height="22" viewBox="0 0 24 24" className="text-white" fill="none" stroke="currentColor" strokeWidth="1.8">
+                                <path d="M4 8h3l2-2h6l2 2h3a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-6a2 2 0 0 1 2-2Z" />
+                                <circle cx="12" cy="13" r="3.2" />
+                              </svg>
+                              <span className="text-sm">Cámara</span>
+                            </button>
+                          </div>
                         </div>
+
                         {/* Campos personales */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           <Field label="Nombre y apellidos *" icon="user">
@@ -1020,7 +1002,7 @@ async function handleFotoAutoWhite(e: React.ChangeEvent<HTMLInputElement>) {
           {/* Aside: nav sticky + tips (solo desktop) */}
           <aside className="hidden lg:block">
             <div className="sticky top-6 space-y-4">
-              {/* ...existing code for aside... */}
+              {/* Nav secciones */}
               <nav className="rounded-2xl bg-white/70 ring-1 ring-white/60 shadow-[0_16px_48px_-18px_rgba(15,23,42,.22)] p-3">
                 <p className="text-xs font-semibold text-slate-600 px-2 pb-2">Secciones</p>
                 <ul className="space-y-1">
@@ -1030,7 +1012,6 @@ async function handleFotoAutoWhite(e: React.ChangeEvent<HTMLInputElement>) {
                     </button>
                     {isSeccionCompleta('personales') && (
                       <span className="inline-flex items-center justify-center ml-1">
-                        {/* ...existing check icon... */}
                         <svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg" className="drop-shadow-[0_2px_6px_rgba(16,185,129,0.18)]">
                           <circle cx="11" cy="11" r="10" fill="url(#mac2025green)"/>
                           <path d="M7.5 11.5L10 14L15 9" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -1050,7 +1031,6 @@ async function handleFotoAutoWhite(e: React.ChangeEvent<HTMLInputElement>) {
                     </button>
                     {isSeccionCompleta('generales') && (
                       <span className="inline-flex items-center justify-center ml-1">
-                        {/* ...existing check icon... */}
                         <svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg" className="drop-shadow-[0_2px_6px_rgba(16,185,129,0.18)]">
                           <circle cx="11" cy="11" r="10" fill="url(#mac2025green)"/>
                           <path d="M7.5 11.5L10 14L15 9" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -1070,7 +1050,6 @@ async function handleFotoAutoWhite(e: React.ChangeEvent<HTMLInputElement>) {
                     </button>
                     {isSeccionCompleta('espirituales') && (
                       <span className="inline-flex items-center justify-center ml-1">
-                        {/* ...existing check icon... */}
                         <svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg" className="drop-shadow-[0_2px_6px_rgba(16,185,129,0.18)]">
                           <circle cx="11" cy="11" r="10" fill="url(#mac2025green)"/>
                           <path d="M7.5 11.5L10 14L15 9" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -1090,7 +1069,6 @@ async function handleFotoAutoWhite(e: React.ChangeEvent<HTMLInputElement>) {
                     </button>
                     {isSeccionCompleta('evaluacion') && (
                       <span className="inline-flex items-center justify-center ml-1">
-                        {/* ...existing check icon... */}
                         <svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg" className="drop-shadow-[0_2px_6px_rgba(16,185,129,0.18)]">
                           <circle cx="11" cy="11" r="10" fill="url(#mac2025green)"/>
                           <path d="M7.5 11.5L10 14L15 9" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -1163,7 +1141,7 @@ async function handleFotoAutoWhite(e: React.ChangeEvent<HTMLInputElement>) {
       </AnimatePresence>
 
       {/* Estilos globales premium 2025 */}
-  <style jsx global>{`
+      <style jsx global>{`
         /* Botones compactos para acciones en móvil */
         .btn-mobile-action {
           font-size: 0.98rem;
@@ -1264,145 +1242,110 @@ async function handleFotoAutoWhite(e: React.ChangeEvent<HTMLInputElement>) {
           box-shadow: 0 0 0 6px #6c63ff22, 0 0 0 12px #5bc2ff1a;
         }
 
-
-
-
         /* Inputs */
-       .input-premium{
-  width:100%;
-  border:0; border-bottom:1.6px solid #e2e8f0;
-  border-radius:0; background:transparent;
-  padding:.95rem .25rem .7rem;
-  font-size:1rem; color:#0b1220; outline:0;
-  backdrop-filter:blur(6px);
-  transition:border-color .16s, box-shadow .16s, transform .08s;
-}
-
-
-
+        .input-premium{
+          width:100%;
+          border:0; border-bottom:1.6px solid #e2e8f0;
+          border-radius:0; background:transparent;
+          padding:.95rem .25rem .7rem;
+          font-size:1rem; color:#0b1220; outline:0;
+          backdrop-filter:blur(6px);
+          transition:border-color .16s, box-shadow .16s, transform .08s;
+        }
         .input-base{
-  width:100%;
-  border-radius:16px; border:1px solid #e6e9f2;
-  background:linear-gradient(120deg,#fff 70%,#f6f7ff 100%);
-  box-shadow: inset 8px 8px 18px #e8ebf5, inset -8px -8px 18px #ffffff;
-  padding:.95rem 1.1rem; color:#23223a; outline:0;
-  transition:box-shadow .18s, border .18s;
-}
-       .input-base:focus{
-   border-color:#7c7bff;
-  box-shadow: inset 12px 12px 26px #e6e9f5, inset -12px -12px 26px #ffffff,
-              0 0 0 3px #7c7bff33;
-}
+          width:100%;
+          border-radius:16px; border:1px solid #e6e9f2;
+          background:linear-gradient(120deg,#fff 70%,#f6f7ff 100%);
+          box-shadow: inset 8px 8px 18px #e8ebf5, inset -8px -8px 18px #ffffff;
+          padding:.95rem 1.1rem; color:#23223a; outline:0;
+          transition:box-shadow .18s, border .18s;
+        }
+        .input-base:focus{
+          border-color:#7c7bff;
+          box-shadow: inset 12px 12px 26px #e6e9f5, inset -12px -12px 26px #ffffff,
+                      0 0 0 3px #7c7bff33;
+        }
         .input-premium:focus{
           border-color: var(--mac-accent);
           box-shadow: 0 0 0 3px #6c63ff33, var(--mac-shadow-strong);
           transform: translateY(-1px);
           animation: macPulse .18s;
         }
-       
-.input-premium::placeholder{ color:#9aa5b1 }
-.input-premium:focus{
-  border-bottom-color:#6366f1;
-  box-shadow:0 14px 28px -22px rgba(99,102,241,.45), 0 1px 0 0 #6366f1 inset;
-  transform:translateY(-1px);
-}    
-
-
-.input-neum-inset{
- 
-}
-.input-neum-inset:focus{
-  border-color:#7c7bff;
-  box-shadow: inset 12px 12px 26px #e6e9f5, inset -12px -12px 26px #ffffff,
-              0 0 0 3px #7c7bff33;
-}
-
-       
-      
-
-
-
+        .input-premium::placeholder{ color:#9aa5b1 }
+        .input-premium:focus{
+          border-bottom-color:#6366f1;
+          box-shadow:0 14px 28px -22px rgba(99,102,241,.45), 0 1px 0 0 #6366f1 inset;
+          transform:translateY(-1px);
+        }
 
         @keyframes macPulse{0%{box-shadow:0 0 0 0 var(--mac-accent2)}100%{box-shadow:0 0 0 3px #a084ff33}}
         .label-premium{ font-size:.76rem; font-weight:700; color:#6c63ff; letter-spacing:.01em; }
 
-
-
-
-
         /* === CHIPS PREMIUM 2025 (selección) === */
-.chip{
-  --glow: rgba(99,102,241,.18);
-  --grad1:#6366F1; --grad2:#0EA5E9;
-  --glass: rgba(255,255,255,.72);
+        .chip{
+          --glow: rgba(99,102,241,.18);
+          --grad1:#6366F1; --grad2:#0EA5E9;
+          --glass: rgba(255,255,255,.72);
 
-  position:relative;
-  display:inline-flex; align-items:center; gap:.55em;
-  padding:.56em 1.15em;
-  border-radius:999px;
-  border:1.4px solid #e6e9f2;
-  background:
-    linear-gradient(#fff,#fff) padding-box,
-    linear-gradient(90deg,#eef2ff,#e0f2ff) border-box;
-  color:#465066; font-weight:700; font-size:.95rem;
-  box-shadow: 0 8px 22px -14px rgba(2,6,23,.18);
-  backdrop-filter:saturate(1.05) blur(3px);
-  transition: transform .12s, box-shadow .18s, border-color .18s, filter .14s, background .18s;
-  cursor:pointer; user-select:none;
-}
-.chip:hover{ transform: translateY(-1px); filter: brightness(1.03); }
-.chip:active{ transform: translateY(0); }
+          position:relative;
+          display:inline-flex; align-items:center; gap:.55em;
+          padding:.56em 1.15em;
+          border-radius:999px;
+          border:1.4px solid #e6e9f2;
+          background:
+            linear-gradient(#fff,#fff) padding-box,
+            linear-gradient(90deg,#eef2ff,#e0f2ff) border-box;
+          color:#465066; font-weight:700; font-size:.95rem;
+          box-shadow: 0 8px 22px -14px rgba(2,6,23,.18);
+          backdrop-filter:saturate(1.05) blur(3px);
+          transition: transform .12s, box-shadow .18s, border-color .18s, filter .14s, background .18s;
+          cursor:pointer; user-select:none;
+        }
+        .chip:hover{ transform: translateY(-1px); filter: brightness(1.03); }
+        .chip:active{ transform: translateY(0); }
 
-.chip[data-checked="true"]{
-  border-color: transparent;
-  background:
-    linear-gradient(#fff0,#fff0) padding-box,
-    linear-gradient(90deg,var(--grad1),var(--grad2)) border-box;
-  color:#0b1020;
-  box-shadow: 0 10px 28px -12px var(--glow);
-}
-.chip[data-checked="true"]::before{
-  /* brillo interno suave tipo mac */
-  content:""; position:absolute; inset:1.6px; border-radius:999px;
-  background: radial-gradient(120% 120% at 20% 0%, #ffffff66 0%, transparent 50%);
-  pointer-events:none;
-}
+        .chip[data-checked="true"]{
+          border-color: transparent;
+          background:
+            linear-gradient(#fff0,#fff0) padding-box,
+            linear-gradient(90deg,var(--grad1),var(--grad2)) border-box;
+          color:#0b1020;
+          box-shadow: 0 10px 28px -12px var(--glow);
+        }
+        .chip[data-checked="true"]::before{
+          content:""; position:absolute; inset:1.6px; border-radius:999px;
+          background: radial-gradient(120% 120% at 20% 0%, #ffffff66 0%, transparent 50%);
+          pointer-events:none;
+        }
 
-.chip:focus-visible{
-  outline: none;
-  box-shadow: 0 0 0 3px #a5b4ff55, 0 10px 28px -12px var(--glow);
-}
+        .chip:focus-visible{
+          outline: none;
+          box-shadow: 0 0 0 3px #a5b4ff55, 0 10px 28px -12px var(--glow);
+        }
 
-/* Tamaños (opcional) */
-.chip.sm{ padding:.42em .9em; font-size:.88rem }
-.chip.lg{ padding:.7em 1.35em; font-size:1.02rem }
+        .chip.sm{ padding:.42em .9em; font-size:.88rem }
+        .chip.lg{ padding:.7em 1.35em; font-size:1.02rem }
 
-/* Estado deshabilitado */
-.chip[aria-disabled="true"]{
-  opacity:.55; cursor:not-allowed; filter:grayscale(.1);
-}
-
-
-
-
-
+        .chip[aria-disabled="true"]{
+          opacity:.55; cursor:not-allowed; filter:grayscale(.1);
+        }
 
         /* Nav secciones */
-    .nav-chip{
-  display:block; padding:.55rem .8rem;
-  border-radius:12px; color:#334155; font-weight:600;
-  background:rgba(255,255,255,0.35);
-  box-shadow: 0 1.5px 6px -2px #a5b4fc22;
-  border: 1.7px solid #e0e7ef;
-  backdrop-filter: blur(4px) saturate(1.05);
-  transition: background .18s, filter .14s, box-shadow .18s, border-color .18s;
-    }
-    .nav-chip:hover{
-  background: linear-gradient(90deg,rgba(238,242,255,0.97),rgba(224,242,255,0.97));
-  box-shadow: 0 8px 28px -10px var(--mac-accent2, #5bc2ff33), 0 2px 8px -4px #a5b4fc33;
-  border: 1.7px solid var(--mac-accent2, #5bc2ff);
-  filter: brightness(1.09) saturate(1.13);
-    }
+        .nav-chip{
+          display:block; padding:.55rem .8rem;
+          border-radius:12px; color:#334155; font-weight:600;
+          background:rgba(255,255,255,0.35);
+          box-shadow: 0 1.5px 6px -2px #a5b4fc22;
+          border: 1.7px solid #e0e7ef;
+          backdrop-filter: blur(4px) saturate(1.05);
+          transition: background .18s, filter .14s, box-shadow .18s, border-color .18s;
+        }
+        .nav-chip:hover{
+          background: linear-gradient(90deg,rgba(238,242,255,0.97),rgba(224,242,255,0.97));
+          box-shadow: 0 8px 28px -10px var(--mac-accent2, #5bc2ff33), 0 2px 8px -4px #a5b4fc33;
+          border: 1.7px solid var(--mac-accent2, #5bc2ff);
+          filter: brightness(1.09) saturate(1.13);
+        }
         .nav-chip-active{
           background:linear-gradient(90deg,#eef2ff,#e0f2ff);
           color:#1e293b;
@@ -1502,7 +1445,7 @@ function Icon({ kind }: { kind: NonNullable<Parameters<typeof Field>[0]["icon"]>
     case "user":   return (<svg className={common} viewBox="0 0 20 20" fill="currentColor"><circle cx="10" cy="7" r="3"/><path d="M4 16c0-3 3-5 6-5s6 2 6 5" /></svg>);
     case "id":     return (<svg className={common} viewBox="0 0 20 20" fill="none" stroke="currentColor"><rect x="3" y="4" width="14" height="12" rx="3"/><circle cx="8" cy="10" r="2"/><path d="M12 8h3M12 12h3"/></svg>);
     case "phone":  return (<svg className={common} viewBox="0 0 20 20" fill="none" stroke="currentColor"><path d="M3 4h4l2 4-3 2a12 12 0 0 0 6 6l2-3 4 2v4c0 1-1 2-2 2A15 15 0 0 1 3 6c0-1 1-2 2-2Z" strokeWidth="1.5"/></svg>);
-    case "mail":   return (<svg className={common} viewBox="0 0 20 20" fill="none" stroke="currentColor"><rect x="3" y="5" width="14" height="10" rx="2"/><path d="M3 7l7 5 7-5"/></svg>);
+    case "mail":   return (<svg className={common} viewBox="0 0 20 20" fill="none" stroke="currentColor"><rect x="3" y="5" width="10" height="10" rx="2"/><path d="M3 7l7 5 7-5"/></svg>);
     case "clock":  return (<svg className={common} viewBox="0 0 20 20" fill="none" stroke="currentColor"><circle cx="10" cy="10" r="8"/><path d="M10 6v4l3 2"/></svg>);
     case "pin":    return (<svg className={common} viewBox="0 0 20 20" fill="none" stroke="currentColor"><path d="M10 18s6-4.35 6-9a6 6 0 1 0-12 0c0 4.65 6 9 6 9Z"/><circle cx="10" cy="9" r="2.5"/></svg>);
     case "home":   return (<svg className={common} viewBox="0 0 20 20" fill="none" stroke="currentColor"><path d="M3 9.5 10 3l7 6.5v7.5a1 1 0 0 1-1 1h-4v-6H8v6H4a1 1 0 0 1-1-1Z"/></svg>);
@@ -1512,8 +1455,6 @@ function Icon({ kind }: { kind: NonNullable<Parameters<typeof Field>[0]["icon"]>
     case "time":   return (<svg className={common} viewBox="0 0 20 20" fill="none" stroke="currentColor"><circle cx="10" cy="10" r="8"/><path d="M10 5v5l3 2"/></svg>);
     case "user2":  return (<svg className={common} viewBox="0 0 20 20" fill="currentColor"><circle cx="7" cy="7" r="3"/><circle cx="14" cy="11" r="2.5"/><path d="M2.5 16c0-2.3 2.7-4 6-4s6 1.7 6 4"/></svg>);
     case "pastor": return (<svg className={common} viewBox="0 0 20 20" fill="none" stroke="currentColor"><path d="M10 2v6M7 5h6"/><circle cx="10" cy="12" r="3"/><path d="M4 18c1.5-3 4-4 6-4s4.5 1 6 4"/></svg>);
-
     case "note":   return (<svg className={common} viewBox="0 0 20 20" fill="none" stroke="currentColor"><rect x="4" y="3" width="12" height="14" rx="2"/><path d="M7 7h6M7 10h6M7 13h4"/></svg>);
   }
 }
-
