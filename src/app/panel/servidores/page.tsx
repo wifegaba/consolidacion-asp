@@ -703,6 +703,11 @@ export default function Servidores() {
         });
     };
 
+
+
+
+
+
     /* ========================= VALIDACIÓN & GUARDAR / ELIMINAR ========================= */
     const validateBeforeSave = (): boolean => {
         // Validación guiada: determinamos el primer campo faltante y solo mostramos ese
@@ -885,6 +890,8 @@ export default function Servidores() {
             setBusy(false);
         }
     };
+
+
 
     const findServidorIdByCedula = async (cedula: string): Promise<string | null> => {
         const { data, error } = await supabase

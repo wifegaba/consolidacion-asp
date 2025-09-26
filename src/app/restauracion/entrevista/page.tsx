@@ -306,15 +306,157 @@ export default function EntrevistaPage() {
     return new File([outBlob], `${nombreBase}_white.jpg`, { type: "image/jpeg" });
   }
 
-  /** Recorta fondo con IMG.LY y devuelve un File con fondo BLANCO ya aplicado */
+  /* ===================== NUEVO: helpers de rendimiento y recorte ===================== */
+
+  // Pre-resize antes de segmentar: baja drásticamente el tiempo en móviles
+  async function resizeForSegmentation(
+    file: File,
+    maxSide = 1280,
+    mime: "image/jpeg" | "image/webp" = "image/jpeg",
+    quality = 0.85
+  ): Promise<File> {
+    const bmp = await createImageBitmap(file);
+    let { width: w, height: h } = bmp;
+    if (Math.max(w, h) <= maxSide) return file; // ya está razonable
+
+    if (w >= h) {
+      const s = maxSide / w;
+      w = maxSide;
+      h = Math.round(h * s);
+    } else {
+      const s = maxSide / h;
+      h = maxSide;
+      w = Math.round(w * s);
+    }
+    const c = document.createElement("canvas");
+    c.width = w; c.height = h;
+    const cx = c.getContext("2d")!;
+    cx.drawImage(bmp, 0, 0, w, h);
+    const blob: Blob = await new Promise((r) =>
+      c.toBlob((b) => r(b as Blob), mime, quality)
+    );
+    return new File(
+      [blob],
+      file.name.replace(/\.\w+$/, mime === "image/webp" ? ".webp" : ".jpg"),
+      { type: blob.type, lastModified: Date.now() }
+    );
+  }
+
+  function clamp(v: number, min: number, max: number) {
+    return Math.max(min, Math.min(max, v));
+  }
+
+  // Fallback: bbox de los píxeles no transparentes del PNG segmentado (muestreo ligero)
+  async function foregroundBBoxFromImageBitmap(
+    img: ImageBitmap,
+    alphaThreshold = 16
+  ): Promise<{ x: number; y: number; w: number; h: number } | null> {
+    const c = document.createElement("canvas");
+    c.width = img.width;
+    c.height = img.height;
+    const cx = c.getContext("2d")!;
+    cx.drawImage(img, 0, 0);
+    const { data, width, height } = cx.getImageData(0, 0, c.width, c.height);
+    let minX = width, minY = height, maxX = -1, maxY = -1;
+    const step = Math.max(1, Math.floor(Math.min(width, height) / 600)); // muestreo
+    for (let y = 0; y < height; y += step) {
+      for (let x = 0; x < width; x += step) {
+        const a = data[(y * width + x) * 4 + 3];
+        if (a > alphaThreshold) {
+          if (x < minX) minX = x;
+          if (y < minY) minY = y;
+          if (x > maxX) maxX = x;
+          if (y > maxY) maxY = y;
+        }
+      }
+    }
+    if (maxX < 0 || maxY < 0) return null;
+    return { x: minX, y: minY, w: maxX - minX + 1, h: maxY - minY + 1 };
+  }
+
+  /** Recorta fondo con IMG.LY y devuelve un File con fondo BLANCO ya aplicado (face-aware + pre-resize) */
   async function aFondoBlanco(file: File): Promise<File> {
-    // 1) recorte (PNG con transparencia)
-    const cutBlob = await removeBackground(file, {
-      output: { format: "image/png" },
-    });
-    // 2) hornear en blanco con canvas
+    const targetSide = 720;      // salida cuadrada (ideal para tu contenedor 160x160 con object-cover)
+    const faceMargin = 0.45;     // aire adicional alrededor de la cara
+    const maxSide = 1280;        // *** pre-resize para acelerar ***
+
+    // 0) Pre-resize ANTES de segmentar
+    const small = await resizeForSegmentation(file, maxSide);
+
+    // 1) Quitar fondo → PNG con transparencia (rápido tras pre-resize)
+    const cutBlob = await removeBackground(small, { output: { format: "image/png" } });
+    const cutImg = await createImageBitmap(cutBlob as Blob);
+
+    // 2) Intentar detección de cara (API nativa cuando existe)
+    let crop: { x: number; y: number; w: number; h: number } | null = null;
+    try {
+      const FD = (window as any).FaceDetector;
+      if (FD) {
+        const fd = new FD({ fastMode: true, maxDetectedFaces: 1 });
+        const faces = await fd.detect(cutImg as any);
+        if (faces?.length) {
+          const b = faces[0].boundingBox || faces[0].box || faces[0].boundingbox;
+          if (b) {
+            const x = Math.max(0, b.x ?? b.left ?? 0);
+            const y = Math.max(0, b.y ?? b.top ?? 0);
+            const w = Math.max(1, b.width || (b.right ? b.right - x : 0) || 1);
+            const h = Math.max(1, b.height || (b.bottom ? b.bottom - y : 0) || 1);
+            const cx = x + w / 2;
+            const cy = y + h / 2;
+            let side = Math.max(w, h) * (1 + faceMargin);
+            side = Math.min(side, Math.max(cutImg.width, cutImg.height));
+            const sx = clamp(Math.round(cx - side / 2), 0, cutImg.width - Math.round(side));
+            const sy = clamp(Math.round(cy - side / 2), 0, cutImg.height - Math.round(side));
+            crop = { x: sx, y: sy, w: Math.round(side), h: Math.round(side) };
+          }
+        }
+      }
+    } catch {
+      // ignore, pasamos a fallback
+    }
+
+    // 2b) Fallback a bbox del sujeto
+    if (!crop) {
+      const fg = await foregroundBBoxFromImageBitmap(cutImg);
+      if (fg) {
+        const cx = fg.x + fg.w / 2;
+        const cy = fg.y + fg.h / 2;
+        let side = Math.max(fg.w, fg.h) * 1.1; // ligero margen
+        side = Math.min(side, Math.max(cutImg.width, cutImg.height));
+        const sx = clamp(Math.round(cx - side / 2), 0, cutImg.width - Math.round(side));
+        const sy = clamp(Math.round(cy - side / 2), 0, cutImg.height - Math.round(side));
+        crop = { x: sx, y: sy, w: Math.round(side), h: Math.round(side) };
+      }
+    }
+
+    // 3) Componer sobre blanco (cuadrado targetSide)
+    const out = document.createElement("canvas");
+    out.width = targetSide; out.height = targetSide;
+    const ctx = out.getContext("2d")!;
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, targetSide, targetSide);
+
+    if (crop) {
+      ctx.drawImage(
+        cutImg,
+        crop.x, crop.y, crop.w, crop.h,
+        0, 0, targetSide, targetSide
+      );
+    } else {
+      // cover centrado si no hubo bbox
+      const scale = Math.min(cutImg.width, cutImg.height) / targetSide;
+      const sw = Math.round(targetSide * scale);
+      const sh = Math.round(targetSide * scale);
+      const sx = Math.round((cutImg.width - sw) / 2);
+      const sy = Math.round((cutImg.height - sh) / 2);
+      ctx.drawImage(cutImg, sx, sy, sw, sh, 0, 0, targetSide, targetSide);
+    }
+
+    const whiteBlob: Blob = await new Promise((r) =>
+      out.toBlob((b) => r(b as Blob), "image/jpeg", 0.92)
+    );
     const base = file.name.replace(/\.[^/.]+$/, "");
-    return await pegarSobreBlanco(cutBlob as Blob, base);
+    return new File([whiteBlob], `${base}_white.jpg`, { type: "image/jpeg", lastModified: Date.now() });
   }
 
   /** Maneja Archivo/Cámara y guarda la foto con fondo blanco en tu estado */
@@ -981,14 +1123,15 @@ export default function EntrevistaPage() {
                           Limpiar
                         </button>
                         <button
-                          id="btn-guardar-mobile"
-                          type="submit"
-                          form="form-entrevista"
-                          className="btn-primary btn-mobile-action mx-2"
-                          disabled={saving}
-                        >
-                          {saving ? "Guardando…" : "Guardar"}
-                        </button>
+  id="btn-guardar-mobile"
+  type="button"
+  onClick={() => (document.getElementById("form-entrevista") as HTMLFormElement | null)?.requestSubmit()}
+  className="btn-primary btn-mobile-action mx-2"
+  disabled={saving}
+>
+  {saving ? "Guardando…" : "Guardar"}
+</button>
+
                       </div>
                     </section>
                   )}
@@ -1095,14 +1238,15 @@ export default function EntrevistaPage() {
                   Limpiar
                 </button>
                 <button
-                  id="btn-guardar"
-                  type="submit"
-                  form="form-entrevista"
-                  className="btn-primary"
-                  disabled={saving}
-                >
-                  {saving ? "Guardando…" : "Guardar"}
-                </button>
+  id="btn-guardar"
+  type="button"
+  onClick={() => (document.getElementById("form-entrevista") as HTMLFormElement | null)?.requestSubmit()}
+  className="btn-primary"
+  disabled={saving}
+>
+  {saving ? "Guardando…" : "Guardar"}
+</button>          
+
               </div>
             </div>
           </aside>

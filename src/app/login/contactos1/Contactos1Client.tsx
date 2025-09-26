@@ -1,10 +1,50 @@
 ﻿'use client';
 
+
+
+// Placeholder visual premium para el panel derecho
+const EmptyRightPlaceholder = () => (
+  <motion.div
+    initial={{ opacity: 0, y: 8, scale: 0.98 }}
+    animate={{ opacity: 1, y: 0, scale: 1 }}
+    transition={{ duration: 0.45, ease: 'easeOut' }}
+    className="h-full grid place-items-center"
+    role="status"
+    aria-label="Sin selección"
+  >
+    <div className="w-full max-w-md rounded-2xl p-5 ring-1 ring-white/60 shadow-[0_24px_60px_-30px_rgba(16,24,40,.35)] bg-[linear-gradient(135deg,rgba(255,255,255,.85),rgba(245,247,255,.6))] supports-[backdrop-filter]:backdrop-blur-xl text-center">
+      <div className="mx-auto mb-3 h-14 w-14 rounded-2xl grid place-items-center ring-1 ring-white/60 shadow-inner
+                      bg-[radial-gradient(120px_120px_at_30%_30%,rgba(99,102,241,.25),transparent),radial-gradient(120px_120px_at_70%_70%,rgba(56,189,248,.22),transparent)]">
+        {/* Phone/Ghost icono con sutil latido */}
+        <motion.svg
+          width="28" height="28" viewBox="0 0 24 24"
+          initial={{ scale: 0.96, opacity: 0.9 }}
+          animate={{ scale: [0.96, 1.02, 0.96], opacity: [0.9, 1, 0.9] }}
+          transition={{ duration: 2.2, repeat: Infinity, ease: 'easeInOut' }}
+          className="text-neutral-700"
+        >
+          <path fill="currentColor" d="M6.6 10.8c1.3 2.5 3.1 4.4 5.6 5.6l2.1-2.1a1 1 0 0 1 1.1-.22c1.2.48 2.6.74 4 .74a1 1 0 0 1 1 1v3.5a1 1 0 0 1-1 1C12.1 20.3 3.7 11.9 3.7 2.7a1 1 0 0 1 1-1H8.2a1 1 0 0 1 1 1c0 1.4.26 2.8.74 4a1 1 0 0 1-.22 1.1l-2.1 2.1Z"/>
+        </motion.svg>
+      </div>
+
+      <h4 className="text-[15px] md:text-base font-semibold text-neutral-900">Nada seleccionado</h4>
+      <p className="mt-1 text-sm text-neutral-600">Elige un nombre de la lista para <span className="font-medium">llamar / registrar</span>.</p>
+
+      {/* Pistas rápidas (opcionales, no rompen layout) */}
+      <div className="mt-4 flex items-center justify-center gap-2 flex-wrap text-xs">
+        <span className="rounded-full px-2.5 py-1 ring-1 ring-white/60 bg-white/80 text-neutral-700">Semana {new Date().getDay() === 0 ? 1 : ''}</span>
+        <span className="rounded-full px-2.5 py-1 ring-1 ring-white/60 bg-white/80 text-neutral-700">Día asignado</span>
+        <span className="rounded-full px-2.5 py-1 ring-1 ring-white/60 bg-white/80 text-neutral-700">Estados de llamada</span>
+      </div>
+    </div>
+  </motion.div>
+);
+
 import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
 import dynamic from 'next/dynamic';
-import { AnimatePresence } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
 
 // Carga dinámica de los formularios
 const PersonaNueva = dynamic(() => import('@/app/panel/contactos/page'), { ssr: false });
@@ -46,7 +86,15 @@ type PendienteRow = {
   llamada1?: Resultado | null;
   llamada2?: Resultado | null;
   llamada3?: Resultado | null;
+  habilitado_desde?: string | null;
 };
+// Helper para inhabilitación semanal
+function estaInhabilitado(h?: string | null) {
+  if (!h) return false;
+  const todayStr = new Date(Date.now() - new Date().getTimezoneOffset()*60000)
+    .toISOString().slice(0, 10);
+  return h > todayStr;
+}
 type PendRowUI = PendienteRow & { _ui?: 'new' | 'changed' };
 
 type AgendadoRow = {
@@ -161,6 +209,8 @@ export default function Contactos1Client(
   // Estado para modales Persona Nueva y Servidores (debe estar dentro del componente)
   const [nuevaAlmaOpen, setNuevaAlmaOpen] = useState(false);
   const [servidoresOpen, setServidoresOpen] = useState(false);
+  // Modal premium para inhabilitados
+  const [showNextWeekModal, setShowNextWeekModal] = useState(false);
 
   const router = useRouter();
   const cedula = normalizeCedula(cedulaProp ?? '');
@@ -337,14 +387,24 @@ export default function Contactos1Client(
       const allowed = new Set((base ?? []).map((r: any) => r.progreso_id));
       const draft = ((hist ?? []) as PendienteRow[]).filter((r) => allowed.has(r.progreso_id));
 
+      // --- merge habilitado_desde ---
+      let byId = new Map<string, string | null>();
+      try {
+        const ids = draft.map(r => r.progreso_id);
+        if (ids.length) {
+          const { data: fechas, error: e3 } = await supabase.rpc('fn_progreso_hab_desde', { ids });
+          if (!e3) byId = new Map((fechas ?? []).map((f: any) => [f.id, f.habilitado_desde ?? null]));
+        }
+      } catch {}
+
       const prev = pendRef.current;
       const prevById = new Map(prev.map(p => [p.progreso_id, p]));
       const next: PendRowUI[] = draft.map((r) => {
         const old = prevById.get(r.progreso_id);
+        const mergedHabDesde = byId.get(r.progreso_id) ?? old?.habilitado_desde ?? null;
         let _ui: 'new' | 'changed' | undefined;
         if (rtNewRef.current.has(r.progreso_id)) {
           _ui = 'new';
-          // limpiamos la marca para no forzar “nuevo” en siguientes cargas
           rtNewRef.current.delete(r.progreso_id);
         } else if (!old) _ui = 'new';
         else if (
@@ -354,10 +414,9 @@ export default function Contactos1Client(
           old.nombre !== r.nombre ||
           old.telefono !== r.telefono
         ) _ui = 'changed';
-        return { ...r, _ui };
+        return { ...r, habilitado_desde: mergedHabDesde, _ui };
       });
 
-      // ordenar con fallback para nombre
       next.sort((a, b) => (a.nombre ?? '').localeCompare(b.nombre ?? ''));
 
       setPendientes(next);
@@ -458,7 +517,7 @@ export default function Contactos1Client(
     if (!asig) return;
 
     // ---- parches finos ----
-    const tryPatchProgresoInsert = async (row: any) => {
+  const tryPatchProgresoInsert = async (row: any) => {
       const a = asigRef.current;
       const d = diaRef.current;
       const s = semanaRef.current;
@@ -481,6 +540,7 @@ export default function Contactos1Client(
         llamada1: null,
         llamada2: null,
         llamada3: null,
+        habilitado_desde: row.habilitado_desde ?? null,
         _ui: 'new',
       };
 
@@ -488,7 +548,7 @@ export default function Contactos1Client(
       scheduleClearUI(row.id, 6000);
     };
 
-    const tryPatchProgresoUpdate = async (oldRow: any, newRow: any) => {
+  const tryPatchProgresoUpdate = async (oldRow: any, newRow: any) => {
       const a = asigRef.current;
       const d = diaRef.current;
       const s = semanaRef.current;
@@ -513,6 +573,7 @@ export default function Contactos1Client(
             llamada1: null,
             llamada2: null,
             llamada3: null,
+            habilitado_desde: newRow.habilitado_desde ?? null,
             _ui: 'new',
           };
           setPendientes(prev => [...prev, nuevo].sort((a, b) => (a.nombre ?? '').localeCompare(b.nombre ?? '')));
@@ -835,62 +896,119 @@ export default function Contactos1Client(
             {pendientes.length === 0 ? (
               <div className="p-6 text-neutral-500">No hay llamadas con los filtros actuales.</div>
             ) : (
-              <ul className="divide-y divide-black/5">
-                {pendientes.map((c) => (
-                  <li
-                    key={c.progreso_id}
-                    className={`px-4 md:px-5 py-3 hover:bg-neutral-50 cursor-pointer transition
-                      ${selectedId === c.progreso_id ? 'bg-neutral-50' : ''}
-                      ${c._ui === 'new' ? 'animate-fadeInScale ring-2 ring-emerald-300/60'
-                        : c._ui === 'changed' ? 'animate-flashBg' : ''}`}
-                    onClick={() => setSelectedId(c.progreso_id)}
-                  >
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="flex items-start gap-3 min-w-0">
-                        <span className={`mt-1 inline-block h-2.5 w-2.5 rounded-full ${
-                          c._ui === 'new' ? 'bg-emerald-500 shadow-[0_0_0_4px_rgba(16,185,129,.25)]' : 'bg-amber-500 shadow-[0_0_0_3px_rgba(251,191,36,.25)]'
-                        }`} />
-                        <div className="min-w-0">
-                          <div className="font-semibold text-neutral-800 leading-tight truncate">{c.nombre ?? '—'}</div>
-                          <div className="mt-0.5 inline-flex items-center gap-1.5 text-neutral-600 text-xs md:text-sm">
-                            <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" className="opacity-80">
-                              <path d="M6.6 10.8c1.3 2.5 3.1 4.4 5.6 5.6l2.1-2.1a1 1 0 0 1 1.1-.22c1.2.48 2.6.74 4 .74a1 1 0 0 1 1 1v3.5a1 1 0 0 1-1 1C12.1 20.3 3.7 11.9 3.7 2.7a1 1 0 0 1 1-1H8.2a1 1 0 0 1 1 1c0 1.4.26 2.8.74 4a1 1 0 0 1-.22 1.1l-2.1 2.1Z" fill="currentColor" />
-                            </svg>
-                            <span className="truncate">{c.telefono ?? '—'}</span>
+              <>
+                <ul className="divide-y divide-black/5">
+                  {pendientes.map((c) => {
+                    const disabled = estaInhabilitado(c.habilitado_desde);
+                    return (
+                      <li
+                        key={c.progreso_id}
+                        className={`px-4 md:px-5 py-3 transition ${selectedId === c.progreso_id ? 'bg-neutral-50' : ''} ${c._ui === 'new' ? 'animate-fadeInScale ring-2 ring-emerald-300/60' : c._ui === 'changed' ? 'animate-flashBg' : ''} ${disabled ? 'opacity-55 cursor-not-allowed' : 'hover:bg-neutral-50 cursor-pointer'}`}
+                        onClick={() => disabled ? setShowNextWeekModal(true) : setSelectedId(c.progreso_id)}
+                      >
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="flex items-start gap-3 min-w-0">
+                            <span className={`mt-1 inline-block h-2.5 w-2.5 rounded-full ${c._ui === 'new' ? 'bg-emerald-500 shadow-[0_0_0_4px_rgba(16,185,129,.25)]' : (disabled ? 'bg-neutral-300 shadow-[0_0_0_3px_rgba(156,163,175,.25)]' : 'bg-amber-500 shadow-[0_0_0_3px_rgba(251,191,36,.25)]')}`} />
+                            <div className="min-w-0">
+                              <div className="font-semibold text-neutral-800 leading-tight truncate">{c.nombre ?? '—'}</div>
+                              <div className="mt-0.5 inline-flex items-center gap-1.5 text-neutral-600 text-xs md:text-sm">
+                                <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" className="opacity-80">
+                                  <path d="M6.6 10.8c1.3 2.5 3.1 4.4 5.6 5.6l2.1-2.1a1 1 0 0 1 1.1-.22c1.2.48 2.6.74 4 .74a1 1 0 0 1 1 1v3.5a1 1 0 0 1-1 1C12.1 20.3 3.7 11.9 3.7 2.7a1 1 0 0 1 1-1H8.2a1 1 0 0 1 1 1c0 1.4.26 2.8.74 4a1 1 0 0 1-.22 1.1l-2.1 2.1Z" fill="currentColor" />
+                                </svg>
+                                <span className="truncate">{c.telefono ?? '—'}</span>
+                              </div>
+                              {disabled && (
+                                <span className="mt-1 inline-flex items-center text-[10px] font-semibold text-neutral-700 bg-neutral-100 rounded-full px-2 py-0.5 ring-1 ring-neutral-200">
+                                  Disponible la próxima semana
+                                </span>
+                              )}
+                              {c._ui === 'new' && !disabled && (
+                                <span className="mt-1 inline-flex items-center text-[10px] font-semibold text-emerald-700 bg-emerald-50 rounded-full px-2 py-0.5">
+                                  Nuevo
+                                </span>
+                              )}
+                            </div>
                           </div>
-                          {c._ui === 'new' && (
-                            <span className="mt-1 inline-flex items-center text-[10px] font-semibold text-emerald-700 bg-emerald-50 rounded-full px-2 py-0.5">
-                              Nuevo
-                            </span>
-                          )}
-                        </div>
-                      </div>
 
-                      <div className="shrink-0 text-right text-[11px] md:text-xs text-neutral-500 leading-5">
-                        {[c.llamada1 ?? null, c.llamada2 ?? null, c.llamada3 ?? null].map((r, idx) => (
-                          <div key={idx}>
-                            <span className="mr-1">Llamada {idx + 1}:</span>
-                            {r ? (
-                              <span className="font-medium text-neutral-700">{resultadoLabels[r as Resultado]}</span>
-                            ) : (
-                              <span className="italic">sin registro</span>
-                            )}
+                          <div className="shrink-0 text-right text-[11px] md:text-xs text-neutral-500 leading-5">
+                            {[c.llamada1 ?? null, c.llamada2 ?? null, c.llamada3 ?? null].map((r, idx) => (
+                              <div key={idx}>
+                                <span className="mr-1">Llamada {idx + 1}:</span>
+                                {r ? (
+                                  <span className="font-medium text-neutral-700">{resultadoLabels[r as Resultado]}</span>
+                                ) : (
+                                  <span className="italic">sin registro</span>
+                                )}
+                              </div>
+                            ))}
                           </div>
-                        ))}
-                      </div>
-                    </div>
-                  </li>
-                ))}
-              </ul>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+                <AnimatePresence>
+                  {showNextWeekModal && (
+                    <>
+                      <motion.div
+                        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                        className="fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm"
+                        onClick={() => setShowNextWeekModal(false)}
+                      />
+                      <motion.div
+                        role="dialog" aria-modal="true"
+                        initial={{ opacity: 0, y: 24, scale: 0.98 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: 24, scale: 0.98 }}
+                        transition={{ type: 'spring', stiffness: 240, damping: 22 }}
+                        className="fixed z-[61] inset-0 flex items-center justify-center p-4"
+                      >
+                        <div className="w-full max-w-md rounded-2xl bg-white/80 backdrop-blur-xl shadow-2xl ring-1 ring-white/40">
+                          <div className="p-6 md:p-7">
+                            <div className="flex items-start gap-3">
+                              <div className="h-10 w-10 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center shadow-md">
+                                {/* ícono */}
+                                <svg width="22" height="22" viewBox="0 0 24 24" fill="white"><path d="M12 2l9 4v6c0 5-3.8 9.3-9 10-5.2-.7-9-5-9-10V6l9-4z"/></svg>
+                              </div>
+                              <div className="min-w-0">
+                                <h3 className="text-base md:text-lg font-semibold text-neutral-900">Registro inhabilitado</h3>
+                                <p className="mt-1 text-sm text-neutral-700">
+                                  Este registro fue gestionado por el servidor de la semana anterior.
+                                  Por ese motivo estará disponible nuevamente el próximo lunes.
+                                </p>
+                                {/* si hay seleccionado y trae fecha, muéstrala */}
+                                {(() => {
+                                  const sel = pendientes.find(p => p.progreso_id === selectedId);
+                                  if (sel?.habilitado_desde) {
+                                    return <p className="mt-2 text-xs text-neutral-600">Disponible desde: {sel.habilitado_desde}</p>;
+                                  }
+                                  return null;
+                                })()}
+                              </div>
+                            </div>
+                            <div className="mt-6 flex justify-end">
+                              <button
+                                type="button"
+                                onClick={() => setShowNextWeekModal(false)}
+                                className="inline-flex items-center justify-center rounded-xl px-4 py-2 text-sm font-semibold text-white bg-gradient-to-r from-amber-500 to-orange-500 shadow hover:brightness-105 active:brightness-95 transition"
+                              >
+                                Entendido
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </motion.div>
+                    </>
+                  )}
+                </AnimatePresence>
+              </>
             )}
           </section>
 
           {/* Panel derecho de llamada */}
           <section ref={rightPanelRef} className={`rounded-[16px] bg-white shadow-[0_10px_28px_-14px_rgba(16,24,40,.28)] ring-1 ring-black/5 p-4 md:p-5 ${!selectedId ? 'hidden lg:block' : ''}`}>
             {!selectedId ? (
-              <div className="grid place-items-center text-neutral-500 h-full">
-                Selecciona un nombre de la lista para llamar / registrar.
-              </div>
+              <EmptyRightPlaceholder />
             ) : (
               (() => {
                 const sel = pendRef.current.find((p) => p.progreso_id === selectedId);
