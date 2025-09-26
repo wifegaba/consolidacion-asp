@@ -15,17 +15,22 @@ import {
   CartesianGrid,
 } from "recharts";
 
+
+
+
+
+
 type DetalleSeccionesProps = {
   asistEtapas: any[];
   agendados?: { etapa_modulo: string; agendados_pendientes: number }[];
-  defaultKey?: string;
+  defaultKey?: string; // 👈 AÑADIR AQUÍ
 };
 
-const GREEN = "#34d399";       // verde premium
+const GREEN = "#34d399";   // verde premium
 const GREEN_LIGHT = "#4ade80";
-const RED = "#dc2626";         // rojo profundo
+const RED = "#dc2626";     // rojo profundo
 const RED_LIGHT = "#f87171";
-const BLUE = "#3b82f6";        // azul premium
+const BLUE = "#3b82f6";    // azul premium
 const BLUE_LIGHT = "#93c5fd";
 
 export default function DetalleSecciones({
@@ -35,9 +40,10 @@ export default function DetalleSecciones({
 }: {
   asistEtapas: any[];
   agendados?: Array<{ etapa_modulo: string; agendados_pendientes: number }>;
-  defaultKey?: string;
+  defaultKey?: string; // 👈 nuevo
 }) {
   const [view, setView] = useState<string | null>(defaultKey || null);
+
 
   // --- Totales asistencias ---
   const totalConfirmados = asistEtapas.reduce((s, r) => s + r.confirmados, 0);
@@ -77,7 +83,7 @@ export default function DetalleSecciones({
     return null;
   };
 
-  // Listener KPI (cambia vista al hacer click en una tarjeta KPI con data-key)
+  // Listener KPI
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       const target = (e.target as HTMLElement).closest("[data-key]");
@@ -87,7 +93,7 @@ export default function DetalleSecciones({
     return () => document.removeEventListener("click", handler);
   }, []);
 
-  // Contador animado del total
+  // Contador animado del total (cambia según vista)
   const [animatedTotal, setAnimatedTotal] = useState(0);
   useEffect(() => {
     const target = view === "agendados" ? totalAgend : totalAsist;
@@ -116,18 +122,18 @@ export default function DetalleSecciones({
 
       {view === "asistencias" && (
         <>
-          {/* PANEL IZQUIERDO (reloj/donut) */}
-          <section className="card premium-glass animate-slideIn relative panel-compact max-w-[min(560px,94vw)] mx-auto lg:max-w-none">
+          {/* PANEL IZQUIERDO */}
+          <section className="card premium-glass glass-chart-premium animate-slideIn relative panel-compact">
             <div className="card-head">
               <h2 className="card-title">Gráfico de Asistencias</h2>
             </div>
 
             <div className="panel-body">
               {/* Etiquetas arriba */}
-              <div className="asistencias-labels flex justify-between w-full px-4 mt-1 mb-3 text-sm">
+              <div className="flex justify-between w-full px-4 mt-1 mb-3 text-sm">
                 <div className="flex flex-col items-center text-green-600 font-semibold">
                   <span>
-                    Asistieron{" "}
+                    Asistieron{' '}
                     <span className="font-bold text-lg tabular-nums">
                       {totalConfirmados}
                     </span>
@@ -138,7 +144,7 @@ export default function DetalleSecciones({
                 </div>
                 <div className="flex flex-col items-center text-red-600 font-semibold">
                   <span>
-                    No asistieron{" "}
+                    No asistieron{' '}
                     <span className="font-bold text-lg tabular-nums">
                       {totalNoAsistieron}
                     </span>
@@ -149,9 +155,9 @@ export default function DetalleSecciones({
                 </div>
               </div>
 
-              {/* Donut (responsive, sin desbordes) */}
-              <div className="panel-chart relative mx-auto max-w-[min(360px,88vw)] aspect-square overflow-hidden flex items-center justify-center">
-                <ResponsiveContainer width="100%" height="100%">
+              {/* Donut + Premium Center */}
+              <div className="panel-chart relative flex items-center justify-center">
+                <ResponsiveContainer width="100%" height="100%" className="donut-chart z-10">
                   <PieChart>
                     <defs>
                       <linearGradient id="gradOk" x1="0" y1="0" x2="0" y2="1">
@@ -167,8 +173,8 @@ export default function DetalleSecciones({
                     <Pie
                       data={dataAsist}
                       dataKey="value"
-                      innerRadius="55%"
-                      outerRadius="82%"
+                      innerRadius={62}
+                      outerRadius={104}
                       startAngle={90}
                       endAngle={-270}
                       paddingAngle={0}
@@ -179,26 +185,31 @@ export default function DetalleSecciones({
                       animationEasing="ease-out"
                     >
                       {dataAsist.map((d, i) => (
-                        <Cell key={i} fill={d.color} stroke="#ffffff" strokeWidth={3} />
+                        <Cell
+                          key={i}
+                          fill={d.color}
+                          stroke="#ffffff"
+                          strokeWidth={3}
+                        />
                       ))}
                     </Pie>
                     <Tooltip content={<CustomTooltip />} />
                   </PieChart>
                 </ResponsiveContainer>
 
-                {/* Centro */}
-                <div className="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none donut-center px-2">
-                  <p className="text-3xl leading-tight font-extrabold text-gray-900 tabular-nums">
+                {/* Centro premium animado */}
+                <div className="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none donut-center z-20">
+                  <p className="premium-animated-number text-5xl leading-tight font-extrabold text-gray-900 tabular-nums drop-shadow-lg animate-premium-glow">
                     {animatedTotal.toLocaleString()}
                   </p>
-                  <p className="text-gray-500 text-xs mt-0.5">Total</p>
+                  <p className="text-gray-500 text-xs mt-0.5 font-semibold tracking-wide uppercase">Total</p>
                 </div>
               </div>
             </div>
           </section>
 
-          {/* PANEL DERECHO (tabla) */}
-          <section className="card premium-glass animate-slideIn panel-compact max-w-[min(560px,94vw)] mx-auto lg:max-w-none">
+          {/* PANEL DERECHO */}
+          <section className="card premium-glass animate-slideIn panel-compact">
             <div className="card-head pb-0">
               <h2 className="card-title">Detalle por etapa</h2>
             </div>
@@ -212,7 +223,10 @@ export default function DetalleSecciones({
               </div>
 
               {asistEtapas.map((row: any, i: number) => (
-                <div key={i} className="premium-table-row premium-table-item">
+                <div
+                  key={i}
+                  className="premium-table-row premium-table-item"
+                >
                   <span className="font-medium text-slate-700">{row.etapa}</span>
                   <span className="text-center font-semibold text-green-600 tabular-nums">
                     {row.confirmados}
@@ -248,11 +262,7 @@ export default function DetalleSecciones({
                     }))}
                     margin={{ top: 16, right: 20, left: 6, bottom: 16 }}
                   >
-                    <CartesianGrid
-                      strokeDasharray="4 8"
-                      stroke="rgba(148, 163, 184, 0.24)"
-                      vertical={false}
-                    />
+                    <CartesianGrid strokeDasharray="4 8" stroke="rgba(148, 163, 184, 0.24)" vertical={false} />
                     <XAxis
                       dataKey="name"
                       tick={{ fontSize: 12, fill: "#1f2933", fontWeight: 600 }}
@@ -313,7 +323,10 @@ export default function DetalleSecciones({
               </div>
 
               {(agendados ?? []).map((row, i) => (
-                <div key={i} className="premium-table-row premium-table-item two-cols">
+                <div
+                  key={i}
+                  className="premium-table-row premium-table-item two-cols"
+                >
                   <span className="font-medium text-slate-700">
                     {row.etapa_modulo}
                   </span>
