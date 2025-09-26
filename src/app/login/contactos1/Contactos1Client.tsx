@@ -1,4 +1,7 @@
-﻿'use client';
+﻿
+
+
+'use client';
 
 
 
@@ -124,6 +127,34 @@ const V_AGENDADOS   = 'v_agendados';
 const RPC_GUARDAR_LLAMADA = 'fn_guardar_llamada';
 const RPC_ASIST     = 'fn_marcar_asistencia';
 
+
+
+const MAC2025_PANEL_VARIANTS = {
+  initial: {
+    opacity: 0,
+    y: 48,
+    scale: 0.98,
+    filter: 'blur(10px)',
+    boxShadow: '0 12px 36px -12px rgba(30,41,59,0.10)'
+  },
+  animate: {
+    opacity: 1,
+    y: 0,
+    scale: 1,
+    filter: 'blur(0px)',
+    boxShadow: '0 24px 80px -24px rgba(30,41,59,0.18)',
+    transition: { duration: 0.32 }
+  },
+  exit: {
+    opacity: 0,
+    y: -32,
+    scale: 0.97,
+    filter: 'blur(8px)',
+    boxShadow: '0 12px 36px -12px rgba(30,41,59,0.08)',
+    transition: { duration: 0.22 }
+  }
+};
+
 /** ======== Banco Archivo (constantes) ======== */
 /** Vista que lista archivados visibles para este panel */
 const V_BANCO = 'v_banco_archivo';
@@ -142,6 +173,46 @@ const resultadoLabels: Record<Resultado, string> = {
   murio: 'MURIÓ',
   rechazado: 'NO ME INTERESA',
 };
+
+
+// Easing idéntico al del formulario Maestros
+const EASE_SMOOTH = [0.16, 1, 0.3, 1] as const;
+const EASE_EXIT   = [0.7, 0, 0.84, 0] as const;
+
+// Animación del panel izquierdo completo
+const LEFT_PANEL_VARIANTS = {
+  initial: { opacity: 0, x: 160, scale: 0.96, filter: 'blur(14px)' },
+  animate: {
+    opacity: 1,
+    x: 0,
+    scale: 1,
+    filter: 'blur(0px)',
+    transition: { duration: 0.6, ease: EASE_SMOOTH }
+  },
+  exit: {
+    opacity: 0,
+    x: -110,
+    scale: 0.97,
+    filter: 'blur(10px)',
+    transition: { duration: 0.45, ease: EASE_EXIT }
+  }
+};
+
+// Stagger para la lista
+const LIST_WRAPPER_VARIANTS = {
+  initial: { transition: { staggerChildren: 0.035, staggerDirection: -1 } },
+  animate: { transition: { delayChildren: 0.12, staggerChildren: 0.055 } }
+};
+
+// Entrada de cada item
+const LIST_ITEM_VARIANTS = {
+  initial: { opacity: 0, x: 28, y: 14, scale: 0.97 },
+  animate: {
+    opacity: 1, x: 0, y: 0, scale: 1,
+    transition: { duration: 0.5, ease: EASE_SMOOTH }
+  }
+};
+
 
 /* ================= Helpers ================= */
 const normalizeCedula = (s: string) => (s || '').replace(/\D+/g, '');
@@ -702,10 +773,13 @@ export default function Contactos1Client(
       <div
         className="absolute inset-0 z-0"
         style={{
-          background: "#ffffff",
-          backgroundImage: `radial-gradient(circle at top right, rgba(70, 130, 180, 0.5), transparent 70%)`,
-          filter: "blur(80px)",
-          backgroundRepeat: "no-repeat",
+          background: 'linear-gradient(180deg,#fcfeff 0%, #f3f8ff 36%, #ecf3ff 100%)',
+          backgroundImage: `
+            radial-gradient(1100px 700px at -10% -20%, rgba(56,189,248,.06), transparent 62%),
+            radial-gradient(900px 600px at 110% -10%, rgba(79,70,229,.05), transparent 62%),
+            radial-gradient(1000px 700px at 50% 120%, rgba(14,165,233,.06), transparent 66%)
+          `,
+          backgroundRepeat: 'no-repeat'
         }}
       />
       <div className="relative z-10 mx-auto w-full max-w-[1260px]">
@@ -809,7 +883,7 @@ export default function Contactos1Client(
 
 
         {/* Tarjeta de semanas y botones (igual que Maestros) */}
-        <div className="flex flex-wrap items-center gap-3 rounded-2xl bg-white/55 supports-[backdrop-filter]:bg-white/35 backdrop-blur-xl px-3 py-3 shadow-[0_10px_40px_-20px_rgba(0,0,0,.35)] ring-1 ring-white/60 mb-4">
+  <div className="flex flex-wrap items-center gap-3 rounded-2xl bg-white/55 supports-[backdrop-filter]:bg-white/35 backdrop-blur-xl px-3 py-3 shadow-[0_10px_40px_-20px_rgba(0,0,0,.35)] ring-1 ring-white/60 mb-4">
           <div className="inline-flex items-center gap-2">
             <span className="text-sm text-neutral-600">Semana:</span>
             {[1, 2, 3].map((n) => {
@@ -854,210 +928,261 @@ export default function Contactos1Client(
             })}
           </div>
 
-          <div className="ml-auto flex gap-2">
-            {/* Botón Persona Nueva */}
-            <button
-              type="button"
-              onClick={() => setNuevaAlmaOpen(true)}
-              className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-yellow-50 via-yellow-100 to-white text-neutral-700 ring-1 ring-yellow-100 shadow-[0_4px_16px_rgba(255,235,150,0.13)] px-4 py-2 text-sm font-semibold hover:scale-[1.04] active:scale-95 transition"
-              title="Registrar persona nueva"
-            >
-              <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M12 5a1 1 0 0 1 1 1v5h5a1 1 0 1 1 0 2h-5v5a1 1 0 1 1-2 0v-5H6a1 1 0 1 1 0-2h5V6a1 1 0 0 1 1-1Z" fill="currentColor"/>
-              </svg>
-              Persona Nueva
-            </button>
-            {/* Botón Servidores */}
-            <button
-              type="button"
-              onClick={() => setServidoresOpen(true)}
-              className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-yellow-50 via-yellow-100 to-white text-neutral-700 ring-1 ring-yellow-100 shadow-[0_4px_16px_rgba(255,235,150,0.13)] px-4 py-2 text-sm font-semibold hover:scale-[1.04] active:scale-95 transition"
-              title="Abrir formulario de Servidores"
-            >
-              <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M4 6a2 2 0 0 1 2-2h5v2H6v12h5v2H6a2 2 0 0 1-2-2V6Zm10-2h4a2 2 0 0 1 2 2v3h-2V6h-4V4Zm4 9h2v3a2 2 0 0 1-2 2h-4v-2h4v-3Z" fill="currentColor"/>
-              </svg>
-              Servidores
-            </button>
+          <div className="w-full">
+            <div className="relative rounded-3xl bg-white/20 backdrop-blur-xl ring-1 ring-white/60 shadow-[0_24px_80px_-32px_rgba(2,6,23,.45)] overflow-hidden">
+              {/* auroras de fondo */}
+              <div className="pointer-events-none absolute inset-0 -z-10 [mask-image:radial-gradient(70%_60%_at_50%_10%,#000_30%,transparent_85%)]">
+                <div className="absolute -top-16 left-10 h-48 w-48 rounded-full bg-[radial-gradient(circle,rgba(79,70,229,.35),transparent_60%)] blur-2xl" />
+                <div className="absolute -bottom-24 right-12 h-64 w-64 rounded-full bg-[radial-gradient(circle,rgba(14,165,233,.28),transparent_65%)] blur-2xl" />
+              </div>
+
+              {/* fila: una sola línea alineada a la derecha */}
+              <div className="flex items-center justify-end gap-3 md:gap-4 px-3 py-2 flex-nowrap overflow-x-auto whitespace-nowrap">
+                {/* Botón Persona Nueva */}
+                <button
+                  type="button"
+                  onClick={() => setNuevaAlmaOpen(true)}
+                  className="relative inline-flex items-center gap-2 rounded-2xl h-10 md:h-11 px-4 md:px-5 text-sm font-semibold text-slate-800 bg-white/60 ring-1 ring-white/60 backdrop-blur-md transition-all duration-300 shadow-[inset_0_1px_0_rgba(255,255,255,.9),0_12px_32px_-12px_rgba(2,6,23,.35)] hover:bg-white/70 hover:shadow-[inset_0_1px_0_rgba(255,255,255,1),0_28px_72px_-28px_rgba(2,6,23,.5)] active:scale-[.99] focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300/60 before:absolute before:inset-0 before:-z-10 before:rounded-2xl before:blur-xl before:opacity-80 hover:before:opacity-100 before:bg-[radial-gradient(120%_120%_at_0%_0%,rgba(79,70,229,.35),transparent_55%),radial-gradient(120%_120%_at_100%_100%,rgba(56,189,248,.28),transparent_55%)] shrink-0"
+                  title="Registrar persona nueva"
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M12 5a1 1 0 0 1 1 1v5h5a1 1 0 1 1 0 2h-5v5a1 1 0 1 1-2 0v-5H6a1 1 0 1 1 0-2h5V6a1 1 0 0 1 1-1Z" fill="currentColor"/>
+                  </svg>
+                  Persona Nueva
+                </button>
+                {/* Botón Servidores */}
+                <button
+                  type="button"
+                  onClick={() => setServidoresOpen(true)}
+                  className="relative inline-flex items-center gap-2 rounded-2xl h-10 md:h-11 px-4 md:px-5 text-sm font-semibold text-slate-800 bg-white/60 ring-1 ring-white/60 backdrop-blur-md transition-all duration-300 shadow-[inset_0_1px_0_rgba(255,255,255,.9),0_12px_32px_-12px_rgba(2,6,23,.35)] hover:bg-white/70 hover:shadow-[inset_0_1px_0_rgba(255,255,255,1),0_28px_72px_-28px_rgba(2,6,23,.5)] active:scale-[.99] focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/60 before:absolute before:inset-0 before:-z-10 before:rounded-2xl before:blur-xl before:opacity-80 hover:before:opacity-100 before:bg-[radial-gradient(120%_120%_at_0%_0%,rgba(56,189,248,.32),transparent_55%),radial-gradient(120%_120%_at_100%_100%,rgba(16,185,129,.26),transparent_55%)] shrink-0"
+                  title="Abrir formulario de Servidores"
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M4 6a2 2 0 0 1 2-2h5v2H6v12h5v2H6a2 2 0 0 1-2-2V6Zm10-2h4a2 2 0 0 1 2 2v3h-2V6h-4V4Zm4 9h2v3a2 2 0 0 1-2 2h-4v-2h4v-3Z" fill="currentColor"/>
+                  </svg>
+                  Servidores
+                </button>
+              </div>
+            </div>
           </div>
         </div>
 
         {/* ===== Lista izquierda / Panel derecho ===== */}
         <div className="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-5 md:gap-6">
           {/* Lista */}
-          <section className={`rounded-[16px] bg-white shadow-[0_10px_28px_-14px_rgba(16,24,40,.28)] ring-1 ring-black/5 ${selectedId ? 'hidden lg:block' : ''}`}>
-            <header className="px-4 md:px-5 py-3 border-b border-black/5 bg-[linear-gradient(135deg,#eaf3ff,#f6efff)]">
+          <section className={`rounded-[20px] bg-white/55 supports-[backdrop-filter]:bg-white/35 backdrop-blur-xl shadow-[0_18px_44px_-18px_rgba(0,0,0,.35)] ring-1 ring-white/60 overflow-hidden ${selectedId ? 'hidden lg:block' : ''}`}>
+            <header className="px-4 md:px-5 py-3 bg-[linear-gradient(180deg,rgba(255,255,255,.88),rgba(255,255,255,.62)),radial-gradient(900px_220px_at_0%_-40%,rgba(56,189,248,.08),transparent),radial-gradient(900px_240px_at_110%_-50%,rgba(79,70,229,.06),transparent)] backdrop-blur-xl border-b border-white/60">
               <h3 className="text-base md:text-lg font-semibold text-neutral-900">Llamadas pendientes</h3>
               <p className="text-neutral-600 text-xs md:text-sm">
                 {loadingPend ? 'Cargando…' : 'Selecciona un contacto para registrar la llamada.'}
               </p>
             </header>
 
-            {pendientes.length === 0 ? (
-              <div className="p-6 text-neutral-500">No hay llamadas con los filtros actuales.</div>
-            ) : (
-              <>
-                <ul className="divide-y divide-black/5">
-                  {pendientes.map((c) => {
-                    const disabled = estaInhabilitado(c.habilitado_desde);
-                    return (
-                      <li
-                        key={c.progreso_id}
-                        className={`px-4 md:px-5 py-3 transition ${selectedId === c.progreso_id ? 'bg-neutral-50' : ''} ${c._ui === 'new' ? 'animate-fadeInScale ring-2 ring-emerald-300/60' : c._ui === 'changed' ? 'animate-flashBg' : ''} ${disabled ? 'opacity-55 cursor-not-allowed' : 'hover:bg-neutral-50 cursor-pointer'}`}
-                        onClick={() => disabled ? setShowNextWeekModal(true) : setSelectedId(c.progreso_id)}
-                      >
-                        <div className="flex items-start justify-between gap-4">
-                          <div className="flex items-start gap-3 min-w-0">
-                            <span className={`mt-1 inline-block h-2.5 w-2.5 rounded-full ${c._ui === 'new' ? 'bg-emerald-500 shadow-[0_0_0_4px_rgba(16,185,129,.25)]' : (disabled ? 'bg-neutral-300 shadow-[0_0_0_3px_rgba(156,163,175,.25)]' : 'bg-amber-500 shadow-[0_0_0_3px_rgba(251,191,36,.25)]')}`} />
-                            <div className="min-w-0">
-                              <div className="font-semibold text-neutral-800 leading-tight truncate">{c.nombre ?? '—'}</div>
-                              <div className="mt-0.5 inline-flex items-center gap-1.5 text-neutral-600 text-xs md:text-sm">
-                                <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" className="opacity-80">
-                                  <path d="M6.6 10.8c1.3 2.5 3.1 4.4 5.6 5.6l2.1-2.1a1 1 0 0 1 1.1-.22c1.2.48 2.6.74 4 .74a1 1 0 0 1 1 1v3.5a1 1 0 0 1-1 1C12.1 20.3 3.7 11.9 3.7 2.7a1 1 0 0 1 1-1H8.2a1 1 0 0 1 1 1c0 1.4.26 2.8.74 4a1 1 0 0 1-.22 1.1l-2.1 2.1Z" fill="currentColor" />
-                                </svg>
-                                <span className="truncate">{c.telefono ?? '—'}</span>
-                              </div>
-                              {disabled && (
-                                <span className="mt-1 inline-flex items-center text-[10px] font-semibold text-neutral-700 bg-neutral-100 rounded-full px-2 py-0.5 ring-1 ring-neutral-200">
-                                  Disponible la próxima semana
-                                </span>
-                              )}
-                              {c._ui === 'new' && !disabled && (
-                                <span className="mt-1 inline-flex items-center text-[10px] font-semibold text-emerald-700 bg-emerald-50 rounded-full px-2 py-0.5">
-                                  Nuevo
-                                </span>
-                              )}
-                            </div>
-                          </div>
-
-                          <div className="shrink-0 text-right text-[11px] md:text-xs text-neutral-500 leading-5">
-                            {[c.llamada1 ?? null, c.llamada2 ?? null, c.llamada3 ?? null].map((r, idx) => (
-                              <div key={idx}>
-                                <span className="mr-1">Llamada {idx + 1}:</span>
-                                {r ? (
-                                  <span className="font-medium text-neutral-700">{resultadoLabels[r as Resultado]}</span>
-                                ) : (
-                                  <span className="italic">sin registro</span>
-                                )}
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      </li>
-                    );
-                  })}
-                </ul>
-                <AnimatePresence>
-                  {showNextWeekModal && (
+            <div className="relative overflow-hidden grid">
+              <AnimatePresence mode="wait" initial={false}>
+                <motion.div
+                  key={`${dia}-${semana}-${pendientes.length}`}
+                  variants={LEFT_PANEL_VARIANTS}
+                  initial="initial"
+                  animate="animate"
+                  exit="exit"
+                  className="col-start-1 row-start-1"
+                >
+                  {pendientes.length === 0 ? (
+                    <div className="p-6 text-neutral-500">No hay llamadas con los filtros actuales.</div>
+                  ) : (
                     <>
-                      <motion.div
-                        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                        className="fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm"
-                        onClick={() => setShowNextWeekModal(false)}
-                      />
-                      <motion.div
-                        role="dialog" aria-modal="true"
-                        initial={{ opacity: 0, y: 24, scale: 0.98 }}
-                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                        exit={{ opacity: 0, y: 24, scale: 0.98 }}
-                        transition={{ type: 'spring', stiffness: 240, damping: 22 }}
-                        className="fixed z-[61] inset-0 flex items-center justify-center p-4"
+                      <motion.ul
+                        variants={LIST_WRAPPER_VARIANTS}
+                        initial="initial"
+                        animate="animate"
+                        className="divide-y divide-black/5"
                       >
-                        <div className="w-full max-w-md rounded-2xl bg-white/80 backdrop-blur-xl shadow-2xl ring-1 ring-white/40">
-                          <div className="p-6 md:p-7">
-                            <div className="flex items-start gap-3">
-                              <div className="h-10 w-10 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center shadow-md">
-                                {/* ícono */}
-                                <svg width="22" height="22" viewBox="0 0 24 24" fill="white"><path d="M12 2l9 4v6c0 5-3.8 9.3-9 10-5.2-.7-9-5-9-10V6l9-4z"/></svg>
+                        {pendientes.map((c) => {
+                          const disabled = estaInhabilitado(c.habilitado_desde);
+                          return (
+                            <motion.li
+                              key={c.progreso_id}
+                              variants={LIST_ITEM_VARIANTS}
+                              layout
+                              className={`px-4 md:px-5 py-3 transition ${selectedId === c.progreso_id ? 'bg-neutral-50' : ''} ${c._ui === 'new' ? 'animate-fadeInScale ring-2 ring-emerald-300/60' : c._ui === 'changed' ? 'animate-flashBg' : ''} ${disabled ? 'opacity-55 cursor-not-allowed' : 'hover:bg-neutral-50 cursor-pointer'}`}
+                              onClick={() => disabled ? setShowNextWeekModal(true) : setSelectedId(c.progreso_id)}
+                            >
+                              <div className="flex items-start justify-between gap-4">
+                                <div className="flex items-start gap-3 min-w-0">
+                                  <span className={`mt-1 inline-block h-2.5 w-2.5 rounded-full ${c._ui === 'new' ? 'bg-emerald-500 shadow-[0_0_0_4px_rgba(16,185,129,.25)]' : (disabled ? 'bg-neutral-300 shadow-[0_0_0_3px_rgba(156,163,175,.25)]' : 'bg-amber-500 shadow-[0_0_0_3px_rgba(251,191,36,.25)]')}`} />
+                                  <div className="min-w-0">
+                                    <div className="font-semibold text-neutral-800 leading-tight truncate">{c.nombre ?? '—'}</div>
+                                    <div className="mt-0.5 inline-flex items-center gap-1.5 text-neutral-600 text-xs md:text-sm">
+                                      <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" className="opacity-80">
+                                        <path d="M6.6 10.8c1.3 2.5 3.1 4.4 5.6 5.6l2.1-2.1a1 1 0 0 1 1.1-.22c1.2.48 2.6.74 4 .74a1 1 0 0 1 1 1v3.5a1 1 0 0 1-1 1C12.1 20.3 3.7 11.9 3.7 2.7a1 1 0 0 1 1-1H8.2a1 1 0 0 1 1 1c0 1.4.26 2.8.74 4a1 1 0 0 1-.22 1.1l-2.1 2.1Z" fill="currentColor" />
+                                      </svg>
+                                      <span className="truncate">{c.telefono ?? '—'}</span>
+                                    </div>
+                                    {disabled && (
+                                      <span className="mt-1 inline-flex items-center text-[10px] font-semibold text-neutral-700 bg-neutral-100 rounded-full px-2 py-0.5 ring-1 ring-neutral-200">
+                                        Disponible la próxima semana
+                                      </span>
+                                    )}
+                                    {c._ui === 'new' && !disabled && (
+                                      <span className="mt-1 inline-flex items-center text-[10px] font-semibold text-emerald-700 bg-emerald-50 rounded-full px-2 py-0.5">
+                                        Nuevo
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+
+                                <div className="shrink-0 text-right text-[11px] md:text-xs text-neutral-500 leading-5">
+                                  {[c.llamada1 ?? null, c.llamada2 ?? null, c.llamada3 ?? null].map((r, idx) => (
+                                    <div key={idx}>
+                                      <span className="mr-1">Llamada {idx + 1}:</span>
+                                      {r ? (
+                                        <span className="font-medium text-neutral-700">{resultadoLabels[r as Resultado]}</span>
+                                      ) : (
+                                        <span className="italic">sin registro</span>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
                               </div>
-                              <div className="min-w-0">
-                                <h3 className="text-base md:text-lg font-semibold text-neutral-900">Registro inhabilitado</h3>
-                                <p className="mt-1 text-sm text-neutral-700">
-                                  Este registro fue gestionado por el servidor de la semana anterior.
-                                  Por ese motivo estará disponible nuevamente el próximo lunes.
-                                </p>
-                                {/* si hay seleccionado y trae fecha, muéstrala */}
-                                {(() => {
-                                  const sel = pendientes.find(p => p.progreso_id === selectedId);
-                                  if (sel?.habilitado_desde) {
-                                    return <p className="mt-2 text-xs text-neutral-600">Disponible desde: {sel.habilitado_desde}</p>;
-                                  }
-                                  return null;
-                                })()}
+                            </motion.li>
+                          );
+                        })}
+                      </motion.ul>
+                      <AnimatePresence>
+                        {showNextWeekModal && (
+                          <>
+                            <motion.div
+                              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                              className="fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm"
+                              onClick={() => setShowNextWeekModal(false)}
+                            />
+                            <motion.div
+                              role="dialog" aria-modal="true"
+                              initial={{ opacity: 0, y: 24, scale: 0.98 }}
+                              animate={{ opacity: 1, y: 0, scale: 1 }}
+                              exit={{ opacity: 0, y: 24, scale: 0.98 }}
+                              transition={{ type: 'spring', stiffness: 240, damping: 22 }}
+                              className="fixed z-[61] inset-0 flex items-center justify-center p-4"
+                            >
+                              <div className="w-full max-w-md rounded-2xl bg-white/80 backdrop-blur-xl shadow-2xl ring-1 ring-white/40">
+                                <div className="p-6 md:p-7">
+                                  <div className="flex items-start gap-3">
+                                    <div className="h-10 w-10 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center shadow-md">
+                                      {/* ícono */}
+                                      <svg width="22" height="22" viewBox="0 0 24 24" fill="white"><path d="M12 2l9 4v6c0 5-3.8 9.3-9 10-5.2-.7-9-5-9-10V6l9-4z"/></svg>
+                                    </div>
+                                    <div className="min-w-0">
+                                      <h3 className="text-base md:text-lg font-semibold text-neutral-900">Registro inhabilitado</h3>
+                                      <p className="mt-1 text-sm text-neutral-700">
+                                        Este registro fue gestionado por el servidor de la semana anterior.
+                                        Por ese motivo estará disponible nuevamente el próximo lunes.
+                                      </p>
+                                      {/* si hay seleccionado y trae fecha, muéstrala */}
+                                      {(() => {
+                                        const sel = pendientes.find(p => p.progreso_id === selectedId);
+                                        if (sel?.habilitado_desde) {
+                                          return <p className="mt-2 text-xs text-neutral-600">Disponible desde: {sel.habilitado_desde}</p>;
+                                        }
+                                        return null;
+                                      })()}
+                                    </div>
+                                  </div>
+                                  <div className="mt-6 flex justify-end">
+                                    <button
+                                      type="button"
+                                      onClick={() => setShowNextWeekModal(false)}
+                                      className="inline-flex items-center justify-center rounded-xl px-4 py-2 text-sm font-semibold text-white bg-gradient-to-r from-amber-500 to-orange-500 shadow hover:brightness-105 active:brightness-95 transition"
+                                    >
+                                      Entendido
+                                    </button>
+                                  </div>
+                                </div>
                               </div>
-                            </div>
-                            <div className="mt-6 flex justify-end">
-                              <button
-                                type="button"
-                                onClick={() => setShowNextWeekModal(false)}
-                                className="inline-flex items-center justify-center rounded-xl px-4 py-2 text-sm font-semibold text-white bg-gradient-to-r from-amber-500 to-orange-500 shadow hover:brightness-105 active:brightness-95 transition"
-                              >
-                                Entendido
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      </motion.div>
+                            </motion.div>
+                          </>
+                        )}
+                      </AnimatePresence>
                     </>
                   )}
-                </AnimatePresence>
-              </>
-            )}
+                </motion.div>
+              </AnimatePresence>
+            </div>
           </section>
 
           {/* Panel derecho de llamada */}
-          <section ref={rightPanelRef} className={`rounded-[16px] bg-white shadow-[0_10px_28px_-14px_rgba(16,24,40,.28)] ring-1 ring-black/5 p-4 md:p-5 ${!selectedId ? 'hidden lg:block' : ''}`}>
-            {!selectedId ? (
-              <EmptyRightPlaceholder />
-            ) : (
-              (() => {
-                const sel = pendRef.current.find((p) => p.progreso_id === selectedId);
-                if (!sel) {
-                  return (
-                    <div className="p-6 text-neutral-500">Selecciona un registro válido para continuar.</div>
-                  );
-                }
-                return (
-                  <>
-                    {/* Botón volver: solo móvil */}
-                    <div className="mb-3 lg:hidden">
-                      <button
-                        type="button"
-                        onClick={() => setSelectedId(null)}
-                        className="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-semibold ring-1 ring-black/10 hover:bg-neutral-50"
-                      >
-                        <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
-                          <path d="M15.7 5.3a1 1 0 0 1 0 1.4L11.4 11l4.3 4.3a1 1 0 1 1-1.4 1.4l-5-5a1 1 0 0 1 0-1.4l5-5a1 1 0 0 1 1.4 0Z" fill="currentColor"/>
-                        </svg>
-                        Volver
-                      </button>
-                    </div>
-                    <FollowUp
-                      semana={semana}
-                      dia={dia}
-                      row={sel}
-                      saving={saving}
-                      onSave={enviarResultado}
-                    />
-                  </>
-                );
-              })()
-            )}
-          </section>
+   {/* Panel derecho de llamada */}
+<section
+  ref={rightPanelRef}
+  className={`relative rounded-[20px] bg-white/78 supports-[backdrop-filter]:bg-white/52 backdrop-blur-xl backdrop-saturate-150 ring-1 ring-white/70 shadow-[0_18px_56px_-28px_rgba(2,6,23,.28)] before:content-[''] before:absolute before:inset-0 before:rounded-[inherit] before:pointer-events-none before:shadow-[inset_0_1px_0_rgba(255,255,255,.72)] p-4 md:p-5 ${!selectedId ? 'hidden lg:block' : ''}`}
+>
+  <AnimatePresence initial={false} mode="wait">
+    <motion.div
+      key={selectedId ?? 'empty'}
+      variants={MAC2025_PANEL_VARIANTS}
+      initial="initial"
+      animate="animate"
+      exit="exit"
+      layout
+      className="relative"
+      style={{ willChange: 'transform, opacity, filter', transformOrigin: '50% 50%' }}
+    >
+      {!selectedId ? (
+        <EmptyRightPlaceholder />
+      ) : (
+        (() => {
+          const sel = pendRef.current.find((p) => p.progreso_id === selectedId);
+          if (!sel) {
+            return <div className="p-6 text-neutral-500">Selecciona un registro válido para continuar.</div>;
+          }
+          return (
+            <>
+              {/* Botón volver: solo móvil (sin tocar estilos) */}
+              <div className="mb-3 lg:hidden">
+                <button
+                  type="button"
+                  onClick={() => setSelectedId(null)}
+                  className="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-semibold ring-1 ring-black/10 hover:bg-neutral-50"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M15.7 5.3a1 1 0 0 1 0 1.4L11.4 11l4.3 4.3a1 1 0 1 1-1.4 1.4l-5-5a1 1 0 0 1 0-1.4l5-5a1 1 0 0 1 1.4 0Z" fill="currentColor"/>
+                  </svg>
+                  Volver
+                </button>
+              </div>
+
+              {/* Mantengo exactamente tu componente actual */}
+              <FollowUp
+                semana={semana}
+                dia={dia}
+                row={sel}
+                saving={saving}
+                onSave={enviarResultado}
+              />
+            </>
+          );
+        })()
+      )}
+    </motion.div>
+  </AnimatePresence>
+</section>
+                                              
         </div>
 
         {/* ===== Asistencias ===== */}
-        <section className="mt-6 animate-cardIn rounded-[18px] ring-1 ring-black/5 shadow-[0_12px_30px_-16px_rgba(16,24,40,.28)] overflow-hidden bg-white">
-          <div className="flex items-center justify-between px-4 md:px-6 py-3 bg-[linear-gradient(135deg,#eaf3ff,#f8f1ff)]">
-            <div>
-              <h3 className="text-[15px] md:text-base font-semibold text-neutral-900">
-                Listado Estudiantes Día {asig.dia} — {asig.etapaBase === 'Semillas' ? 'Semillas' : asig.etapaBase} {asig.modulo}
-              </h3>
-              <p className="text-neutral-500 text-xs">Agendados que confirmaron asistencia.</p>
-            </div>
-            <div className="text-sm font-semibold rounded-full bg-white px-3 py-1.5 ring-1 ring-black/10 shadow-sm">
-              {asig.dia}
-            </div>
+        <section className="mt-6 animate-cardIn rounded-[18px] ring-1 ring-white/60 shadow-[0_12px_30px_-16px_rgba(16,24,40,.28)] overflow-hidden bg-white/55 supports-[backdrop-filter]:bg-white/35 backdrop-blur-xl">
+          <div className="relative flex items-center justify-between px-4 md:px-6 py-3 bg-white/78 supports-[backdrop-filter]:bg-white/52 backdrop-blur-xl backdrop-saturate-150 ring-1 ring-white/70 shadow-[0_18px_56px_-28px_rgba(2,6,23,.28)] before:content-[''] before:absolute before:inset-0 before:rounded-[inherit] before:pointer-events-none before:shadow-[inset_0_1px_0_rgba(255,255,255,.72)] bg-[linear-gradient(180deg,rgba(255,255,255,.88),rgba(255,255,255,.62)),radial-gradient(900px_220px_at_0%_-40%,rgba(56,189,248,.08),transparent),radial-gradient(900px_240px_at_110%_-50%,rgba(79,70,229,.06),transparent)] backdrop-blur-xl border-b border-white/60">
+        <header className="relative mb-3 md:mb-4 flex items-baseline gap-3 rounded-2xl px-4 py-3 bg-[linear-gradient(135deg,rgba(255,255,255,.88),rgba(255,255,255,.58))] backdrop-blur-xl ring-1 ring-white/60 rounded-2xl shadow-[0_20px_60px_-28px_rgba(2,6,23,.30)] before:content-[''] before:absolute before:inset-0 before:rounded-[inherit] before:pointer-events-none before:shadow-[inset_0_1px_0_rgba(255,255,255,.70)]">
+              <div>
+                <h3 className="text-[15px] md:text-base font-semibold text-neutral-900">
+                  Listado Estudiantes Día {asig.dia} — {asig.etapaBase === 'Semillas' ? 'Semillas' : asig.etapaBase} {asig.modulo}
+                </h3>
+                <p className="text-neutral-500 text-xs">Agendados que confirmaron asistencia.</p>
+              </div>
+              <div className="text-sm font-semibold rounded-full bg-white px-3 py-1.5 ring-1 ring-black/10 shadow-sm">
+                {asig.dia}
+              </div>
+            </header>
           </div>
 
           {loadingAg ? (
@@ -1404,7 +1529,7 @@ const openObsModal = async () => {
 
         
 
-        <div className="shrink-0 flex flex-col items-stretch gap-2">
+  <div className="shrink-0 flex flex-col items-stretch gap-2 lg:flex-col lg:items-end lg:justify-center lg:gap-3 sm:flex-row sm:overflow-visible sm:flex-nowrap sm:max-w-none">
           {telHref ? (
             <a
               href={telHref}
@@ -1508,13 +1633,12 @@ const openObsModal = async () => {
       </div>
       </div>
       {obsOpen && (
-        <div className="fixed inset-0 z-[70]">
+  <div className="fixed inset-0 z-[70] flex items-start justify-center min-h-screen px-2 sm:px-4 pt-8 sm:pt-12">
           <div
             className="absolute inset-0 bg-black/30 backdrop-blur-sm"
             onClick={() => setObsOpen(false)}
           />
-          <div className="absolute inset-0 grid place-items-center px-4">
-            <div className="w-full max-w-3xl rounded-3xl shadow-[0_20px_60px_-20px_rgba(0,0,0,35)] ring-1 ring-white/40 bg-[linear-gradient(180deg,rgba(255,255,255,65),rgba(255,255,255,45))] backdrop-blur-xl overflow-hidden">
+          <div className="relative w-full max-w-3xl rounded-3xl shadow-[0_20px_60px_-20px_rgba(0,0,0,35)] ring-1 ring-white/40 bg-[linear-gradient(180deg,rgba(255,255,255,65),rgba(255,255,255,45))] backdrop-blur-xl overflow-hidden">
               <div className="px-5 md:px-7 py-4 flex items-center justify-between border-b border-white/50">
                 <div>
                   <div className="text-xl md:text-2xl font-semibold text-neutral-900">Observaciones</div>
@@ -1556,7 +1680,6 @@ const openObsModal = async () => {
                 )}
               </div>
             </div>
-          </div>
         </div>
       )}
     </div>

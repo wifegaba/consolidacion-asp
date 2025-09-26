@@ -1,3 +1,63 @@
+/* === MODAL PENDIENTES PREMIUM 2025 === */
+#modal-pendientes .modal-header-premium{
+  position: sticky; /* encabezado fijo mientras se hace scroll */
+  top: 0;
+  z-index: 2;
+  padding: 14px 18px;
+  border-radius: 18px 18px 0 0;
+  background:
+    linear-gradient(135deg, rgba(99,102,241,0.92), rgba(236,72,153,0.92));
+  color: #fff;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.25),
+    0 8px 22px rgba(0,0,0,0.15);
+}
+
+#modal-pendientes thead th{
+  font-weight: 700;
+  letter-spacing: .2px;
+  padding: 10px 8px;
+  color: #0f172a; /* slate-900 */
+  opacity: .85;
+}
+
+#modal-pendientes tbody tr{
+  transition: background .25s ease, transform .25s ease;
+}
+#modal-pendientes tbody tr:hover{
+  background: rgba(99,102,241,0.08);
+}
+
+#modal-pendientes .icon-trash{
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px; height: 34px;
+  border: 0;
+  background: transparent;     /* sin fondo ni borde: solo icono */
+  box-shadow: none;
+  color: #6b7280;              /* slate-500 */
+  cursor: pointer;
+  border-radius: 10px;         /* solo para hit-area amable */
+  transition: transform .18s ease, color .18s ease, background .18s ease;
+}
+#modal-pendientes .icon-trash:hover{
+  color: #ef4444;              /* red-500 */
+  transform: scale(1.07);
+  background: rgba(239,68,68,0.06); /* toque sutil, no “botón” */
+}
+#modal-pendientes .icon-trash:active{
+  transform: scale(0.98);
+}
+
+@media (max-width: 640px) {
+  #modal-pendientes th.col-fecha,
+  #modal-pendientes td.col-fecha {
+    display: none !important;
+  }
+}
 @media (max-width: 640px) {
   /* Más espacio entre etiquetas de asistencias y no asistieron en el gráfico */
   .panel-compact .card-head {

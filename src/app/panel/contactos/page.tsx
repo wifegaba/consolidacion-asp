@@ -2,6 +2,7 @@
 'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
+import { Trash2 } from "lucide-react";
 import { supabase } from '@/lib/supabaseClient';
 
 /* ========= Tipos ========= */
@@ -82,6 +83,22 @@ const toDbEstudio = (arr: string[]): AppEstudioDia =>
     arr.includes('PENDIENTES') ? 'Pendientes' :
     arr.includes('VIRTUAL') ? 'Virtual' :
     'Virtual'; // fallback de seguridad
+
+// Normaliza teléfono a solo dígitos
+const normalizaTelefono = (v: string) => (v || '').replace(/\D+/g, '');
+
+// Chequea duplicado SOLO en pendientes
+const existePendienteConTelefono = async (tel: string, excluirId?: string | null) => {
+    const query = supabase
+        .from('pendientes')
+        .select('id', { count: 'exact' })
+        .eq('telefono', tel)
+        .limit(1);
+    if (excluirId) query.neq('id', excluirId);
+    const { count, error } = await query;
+    if (error) throw error;
+    return (count || 0) > 0;
+};
 
 
 const normaliza = (s: string) =>
@@ -228,64 +245,89 @@ const selectDesdePendiente = (row: PendienteItem) => {
     };
 
     const handleGuardar = async () => {
-  if (!validar()) return;
 
-  const p_estudio: AppEstudioDia = toDbEstudio(form.destino);
-  const p_notas = construirNotas();
+    if (!validar()) return;
 
-  try {
-    // 🔹 Caso especial: si viene de Pendientes, SIEMPRE registrar como nuevo
-    if (form.pendienteId) {
-      const { error } = await supabase.rpc('fn_registrar_persona', {
-        p_nombre: form.nombre.trim(),
-        p_telefono: form.telefono.trim(),
-        p_culto: toDbEstudio(form.destino),
-        p_estudio: toDbEstudio(form.destino),
-        p_notas: construirNotas(),
-      });
-      if (error) throw error;
+    const p_estudio: AppEstudioDia = toDbEstudio(form.destino);
+    const p_notas = construirNotas();
 
-      // 👇 eliminar automáticamente de la tabla pendientes
-      const { error: delError } = await supabase
-        .from('pendientes')
-        .delete()
-        .eq('id', form.pendienteId);
+    try {
+        // 🔹 Caso especial: si viene de Pendientes, SIEMPRE registrar como nuevo
+        if (form.pendienteId) {
+            const { error } = await supabase.rpc('fn_registrar_persona', {
+                p_nombre: form.nombre.trim(),
+                p_telefono: form.telefono.trim(),
+                p_culto: toDbEstudio(form.destino),
+                p_estudio: toDbEstudio(form.destino),
+                p_notas: construirNotas(),
+            });
+            if (error) throw error;
 
-      if (delError) {
-        console.error(delError);
-        toast('Guardado, pero no se pudo eliminar de pendientes');
-      } else {
-        toast('Persona registrada y eliminada de Pendientes');
-      }
+            // 👇 eliminar automáticamente de la tabla pendientes
+            const { error: delError } = await supabase
+                .from('pendientes')
+                .delete()
+                .eq('id', form.pendienteId);
 
-      setForm(prev => ({ ...prev, pendienteId: null }));
+            if (delError) {
+                console.error(delError);
+                toast('Guardado, pero no se pudo eliminar de pendientes');
+            } else {
+                toast('Persona registrada y eliminada de Pendientes');
+            }
 
-      // refrescar listado de pendientes si corresponde
-      if (modalPendVisible) {
-        try {
-          const { data } = await supabase.rpc('fn_listar_pendientes');
-          setPendientesRows((data || []) as PendienteItem[]);
-        } catch {}
-      }
+            setForm(prev => ({ ...prev, pendienteId: null }));
 
-      resetForm();
-      return;
-    }
+            // refrescar listado de pendientes si corresponde
+            if (modalPendVisible) {
+                try {
+                    const { data } = await supabase.rpc('fn_listar_pendientes');
+                    setPendientesRows((data || []) as PendienteItem[]);
+                } catch {}
+            }
 
-    // 🔹 Si el destino es PENDIENTES, usar la nueva función de pendientes
-    if (form.destino.includes('PENDIENTES')) {
-      const { error } = await supabase.rpc('fn_registrar_pendiente', {
-        p_nombre: form.nombre.trim(),
-        p_telefono: form.telefono.trim(),
-        p_destino: 'Pendientes',
-        p_culto: form.cultoSeleccionado || null,
-        p_observaciones: (form.observaciones || '').trim() || null,
-      });
-      if (error) throw error;
-      toast('Registro guardado en Pendientes');
-      resetForm();
-      return;
-    }
+            resetForm();
+            return;
+        }
+
+        // 🔹 Si el destino es PENDIENTES, usar la nueva función de pendientes
+        if (form.destino.includes('PENDIENTES')) {
+            const telNorm = normalizaTelefono(form.telefono);
+            // Validar longitud mínima ya existe con validar(); reforzamos normalización:
+            if (telNorm.length < 7) {
+                setErrores(prev => ({ ...prev, telefono: 'Número inválido o incompleto' }));
+                toast('Número inválido o incompleto');
+                return;
+            }
+
+            // Evitar duplicados SOLO en tabla "pendientes"
+            const dup = await existePendienteConTelefono(telNorm, form.pendienteId ?? null);
+            if (dup) {
+                setErrores(prev => ({ ...prev, telefono: 'Ya existe un pendiente con este teléfono' }));
+                toast('⚠️ Ya existe un pendiente con este teléfono');
+                return;
+            }
+
+            // Llamada actual, pasando tel normalizado
+            const { error } = await supabase.rpc('fn_registrar_pendiente', {
+                p_nombre: form.nombre.trim(),
+                p_telefono: telNorm,
+                p_destino: 'Pendientes',
+                p_culto: form.cultoSeleccionado || null,
+                p_observaciones: (form.observaciones || '').trim() || null,
+            });
+            if (error) throw error;
+            toast('Registro guardado en Pendientes');
+
+            // Refrescar listado si el modal está abierto
+            if (modalPendVisible) {
+                const { data } = await supabase.rpc('fn_listar_pendientes');
+                setPendientesRows((data || []) as PendienteItem[]);
+            }
+
+            resetForm();
+            return;
+        }
 
     // 🔹 Actualización normal
     if (modoEdicion && indiceEdicion) {
@@ -550,6 +592,22 @@ const selectDesdePendiente = (row: PendienteItem) => {
             ? (sugs[0].nombre ?? '').slice(busqueda.length)
             : '';
 
+    // Eliminar pendiente desde el modal
+    const handleEliminarPendiente = async (row: PendienteItem) => {
+      if (!row?.id) { toast('No se encontró el ID del pendiente'); return; }
+      const ok = window.confirm(`¿Eliminar el pendiente de "${row.nombre ?? ''}"?`);
+      if (!ok) return;
+      try {
+          const { error } = await supabase.from('pendientes').delete().eq('id', row.id);
+          if (error) throw error;
+          setPendientesRows(prev => prev.filter(r => r.id !== row.id));
+          toast('🗑️ Pendiente eliminado');
+      } catch (e) {
+          console.error(e);
+          toast('❌ Error eliminando pendiente');
+      }
+    };
+
     /* ===== UI ===== */
     return (
         <div className="pn-root">
@@ -727,44 +785,43 @@ const selectDesdePendiente = (row: PendienteItem) => {
                 </div>
 
                 {/* Modal PENDIENTES */}
-                {modalPendVisible && (
-                    <div className="modal-buscar fixed inset-0 z-50 flex items-center justify-center" role="dialog" aria-modal="true">
-                                                <div
-                                                    className="modal-buscar__box"
-                                                    style={{
-                                                        maxWidth: 540,
-                                                        width: '100%',
-                                                        background: 'linear-gradient(120deg,rgba(255,255,255,0.82),rgba(230,240,255,0.68))',
-                                                        backdropFilter: 'blur(18px)',
-                                                        WebkitBackdropFilter: 'blur(18px)',
-                                                        borderRadius: '2rem',
-                                                        boxShadow: '0 12px 48px -12px rgba(30,41,59,0.18)',
-                                                        border: '1.5px solid rgba(255,255,255,0.45)',
-                                                        padding: '1.5rem 1.5rem 1.2rem 1.5rem',
-                                                    }}
-                                                >
-                            <button className="modal-buscar__close" aria-label="Cerrar"
-                                    onClick={() => setModalPendVisible(false)}>×</button>
-
-                            <h3 className="modal-buscar__heading">Pendientes</h3>
-
-                            <div className="tabla-archivo-wrap" style={{ maxHeight: 420, overflowY: 'auto', overflowX: 'hidden' }}>
+                                {modalPendVisible && (
+                                    <div id="modal-pendientes" className="modal-buscar fixed inset-0 z-50 flex items-center justify-center" role="dialog" aria-modal="true">
+                                        <div
+                                            className="modal-buscar__box"
+                                            style={{
+                                                maxWidth: 540,
+                                                width: '100%',
+                                                background: 'linear-gradient(135deg, rgba(99,102,241,0.93) 0%, rgba(236,72,153,0.90) 100%)',
+                                                backdropFilter: 'blur(22px)',
+                                                WebkitBackdropFilter: 'blur(22px)',
+                                                borderRadius: '2rem',
+                                                boxShadow: '0 12px 48px -12px rgba(30,41,59,0.22), 0 1.5px 0 rgba(255,255,255,0.18) inset',
+                                                border: '1.5px solid rgba(255,255,255,0.22)',
+                                                padding: '1.5rem 1.5rem 1.2rem 1.5rem',
+                                            }}
+                                        >
+                                            <div className="modal-header-premium">
+                                                <button className="modal-buscar__close" aria-label="Cerrar"
+                                                    onClick={() => setModalPendVisible(false)}>×</button>
+                                                <h3 className="modal-buscar__heading" style={{margin:0}}>Pendientes</h3>
+                                            </div>
+                                            <div className="tabla-archivo-wrap" style={{ maxHeight: 420, overflowY: 'auto', overflowX: 'hidden' }}>
                                 <table className="tabla-archivo" style={{ width: '100%', borderCollapse: 'collapse' }}>
-                                    <thead>
-                                    <tr>
-                                        <th style={{ textAlign: 'left', padding: '8px' }}>Nombre</th>
-                                        <th style={{ textAlign: 'left', padding: '8px' }}>Teléfono</th>
-                                        <th style={{ textAlign: 'left', padding: '8px' }}>Día</th>
-                                        <th style={{ textAlign: 'left', padding: '8px' }}>Semana</th>
-                                        <th style={{ textAlign: 'left', padding: '8px' }}>Etapa</th>
-                                    </tr>
-                                    </thead>
-                                    <tbody>
+                                                <thead>
+                                                    <tr>
+                                                        <th style={{ textAlign: 'left', padding: '8px' }}>Nombre</th>
+                                                        <th style={{ textAlign: 'left', padding: '8px' }}>Teléfono</th>
+                                                        <th className="col-fecha">Día</th>
+                                                        <th style={{ textAlign: 'left', padding: '8px', width: 90 }}>Acciones</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
                                     {pendLoading && (
-                                        <tr><td colSpan={5} style={{ padding: 12 }}>Cargando…</td></tr>
+                                        <tr><td colSpan={4} style={{ padding: 12 }}>Cargando…</td></tr>
                                     )}
                                     {!pendLoading && pendientesRows.length === 0 && (
-                                        <tr><td colSpan={5} style={{ padding: 12 }}>Sin pendientes</td></tr>
+                                        <tr><td colSpan={4} style={{ padding: 12 }}>Sin pendientes</td></tr>
                                     )}
                                     {!pendLoading && pendientesRows
                                         .slice(pendPage * PEND_PAGE_SIZE, (pendPage + 1) * PEND_PAGE_SIZE)
@@ -776,9 +833,19 @@ const selectDesdePendiente = (row: PendienteItem) => {
                                             title="Cargar en el formulario"
                                             onClick={() => selectPendiente(row)}
                                         >
-                                            <td style={{ padding: '8px' }}>{row.nombre ?? ''}</td>
-                                            <td style={{ padding: '8px' }}>{row.telefono ?? ''}</td>
-                                            <td style={{ padding: '8px' }}>{soloFecha(row.creado_en ?? row.created_at ?? row.fecha ?? '')}</td>
+                                                                                        <td style={{ padding: '8px' }}>{row.nombre ?? ''}</td>
+                                                                                        <td style={{ padding: '8px' }}>{row.telefono ?? ''}</td>
+                                                                                        <td className="col-fecha">{soloFecha(row.creado_en ?? row.created_at ?? row.fecha ?? '')}</td>
+                                                                                        <td style={{ padding: '8px' }}>
+                                                                                            <button
+                                                                                                className="icon-trash"
+                                                                                                title="Eliminar pendiente"
+                                                                                                aria-label="Eliminar pendiente"
+                                                                                                onClick={(e) => { e.stopPropagation(); handleEliminarPendiente(row); }}
+                                                                                            >
+                                                                                                <Trash2 size={18} />
+                                                                                            </button>
+                                                                                        </td>
                                         </tr>
                                     ))}
                                     </tbody>
@@ -800,31 +867,7 @@ const selectDesdePendiente = (row: PendienteItem) => {
                                     >Siguiente</button>
                                   </div>
                                 )}
-                                <style jsx global>{`
-                                  .modal-buscar .tabla-archivo .arch-row { transition: transform .14s ease, background .2s ease, box-shadow .2s ease; }
-                                  .modal-buscar .tabla-archivo .arch-row:hover {
-                                    background: linear-gradient(90deg, rgba(255,255,255,.06), rgba(255,255,255,.12));
-                                    transform: translateY(-1px) scale(1.01);
-                                    box-shadow: 0 6px 18px rgba(0,0,0,.18);
-                                  }
-                                  /* Mostrar solo 3 columnas y renombrar la tercera cabecera */
-                                  .modal-buscar .tabla-archivo thead th:nth-child(3) { position: relative; color: transparent; }
-                                  .modal-buscar .tabla-archivo thead th:nth-child(3)::after { content: 'Fecha de creación'; position: absolute; left: 8px; color: inherit; }
-                                  .modal-buscar .tabla-archivo thead th:nth-child(n+4) { display: none; }
-                                  .modal-buscar .tabla-archivo tbody td:nth-child(n+4) { display: none; }
-                                `}</style>
-                                <style jsx global>{`
-                                  .modal-buscar .tabla-archivo thead th:nth-child(3){ position: relative !important; color: inherit !important; }
-                                  .modal-buscar .tabla-archivo thead th:nth-child(3)::after{ content: 'Fecha' !important; position: absolute; left: 8px; color: inherit !important; }
-                                `}</style>
-                                <style jsx global>{`
-                                  /* Forzar encabezados limpios */
-                                  .modal-buscar .tabla-archivo thead th:nth-child(2){ position: relative; font-size: 0 !important; }
-                                  .modal-buscar .tabla-archivo thead th:nth-child(2)::after{ content: 'Teléfono'; font-size: 14px; position: absolute; left: 8px; color: inherit; }
-                                  .modal-buscar .tabla-archivo thead th:nth-child(3){ position: relative; font-size: 0 !important; }
-                                  .modal-buscar .tabla-archivo thead th:nth-child(3)::after{ content: 'Fecha'; font-size: 14px; position: absolute; left: 8px; color: inherit; }
-                                  .modal-buscar .tabla-archivo thead th:nth-child(n+4){ display:none; }
-                                `}</style>
+
                             </div>
                         </div>
                     </div>
