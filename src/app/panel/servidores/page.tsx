@@ -346,22 +346,38 @@ export default function Servidores() {
         });
     };
 
+    // ...existing code...
+
+    // Estado para saber si la acción es eliminar
+    const [pendingDelete, setPendingDelete] = useState(false);
+
+    const handleDeleteButtonClick = () => {
+        setPendingDelete(true);
+        openAdminPassModal();
+    };
+
+    // Modificar el submit del modal para soportar desbloqueo de cédula y eliminación
     const handleAdminPassSubmit = (event?: React.FormEvent) => {
         if (event) event.preventDefault();
         const pass = trim(adminPassValue);
         if (!pass) {
-            setAdminPassError('Ingresa la contrasena del administrador.');
+            setAdminPassError('Ingresa la contraseña del administrador.');
             return;
         }
         if (pass !== ADMIN_PASSWORD) {
-            setAdminPassError('Contrasena incorrecta.');
+            setAdminPassError('Contraseña incorrecta.');
             return;
         }
-        setCedulaUnlocked(true);
         closeAdminPassModal();
-        requestAnimationFrame(() => {
-            inputCedulaRef.current?.focus();
-        });
+        if (pendingDelete) {
+            setPendingDelete(false);
+            setConfirmDetalleDelete(true);
+        } else {
+            setCedulaUnlocked(true);
+            requestAnimationFrame(() => {
+                inputCedulaRef.current?.focus();
+            });
+        }
     };
 
     /* ========================= MODALES ========================= */
@@ -377,7 +393,7 @@ export default function Servidores() {
     const [contactosDia, setContactosDia] = useState<AppEstudioDia | ''>('');
 
     // Nivel/Etapa
-    const [nivelSeleccionado, setNivelSeleccionado] = useState<string>(''); // 'Semillas 1' | 'Devocacionales 2' | ...
+    const [nivelSeleccionado, setNivelSeleccionado] = useState<string>(''); // 'Semillas 1' | 'Devocionales 2' | ...
     const [nivelSemillasSel, setNivelSemillasSel] = useState<string>('');
     const [nivelDevSel, setNivelDevSel] = useState<string>('');
     const [nivelResSel, setNivelResSel] = useState<string>('');
@@ -1669,7 +1685,7 @@ export default function Servidores() {
                         </span>
                                                 <span className="meta-dot">•</span>
                                                 <span className="meta-item">
-                          <label>Cédula:</label> {maskCedulaDisplay(s.cedula)}
+                                                   <label>Cédula:</label> {maskCedulaDisplay(s.cedula)}
                         </span>
                                                 <span className="meta-dot">•</span>
                                                 <span className="meta-item">
@@ -1752,7 +1768,7 @@ export default function Servidores() {
                                             <small className="srv-info">El botón principal del formulario cambiará a “Actualizar”.</small>
                                         </div>
                                         <div className="srv-actions" style={{ marginTop: 18 }}>
-                                            <button className="srv-btn" style={{ background: '#ffe8e8' }} onClick={() => setConfirmDetalleDelete(true)}>Eliminar Servidor</button>
+                                            <button className="srv-btn" style={{ background: '#ffe8e8' }} onClick={handleDeleteButtonClick}>Eliminar Servidor</button>
                                         </div>
                                     </div>
                                 )}
@@ -1761,7 +1777,7 @@ export default function Servidores() {
                             <aside className="view-sidebar">
                                 <button className={`view-item${detalleTab === 'datos' ? ' is-active' : ''}`} onClick={() => setDetalleTab('datos')}>Datos Personales</button>
                                 <button className={`view-item${detalleTab === 'actualizar' ? ' is-active' : ''}`} onClick={() => setDetalleTab('actualizar')}>Actualizar Datos</button>
-                                <button className="view-item view-item-danger" onClick={() => setConfirmDetalleDelete(true)}>Eliminar Servidor</button>
+                                <button className="view-item view-item-danger" onClick={handleDeleteButtonClick}>Eliminar Servidor</button>
                                 <button className="view-item" onClick={volverABuscar}>Atras</button>
                             </aside>
                         </div>
@@ -1834,7 +1850,7 @@ export default function Servidores() {
                     max-width: 760px;
                     padding: 22px 22px 16px;
                     border-radius: 22px;
-                    background: radial-gradient(120% 140% at 0% 0%, rgba(255,255,255,0.65), rgba(240,244,255,0.55));
+                    background: radial-gradient(120% 140% at 0% 0%, rgba(255,255,255,0.9), rgba(246,248,255,0.9));
                     box-shadow:
                             inset 8px 8px 24px rgba(255,255,255,0.45),
                             inset -8px -8px 22px rgba(0,0,0,0.05),
@@ -2051,11 +2067,7 @@ export default function Servidores() {
                 .view-item:hover{
                     transform: translateY(-1px);
                     border-color: rgba(88,132,255,.35);
-                    background: linear-gradient(180deg, rgba(255,255,255,.96), rgba(240,246,255,.92));
-                    box-shadow:
-                        inset 2px 2px 6px rgba(255,255,255,.92),
-                        inset -2px -2px 6px rgba(0,0,0,.06),
-                        0 0 0 3px rgba(88,132,255,.18);
+                    background: linear-gradient(180deg, #eaf2ff, #dfe9ff) !important; box-shadow: inset 1px 1px 3px rgba(255,255,255,.8), 0 10px 22px rgba(40,80,200,.16) !important;
                 }
                 .view-item.is-active{ border-color: rgba(88,132,255,.45); box-shadow: inset 2px 2px 6px rgba(255,255,255,.92), inset -2px -2px 6px rgba(0,0,0,.06), 0 6px 12px rgba(88,132,255,.15); }
                 .view-item-danger{ color: #8a1f1f; background: linear-gradient(180deg, #fff3f3, #ffe8e8); border-color: rgba(195,40,40,.25); }
@@ -2103,8 +2115,7 @@ export default function Servidores() {
                     position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
                     width: 24px; height: 24px; border-radius: 8px; border: 1px solid rgba(0,0,0,0.06);
                     background: linear-gradient(180deg, rgba(255,255,255,.95), rgba(248,250,255,.9));
-                    cursor: pointer; font-size: 16px; line-height: 1; opacity: .85;
-                    box-shadow: inset 1px 1px 3px rgba(255,255,255,.85), inset -1px -1px 3px rgba(0,0,0,.05);
+                    cursor: pointer; font-size: 16px; line-height: 1; font-weight: 900; padding: 0;
                 }
                 .premium-box{
                     max-width: 420px;

@@ -815,94 +815,118 @@ const selectDesdePendiente = (row: PendienteItem) => {
                     </div>
                 </div>
 
-                {/* Modal PENDIENTES */}
+                                {/* Modal PENDIENTES - Premium 2025 */}
                                 {modalPendVisible && (
-                                    <div id="modal-pendientes" className="modal-buscar fixed inset-0 z-50 flex items-center justify-center" role="dialog" aria-modal="true">
+                                    <div
+                                        id="modal-pendientes"
+                                        role="dialog"
+                                        aria-modal="true"
+                                        aria-labelledby="pend-title"
+                                        onKeyDown={(e) => e.key === "Escape" && setModalPendVisible(false)}
+                                        className="fixed inset-0 z-50 flex items-center justify-center bg-[radial-gradient(1200px_800px_at_50%_20%,rgba(79,70,229,.18),rgba(0,0,0,.45))] backdrop-blur-sm"
+                                    >
                                         <div
-                                            className="modal-buscar__box"
-                                            style={{
-                                                maxWidth: 540,
-                                                width: '100%',
-                                                background: 'linear-gradient(135deg, rgba(99,102,241,0.93) 0%, rgba(236,72,153,0.90) 100%)',
-                                                backdropFilter: 'blur(22px)',
-                                                WebkitBackdropFilter: 'blur(22px)',
-                                                borderRadius: '2rem',
-                                                boxShadow: '0 12px 48px -12px rgba(30,41,59,0.22), 0 1.5px 0 rgba(255,255,255,0.18) inset',
-                                                border: '1.5px solid rgba(255,255,255,0.22)',
-                                                padding: '1.5rem 1.5rem 1.2rem 1.5rem',
-                                            }}
+                                            tabIndex={-1}
+                                            className="w-[min(560px,92vw)] rounded-[22px] overflow-hidden border border-white/25 shadow-[0_18px_60px_-8px_rgba(17,24,39,.35)] bg-gradient-to-br from-indigo-500/90 via-violet-500/90 to-sky-400/85"
                                         >
-                                            <div className="modal-header-premium">
-                                                <button className="modal-buscar__close" aria-label="Cerrar"
-                                                    onClick={() => setModalPendVisible(false)}>×</button>
-                                                <h3 className="modal-buscar__heading" style={{margin:0}}>Pendientes</h3>
+                                            {/* Header sticky */}
+                                            <div className="sticky top-0 flex items-center justify-center py-4 px-5 bg-[radial-gradient(ellipse_at_top_left,_white_80%,_#f3f4f6_100%)] text-black shadow-[inset_0_-1px_0_rgba(255,255,255,.18)]">
+                                                <h3 id="pend-title" className="font-extrabold tracking-wide text-lg text-black">
+                                                    Pendientes
+                                                </h3>
+                                                <button
+                                                    aria-label="Cerrar"
+                                                    onClick={() => setModalPendVisible(false)}
+                                                    className="absolute right-2 top-2 grid place-items-center w-9 h-9 rounded-full border border-black/20 bg-white/80 text-black text-xl leading-none shadow-[0_4px_14px_rgba(0,0,0,.12)] transition-transform hover:scale-105 hover:bg-white"
+                                                >
+                                                    ×
+                                                </button>
                                             </div>
-                                            <div className="tabla-archivo-wrap" style={{ maxHeight: 420, overflowY: 'auto', overflowX: 'hidden' }}>
-                                <table className="tabla-archivo" style={{ width: '100%', borderCollapse: 'collapse' }}>
-                                                <thead>
-                                                    <tr>
-                                                        <th style={{ textAlign: 'left', padding: '8px' }}>Nombre</th>
-                                                        <th style={{ textAlign: 'left', padding: '8px' }}>Teléfono</th>
-                                                        <th className="col-fecha">Día</th>
-                                                        <th style={{ textAlign: 'left', padding: '8px', width: 90 }}>Acciones</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                    {pendLoading && (
-                                        <tr><td colSpan={4} style={{ padding: 12 }}>Cargando…</td></tr>
-                                    )}
-                                    {!pendLoading && pendientesRows.length === 0 && (
-                                        <tr><td colSpan={4} style={{ padding: 12 }}>Sin pendientes</td></tr>
-                                    )}
-                                    {!pendLoading && pendientesRows
-                                        .slice(pendPage * PEND_PAGE_SIZE, (pendPage + 1) * PEND_PAGE_SIZE)
-                                        .map((row) => (
-                                        <tr
-                                            key={(row.progreso_id ?? row.persona_id ?? row.id ?? Math.random().toString())}
-                                            className="arch-row"
-                                            style={{ borderTop: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer' }}
-                                            title="Cargar en el formulario"
-                                            onClick={() => selectPendiente(row)}
-                                        >
-                                                                                        <td style={{ padding: '8px' }}>{row.nombre ?? ''}</td>
-                                                                                        <td style={{ padding: '8px' }}>{row.telefono ?? ''}</td>
-                                                                                        <td className="col-fecha">{soloFecha(row.creado_en ?? row.created_at ?? row.fecha ?? '')}</td>
-                                                                                        <td style={{ padding: '8px' }}>
-                                                                                            <button
-                                                                                                className="icon-trash"
-                                                                                                title="Eliminar pendiente"
-                                                                                                aria-label="Eliminar pendiente"
-                                                                                                onClick={(e) => { e.stopPropagation(); handleEliminarPendiente(row); }}
-                                                                                            >
-                                                                                                <Trash2 size={18} />
-                                                                                            </button>
-                                                                                        </td>
-                                        </tr>
-                                    ))}
-                                    </tbody>
-                                </table>
-                                {(!pendLoading && pendientesRows.length > PEND_PAGE_SIZE) && (
-                                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginTop: 8 }}>
-                                    <button
-                                      className="btn-minimal"
-                                      onClick={() => setPendPage(p => Math.max(0, p - 1))}
-                                      disabled={pendPage === 0}
-                                    >Atrás</button>
-                                    <div style={{ opacity:.8 }}>
-                                      Página {pendPage + 1} de {Math.max(1, Math.ceil(pendientesRows.length / PEND_PAGE_SIZE))}
-                                    </div>
-                                    <button
-                                      className="btn-minimal"
-                                      onClick={() => setPendPage(p => Math.min(Math.ceil(pendientesRows.length / PEND_PAGE_SIZE) - 1, p + 1))}
-                                      disabled={pendPage >= Math.ceil(pendientesRows.length / PEND_PAGE_SIZE) - 1}
-                                    >Siguiente</button>
-                                  </div>
-                                )}
 
-                            </div>
-                        </div>
-                    </div>
-                )}
+                                            {/* Body */}
+                                            <div className="px-3 pb-4 pt-2">
+                                                <table className="w-full border-collapse text-white">
+                                                    <thead>
+                                                        <tr className="border-b border-white/20">
+                                                            <th className="text-left font-extrabold text-lg px-2 py-2 font-serif tracking-wide drop-shadow-sm text-white">Nombre</th>
+                                                            <th className="text-left font-extrabold text-lg px-2 py-2 font-serif tracking-wide drop-shadow-sm text-white">Teléfono</th>
+                                                            <th className="text-left font-extrabold text-lg px-2 py-2 font-serif tracking-wide drop-shadow-sm text-white hidden sm:table-cell">Día</th>
+                                                            <th className="text-left font-extrabold text-lg px-2 py-2 font-serif tracking-wide drop-shadow-sm text-white w-[86px]">Acciones</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        {pendLoading && (
+                                                            <tr>
+                                                                <td colSpan={4} className="text-center opacity-90 px-2 py-4">Cargando…</td>
+                                                            </tr>
+                                                        )}
+
+                                                        {!pendLoading && pendientesRows.length === 0 && (
+                                                            <tr>
+                                                                <td colSpan={4} className="text-center opacity-90 px-2 py-4">Sin pendientes</td>
+                                                            </tr>
+                                                        )}
+
+                                                        {!pendLoading &&
+                                                            pendientesRows
+                                                                .slice(pendPage * PEND_PAGE_SIZE, (pendPage + 1) * PEND_PAGE_SIZE)
+                                                                .map((row) => (
+                                                                    <tr
+                                                                        key={(row.progreso_id ?? row.persona_id ?? row.id ?? Math.random().toString())}
+                                                                        title="Cargar en el formulario"
+                                                                        onClick={() => selectPendiente(row)}
+                                                                        className="cursor-pointer transition-colors odd:bg-white/[.035] hover:bg-white/10"
+                                                                    >
+                                                                        <td className="px-2 py-3 text-[15px]">{row.nombre ?? ""}</td>
+                                                                        <td className="px-2 py-3 text-[15px]">{row.telefono ?? ""}</td>
+                                                                        <td className="px-2 py-3 text-[15px] hidden sm:table-cell">
+                                                                            {soloFecha(row.creado_en ?? row.created_at ?? row.fecha ?? "")}
+                                                                        </td>
+                                                                        <td className="px-2 py-3">
+                                                                            <button
+                                                                                aria-label="Eliminar pendiente"
+                                                                                title="Eliminar pendiente"
+                                                                                onClick={(e) => { e.stopPropagation(); handleEliminarPendiente(row); }}
+                                                                                className="inline-grid place-items-center w-8 h-8 rounded-xl border border-white/25 bg-black/20 transition-transform hover:scale-105 hover:bg-[#ff3b3b]/20 hover:border-[#ff3b3b]/40"
+                                                                            >
+                                                                                <Trash2 size={18} className="text-white" />
+                                                                            </button>
+                                                                        </td>
+                                                                    </tr>
+                                                                ))}
+                                                    </tbody>
+                                                </table>
+
+                                                {/* Paginación */}
+                                                {!pendLoading && pendientesRows.length > PEND_PAGE_SIZE && (
+                                                    <div className="mt-3 flex items-center justify-between text-white">
+                                                        <button
+                                                            onClick={() => setPendPage((p) => Math.max(0, p - 1))}
+                                                            disabled={pendPage === 0}
+                                                            className="px-3 py-1 rounded-lg border border-white/25 bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed transition hover:bg-white/20"
+                                                        >
+                                                            Atrás
+                                                        </button>
+                                                        <div className="opacity-85">
+                                                            Página {pendPage + 1} de {Math.max(1, Math.ceil(pendientesRows.length / PEND_PAGE_SIZE))}
+                                                        </div>
+                                                        <button
+                                                            onClick={() =>
+                                                                setPendPage((p) =>
+                                                                    Math.min(Math.ceil(pendientesRows.length / PEND_PAGE_SIZE) - 1, p + 1)
+                                                                )
+                                                            }
+                                                            disabled={pendPage >= Math.ceil(pendientesRows.length / PEND_PAGE_SIZE) - 1}
+                                                            className="px-3 py-1 rounded-lg border border-white/25 bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed transition hover:bg-white/20"
+                                                        >
+                                                            Siguiente
+                                                        </button>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
 
                 {/* Botones */}
                 <div className="btn-container" style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
