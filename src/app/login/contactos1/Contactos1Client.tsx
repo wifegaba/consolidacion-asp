@@ -1000,6 +1000,7 @@ export default function Contactos1Client(
                     <div className="p-6 text-neutral-500">No hay llamadas con los filtros actuales.</div>
                   ) : (
                     <>
+
                       <motion.ul
                         variants={LIST_WRAPPER_VARIANTS}
                         initial="initial"
@@ -1057,60 +1058,7 @@ export default function Contactos1Client(
                           );
                         })}
                       </motion.ul>
-                      <AnimatePresence>
-                        {showNextWeekModal && (
-                          <>
-                            <motion.div
-                              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                              className="fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm"
-                              onClick={() => setShowNextWeekModal(false)}
-                            />
-                            <motion.div
-                              role="dialog" aria-modal="true"
-                              initial={{ opacity: 0, y: 24, scale: 0.98 }}
-                              animate={{ opacity: 1, y: 0, scale: 1 }}
-                              exit={{ opacity: 0, y: 24, scale: 0.98 }}
-                              transition={{ type: 'spring', stiffness: 240, damping: 22 }}
-                              className="fixed z-[61] inset-0 flex items-center justify-center p-4"
-                            >
-                              <div className="w-full max-w-md rounded-2xl bg-white/80 backdrop-blur-xl shadow-2xl ring-1 ring-white/40">
-                                <div className="p-6 md:p-7">
-                                  <div className="flex items-start gap-3">
-                                    <div className="h-10 w-10 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center shadow-md">
-                                      {/* ícono */}
-                                      <svg width="22" height="22" viewBox="0 0 24 24" fill="white"><path d="M12 2l9 4v6c0 5-3.8 9.3-9 10-5.2-.7-9-5-9-10V6l9-4z"/></svg>
-                                    </div>
-                                    <div className="min-w-0">
-                                      <h3 className="text-base md:text-lg font-semibold text-neutral-900">Registro inhabilitado</h3>
-                                      <p className="mt-1 text-sm text-neutral-700">
-                                        Este registro fue gestionado por el servidor de la semana anterior.
-                                        Por ese motivo estará disponible nuevamente el próximo lunes.
-                                      </p>
-                                      {/* si hay seleccionado y trae fecha, muéstrala */}
-                                      {(() => {
-                                        const sel = pendientes.find(p => p.progreso_id === selectedId);
-                                        if (sel?.habilitado_desde) {
-                                          return <p className="mt-2 text-xs text-neutral-600">Disponible desde: {sel.habilitado_desde}</p>;
-                                        }
-                                        return null;
-                                      })()}
-                                    </div>
-                                  </div>
-                                  <div className="mt-6 flex justify-end">
-                                    <button
-                                      type="button"
-                                      onClick={() => setShowNextWeekModal(false)}
-                                      className="inline-flex items-center justify-center rounded-xl px-4 py-2 text-sm font-semibold text-white bg-gradient-to-r from-amber-500 to-orange-500 shadow hover:brightness-105 active:brightness-95 transition"
-                                    >
-                                      Entendido
-                                    </button>
-                                  </div>
-                                </div>
-                              </div>
-                            </motion.div>
-                          </>
-                        )}
-                      </AnimatePresence>
+               
                     </>
                   )}
                 </motion.div>
@@ -1316,6 +1264,95 @@ export default function Contactos1Client(
           </div>
         </div>
       )}
+
+
+
+    {/* Modal premium para registros inhabilitados */}
+      <AnimatePresence>
+        {showNextWeekModal && (
+          <>
+            {/* Backdrop */}
+            <motion.div
+              key="backdrop"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm"
+              onClick={() => setShowNextWeekModal(false)}
+            />
+
+            {/* Card */}
+            <motion.div
+              key="card"
+              role="dialog"
+              aria-modal="true"
+              initial={{ opacity: 0, y: 24, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 24, scale: 0.98 }}
+              transition={{ type: "spring", stiffness: 240, damping: 22 }}
+              className="fixed z-[61] inset-0 flex items-center justify-center p-4"
+            >
+
+
+              <div className="w-full max-w-md rounded-2xl bg-white/80 backdrop-blur-xl shadow-2xl ring-1 ring-white/40">
+                <div className="p-6 md:p-7">
+                  {/* Header */}
+                  <div className="flex items-start gap-3">
+                    <div className="h-10 w-10 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center shadow-md">
+                      <svg width="22" height="22" viewBox="0 0 24 24" fill="white" aria-hidden="true">
+                        <path d="M12 2l9 4v6c0 5-3.8 9.3-9 10-5.2-.7-9-5-9-10V6l9-4z"/>
+                      </svg>
+                    </div>
+                    <div className="min-w-0">
+                      <h3 className="text-base md:text-lg font-semibold text-neutral-900">
+                        Registro inhabilitado
+                      </h3>
+                      <p className="mt-1 text-sm text-neutral-700">
+                         Este registro fue gestionado por el servidor de la semana anterior.
+  Por ese motivo estará disponible nuevamente el próximo lunes
+                      </p>
+                      {/* Mostrar fecha exacta si existe en el registro seleccionado */}
+                      {(() => {
+                        const selected = selectedId && pendientes.find(p => p.progreso_id === selectedId);
+                        if (selected && selected.habilitado_desde) {
+                          return (
+                            <p className="mt-2 text-xs text-neutral-600">
+                              Disponible desde: {selected.habilitado_desde}
+                            </p>
+                          );
+                        }
+                        return null;
+                      })()}
+                    </div>
+                  </div>
+
+
+                  {/* Footer */}
+                  <div className="mt-6 flex justify-end gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setShowNextWeekModal(false)}
+                      className="inline-flex items-center justify-center rounded-xl px-4 py-2 text-sm font-semibold text-white bg-gradient-to-r from-amber-500 to-orange-500 shadow hover:brightness-105 active:brightness-95 transition"
+                    >
+                      Entendido
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+
+
+
+
+
+
+
+      
+
 
 
       {/* Animaciones / estilos */}

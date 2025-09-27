@@ -1298,6 +1298,8 @@ if (!opts?.quiet) setLoadingPend(false);
               transition={{ type: "spring", stiffness: 240, damping: 22 }}
               className="fixed z-[61] inset-0 flex items-center justify-center p-4"
             >
+
+
               <div className="w-full max-w-md rounded-2xl bg-white/80 backdrop-blur-xl shadow-2xl ring-1 ring-white/40">
                 <div className="p-6 md:p-7">
                   {/* Header */}
@@ -1330,6 +1332,7 @@ if (!opts?.quiet) setLoadingPend(false);
                     </div>
                   </div>
 
+
                   {/* Footer */}
                   <div className="mt-6 flex justify-end gap-3">
                     <button
@@ -1346,6 +1349,10 @@ if (!opts?.quiet) setLoadingPend(false);
           </>
         )}
       </AnimatePresence>
+
+      
+
+      
 
       {/* Animaciones / estilos */}
       {/* Modal Nueva Alma */}
