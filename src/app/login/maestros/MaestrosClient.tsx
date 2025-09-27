@@ -290,14 +290,17 @@ const norm = (t: string) =>
 
 
 function estaInhabilitado(h?: string | null) {
-  if (!h) return false;                 // sin fecha -> habilitado
-  // hoy en formato YYYY-MM-DD (en local, sin zona horaria)
-  const todayStr = new Date(Date.now() - new Date().getTimezoneOffset()*60000)
-    .toISOString()
-    .slice(0, 10);
-  
-  return h > todayStr;
+  if (!h) return false;
+  // Compara contra HOY en UTC para no "castigar" por huso horario.
+  const todayUTC = new Date().toISOString().slice(0, 10); // 'YYYY-MM-DD' en UTC
+  return h > todayUTC; // solo bloquea si la fecha es después de HOY (UTC)
 }
+
+
+
+
+
+
 
 
 

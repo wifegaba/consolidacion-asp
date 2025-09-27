@@ -94,10 +94,16 @@ type PendienteRow = {
 // Helper para inhabilitación semanal
 function estaInhabilitado(h?: string | null) {
   if (!h) return false;
-  const todayStr = new Date(Date.now() - new Date().getTimezoneOffset()*60000)
-    .toISOString().slice(0, 10);
-  return h > todayStr;
+  // Compara contra HOY en UTC para no "castigar" por huso horario.
+  const todayUTC = new Date().toISOString().slice(0, 10); // 'YYYY-MM-DD' en UTC
+  return h > todayUTC; // solo bloquea si la fecha es después de HOY (UTC)
 }
+
+
+
+
+
+
 type PendRowUI = PendienteRow & { _ui?: 'new' | 'changed' };
 
 type AgendadoRow = {
@@ -545,8 +551,10 @@ export default function Contactos1Client(
         p_dia: dia,
         p_resultado: payload.resultado,
         p_notas: payload.notas ?? null,
+        p_hecho_por: servidorId,
+                                                                            
       });
-      if (error) throw error;
+      if (error) throw error;                             
 
       await Promise.all([
         fetchPendientes(semana, dia, { quiet: true }),
@@ -1439,30 +1447,30 @@ function FollowUp({
     notas: string;
     resultado?: Resultado | null;
     fuente: 'registro' | 'llamada';
+    autor?: string; 
   };
 
   const [obsOpen, setObsOpen] = useState(false);
   const [obsLoading, setObsLoading] = useState(false);
   const [obsItems, setObsItems] = useState<ObsItem[]>([]);
 
-  const refreshObsCount = useCallback(async () => {
-    try {
-      const { data, error } = await supabase.rpc('fn_observaciones_por_progreso', {
-        p_progreso: row.progreso_id,
-      });
-      if (error) throw error;
-      setObsCount(Array.isArray(data) ? data.length : 0);
-    } catch (e) {
-      setObsCount(0);
-    }
-  }, [row.progreso_id]);
+ const refreshObsCount = useCallback(async () => {
+  try {
+    const { data, error } = await supabase.rpc('fn_observaciones_por_progreso_ext', {
+      p_progreso: row.progreso_id,
+    });
+    if (error) throw error;
+    setObsCount(Array.isArray(data) ? data.length : 0);
+  } catch {
+    setObsCount(0);
+  }
+}, [row.progreso_id]);
 
-  // Cargar observaciones del registro para el modal
 const openObsModal = async () => {
   setObsOpen(true);
   setObsLoading(true);
   try {
-    const { data, error } = await supabase.rpc('fn_observaciones_por_progreso', {
+    const { data, error } = await supabase.rpc('fn_observaciones_por_progreso_ext', {
       p_progreso: row.progreso_id,
     });
     if (error) throw error;
@@ -1471,6 +1479,7 @@ const openObsModal = async () => {
       notas: r.notas,
       resultado: r.resultado,
       fuente: 'llamada' as const,
+      autor: r.autor ?? null,     
     }));
     setObsItems(items);
     setObsCount(items.length);
@@ -1480,8 +1489,14 @@ const openObsModal = async () => {
     setObsCount(0);
   } finally {
     setObsLoading(false);
-  }
-};
+  }                                
+};                
+
+
+
+
+
+
 
   const initials =
     (row.nombre ?? 'U')
@@ -1660,21 +1675,29 @@ const openObsModal = async () => {
                   <ul className="space-y-3">
                     {obsItems.map((it, idx) => (
                       <li key={idx} className="rounded-xl bg-white/70 ring-1 ring-black/10 px-4 py-3 shadow-sm">
-                        <div className="text-sm text-neutral-600 flex items-center justify-between">
-                          <span className="font-medium text-neutral-800">
-                            {new Date(it.fecha).toLocaleString()}
-                          </span>
-                          <span className="text-[11px] inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-neutral-100 ring-1 ring-black/10">
-                            {it.fuente === 'registro' ? 'Registro' : 'Llamada'}
-                          </span>
-                        </div>
-                        <div className="mt-2 text-[13px] text-neutral-800 whitespace-pre-wrap">
-                          <strong>
-                            {it.resultado ? (resultadoLabels[it.resultado as Resultado] ?? it.resultado) : '-'}
-                          </strong>
-                          {it.notas ? ` - ${it.notas}` : ''}
-                        </div>
-                      </li>
+  <div className="text-sm text-neutral-600 flex items-center justify-between">
+    <span className="font-medium text-neutral-800">
+      {new Date(it.fecha).toLocaleString()}
+    </span>
+    <span className="text-[11px] inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-neutral-100 ring-1 ring-black/10">
+      {it.fuente === 'registro' ? 'Registro' : 'Llamada'}
+    </span>
+  </div>
+
+  {it.autor && (
+    <div className="mt-1 text-[11px] text-neutral-500">
+      Registrado por {it.autor}
+    </div>
+  )}
+
+  <div className="mt-2 text-[13px] text-neutral-800 whitespace-pre-wrap">
+    <strong>
+      {it.resultado ? (resultadoLabels[it.resultado as Resultado] ?? it.resultado) : '-'}
+    </strong>
+    {it.notas ? ` - ${it.notas}` : ''}
+  </div>
+</li>
+
                     ))}
                   </ul>
                 )}

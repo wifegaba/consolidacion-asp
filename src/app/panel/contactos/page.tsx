@@ -254,6 +254,8 @@ const selectDesdePendiente = (row: PendienteItem) => {
     try {
         // 🔹 Caso especial: si viene de Pendientes, SIEMPRE registrar como nuevo
         if (form.pendienteId) {
+            // ...existing code...
+            // No modificar lógica de pendientes
             const { error } = await supabase.rpc('fn_registrar_persona', {
                 p_nombre: form.nombre.trim(),
                 p_telefono: form.telefono.trim(),
@@ -262,53 +264,45 @@ const selectDesdePendiente = (row: PendienteItem) => {
                 p_notas: construirNotas(),
             });
             if (error) throw error;
-
-            // 👇 eliminar automáticamente de la tabla pendientes
+            // ...existing code...
             const { error: delError } = await supabase
                 .from('pendientes')
                 .delete()
                 .eq('id', form.pendienteId);
-
             if (delError) {
                 console.error(delError);
                 toast('Guardado, pero no se pudo eliminar de pendientes');
             } else {
                 toast('Persona registrada y eliminada de Pendientes');
             }
-
             setForm(prev => ({ ...prev, pendienteId: null }));
-
-            // refrescar listado de pendientes si corresponde
+            // ...existing code...
             if (modalPendVisible) {
                 try {
                     const { data } = await supabase.rpc('fn_listar_pendientes');
                     setPendientesRows((data || []) as PendienteItem[]);
                 } catch {}
             }
-
             resetForm();
             return;
         }
 
         // 🔹 Si el destino es PENDIENTES, usar la nueva función de pendientes
         if (form.destino.includes('PENDIENTES')) {
+            // ...existing code...
+            // No modificar lógica de pendientes
             const telNorm = normalizaTelefono(form.telefono);
-            // Validar longitud mínima ya existe con validar(); reforzamos normalización:
             if (telNorm.length < 7) {
                 setErrores(prev => ({ ...prev, telefono: 'Número inválido o incompleto' }));
                 toast('Número inválido o incompleto');
                 return;
             }
-
-            // Evitar duplicados SOLO en tabla "pendientes"
             const dup = await existePendienteConTelefono(telNorm, form.pendienteId ?? null);
             if (dup) {
                 setErrores(prev => ({ ...prev, telefono: 'Ya existe un pendiente con este teléfono' }));
                 toast('⚠️ Ya existe un pendiente con este teléfono');
                 return;
             }
-
-            // Llamada actual, pasando tel normalizado
             const { error } = await supabase.rpc('fn_registrar_pendiente', {
                 p_nombre: form.nombre.trim(),
                 p_telefono: telNorm,
@@ -318,45 +312,77 @@ const selectDesdePendiente = (row: PendienteItem) => {
             });
             if (error) throw error;
             toast('Registro guardado en Pendientes');
-
-            // Refrescar listado si el modal está abierto
             if (modalPendVisible) {
                 const { data } = await supabase.rpc('fn_listar_pendientes');
                 setPendientesRows((data || []) as PendienteItem[]);
             }
-
             resetForm();
             return;
         }
 
-    // 🔹 Actualización normal
-    if (modoEdicion && indiceEdicion) {
-      const { error } = await supabase.rpc('fn_actualizar_persona', {
-        p_id: indiceEdicion,
-        p_nombre: form.nombre.trim(),
-        p_telefono: form.telefono.trim(),
-        p_estudio,
-        p_notas,
-      });
-      if (error) throw error;
-      toast('✅ Registro actualizado');
-    } else {
-      const { error } = await supabase.rpc('fn_registrar_persona', {
-        p_nombre: form.nombre.trim(),
-        p_telefono: form.telefono.trim(),
-        p_culto: p_estudio, // si tu RPC lo usa
-        p_estudio,
-        p_notas,
-      });
-      if (error) throw error;
-      toast('✅ Guardado. Enviado a Semillas 1 • Semana 1');
-    }
+        // 🔹 Validar duplicado para switches DOMINGO, MARTES, VIRTUAL
+        if (form.destino.some(d => ['DOMINGO', 'MARTES', 'VIRTUAL'].includes(d))) {
+            const telNorm = normalizaTelefono(form.telefono);
+            // Buscar duplicado en la tabla persona (no pendientes)
+            const { count, error } = await supabase
+                .from('persona')
+                .select('id', { count: 'exact' })
+                .eq('telefono', telNorm)
+                .limit(1);
+            if (error) throw error;
+            // Si está editando, excluir el mismo registro
+            let isDup = false;
+            if (count && count > 0) {
+                if (modoEdicion && indiceEdicion) {
+                    // Buscar si el duplicado es el mismo registro
+                    const { data: personaData, error: personaError } = await supabase
+                        .from('persona')
+                        .select('id')
+                        .eq('telefono', telNorm)
+                        .limit(1);
+                    if (personaError) throw personaError;
+                    if (personaData && personaData.length > 0 && personaData[0].id !== indiceEdicion) {
+                        isDup = true;
+                    }
+                } else {
+                    isDup = true;
+                }
+            }
+            if (isDup) {
+                setErrores(prev => ({ ...prev, telefono: 'Ya existe una persona con este teléfono' }));
+                toast('⚠️ Ya existe una persona con este teléfono.');
+                return;
+            }
+        }
 
-    resetForm();
-  } catch (e) {
-    console.error(e);
-    toast('❌ Error al guardar/actualizar');
-  }
+        // 🔹 Actualización normal
+        if (modoEdicion && indiceEdicion) {
+            const { error } = await supabase.rpc('fn_actualizar_persona', {
+                p_id: indiceEdicion,
+                p_nombre: form.nombre.trim(),
+                p_telefono: form.telefono.trim(),
+                p_estudio,
+                p_notas,
+            });
+            if (error) throw error;
+            toast('✅ Registro actualizado');
+        } else {
+            const { error } = await supabase.rpc('fn_registrar_persona', {
+                p_nombre: form.nombre.trim(),
+                p_telefono: form.telefono.trim(),
+                p_culto: p_estudio, // si tu RPC lo usa
+                p_estudio,
+                p_notas,
+            });
+            if (error) throw error;
+            toast('✅ Guardado. Enviado a Semillas 1 • Semana 1');
+        }
+
+        resetForm();
+    } catch (e) {
+        console.error(e);
+        toast('❌ Error al guardar/actualizar');
+    }
 };
 
 
@@ -380,6 +406,11 @@ const selectDesdePendiente = (row: PendienteItem) => {
             toast('❌ Error al eliminar');
         }
     };
+
+
+
+
+
 
     /* ===== Búsqueda (modal) ===== */
     useEffect(() => {
