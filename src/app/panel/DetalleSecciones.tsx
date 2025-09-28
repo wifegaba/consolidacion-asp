@@ -13,6 +13,7 @@ import {
   XAxis,
   YAxis,
   CartesianGrid,
+  LabelList, // 👈 para chips de valor en las barras
 } from "recharts";
 
 type DetalleSeccionesProps = {
@@ -30,14 +31,55 @@ const BLUE = "#3b82f6";        // azul premium
 const BLUE_LIGHT = "#93c5fd";
 
 // Normaliza la etiqueta a "Semillas 1", "Devocionales 3", "Restauración 1"
-// - Toma la primera palabra de la etapa y la capitaliza correctamente
 function etiquetaEtapaModulo(etapa: string, modulo: number) {
   if (!etapa) return `Módulo ${modulo}`;
-  // Tomamos la primera palabra como nombre base
   const base = etapa.trim().split(/\s+/)[0];
-  // Capitalizamos primera letra (maneja tildes)
   const nombre = base.charAt(0).toUpperCase() + base.slice(1).toLowerCase();
   return `${nombre} ${modulo}`;
+}
+
+// Label tipo "chip" para el valor en cada barra (diseño anti-desborde)
+function ValorChip(props: any) {
+  const { x = 0, y = 0, width = 0, height = 0, value } = props;
+  // Decidimos si va dentro o fuera de la barra para evitar desbordes visuales
+  const inside = width > 36;
+  const padX = 6;
+  const padY = 4;
+  const chipX = inside ? x + width - 4 : x + width + 6;
+  const chipY = y + height / 2;
+
+  // estimamos ancho ~ 8px por carácter
+  const text = String(value);
+  const textW = Math.max(22, text.length * 8);
+  const rectW = textW + padX * 2;
+  const rectH = 20;
+
+  return (
+    <g transform={`translate(${chipX}, ${chipY})`}>
+      <g transform={`translate(${inside ? -rectW : 0}, ${-rectH / 2})`}>
+        <rect
+          width={rectW}
+          height={rectH}
+          rx="10"
+          ry="10"
+          fill="#ffffff"
+          stroke="rgba(0,0,0,0.1)"
+          strokeWidth="1"
+        />
+        <text
+          x={rectW / 2}
+          y={rectH / 2 + 4}
+          textAnchor="middle"
+          fontSize="11"
+          fontWeight={700}
+          fill="#0f172a"
+          style={{ fontVariantNumeric: "tabular-nums" as any }}
+        >
+          {text}
+        </text>
+      </g>
+    </g>
+  );
 }
 
 export default function DetalleSecciones({
@@ -75,12 +117,10 @@ export default function DetalleSecciones({
   );
 
   // --- Datos por etapa+modulo (panel derecho) ---
-  // Etiqueta: "Semillas 1", "Devocionales 4", "Restauración 1", etc.
   const dataMods =
     (asistPorModulo ?? [])
       .slice()
       .sort((a, b) => {
-        // Orden por nombre de etapa y luego por número de módulo
         const ea = a.etapa?.localeCompare(b.etapa ?? "", "es", { sensitivity: "base" }) ?? 0;
         if (ea !== 0) return ea;
         return a.modulo - b.modulo;
@@ -96,10 +136,10 @@ export default function DetalleSecciones({
       const { name, value } = payload[0];
       const base = view === "agendados" ? totalAgend : totalAsist;
       return (
-        <div className="bg-white/90 backdrop-blur-md p-2 rounded-md shadow-md text-sm">
-          <p className="font-semibold">{name}</p>
-          <p className="tabular-nums">
-            {value} ({pct(value, base)}%)
+        <div className="bg-white/95 backdrop-blur-sm px-3 py-2 rounded-lg shadow-md text-[12px] ring-1 ring-black/10">
+          <p className="font-semibold text-slate-800">{name}</p>
+          <p className="tabular-nums text-slate-700">
+            {value} <span className="text-slate-500">({pct(value, base)}%)</span>
           </p>
         </div>
       );
@@ -229,39 +269,72 @@ export default function DetalleSecciones({
           </section>
 
           {/* PANEL DERECHO (GRÁFICO POR ETAPA+MÓDULO + TABLA) */}
-          <section className="card premium-glass animate-slideIn panel-compact self-start max-w-[min(560px,94vw)] mx-auto lg:max-w-none">
+          <section className="card premium-glass animate-slideIn panel-compact self-start max-w-[min(560px,94vw)] mx-auto lg:max-w-none flex flex-col min-h-0 h-auto" style={{minHeight: '0', height: 'auto'}}>
             <div className="card-head pb-0">
               <h2 className="card-title">Detalle por etapa</h2>
             </div>
 
-            {/* Barras por Etapa+Módulo */}
+            {/* Barras por Etapa+Módulo – versión premium */}
             {dataMods.length > 0 && (
               <div className="px-2 pt-3">
                 <h3 className="text-sm font-semibold text-slate-700 px-1 mb-2">
                   Asistencias por módulo
                 </h3>
-                <div className="h-48">
+                <div className="h-52">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={dataMods} margin={{ top: 8, right: 16, left: 6, bottom: 8 }}>
-                      <CartesianGrid strokeDasharray="4 8" stroke="rgba(148, 163, 184, 0.24)" vertical={false} />
+                    <BarChart
+                      data={dataMods}
+                      margin={{ top: 8, right: 16, left: 8, bottom: 10 }}
+                      barCategoryGap="18%"
+                    >
+                      {/* Grid sutil */}
+                      <CartesianGrid
+                        strokeDasharray="4 8"
+                        stroke="rgba(148, 163, 184, 0.24)"
+                        vertical={false}
+                      />
+                      {/* Eje X con etiquetas estilizadas */}
                       <XAxis
                         dataKey="name"
-                        tick={{ fontSize: 12, fill: "#1f2933", fontWeight: 600 }}
                         interval={0}
                         angle={-10}
                         textAnchor="end"
+                        height={44}
                         axisLine={false}
                         tickLine={false}
+                        tick={{ fontSize: 12, fill: "#1f2937", fontWeight: 600 }}
                       />
-                      <YAxis allowDecimals={false} axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: "rgba(15, 23, 42, 0.65)" }} />
+                      {/* Eje Y minimalista */}
+                      <YAxis
+                        allowDecimals={false}
+                        axisLine={false}
+                        tickLine={false}
+                        width={28}
+                        tick={{ fontSize: 12, fill: "rgba(15, 23, 42, 0.65)" }}
+                      />
+                      {/* Tooltip personalizado */}
                       <Tooltip content={<CustomTooltip />} />
-                      <Bar dataKey="value" radius={[12, 12, 12, 12]} maxBarSize={44} fill="url(#gradAsistMod)" />
+                      {/* Defs para gradiente */}
                       <defs>
                         <linearGradient id="gradAsistMod" x1="0" y1="0" x2="0" y2="1">
                           <stop offset="0%" stopColor={BLUE_LIGHT} />
                           <stop offset="100%" stopColor={BLUE} />
                         </linearGradient>
                       </defs>
+                      {/* Fondo suave de cada barra */}
+                      <Bar
+                        dataKey="value"
+                        background={{ fill: "rgba(148,163,184,0.18)", radius: 12 }}
+                        radius={[12, 12, 12, 12]}
+                        maxBarSize={52}
+                        fill="url(#gradAsistMod)"
+                        animationDuration={700}
+                        animationBegin={80}
+                        animationEasing="ease-out"
+                      >
+                        {/* Chip de valor (tabular-nums, anti-desborde) */}
+                        <LabelList dataKey="value" content={<ValorChip />} />
+                      </Bar>
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
@@ -336,23 +409,19 @@ export default function DetalleSecciones({
                       tick={{ fontSize: 12, fill: "rgba(15, 23, 42, 0.65)" }}
                     />
                     <Tooltip content={<CustomTooltip />} />
-                    <Bar
-                      dataKey="value"
-                      radius={[14, 14, 14, 14]}
-                      maxBarSize={48}
-                      fill="url(#gradAg)"
-                    />
                     <defs>
                       <linearGradient id="gradAg" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="0%" stopColor="#9cb9ff" />
                         <stop offset="50%" stopColor="#6690ff" />
                         <stop offset="100%" stopColor="#3a6bff" />
                       </linearGradient>
-                      <linearGradient id="gradAgGlow" x1="0" y1="0" x2="1" y2="1">
-                        <stop offset="0%" stopColor="rgba(162, 201, 255, 0.25)" />
-                        <stop offset="100%" stopColor="rgba(58, 107, 255, 0)" />
-                      </linearGradient>
                     </defs>
+                    <Bar
+                      dataKey="value"
+                      radius={[14, 14, 14, 14]}
+                      maxBarSize={48}
+                      fill="url(#gradAg)"
+                    />
                   </BarChart>
                 </ResponsiveContainer>
 
