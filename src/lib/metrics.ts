@@ -85,6 +85,55 @@ export async function getRestauracionCount(): Promise<number> {
   return count ?? 0;
 }
 
+
+/// Trae asistencias agrupadas por ETAPA y MODULO, filtradas por rango (week | month)
+// Requiere la view v_asistencia_modulo (a.creado_en, a.asistio, p.modulo, p.etapa)
+export async function getAsistenciasPorModulo(range: Range = 'month'): Promise<
+  Array<{ etapa: string; modulo: number; confirmados: number; noAsistieron: number; total: number }>
+> {
+  const supabase = getClient();
+  const r = getRangeUTC(range);
+
+  let q = supabase
+    .from('v_asistencia_modulo')
+    .select('etapa, modulo, asistio, creado_en');
+
+  if (r) q = q.gte('creado_en', r.from).lt('creado_en', r.to);
+
+  const { data, error } = await q;
+  if (error) {
+    console.error('getAsistenciasPorModulo:', error.message);
+    return [];
+  }
+
+  // Agregamos por (etapa, modulo)
+  type Key = `${string}#${number}`;
+  const agg = new Map<Key, { etapa: string; modulo: number; c: number; n: number }>();
+
+  for (const row of (data ?? []) as { etapa: string; modulo: number; asistio: boolean }[]) {
+    const key = `${row.etapa}#${row.modulo}` as Key;
+    const cur = agg.get(key) ?? { etapa: row.etapa, modulo: row.modulo, c: 0, n: 0 };
+    if (row.asistio) cur.c++; else cur.n++;
+    agg.set(key, cur);
+  }
+
+  return [...agg.values()]
+    .sort((a, b) => a.modulo - b.modulo) // orden por módulo dentro de cada etapa (si luego quieres por etapa, puedes agrupar en UI)
+    .map(({ etapa, modulo, c, n }) => ({
+      etapa,
+      modulo,
+      confirmados: c,
+      noAsistieron: n,
+      total: c + n,
+    }));
+}
+
+
+
+
+
+
+
 /* ---------- Asistencias (tabla asistencia, usa creado_en) ---------- */
 export async function getAsistenciasCount(range?: Range): Promise<number> {
   const supabase = getClient();

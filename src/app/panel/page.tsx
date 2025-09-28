@@ -8,11 +8,12 @@ import {
   getAsistenciasConfirmadosYNo,
   getAsistenciasPorEtapa,
   getRestauracionCount,
-  getAgendadosPorSemana, 
+  getAgendadosPorSemana,
+  getAsistenciasPorModulo, // 👈 NUEVO: trae asistencias agrupadas por módulo
 } from "@/lib/metrics";
 
 import DetalleSecciones from "./DetalleSecciones";
-import RtDashboardWatch from "./RtDashboardWatch"; // 👈 añadido: watcher realtime (cliente)
+import RtDashboardWatch from "./RtDashboardWatch"; // 👈 watcher realtime (cliente)
 
 function formatNumber(n: number) {
   return new Intl.NumberFormat("es-CO").format(n);
@@ -20,13 +21,18 @@ function formatNumber(n: number) {
 
 export default async function Page() {
   // Totales base
-  const totalContactos    = await getContactosCount();
-  const totalServidores   = await getServidoresCount();
-  const totalRestauracion = await getRestauracionCount();
+  const [totalContactos, totalServidores, totalRestauracion] = await Promise.all([
+    getContactosCount(),
+    getServidoresCount(),
+    getRestauracionCount(),
+  ]);
 
-  // Asistencias (mes actual)
-  const asistMesDetalle = await getAsistenciasConfirmadosYNo("month");
-  const asistEtapas     = await getAsistenciasPorEtapa("month");
+  // Asistencias (mes actual) + agrupado por módulo (para el gráfico)
+  const [asistMesDetalle, asistEtapas, asistPorModulo] = await Promise.all([
+    getAsistenciasConfirmadosYNo("month"),
+    getAsistenciasPorEtapa("month"),
+    getAsistenciasPorModulo("month"), // 👈 NUEVO
+  ]);
 
   // Agendados por semana (vista v_agendados)
   const agendados = await getAgendadosPorSemana();
@@ -40,14 +46,13 @@ export default async function Page() {
       {/* 👇 Habilita Realtime para las tarjetas del dashboard */}
       <RtDashboardWatch />
 
-
       <div className="kpi-row">
         <div className="kpi-row-group">
           <ContactosKPIRealtime label="Contactos" initialValue={totalContactos} delta={"+"} className="contactos" />
           <ServidoresKPIRealtime label="Servidores" initialValue={totalServidores} className="servidores" />
         </div>
         <div className="kpi-row-group">
-          {/* KPI Asistencias */}
+          {/* KPI Asistencias (NO se modifica la tarjeta) */}
           <article
             className="kpi-card asistencias"
             data-key="asistencias"
@@ -65,7 +70,7 @@ export default async function Page() {
             </div>
           </article>
 
-          {/* KPI Agendados (NUEVA) */}
+          {/* KPI Agendados */}
           <article
             className="kpi-card agendados"
             data-key="agendados"
@@ -76,13 +81,25 @@ export default async function Page() {
             </div>
 
             <div className="kpi-value">{formatNumber(agendadosTotal)}</div>
-
           </article>
         </div>
       </div>
 
-      {/* Grid dinámico (UNA sola instancia) */}
-      <DetalleSecciones asistEtapas={asistEtapas} agendados={agendados} defaultKey="asistencias" />
+      {/* Grid dinámico */}
+      <DetalleSecciones
+        asistEtapas={asistEtapas}
+        asistPorModulo={asistPorModulo}  // 👈 NUEVO: se usa SOLO en el gráfico de asistencias
+        agendados={agendados}
+        defaultKey="asistencias"
+      />
     </>
   );
 }
+
+
+
+
+
+
+
+

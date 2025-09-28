@@ -18,6 +18,7 @@ import {
 type DetalleSeccionesProps = {
   asistEtapas: any[];
   agendados?: { etapa_modulo: string; agendados_pendientes: number }[];
+  asistPorModulo?: Array<{ etapa: string; modulo: number; confirmados: number; noAsistieron: number; total: number }>;
   defaultKey?: string;
 };
 
@@ -28,13 +29,26 @@ const RED_LIGHT = "#f87171";
 const BLUE = "#3b82f6";        // azul premium
 const BLUE_LIGHT = "#93c5fd";
 
+// Normaliza la etiqueta a "Semillas 1", "Devocionales 3", "Restauración 1"
+// - Toma la primera palabra de la etapa y la capitaliza correctamente
+function etiquetaEtapaModulo(etapa: string, modulo: number) {
+  if (!etapa) return `Módulo ${modulo}`;
+  // Tomamos la primera palabra como nombre base
+  const base = etapa.trim().split(/\s+/)[0];
+  // Capitalizamos primera letra (maneja tildes)
+  const nombre = base.charAt(0).toUpperCase() + base.slice(1).toLowerCase();
+  return `${nombre} ${modulo}`;
+}
+
 export default function DetalleSecciones({
   asistEtapas,
   agendados,
+  asistPorModulo, // se usa para el gráfico por etapa+modulo
   defaultKey,
 }: {
   asistEtapas: any[];
   agendados?: Array<{ etapa_modulo: string; agendados_pendientes: number }>;
+  asistPorModulo?: Array<{ etapa: string; modulo: number; confirmados: number; noAsistieron: number; total: number }>;
   defaultKey?: string;
 }) {
   const [view, setView] = useState<string | null>(defaultKey || null);
@@ -59,6 +73,22 @@ export default function DetalleSecciones({
     (s, r) => s + r.agendados_pendientes,
     0
   );
+
+  // --- Datos por etapa+modulo (panel derecho) ---
+  // Etiqueta: "Semillas 1", "Devocionales 4", "Restauración 1", etc.
+  const dataMods =
+    (asistPorModulo ?? [])
+      .slice()
+      .sort((a, b) => {
+        // Orden por nombre de etapa y luego por número de módulo
+        const ea = a.etapa?.localeCompare(b.etapa ?? "", "es", { sensitivity: "base" }) ?? 0;
+        if (ea !== 0) return ea;
+        return a.modulo - b.modulo;
+      })
+      .map((m) => ({
+        name: etiquetaEtapaModulo(m.etapa, m.modulo),
+        value: m.total,
+      }));
 
   // Tooltip elegante reutilizable
   const CustomTooltip = ({ active, payload }: any) => {
@@ -104,7 +134,8 @@ export default function DetalleSecciones({
   }, [view, totalAsist, totalAgend]);
 
   return (
-    <div className="grid premium-grid">
+    // Ítems arriba y cada panel crece según su contenido
+    <div className="grid premium-grid items-start">
       {!view && (
         <section className="card span-2 animate-fadeIn premium-glass">
           <h2 className="card-title">Bienvenido</h2>
@@ -116,8 +147,8 @@ export default function DetalleSecciones({
 
       {view === "asistencias" && (
         <>
-          {/* PANEL IZQUIERDO (reloj/donut) */}
-          <section className="card premium-glass animate-slideIn relative panel-compact max-w-[min(560px,94vw)] mx-auto lg:max-w-none">
+          {/* PANEL IZQUIERDO (DONUT) */}
+          <section className="card premium-glass animate-slideIn relative panel-compact self-start max-w-[min(560px,94vw)] mx-auto lg:max-w-none">
             <div className="card-head">
               <h2 className="card-title">Gráfico de Asistencias</h2>
             </div>
@@ -149,7 +180,7 @@ export default function DetalleSecciones({
                 </div>
               </div>
 
-              {/* Donut (responsive, sin desbordes) */}
+              {/* Donut */}
               <div className="panel-chart relative mx-auto max-w-[min(360px,88vw)] aspect-square overflow-hidden flex items-center justify-center">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
@@ -197,13 +228,48 @@ export default function DetalleSecciones({
             </div>
           </section>
 
-          {/* PANEL DERECHO (tabla) */}
-          <section className="card premium-glass animate-slideIn panel-compact max-w-[min(560px,94vw)] mx-auto lg:max-w-none">
+          {/* PANEL DERECHO (GRÁFICO POR ETAPA+MÓDULO + TABLA) */}
+          <section className="card premium-glass animate-slideIn panel-compact self-start max-w-[min(560px,94vw)] mx-auto lg:max-w-none">
             <div className="card-head pb-0">
               <h2 className="card-title">Detalle por etapa</h2>
             </div>
 
-            <div className="panel-body panel-scroll px-0 py-0">
+            {/* Barras por Etapa+Módulo */}
+            {dataMods.length > 0 && (
+              <div className="px-2 pt-3">
+                <h3 className="text-sm font-semibold text-slate-700 px-1 mb-2">
+                  Asistencias por módulo
+                </h3>
+                <div className="h-48">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={dataMods} margin={{ top: 8, right: 16, left: 6, bottom: 8 }}>
+                      <CartesianGrid strokeDasharray="4 8" stroke="rgba(148, 163, 184, 0.24)" vertical={false} />
+                      <XAxis
+                        dataKey="name"
+                        tick={{ fontSize: 12, fill: "#1f2933", fontWeight: 600 }}
+                        interval={0}
+                        angle={-10}
+                        textAnchor="end"
+                        axisLine={false}
+                        tickLine={false}
+                      />
+                      <YAxis allowDecimals={false} axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: "rgba(15, 23, 42, 0.65)" }} />
+                      <Tooltip content={<CustomTooltip />} />
+                      <Bar dataKey="value" radius={[12, 12, 12, 12]} maxBarSize={44} fill="url(#gradAsistMod)" />
+                      <defs>
+                        <linearGradient id="gradAsistMod" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor={BLUE_LIGHT} />
+                          <stop offset="100%" stopColor={BLUE} />
+                        </linearGradient>
+                      </defs>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            )}
+
+            {/* TABLA por etapa */}
+            <div className="panel-body px-0 py-0">
               <div className="premium-table-row premium-table-header">
                 <span>Etapa</span>
                 <span className="text-center">Asistencias</span>
@@ -233,7 +299,7 @@ export default function DetalleSecciones({
       {view === "agendados" && (
         <>
           {/* PANEL IZQUIERDO */}
-          <section className="card premium-glass animate-slideIn relative panel-compact">
+          <section className="card premium-glass animate-slideIn relative panel-compact self-start">
             <div className="card-head">
               <h2 className="card-title">Agendados por semana</h2>
             </div>
@@ -301,12 +367,12 @@ export default function DetalleSecciones({
           </section>
 
           {/* PANEL DERECHO */}
-          <section className="card premium-glass animate-slideIn panel-compact">
+          <section className="card premium-glass animate-slideIn panel-compact self-start">
             <div className="card-head pb-0">
               <h2 className="card-title">Detalle por etapa/módulo</h2>
             </div>
 
-            <div className="panel-body panel-scroll px-0 py-0">
+            <div className="panel-body px-0 py-0">
               <div className="premium-table-row premium-table-header two-cols">
                 <span>Etapa · Módulo</span>
                 <span className="text-right">Agendados</span>
