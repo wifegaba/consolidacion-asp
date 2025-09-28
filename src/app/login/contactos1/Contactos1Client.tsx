@@ -812,14 +812,16 @@ export default function Contactos1Client(
           <div className="ml-auto flex gap-2">
             {/* Botón Banco Archivo (ya existente) */}
             <button
-              onClick={() => openBanco()}
-              className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-yellow-50 via-yellow-100 to-white text-neutral-700 ring-1 ring-yellow-100 shadow-[0_4px_16px_rgba(255,235,150,0.13)] px-3 py-1.5 text-sm font-semibold hover:scale-[1.04] active:scale-95 transition"
-              title="Ver estudiantes archivados y reactivar"
+            onClick={() => openBanco()}
+              className="relative inline-flex items-center gap-2 rounded-2xl h-10 md:h-11 px-2 md:px-3 text-sm font-semibold text-slate-800 bg-white/60 ring-1 ring-white/60 backdrop-blur-md transition-all duration-300 shadow-[inset_0_1px_0_rgba(255,255,255,.9),0_12px_32px_-12px_rgba(2,6,23,.35)] hover:bg-gradient-to-r hover:from-indigo-400/80 hover:via-sky-400/80 hover:to-white hover:text-white hover:shadow-[0_0_0_4px_rgba(56,189,248,.18),0_0_32px_0_rgba(79,70,229,.18)] active:scale-[.99] focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300/60 before:absolute before:inset-0 before:-z-10 before:rounded-2xl before:blur-xl before:opacity-80 hover:before:opacity-100 before:bg-[radial-gradient(120%_120%_at_0%_0%,rgba(79,70,229,.35),transparent_55%),radial-gradient(120%_120%_at_100%_100%,rgba(56,189,248,.28),transparent_55%)] shrink-0"
+            title="Ver estudiantes archivados y reactivar"
             >
               <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
                 <path d="M3 6.5A2.5 2.5 0 0 1 5.5 4h13A2.5 2.5 0 0 1 21 6.5V18a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2ZM5 8h14v10H5Zm2-3h10v2H7z" fill="currentColor"/>
               </svg>
-              Banco Archivo
+              <span style={{display: 'flex', flexDirection: 'column', lineHeight: '1.1', alignItems: 'center'}}>
+                Banco<br />Archivo
+              </span>
             </button>
           </div>
 
@@ -950,25 +952,13 @@ export default function Contactos1Client(
                 <button
                   type="button"
                   onClick={() => setNuevaAlmaOpen(true)}
-                  className="relative inline-flex items-center gap-2 rounded-2xl h-10 md:h-11 px-4 md:px-5 text-sm font-semibold text-slate-800 bg-white/60 ring-1 ring-white/60 backdrop-blur-md transition-all duration-300 shadow-[inset_0_1px_0_rgba(255,255,255,.9),0_12px_32px_-12px_rgba(2,6,23,.35)] hover:bg-white/70 hover:shadow-[inset_0_1px_0_rgba(255,255,255,1),0_28px_72px_-28px_rgba(2,6,23,.5)] active:scale-[.99] focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300/60 before:absolute before:inset-0 before:-z-10 before:rounded-2xl before:blur-xl before:opacity-80 hover:before:opacity-100 before:bg-[radial-gradient(120%_120%_at_0%_0%,rgba(79,70,229,.35),transparent_55%),radial-gradient(120%_120%_at_100%_100%,rgba(56,189,248,.28),transparent_55%)] shrink-0"
+                  className="relative inline-flex items-center gap-2 rounded-2xl h-10 md:h-11 px-4 md:px-5 text-sm font-semibold text-slate-800 bg-white/60 ring-1 ring-white/60 backdrop-blur-md transition-all duration-300 shadow-[inset_0_1px_0_rgba(255,255,255,.9),0_12px_32px_-12px_rgba(2,6,23,.35)] hover:bg-gradient-to-r hover:from-indigo-400/80 hover:via-sky-400/80 hover:to-white hover:text-white hover:shadow-[0_0_0_4px_rgba(56,189,248,.18),0_0_32px_0_rgba(79,70,229,.18)] active:scale-[.99] focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300/60 before:absolute before:inset-0 before:-z-10 before:rounded-2xl before:blur-xl before:opacity-80 hover:before:opacity-100 before:bg-[radial-gradient(120%_120%_at_0%_0%,rgba(79,70,229,.35),transparent_55%),radial-gradient(120%_120%_at_100%_100%,rgba(56,189,248,.28),transparent_55%)] shrink-0"
                   title="Registrar persona nueva"
                 >
                   <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
                     <path d="M12 5a1 1 0 0 1 1 1v5h5a1 1 0 1 1 0 2h-5v5a1 1 0 1 1-2 0v-5H6a1 1 0 1 1 0-2h5V6a1 1 0 0 1 1-1Z" fill="currentColor"/>
                   </svg>
                   Persona Nueva
-                </button>
-                {/* Botón Servidores */}
-                <button
-                  type="button"
-                  onClick={() => setServidoresOpen(true)}
-                  className="relative inline-flex items-center gap-2 rounded-2xl h-10 md:h-11 px-4 md:px-5 text-sm font-semibold text-slate-800 bg-white/60 ring-1 ring-white/60 backdrop-blur-md transition-all duration-300 shadow-[inset_0_1px_0_rgba(255,255,255,.9),0_12px_32px_-12px_rgba(2,6,23,.35)] hover:bg-white/70 hover:shadow-[inset_0_1px_0_rgba(255,255,255,1),0_28px_72px_-28px_rgba(2,6,23,.5)] active:scale-[.99] focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/60 before:absolute before:inset-0 before:-z-10 before:rounded-2xl before:blur-xl before:opacity-80 hover:before:opacity-100 before:bg-[radial-gradient(120%_120%_at_0%_0%,rgba(56,189,248,.32),transparent_55%),radial-gradient(120%_120%_at_100%_100%,rgba(16,185,129,.26),transparent_55%)] shrink-0"
-                  title="Abrir formulario de Servidores"
-                >
-                  <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
-                    <path d="M4 6a2 2 0 0 1 2-2h5v2H6v12h5v2H6a2 2 0 0 1-2-2V6Zm10-2h4a2 2 0 0 1 2 2v3h-2V6h-4V4Zm4 9h2v3a2 2 0 0 1-2 2h-4v-2h4v-3Z" fill="currentColor"/>
-                  </svg>
-                  Servidores
                 </button>
               </div>
             </div>
