@@ -835,6 +835,12 @@ body{margin:0;
 }
 
 
+/* Hace el panel derecho elástico verticalmente */
+.card.panel-compact.panel-elastico {
+  height: auto !important;
+  min-height: 380px;
+  overflow: visible;
+}
 
 
 

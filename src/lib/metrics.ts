@@ -86,46 +86,109 @@ export async function getRestauracionCount(): Promise<number> {
 }
 
 
-/// Trae asistencias agrupadas por ETAPA y MODULO, filtradas por rango (week | month)
-// Requiere la view v_asistencia_modulo (a.creado_en, a.asistio, p.modulo, p.etapa)
-export async function getAsistenciasPorModulo(range: Range = 'month'): Promise<
-  Array<{ etapa: string; modulo: number; confirmados: number; noAsistieron: number; total: number }>
-> {
+export async function getAsistenciasPorModulo(
+  range: Range = 'month'
+): Promise<Array<{ etapa: string; modulo: number; confirmados: number; noAsistieron: number; total: number }>> {
   const supabase = getClient();
   const r = getRangeUTC(range);
 
-  let q = supabase
-    .from('v_asistencia_modulo')
-    .select('etapa, modulo, asistio, creado_en');
+  // 1) Traer TODO el histórico de asistencia del rango (sin aplanar al último registro)
+  let qA = supabase
+    .from('asistencia')
+    .select('progreso_id, asistio, creado_en');
 
-  if (r) q = q.gte('creado_en', r.from).lt('creado_en', r.to);
-
-  const { data, error } = await q;
-  if (error) {
-    console.error('getAsistenciasPorModulo:', error.message);
-    return [];
+  if (r) {
+    qA = qA.gte('creado_en', r.from).lt('creado_en', r.to);
   }
 
-  // Agregamos por (etapa, modulo)
-  type Key = `${string}#${number}`;
-  const agg = new Map<Key, { etapa: string; modulo: number; c: number; n: number }>();
+  const { data: asRows, error: e1 } = await qA;
+  if (e1) {
+    console.error('getAsistenciasPorModulo/asistencia:', { message: e1.message, details: (e1 as any).details });
+    return [];
+  }
+  if (!asRows || asRows.length === 0) return [];
 
-  for (const row of (data ?? []) as { etapa: string; modulo: number; asistio: boolean }[]) {
-    const key = `${row.etapa}#${row.modulo}` as Key;
-    const cur = agg.get(key) ?? { etapa: row.etapa, modulo: row.modulo, c: 0, n: 0 };
-    if (row.asistio) cur.c++; else cur.n++;
+  // 2) Resolver etapa/modulo ACTUALES de esos progresos
+  const ids = Array.from(
+    new Set(
+      (asRows as Array<{ progreso_id: string | null }>).map(a => a.progreso_id).filter(Boolean)
+    )
+  ) as string[];
+
+  // Sin progresos válidos: agrupar genérico para no romper
+  if (ids.length === 0) {
+    const agg = new Map<string, { c: number; n: number }>();
+    for (const a of asRows as Array<{ asistio: boolean }>) {
+      const key = 'Desconocido#0';
+      const cur = agg.get(key) ?? { c: 0, n: 0 };
+      if (a.asistio) cur.c++; else cur.n++;
+      agg.set(key, cur);
+    }
+    return [...agg.entries()].map(([key, v]) => {
+      const [etapa, moduloStr] = key.split('#');
+      const modulo = Number(moduloStr) || 0;
+      return { etapa, modulo, confirmados: v.c, noAsistieron: v.n, total: v.c + v.n };
+    });
+  }
+
+  const { data: progRows, error: e2 } = await supabase
+    .from('progreso')
+    .select('id, etapa, modulo')
+    .in('id', ids);
+
+  if (e2) {
+    console.error('getAsistenciasPorModulo/progreso:', { message: e2.message, details: (e2 as any).details });
+    // Fallback sin etapa/modulo si falla el join
+    const agg = new Map<string, { c: number; n: number }>();
+    for (const a of asRows as Array<{ asistio: boolean }>) {
+      const key = 'Desconocido#0';
+      const cur = agg.get(key) ?? { c: 0, n: 0 };
+      if (a.asistio) cur.c++; else cur.n++;
+      agg.set(key, cur);
+    }
+    return [...agg.entries()].map(([key, v]) => {
+      const [etapa, moduloStr] = key.split('#');
+      const modulo = Number(moduloStr) || 0;
+      return { etapa, modulo, confirmados: v.c, noAsistieron: v.n, total: v.c + v.n };
+    });
+  }
+
+  const progMap = new Map<string, { etapa: string; modulo: number }>(
+    (progRows ?? []).map((p: any) => [
+      p.id,
+      {
+        etapa: p.etapa ?? 'Desconocido',
+        modulo: typeof p.modulo === 'number' ? p.modulo : Number(p.modulo) || 0,
+      },
+    ])
+  );
+
+  // 3) Agregar por (etapa, modulo) sumando TODO el histórico del rango
+  type Key = `${string}#${number}`;
+  const agg = new Map<Key, { c: number; n: number }>();
+
+  for (const a of asRows as Array<{ progreso_id: string | null; asistio: boolean }>) {
+    const pm = a.progreso_id ? progMap.get(a.progreso_id) : undefined;
+    const etapa = pm?.etapa ?? 'Desconocido';
+    const modulo = pm?.modulo ?? 0;
+    const key = `${etapa}#${modulo}` as Key;
+
+    const cur = agg.get(key) ?? { c: 0, n: 0 };
+    if (a.asistio) cur.c++; else cur.n++;
     agg.set(key, cur);
   }
 
-  return [...agg.values()]
-    .sort((a, b) => a.modulo - b.modulo) // orden por módulo dentro de cada etapa (si luego quieres por etapa, puedes agrupar en UI)
-    .map(({ etapa, modulo, c, n }) => ({
-      etapa,
-      modulo,
-      confirmados: c,
-      noAsistieron: n,
-      total: c + n,
-    }));
+  // 4) Formatear y ordenar (etapa asc, modulo asc) para que tu UI quede estable
+  return [...agg.entries()]
+    .map(([key, v]) => {
+      const [etapa, moduloStr] = key.split('#');
+      const modulo = Number(moduloStr) || 0;
+      return { etapa, modulo, confirmados: v.c, noAsistieron: v.n, total: v.c + v.n };
+    })
+    .sort((a, b) => {
+      const et = a.etapa.localeCompare(b.etapa, 'es', { sensitivity: 'base' });
+      return et !== 0 ? et : a.modulo - b.modulo;
+    });
 }
 
 
@@ -188,35 +251,48 @@ export async function getAsistenciasSummary(range?: Range): Promise<{
   return { confirmed, notConfirmed, total, rate };
 }
 
-/** Confirmados y no confirmados en un rango (ej: mes actual) */
-export async function getAsistenciasConfirmadosYNo(range: Range = 'month'): Promise<{
-  confirmados: number;
-  noAsistieron: number;
-  total: number;
-}> {
+
+
+
+
+// Cuenta asistencias y no asistencias usando count exacto en el header.
+// No trae filas -> no hay sesgo por paginación.
+export async function getAsistenciasConfirmadosYNo(
+  range: Range = 'month'
+): Promise<{ confirmados: number; noAsistieron: number; total: number }> {
   const supabase = getClient();
-  const r = getRangeUTC(range);
+  const r = getRangeUTC(range); // { from: string; to: string } en UTC
 
-  let q = supabase.from('asistencia')
-    .select('asistio', { count: 'exact' }); // recupera conteo y campo asistio
+  // Query 1: asistieron = true
+  let qOk = supabase
+    .from('asistencia')
+    .select('id', { count: 'exact', head: true })
+    .eq('asistio', true);
 
+  // Query 2: asistieron = false
+  let qNo = supabase
+    .from('asistencia')
+    .select('id', { count: 'exact', head: true })
+    .eq('asistio', false);
+
+  // Filtro por rango de fechas si aplica
   if (r) {
-    q = q.gte('creado_en', r.from).lt('creado_en', r.to);
+    qOk = qOk.gte('creado_en', r.from).lt('creado_en', r.to);
+    qNo = qNo.gte('creado_en', r.from).lt('creado_en', r.to);
   }
 
-  const { data, error } = await q;
-  if (error) {
-    console.error('Error getAsistenciasConfirmadosYNo:', error.message);
+  const [{ count: c, error: e1 }, { count: n, error: e2 }] = await Promise.all([qOk, qNo]);
+
+  if (e1 || e2) {
+    console.error('getAsistenciasConfirmadosYNo:', {
+      e1: e1 && { message: e1.message, details: (e1 as any).details },
+      e2: e2 && { message: e2.message, details: (e2 as any).details },
+    });
     return { confirmados: 0, noAsistieron: 0, total: 0 };
   }
 
-  // contamos manualmente porque Supabase no agrupa directamente
-  let confirmados = 0;
-  let noAsistieron = 0;
-  for (const row of data ?? []) {
-    if (row.asistio) confirmados++;
-    else noAsistieron++;
-  }
+  const confirmados = c ?? 0;
+  const noAsistieron = n ?? 0;
   const total = confirmados + noAsistieron;
 
   return { confirmados, noAsistieron, total };
