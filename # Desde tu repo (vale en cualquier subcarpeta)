@@ -1,0 +1,147 @@
+[33mf98489b[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m)[m actualizacion 30 de
+[33m1465d9a[m primer commit
+[33m030c45c[m mejora en grafico y panel con barras asistencia
+[33me218add[m mejora 2 a los paneles de graficos
+[33m7957215[m mejora paneles de graficas
+[33maaf9689[m eliminado boton servidores timoteos
+[33m07ca548[m mejora de modal
+[33m3a14d04[m guarda autor en maestros y contactos
+[33m08e45a0[m boton del lunes ok en dos paneles
+[33mfa09e9e[m mejora de validacion de dia
+[33mce23f01[m mejoras 26 de septiembre
+[33m130dd5e[m actualizasion agendados
+[33m352c830[m ajuste asistencia
+[33m89eb6ec[m dia lunes activo para llamadas de semana
+[33mb26f851[m fotos terminado
+[33m515a98d[m mejora en fotos entrevista restauracion
+[33mc721683[m probando fotos en entrevista
+[33mff0b5bd[m mejoras en formulario entrevista
+[33me1e79f2[m solucion 3.0
+[33mc9fbdfb[m paneles mejorados 3.5
+[33m9a18f09[m encabezado panel  timoteo ok
+[33m291cb26[m botones nuevos en timoteos
+[33mbfd9dda[m ajuste panel reloj animado
+[33m12ae234[m Mejora de Realtime en Tarjeta Contactos y servidores
+[33m532fdb0[m Mejora de Realtime en Tarjeta Contactos y servidores
+[33m5d782cb[m Actualizaci├│n autom├ítica
+[33m57330c1[m Descripción clara de lo que hiciste
+[33m04b6112[m contraseña para campo cedula
+[33mce046f9[m ETIQUETAS DE CEDULAS *****
+[33m6b22796[m nombre paneles maestro
+[33m4ae33de[m mejoras en modales 5.0
+[33me780f4b[m frame motion activo panel derecho
+[33m8cc8c16[m animacion frame motion panel maestro
+[33m8f35cd1[m mejoras en servidores actualizar y guardar
+[33m8abf4cb[m mejora en paneles de metricas tamaños y estilos
+[33mad45570[m tarjetas metricas modo responsive ok
+[33m8d9bc6c[m colores en tarjetas metricas
+[33m8a5ee2d[m tarjetas mejoradas
+[33ma63b13f[m metricas 4.0
+[33m56db185[m metricas 3.0
+[33mc863cb9[m Mejoras metricas
+[33mf6f57de[m Actualizaciones Paneles mejorados
+[33m4f571e6[m Mejoras en fondos y paneles MAestro-timoteos
+[33mcb468c7[m ligth glass activo
+[33ma797a99[m modal con indice
+[33mcfb9f09[m Reagregar page.tsx al repositorio
+[33mf7c2921[m Boton Pendientes funcionando
+[33m3c7c3b9[m sidebar mejorado
+[33m97078b8[m fondos mejorados maestros-contactos
+[33m27126a5[m fondo mejorado maestros
+[33me2af1ee[m boton whtasp ok
+[33mc55bc41[m Correcion de errores en pestaña
+[33m9bc4776[m corregido error de pasar pestañas en paneles
+[33me15bc26[m mejoras de botones premiun encabezado whasap
+[33m45c63c8[m botones mejorados y encabezado maestros
+[33mda087a3[m encabezado y botones mejorados
+[33me284fc3[m boton observaciones 3
+[33mc95873c[m boton Observaciones funcionando
+[33me862010[m whatsap en panel
+[33md9feb1f[m Fondos MEjorados maestros
+[33m6181e84[m login Maestro-timoteo  completado y corregido
+[33m6bfbc01[m Modales persona nueva y servidores activos
+[33md0404ac[m contactos - timoteos 2 corregido
+[33mbc239dd[m panel contactos - timoteos
+[33m5e85e0c[m Paneles Maestros y Timoteos
+[33m1a0c3d1[m mejora maestros
+[33m3bc4db5[m animaciones 1
+[33m5b292b9[m FONDOS MEJORADOS 5
+[33m07a5ed4[m FONDO GENERAL
+[33m75ff17c[m FONDOS MEJORADOS 3.0
+[33mcaa21a2[m FONDOS MEJORADOS 2
+[33mf0dcd2f[m mejoras de fondos
+[33mead370f[m Mejoras Scroll y modales mas compactos
+[33m308e638[m eliminamos scroll modal
+[33m5895327[m logo wfsystem
+[33m5da7bc8[m login Coordinador funcionando
+[33m91076a4[m induccion domingo
+[33m046a9d2[m mejoras de seguridad Login
+[33maad41ac[m panel de maestros con realtime ok
+[33m0701c46[m paneles con realtime al presionar click
+[33m98e4907[m mejora 2 de responsive
+[33m1e89453[m mejoras modo responsive
+[33m25c42f3[m resposive 01
+[33m6735d9d[m Mejoras Paneles con listado servidores
+[33m1821508[m paneles 2 con realtime click
+[33md0cb977[m real time paneles maestros 001
+[33md61e958[m realtime paneles 01
+[33me46448c[m Paneles Mejorados maestro y contactos
+[33m5b910ab[m Mejora Paneles contactos y maestros
+[33m106f1ee[m mejora modales y formulario servidor
+[33m9b6d5a9[m mejora modo celular 01
+[33mda03d6e[m mejoras en modales
+[33mfd99127[m Actualización del proyecto Consolidacion-asp
+[33m90b39ce[m mejora modal 2
+[33m982f609[m mejora servidores modal
+[33m0ffe1f3[m actualizacion servidores septiembre
+[33m62c5877[m Mejoras en Servidores
+[33mae884a4[m panel servidores con login
+[33m8b96586[m login con servidores 6
+[33m81c8fff[m login con servidores 4
+[33m18c64a8[m login con servidores3
+[33md0c3b83[m login con servidores
+[33m11b5007[m tarjetas informativas 2
+[33med3ae00[m tarjetas informativas
+[33m8d9591f[m logo
+[33m6475a77[m Primer commit: Subida inicial del proyecto
+[33mb7e8ed3[m pantalla principal 3
+[33mf79c599[m deploy: menu principal mac + rutas
+[33mda12b91[m pantalla principal 2
+[33m003ae43[m pantalla principal
+[33m9f87550[m mejora para el panel de notas 8
+[33m7e06acd[m mejora para el panel de notas 9
+[33m105a1de[m mejora para el panel de notas 8
+[33mf90cd0c[m mejora para el panel de notas 7
+[33mb2d7be0[m mejora para el panel de notas 7
+[33m14b68cf[m mejora para el panel de notas 6
+[33macae568[m mejora para el panel de notas 5
+[33m4055bb4[m mejora para el panel de notas 4
+[33md54b846[m mejora para el panel de notas 3
+[33m351e46a[m mejora para el panel de notas 2
+[33m370db14[m mejora para el panel de notas
+[33m17ac348[m Cosulta con tarjetas mejorada por semestre
+[33m8cfc534[m Renovado 06
+[33m58b8e45[m Renovado 05
+[33mb3edd32[m Renovado 04
+[33mf89baf9[m Versión inicial del proyecto N2N
+[33m45d1fb7[m Renovado 01
+[33me94f075[m feat: actualización de N2N con últimas mejoras
+[33m5ca0dd6[m Renovado 01
+[33m74fec27[m mejora registro estudiante y formularios scroll 4
+[33m9387391[m mejora registro estudiante y formularios scroll 3
+[33m0127109[m mejora registro estudiante y formularios scroll 2
+[33m552176d[m mejora registro estudiante y formularios scroll
+[33m04ccb9f[m Actualizacion registro de Estudiante
+[33mc18062c[m mejora Formularios notas3
+[33m6786dea[m mejora Formularios notas2
+[33m0726337[m mejora Formularios notas
+[33mb462227[m N2n 8
+[33med9be44[m N2n 7
+[33m934b999[m N2n 5
+[33mf710516[m N2n 4
+[33mcbb1b96[m N2n 3
+[33mcd02905[m Formulario Estudiantes N2N fondo
+[33m5ceb553[m Proyecto N2N listo para producción
+[33m8710375[m Primer commit del proyecto
+[33m39a054a[m Formulario Estudiantes N2N
+[33md05e134[m Initial commit from Create Next App

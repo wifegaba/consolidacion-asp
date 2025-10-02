@@ -75,7 +75,7 @@ type ObservacionRow = {
 
 /* ========= Constantes / Helpers ========= */
 
-const ADMIN_PASSWORD = 'Josmith2022';
+const ADMIN_PASSWORD = '1061355';
 
 // Mínimo de caracteres para disparar la búsqueda online
 const MIN_SEARCH = 2;

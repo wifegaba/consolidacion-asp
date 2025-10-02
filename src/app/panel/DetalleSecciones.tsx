@@ -32,11 +32,30 @@ type AsistModuloRow = {
   total: number;
 };
 
+// NUEVO: filas de las vistas v_inasistencias_* (etapa·módulo)
+type InasistEMRow = {
+  etapa: string;
+  modulo: number;
+  total: number;
+  anio?: number;
+  semana?: number;
+  mes?: number;
+};
+
+
+
 type DetalleSeccionesProps = {
   asistEtapas: AsistEtapaRow[];
   agendados?: AgendadoRow[];
   asistPorModulo?: AsistModuloRow[];
   defaultKey?: string;
+    // NUEVO
+  inasistSemanaEm?: InasistEMRow[];
+  inasistMesEm?: InasistEMRow[];
+ 
+
+
+
 };
 
 /* ============================ Constantes ============================ */
@@ -383,8 +402,12 @@ export default function DetalleSecciones({
   agendados = [],
   asistPorModulo = [],
   defaultKey,
+  inasistSemanaEm = [],
+  inasistMesEm = [],
 }: DetalleSeccionesProps) {
+
   const [view, setView] = useState<string | null>(defaultKey || null);
+const [inasistMode, setInasistMode] = useState<'semana' | 'mes'>('semana');
 
   // Totales asistencias para la dona
   const totalConfirmados = asistEtapas.reduce((s, r) => s + (r.confirmados || 0), 0);
@@ -419,16 +442,34 @@ export default function DetalleSecciones({
     }))
     .sort((a, b) => b.value - a.value);
 
+
+
+
+
+    
+
+//  datos reales de inasistencias (vistas) convertidos a AsistModuloRow
+const stackSource: AsistModuloRow[] = (inasistMode === 'semana' ? inasistSemanaEm : inasistMesEm).map(r => ({
+  etapa: r.etapa,
+  modulo: r.modulo,
+  confirmados: 0,
+  noAsistieron: r.total,
+  total: r.total,
+}));
+
+
+
   // Chips de inasistencias por etapa·módulo (fila horizontal en la "tabla")
-  const inasistChips = asistPorModulo
-    .filter((m) => (m.noAsistieron || 0) > 0)
-    .map((m) => ({
-      etapa: m.etapa,
-      label: `${etiquetaEtapaModulo(m.etapa, m.modulo)}`,
-      value: m.noAsistieron,
-      color: colorPorEtapa(m.etapa),
-    }))
-    .sort((a, b) => b.value - a.value);
+const inasistChips = stackSource
+  .filter((m) => (m.noAsistieron || 0) > 0)
+  .map((m) => ({
+    etapa: m.etapa,
+    label: `${etiquetaEtapaModulo(m.etapa, m.modulo)}`,
+    value: m.noAsistieron,
+    color: colorPorEtapa(m.etapa),
+  }))
+  .sort((a, b) => b.value - a.value);
+
 
   // Tooltip para la dona
   const CustomTooltip = ({
@@ -562,25 +603,45 @@ export default function DetalleSecciones({
 
           {/* Panel derecho: ELÁSTICO; barras + chips + tabla */}
           <section className="card premium-glass animate-slideIn panel-compact panel-elastico self-start max-w-[min(560px,94vw)] mx-auto lg:max-w-none flex flex-col overflow-visible pb-4">
-            <div className="card-head pb-0">
-              <h2 className="card-title">Detalle por etapa</h2>
-            </div>
+            
+
+            <div className="card-head pb-0 flex items-center justify-between">
+  <h2 className="card-title">Detalle por etapa</h2>
+  <div className="inline-flex gap-2">
+    <button
+      onClick={() => setInasistMode('semana')}
+      className={`px-2 py-1 text-xs rounded-md ring-1 ${inasistMode==='semana' ? 'bg-rose-500 text-white ring-rose-400' : 'bg-white/70 text-slate-700 ring-slate-200'}`}
+      title="Inasistencias de la semana (ISO actual)"
+    >
+      Semana
+    </button>
+    <button
+      onClick={() => setInasistMode('mes')}
+      className={`px-2 py-1 text-xs rounded-md ring-1 ${inasistMode==='mes' ? 'bg-rose-500 text-white ring-rose-400' : 'bg-white/70 text-slate-700 ring-slate-200'}`}
+      title="Inasistencias del mes actual"
+    >
+      Mes
+    </button>
+  </div>
+</div>
+
 
             <div className="px-2 pt-3">
               <h3 className="text-sm font-semibold text-slate-700 px-1 mb-2">
                 Asistencias por módulo (Total) + Inasistencias
               </h3>
 
-              <BarsWithInasistStack
-                dataBars={barsDataTotal}
-                asistPorModulo={asistPorModulo}
-              />
+           <BarsWithInasistStack
+  dataBars={barsDataTotal}
+  asistPorModulo={stackSource}
+/>
+
             </div>
 
 
 
 
-            
+
 
             {/* Fila única de chips de inasistencias */}
             {inasistChips.length > 0 && (
