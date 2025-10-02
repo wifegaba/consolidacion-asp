@@ -87,6 +87,7 @@ const defaultCultos = (): CultosMap => ({
     SÁBADO: 'SÁBADO',
 });
 
+
 const cultosOpciones: Record<DiaKey, string[]> = {
     DOMINGO: ['7:00 AM', '9:00 AM', '11:00 AM', '5:30 PM'],
     MIÉRCOLES: ['7:00 AM', '9:00 AM', '11:00 AM', '1:00 PM', '3:00 PM', '6:30 PM'],
