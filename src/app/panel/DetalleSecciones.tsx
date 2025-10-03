@@ -589,20 +589,24 @@ export default function DetalleSecciones({
                   <span className="text-rose-600 font-semibold whitespace-nowrap">
                     Inasistencias
                   </span>
-                  <div className="flex flex-wrap items-center gap-2 overflow-visible">
-                    {inasistChips.map((c) => (
-                      <span
-                        key={`chip-${c.label}`}
-                        className="inline-flex items-center gap-2 text-[11px] font-medium text-slate-700 rounded-full px-2 py-1 ring-1 ring-slate-200 bg-white/80"
-                        title={`${c.label}: ${c.value}`}
-                      >
-                        <span
-                          className="inline-block w-3 h-3 rounded-sm"
-                          style={{ background: c.color, boxShadow: "0 0 0 1px rgba(0,0,0,0.06) inset" }}
-                        />
-                        <span className="truncate">{c.label}</span>
-                        <span className="tabular-nums font-semibold">{c.value}</span>
-                      </span>
+                  <div className="overflow-visible">
+                    {Array.from({ length: Math.ceil(inasistChips.length / 2) }).map((_, rowIdx) => (
+                      <div key={`chip-row-${rowIdx}`} className="chip-row">
+                        {inasistChips.slice(rowIdx * 2, rowIdx * 2 + 2).map((c) => (
+                          <span
+                            key={`chip-${c.label}`}
+                            className="chip-inasistencia"
+                            title={`${c.label}: ${c.value}`}
+                          >
+                            <span
+                              className="chip-inasistencia-color"
+                              style={{ background: c.color, boxShadow: '0 0 0 1px rgba(0,0,0,0.06) inset' }}
+                            />
+                            <span className="truncate">{c.label}</span>
+                            <span className="tabular-nums font-semibold">={' '}{c.value}</span>
+                          </span>
+                        ))}
+                      </div>
                     ))}
                   </div>
                 </div>

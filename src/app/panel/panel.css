@@ -1,3 +1,33 @@
+/* Etiquetas de inasistencias pequeñas y agrupadas */
+.chip-row {
+  display: flex;
+  gap: 2px;
+  margin-bottom: 2px;
+}
+.chip-inasistencia {
+  font-size: 10px;
+  min-width: 70px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.8);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+
+
+
+
+
+
+.chip-inasistencia-color {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  margin-right: 2px;
+}
 /* === MODAL PENDIENTES PREMIUM 2025 === */
 #modal-pendientes .modal-header-premium{
   position: sticky; /* encabezado fijo mientras se hace scroll */
