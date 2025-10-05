@@ -9,32 +9,33 @@ import {
   getAsistenciasPorEtapa,
   getRestauracionCount,
   getAgendadosPorSemana,
-  getAsistenciasPorModulo, // 👈 NUEVO: trae asistencias agrupadas por módulo
+  getAsistenciasPorModulo,
+  Range
 } from "@/lib/metrics";
 
 import DetalleSecciones from "./DetalleSecciones";
-import RtDashboardWatch from "./RtDashboardWatch"; // 👈 watcher realtime (cliente)
+import RtDashboardWatch from "./RtDashboardWatch";
 
 function formatNumber(n: number) {
   return new Intl.NumberFormat("es-CO").format(n);
 }
 
-export default async function Page() {
-  // Totales base
+export default async function Page({ searchParams }: { searchParams?: { range?: string } }) {
+  const params = await searchParams;
+  const currentRange = (params?.range ?? 'month') as Range;
+
   const [totalContactos, totalServidores, totalRestauracion] = await Promise.all([
     getContactosCount(),
     getServidoresCount(),
     getRestauracionCount(),
   ]);
 
-  // Asistencias (mes actual) + agrupado por módulo (para el gráfico)
-  const [asistMesDetalle, asistEtapas, asistPorModulo] = await Promise.all([
-    getAsistenciasConfirmadosYNo("month"),
-    getAsistenciasPorEtapa("month"),
-    getAsistenciasPorModulo("month"), // 👈 NUEVO
+  const [asistDetalle, asistEtapas, asistPorModulo] = await Promise.all([
+    getAsistenciasConfirmadosYNo(currentRange),
+    getAsistenciasPorEtapa(currentRange),
+    getAsistenciasPorModulo(currentRange),
   ]);
 
-  // Agendados por semana (vista v_agendados)
   const agendados = await getAgendadosPorSemana();
   const agendadosTotal = agendados.reduce(
     (s: number, r: { agendados_pendientes: number }) => s + r.agendados_pendientes,
@@ -43,7 +44,6 @@ export default async function Page() {
 
   return (
     <>
-      {/* 👇 Habilita Realtime para las tarjetas del dashboard */}
       <RtDashboardWatch />
 
       <div className="kpi-row">
@@ -52,54 +52,35 @@ export default async function Page() {
           <ServidoresKPIRealtime label="Servidores" initialValue={totalServidores} className="servidores" />
         </div>
         <div className="kpi-row-group">
-          {/* KPI Asistencias (NO se modifica la tarjeta) */}
-          <article
-            className="kpi-card asistencias"
-            data-key="asistencias"
-          >
+          <article className="kpi-card asistencias" data-key="asistencias">
             <div className="flex items-center justify-between">
               <span className="kpi-label">Asistencias</span>
             </div>
-
             <div className="flex items-center gap-6 mt-2">
-              <div className="kpi-value">{formatNumber(asistMesDetalle.total)}</div>
+              <div className="kpi-value">{formatNumber(asistDetalle.total)}</div>
               <span className="flex items-center gap-4 text-sm font-medium">
-                <span className="text-green-600">{asistMesDetalle.confirmados} ✔</span>
-                <span className="text-red-600">{asistMesDetalle.noAsistieron} ✘</span>
+                <span className="text-green-600">{asistDetalle.confirmados} ✔</span>
+                <span className="text-red-600">{asistDetalle.noAsistieron} ✘</span>
               </span>
             </div>
           </article>
-
-          {/* KPI Agendados */}
-          <article
-            className="kpi-card agendados"
-            data-key="agendados"
-          >
+          <article className="kpi-card agendados" data-key="agendados">
             <div className="kpi-top flex w-full items-center justify-between">
               <span className="kpi-label">Agendados</span>
               <span className="text-sm font-medium">{agendados.length} etapas</span>
             </div>
-
             <div className="kpi-value">{formatNumber(agendadosTotal)}</div>
           </article>
         </div>
       </div>
 
-      {/* Grid dinámico */}
       <DetalleSecciones
         asistEtapas={asistEtapas}
-        asistPorModulo={asistPorModulo}  // 👈 NUEVO: se usa SOLO en el gráfico de asistencias
+        asistPorModulo={asistPorModulo}
         agendados={agendados}
         defaultKey="asistencias"
+        currentRange={currentRange}
       />
     </>
   );
 }
-
-
-
-
-
-
-
-

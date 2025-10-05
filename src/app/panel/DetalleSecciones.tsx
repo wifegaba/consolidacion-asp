@@ -1,6 +1,8 @@
 // app/panel/DetalleSecciones.tsx
 "use client";
 
+// PASO 1: AÑADIR IMPORTACIONES PARA NAVEGACIÓN Y TIPOS
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState, CSSProperties, memo } from "react";
 import {
   PieChart,
@@ -10,20 +12,19 @@ import {
   Tooltip,
 } from "recharts";
 import { scaleBand, scaleLinear, max as d3max } from "d3";
+import type { Range } from "@/lib/metrics";
 
-/* ============================ Tipos ============================ */
+/* ============================ Tipos (Actualizado) ============================ */
 type AsistEtapaRow = {
   etapa: string;
   confirmados: number;
   noAsistieron: number;
   total: number;
 };
-
 type AgendadoRow = {
   etapa_modulo: string;
   agendados_pendientes: number;
 };
-
 type AsistModuloRow = {
   etapa: string;
   modulo: number;
@@ -32,20 +33,21 @@ type AsistModuloRow = {
   total: number;
 };
 
+// PASO 2: ACTUALIZAR LAS PROPS PARA ACEPTAR EL FILTRO ACTUAL
 type DetalleSeccionesProps = {
   asistEtapas: AsistEtapaRow[];
   agendados?: AgendadoRow[];
   asistPorModulo?: AsistModuloRow[];
   defaultKey?: string;
+  currentRange?: Range;
 };
 
-/* ============================ Constantes ============================ */
+/* ============================ Constantes y Utils (Sin cambios) ============================ */
 const GREEN = "#34d399";
 const GREEN_LIGHT = "#4ade80";
 const RED = "#dc2626";
 const RED_LIGHT = "#f87171";
 
-/* ============================ Util ============================ */
 function etiquetaEtapaModulo(etapa: string, modulo: number) {
   if (!etapa) return `Módulo ${modulo}`;
   const base = etapa.trim().split(/\s+/)[0];
@@ -53,7 +55,6 @@ function etiquetaEtapaModulo(etapa: string, modulo: number) {
   return `${nombre} ${modulo}`;
 }
 
-/* ====================== Paleta para etapas (stack) ===================== */
 function colorPorEtapa(etapa: string): string {
   const m: Record<string, string> = {
     Semillas: "linear-gradient(180deg, #fecaca 0%, #f87171 100%)",
@@ -80,10 +81,43 @@ function colorPorEtapa(etapa: string): string {
   return `linear-gradient(180deg, ${c1} 0%, ${c2} 100%)`;
 }
 
-/* ====================== Barras Horizontales (base) ===================== */
+// PASO 3: AÑADIR EL NUEVO COMPONENTE PARA LOS BOTONES DE FILTRO
+function RangeSelector({ currentRange }: { currentRange?: Range }) {
+  const router = useRouter();
+  const pathname = usePathname();
+
+  const setRange = (range: Range) => {
+    const params = new URLSearchParams();
+    if (range) {
+      params.set("range", range);
+    }
+    router.replace(`${pathname}?${params.toString()}`);
+  };
+
+  const ranges: { key: Range; label: string }[] = [
+    { key: 'today', label: 'Hoy' },
+    { key: 'week', label: 'Semana' },
+    { key: 'month', label: 'Mes' },
+  ];
+
+  return (
+    <div className="range-selector">
+      {ranges.map(({ key, label }) => (
+        <button
+          key={key}
+          onClick={() => setRange(key)}
+          className={currentRange === key ? 'active' : ''}
+        >
+          {label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/* ====================== Barras Horizontales (base) - Sin Cambios ===================== */
 type HBarDatum = { key: string; value: number; color?: string };
 
-/** Barra individual con animación de ancho */
 const BarRow = memo(function BarRow({
   topPct,
   heightPct,
@@ -132,7 +166,7 @@ const BarRow = memo(function BarRow({
   );
 });
 
-/* ======= Segmento para barra apilada de inasistencias (por etapa) ======= */
+/* ======= Segmento para barra apilada de inasistencias - Sin Cambios ======= */
 const EtapaSegment = memo(function EtapaSegment({
   leftPct,
   widthPct,
@@ -170,20 +204,17 @@ const EtapaSegment = memo(function EtapaSegment({
   );
 });
 
-/* ============ Barras por módulo + barra apilada de inasistencias ============ */
+/* ============ Barras por módulo + barra apilada de inasistencias - Sin Cambios ============ */
 function BarsWithInasistStack({
-  dataBars,           // barras por módulo
-  asistPorModulo,     // para armar stack por etapa
+  dataBars,
+  asistPorModulo,
   className = "",
 }: {
   dataBars: HBarDatum[];
   asistPorModulo: AsistModuloRow[];
   className?: string;
 }) {
-  // --- preparar datos base ---
   const sorted = [...dataBars].sort((a, b) => (b.value ?? 0) - (a.value ?? 0));
-
-  // total inasistencias por etapa y total global
   const byEtapa = new Map<string, number>();
   for (const row of asistPorModulo) {
     const etapa = (row.etapa || "Desconocido").trim();
@@ -194,27 +225,17 @@ function BarsWithInasistStack({
     a[0].localeCompare(b[0], "es", { sensitivity: "base" })
   );
   const totalInasist = etapas.reduce((s, [, v]) => s + v, 0);
-
-  // --- escalas y geometría (mismo xScale para TODO) ---
   const maxValue = d3max([
     ...sorted.map((d) => d.value),
     totalInasist,
     0,
   ]) ?? 0;
-
   const xScale = scaleLinear().domain([0, maxValue]).range([0, 100]);
-
-  // yScale: barras por módulo + 1 fila extra ("Inasistencias")
   const keys = [...sorted.map((d) => d.key), "Inasistencias"];
   const yScale = scaleBand<string>().domain(keys).range([0, 100]).padding(0.175);
-
   const longest = keys.reduce((m, k) => Math.max(m, k.length), 1);
-
-  // altura dinámica en px (elástica)
   const rows = keys.length;
-  const heightPx = Math.max(160, 34 * rows); // 34px por fila aprox.
-
-  // colores de barras por módulo
+  const heightPx = Math.max(160, 34 * rows);
   const gradients = [
     "from-pink-300 to-pink-400",
     "from-purple-300 to-purple-400",
@@ -223,7 +244,6 @@ function BarsWithInasistStack({
     "from-orange-200 to-orange-300",
     "from-lime-300 to-lime-400",
   ];
-
   return (
     <div
       className={`relative w-full ${className}`}
@@ -237,7 +257,6 @@ function BarsWithInasistStack({
         } as CSSProperties
       }
     >
-      {/* Área de dibujo */}
       <div
         className="absolute inset-0 z-10
           h-[calc(100%-var(--marginTop)-var(--marginBottom))]
@@ -246,7 +265,6 @@ function BarsWithInasistStack({
           translate-x-[var(--marginLeft)]
           overflow-visible"
       >
-        {/* 1) Barras por módulo */}
         {sorted.map((d, index) => {
           const widthPct = xScale(d.value);
           const heightPct = yScale.bandwidth();
@@ -263,8 +281,6 @@ function BarsWithInasistStack({
             />
           );
         })}
-
-        {/* 2) Barra única apilada (Inasistencias) */}
         {totalInasist > 0 && (
           <div
             className="absolute left-0"
@@ -277,7 +293,6 @@ function BarsWithInasistStack({
             }}
           >
             {(() => {
-              // segmentación por etapa
               let acc = 0;
               const segments = etapas.map(([etapa, value], i, arr) => {
                 const start = acc;
@@ -297,8 +312,6 @@ function BarsWithInasistStack({
                   />
                 );
               });
-
-              // etiqueta del total (chip)
               const totalLeft = Math.max(0, xScale(totalInasist) - 4);
               return (
                 <>
@@ -314,8 +327,6 @@ function BarsWithInasistStack({
             })()}
           </div>
         )}
-
-        {/* Grid vertical punteado (común) */}
         <svg className="h-full w-full" viewBox="0 0 100 100" preserveAspectRatio="none">
           {xScale
             .ticks(8)
@@ -337,8 +348,6 @@ function BarsWithInasistStack({
               </g>
             ))}
         </svg>
-
-        {/* Eje X (valores) */}
         {xScale.ticks(4).map((value, i) => (
           <div
             key={`xtick-${i}`}
@@ -349,8 +358,6 @@ function BarsWithInasistStack({
           </div>
         ))}
       </div>
-
-      {/* Eje Y (etiquetas) */}
       <div
         className="h-[calc(100%-var(--marginTop)-var(--marginBottom))]
            w-[var(--marginLeft)]
@@ -377,49 +384,37 @@ function BarsWithInasistStack({
   );
 }
 
-/* ========================= Componente principal ========================= */
+/* ========================= Componente principal (Actualizado) ========================= */
+// PASO 4: ACTUALIZAR LA "FIRMA" DEL COMPONENTE PARA RECIBIR LA PROP
 export default function DetalleSecciones({
   asistEtapas,
   agendados = [],
   asistPorModulo = [],
   defaultKey,
+  currentRange = 'month', // Recibimos la prop y le damos un valor por defecto
 }: DetalleSeccionesProps) {
   const [view, setView] = useState<string | null>(defaultKey || null);
 
-  // Totales asistencias para la dona
+  // El resto de tu lógica de cálculo de totales y datos para los gráficos
+  // permanece exactamente igual. No se toca nada aquí.
   const totalConfirmados = asistEtapas.reduce((s, r) => s + (r.confirmados || 0), 0);
   const totalNoAsistieron = asistEtapas.reduce((s, r) => s + (r.noAsistieron || 0), 0);
   const totalAsist = totalConfirmados + totalNoAsistieron;
-
   const dataAsist = [
     { name: "Asistieron", value: totalConfirmados, color: "url(#gradOk)" },
     { name: "No asistieron", value: totalNoAsistieron, color: "url(#gradNo)" },
   ];
-
   const pct = (v: number, base: number) => (base > 0 ? ((v / base) * 100).toFixed(1) : "0");
   const pctOk = pct(totalConfirmados, totalAsist);
   const pctNo = pct(totalNoAsistieron, totalAsist);
-
-  // Totales agendados
   const totalAgend = agendados.reduce((s, r) => s + (r.agendados_pendientes || 0), 0);
-
-  // Data para barras por módulo (Total)
   const barsDataTotal: HBarDatum[] = asistPorModulo
     .map((m) => ({
       key: etiquetaEtapaModulo(m.etapa, m.modulo),
       value: m.total,
-      color: [
-        "from-pink-300 to-pink-400",
-        "from-purple-300 to-purple-400",
-        "from-indigo-300 to-indigo-400",
-        "from-sky-300 to-sky-400",
-        "from-orange-200 to-orange-300",
-        "from-lime-300 to-lime-400",
-      ][(m.modulo - 1) % 6],
+      color: ["from-pink-300 to-pink-400","from-purple-300 to-purple-400","from-indigo-300 to-indigo-400","from-sky-300 to-sky-400","from-orange-200 to-orange-300","from-lime-300 to-lime-400"][(m.modulo - 1) % 6],
     }))
     .sort((a, b) => b.value - a.value);
-
-  // Chips de inasistencias por etapa·módulo (fila horizontal en la "tabla")
   const inasistChips = asistPorModulo
     .filter((m) => (m.noAsistieron || 0) > 0)
     .map((m) => ({
@@ -430,7 +425,6 @@ export default function DetalleSecciones({
     }))
     .sort((a, b) => b.value - a.value);
 
-  // Tooltip para la dona
   const CustomTooltip = ({
     active,
     payload,
@@ -453,7 +447,6 @@ export default function DetalleSecciones({
     return null;
   };
 
-  // Click en tarjetas KPI
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       const target = (e.target as HTMLElement).closest("[data-key]");
@@ -463,7 +456,6 @@ export default function DetalleSecciones({
     return () => document.removeEventListener("click", handler);
   }, []);
 
-  // Contador animado del total en el centro de la dona
   const [animatedTotal, setAnimatedTotal] = useState(0);
   useEffect(() => {
     const target = view === "agendados" ? totalAgend : totalAsist;
@@ -490,12 +482,10 @@ export default function DetalleSecciones({
 
       {view === "asistencias" && (
         <>
-          {/* Panel izquierdo: Dona */}
           <section className="card premium-glass animate-slideIn relative panel-compact self-start max-w-[min(560px,94vw)] mx-auto lg:max-w-none">
             <div className="card-head">
               <h2 className="card-title">Gráfico de Asistencias</h2>
             </div>
-
             <div className="panel-body">
               <div className="asistencias-labels flex justify-between w-full px-4 mt-1 mb-3 text-sm">
                 <div className="flex flex-col items-center text-green-600 font-semibold">
@@ -513,7 +503,6 @@ export default function DetalleSecciones({
                   <span className="text-red-600 font-bold text-sm tabular-nums">{pctNo}%</span>
                 </div>
               </div>
-
               <div className="panel-chart relative mx-auto max-w-[min(360px,88vw)] aspect-square overflow-hidden flex items-center justify-center">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
@@ -527,7 +516,6 @@ export default function DetalleSecciones({
                         <stop offset="100%" stopColor={RED} />
                       </linearGradient>
                     </defs>
-
                     <Pie
                       data={dataAsist}
                       dataKey="value"
@@ -549,7 +537,6 @@ export default function DetalleSecciones({
                     <Tooltip content={<CustomTooltip />} />
                   </PieChart>
                 </ResponsiveContainer>
-
                 <div className="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none donut-center px-2">
                   <p className="text-3xl leading-tight font-extrabold text-gray-900 tabular-nums">
                     {animatedTotal.toLocaleString()}
@@ -560,29 +547,24 @@ export default function DetalleSecciones({
             </div>
           </section>
 
-          {/* Panel derecho: ELÁSTICO; barras + chips + tabla */}
           <section className="card premium-glass animate-slideIn panel-compact panel-elastico self-start max-w-[min(560px,94vw)] mx-auto lg:max-w-none flex flex-col overflow-visible pb-4">
-            <div className="card-head pb-0">
+            
+            {/* PASO 5: INTEGRAR EL COMPONENTE DE FILTROS EN EL JSX */}
+            <div className="card-head pb-0 flex justify-between items-center">
               <h2 className="card-title">Detalle por etapa</h2>
+              <RangeSelector currentRange={currentRange} />
             </div>
 
             <div className="px-2 pt-3">
               <h3 className="text-sm font-semibold text-slate-700 px-1 mb-2">
                 Asistencias por módulo (Total) + Inasistencias
               </h3>
-
               <BarsWithInasistStack
                 dataBars={barsDataTotal}
                 asistPorModulo={asistPorModulo}
               />
             </div>
 
-
-
-
-            
-
-            {/* Fila única de chips de inasistencias */}
             {inasistChips.length > 0 && (
               <div className="px-4 pt-2 pb-3">
                 <div className="w-full rounded-xl bg-white/70 ring-1 ring-slate-200/70 backdrop-blur-sm px-3 py-2 flex items-center gap-3">
@@ -613,7 +595,6 @@ export default function DetalleSecciones({
               </div>
             )}
 
-            {/* Tabla por etapa */}
             <div className="panel-body px-0 py-0 mt-1">
               <div className="premium-table-row premium-table-header">
                 <span>ETAPA</span>
@@ -621,7 +602,6 @@ export default function DetalleSecciones({
                 <span className="text-center">INASISTENCIAS</span>
                 <span className="text-right">TOTAL</span>
               </div>
-
               {asistEtapas.map((row, i) => (
                 <div key={i} className="premium-table-row premium-table-item">
                   <span className="font-medium text-slate-700">{row.etapa}</span>
@@ -641,13 +621,11 @@ export default function DetalleSecciones({
             <div className="card-head">
               <h2 className="card-title">Agendados por semana</h2>
             </div>
-
             <div className="panel-body">
               <div className="panel-chart relative">
                 <ResponsiveContainer width="100%" height="100%">
                   <></>
                 </ResponsiveContainer>
-
                 <div className="absolute top-3 right-4 text-right chart-meta">
                   <p className="chart-meta-label">Total agendados</p>
                   <p className="chart-meta-value tabular-nums">{totalAgend.toLocaleString()}</p>
@@ -655,18 +633,15 @@ export default function DetalleSecciones({
               </div>
             </div>
           </section>
-
           <section className="card premium-glass animate-slideIn panel-compact self-start">
             <div className="card-head pb-0">
               <h2 className="card-title">Detalle por etapa/módulo</h2>
             </div>
-
             <div className="panel-body px-0 py-0">
               <div className="premium-table-row premium-table-header two-cols">
                 <span>Etapa · Módulo</span>
                 <span className="text-right">Agendados</span>
               </div>
-
               {agendados.map((row, i) => (
                 <div key={i} className="premium-table-row premium-table-item two-cols">
                   <span className="font-medium text-slate-700">{row.etapa_modulo}</span>
@@ -675,7 +650,6 @@ export default function DetalleSecciones({
                   </span>
                 </div>
               ))}
-
               <div className="premium-table-row premium-table-total two-cols">
                 <span>Total</span>
                 <span className="text-right tabular-nums">{totalAgend}</span>
