@@ -10,6 +10,81 @@
     text-fill-color: transparent;
 }
 
+/* =============================================================== */
+/* == ESTILOS ADICIONALES PARA LA TABLA DEL MODAL DE BÚSQUEDA == */
+/* =============================================================== */
+
+/* * Se aplica el mismo estilo de texto con gradiente de los encabezados
+ * de la tabla de Pendientes a la nueva tabla de Listado.
+*/
+.pn-root .modal-buscar thead th {
+    background: linear-gradient(90deg, #fff 0%, #f3f4f6 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    text-fill-color: transparent;
+}
+
+/* * Se añaden las transiciones y el efecto de hover a las filas
+ * de la nueva tabla, igual que en el modal de Pendientes.
+*/
+.pn-root .modal-buscar tbody tr {
+    transition: background 0.36s cubic-bezier(.22,.61,.36,1), box-shadow 0.36s cubic-bezier(.22,.61,.36,1), transform 0.36s cubic-bezier(.22,.61,.36,1);
+    cursor: pointer;
+}
+
+.pn-root .modal-buscar tbody tr:hover {
+    background: linear-gradient(90deg, rgba(255,255,255,0.10) 0%, rgba(99,102,241,0.08) 100%);
+    box-shadow: 0 2px 12px -6px rgba(99,102,241,0.10);
+    transform: translateY(-1px) scale(1.012);
+}
+
+/*
+ * NOTA IMPORTANTE:
+ * Los botones de paginación en tu modal de búsqueda usan clases de Tailwind,
+ * mientras que el modal de pendientes usa la clase .btn-minimal.
+ * Estas reglas unifican la apariencia para que se vean idénticos.
+*/
+.pn-root .modal-buscar .mt-3 button {
+    background: #fff;
+    color: #3730a3;
+    border: 1.2px solid #e0e7ff;
+    border-radius: 10px;
+    box-shadow: 0 2px 8px -3px rgba(99,102,241,0.10), 0 1px 0 rgba(255,255,255,0.13) inset;
+    font-weight: 500;
+    font-size: 0.97rem;
+    padding: 5px 16px;
+    min-width: 70px;
+    min-height: 32px;
+    transition: background .18s, color .18s, box-shadow .18s, border .18s;
+    outline: none;
+    margin: 0 2px;
+    letter-spacing: 0.01em;
+}
+
+.pn-root .modal-buscar .mt-3 button:hover:not(:disabled) {
+    background: #f1f5ff;
+    color: #4f46e5;
+    border-color: #c7d2fe;
+    box-shadow: 0 6px 24px -8px rgba(99,102,241,0.18);
+}
+
+.pn-root .modal-buscar .mt-3 button:active:not(:disabled) {
+    background: #e0e7ff;
+    color: #3730a3;
+    box-shadow: 0 2px 8px -2px rgba(99,102,241,0.10);
+}
+
+.pn-root .modal-buscar .mt-3 button:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+    background: #f3f4f6;
+    color: #a1a1aa;
+    border-color: #e5e7eb;
+    box-shadow: none;
+}
+
+
 #modal-pendientes thead th {
     background: linear-gradient(90deg, #fff 0%, #f3f4f6 100%);
     -webkit-background-clip: text;

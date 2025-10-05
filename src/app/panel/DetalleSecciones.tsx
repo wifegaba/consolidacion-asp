@@ -148,16 +148,24 @@ const BarRow = memo(function BarRow({
         borderRadius: "0 6px 6px 0",
         boxShadow: "0 2px 18px 0 rgba(56,189,248,0.18)",
         transition: "width 800ms cubic-bezier(.2,.8,.2,1)",
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'flex-end',
+        paddingRight: 8,
       }}
       className={`bg-gradient-to-b ${gradientClass}`}
     >
       <span
-        className="absolute right-2 top-1 text-[11px] font-bold text-white pointer-events-none tabular-nums"
+        className="text-[12px] font-bold text-white pointer-events-none tabular-nums"
         style={{
           textShadow: "0 2px 8px rgba(0,0,0,0.18)",
-          background: "rgba(56,189,248,0.12)",
-          borderRadius: 4,
-          padding: "2px 6px",
+          background: "rgba(56,189,248,0.18)",
+          borderRadius: 6,
+          padding: "2px 8px",
+          maxWidth: '90%',
+          overflow: 'hidden',
+          whiteSpace: 'nowrap',
+          textAlign: 'right',
         }}
       >
         {value}
@@ -235,7 +243,7 @@ function BarsWithInasistStack({
   const yScale = scaleBand<string>().domain(keys).range([0, 100]).padding(0.175);
   const longest = keys.reduce((m, k) => Math.max(m, k.length), 1);
   const rows = keys.length;
-  const heightPx = Math.max(160, 34 * rows);
+  const heightPx = Math.max(120, 22 * rows);
   const gradients = [
     "from-pink-300 to-pink-400",
     "from-purple-300 to-purple-400",
@@ -317,8 +325,18 @@ function BarsWithInasistStack({
                 <>
                   {segments}
                   <span
-                    className="absolute -top-4 text-[11px] font-bold text-slate-700 tabular-nums"
-                    style={{ left: `${totalLeft}%` }}
+                    className="absolute -top-4 right-0 text-[12px] font-bold tabular-nums"
+                    style={{
+                      background: 'rgba(255, 71, 87, 0.18)',
+                      color: '#e11d48',
+                      borderRadius: '6px',
+                      padding: '2px 8px',
+                      maxWidth: '90%',
+                      overflow: 'hidden',
+                      whiteSpace: 'nowrap',
+                      textAlign: 'right',
+                      boxShadow: '0 2px 8px rgba(0,0,0,0.10)',
+                    }}
                   >
                     {totalInasist}
                   </span>

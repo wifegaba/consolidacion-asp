@@ -183,7 +183,7 @@ export async function getAsistenciasPorModulo(
 
   const agg = new Map<string, { etapa: string; modulo: number; confirmados: number; noAsistieron: number }>();
 
-  for (const row of data as any[]) {
+  for (const row of data as { etapa?: string; modulo?: number; asistio?: boolean }[]) {
     const etapa = row.etapa ?? 'Desconocido';
     const modulo = row.modulo ?? 0;
     const key = `${etapa}#${modulo}`;
@@ -243,7 +243,7 @@ export async function getAsistenciasPorEtapa(range: Range = 'month'): Promise<
 
   const grupos = new Map<Etapa, { confirmados: number; noAsistieron: number; total: number }>();
   
-  for (const row of data as any[]) {
+  for (const row of data as { etapa?: string; asistio?: boolean }[]) {
     const etapa: Etapa = row.etapa ?? 'Desconocido';
     if (!grupos.has(etapa)) {
       grupos.set(etapa, { confirmados: 0, noAsistieron: 0, total: 0 });

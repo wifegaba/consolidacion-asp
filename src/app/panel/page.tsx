@@ -13,6 +13,8 @@ import {
   Range
 } from "@/lib/metrics";
 
+
+
 import DetalleSecciones from "./DetalleSecciones";
 import RtDashboardWatch from "./RtDashboardWatch";
 
@@ -20,7 +22,7 @@ function formatNumber(n: number) {
   return new Intl.NumberFormat("es-CO").format(n);
 }
 
-export default async function Page({ searchParams }: { searchParams?: { range?: string } }) {
+export default async function Page({ searchParams }: { searchParams: Promise<{ range?: string }> }) {
   const params = await searchParams;
   const currentRange = (params?.range ?? 'month') as Range;
 
