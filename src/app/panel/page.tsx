@@ -81,7 +81,6 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ r
         asistPorModulo={asistPorModulo}
         agendados={agendados}
         defaultKey="asistencias"
-        currentRange={currentRange}
       />
     </>
   );
