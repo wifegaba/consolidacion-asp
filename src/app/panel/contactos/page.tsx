@@ -706,10 +706,13 @@ const selectDesdePendiente = (row: PendienteItem) => {
 
                 {/* Modal BUSCAR */}
                 {modalBuscarVisible && (
-                    <div className="modal-buscar" role="dialog" aria-modal="true">
-                        <div className="modal-buscar__box">
+                    <div className="modal-buscar2-backdrop fixed inset-0 z-40 bg-[rgba(80,70,229,0.10)] backdrop-blur-md" style={{ overflow: 'hidden' }}></div>
+                )}
+                {modalBuscarVisible && (
+                    <div className="modal-buscar2 fixed top-0 left-0 right-0 z-50 flex items-start justify-center pt-6" role="dialog" aria-modal="true">
+                        <div className="modal-buscar2__box sm:max-w-[540px] max-w-[90vw] w-full mx-auto" style={{ width: '100%', maxWidth: '90vw', boxSizing: 'border-box', background: 'linear-gradient(135deg, #e0e7ff 0%, #f3f4f6 60%, #c7d2fe 100%)', boxShadow: '0 8px 32px rgba(80,70,229,0.18)', borderRadius: '22px', border: '1.5px solid #e0e7ff' }}>
                             <button
-                                className="modal-buscar__close"
+                                className="modal-buscar2__close"
                                 aria-label="Cerrar"
                                 style={{
                                     transition: 'background 0.18s, color 0.18s',
@@ -749,13 +752,13 @@ const selectDesdePendiente = (row: PendienteItem) => {
 
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', position: 'relative' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                                    <h3 className="modal-buscar__heading">
+                                    <h3 className="modal-buscar2__heading" style={{ textAlign: 'center', width: '100%', fontFamily: 'serif', fontWeight: 800, fontSize: '1.55rem', color: '#3b2f7f', letterSpacing: '0.03em', textShadow: '0 2px 8px #c7d2fe' }}>
                                         {modoSoloPendientes ? 'Registros Pendientes' : (modoListado ? 'Listado General' : 'Buscar Registros')}
                                     </h3>
                                     {!modoSoloPendientes && (
                                         <button 
-                                            className="btn-minimal"
-                                            style={{ position: 'relative', zIndex: 1 }}
+                                            className="btn-minimal px-1 py-0.5 text-xs rounded-md flex items-center justify-center"
+                                            style={{ position: 'relative', zIndex: 1, minWidth: 60, height: 28, fontWeight: 600, letterSpacing: '0.01em', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                                             onClick={() => {
                                                 const entrandoEnModoListado = !modoListado;
                                                 setModoListado(entrandoEnModoListado);
@@ -786,7 +789,7 @@ const selectDesdePendiente = (row: PendienteItem) => {
                                             {listadoLoading && <tr><td colSpan={3} className="text-center py-4">Cargando...</td></tr>}
                                             {!listadoLoading && listadoPersonas.length === 0 && <tr><td colSpan={3} className="text-center py-4">No hay registros</td></tr>}
                                             {!listadoLoading && listadoPersonas
-                                                .slice(listadoPage * LISTADO_PAGE_SIZE, (listadoPage + 1) * LISTADO_PAGE_SIZE)
+                                                .slice(listadoPage * 7, (listadoPage + 1) * 7)
                                                 .map(p => (
                                                 <tr key={p.id} onClick={() => selectPersona(p)} className="cursor-pointer transition-colors hover:bg-indigo-50">
                                                     <td className="px-2 py-3">{p.nombre}</td>
@@ -796,23 +799,23 @@ const selectDesdePendiente = (row: PendienteItem) => {
                                             ))}
                                         </tbody>
                                     </table>
-                                     <div className="mt-3 flex items-center justify-between text-white">
+                                     <div className="mt-3 flex items-center justify-between text-white gap-4">
                                             <button
                                                 onClick={() => setListadoPage(p => Math.max(0, p - 1))}
                                                 disabled={listadoPage === 0}
-                                                className="px-3 py-1 rounded-lg border border-white/25 bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed transition hover:bg-white/20"
+                                                className="px-3 py-1.5 rounded-lg font-semibold border border-indigo-300 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-400 text-white shadow disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 hover:scale-105 hover:bg-gradient-to-r hover:from-pink-400 hover:to-indigo-500 sm:px-3 sm:py-1.5 px-2 py-1 text-sm"
                                             >
-                                                Atrás
+                                                ◀ Atrás
                                             </button>
-                                            <div className="opacity-85">
+                                            <div className="opacity-90 text-lg font-semibold drop-shadow">
                                                 Página {listadoPage + 1} de {Math.ceil(totalPersonas / LISTADO_PAGE_SIZE)}
                                             </div>
                                             <button
                                                 onClick={() => setListadoPage(p => Math.min(Math.ceil(totalPersonas / LISTADO_PAGE_SIZE) - 1, p + 1))}
                                                 disabled={listadoPage >= Math.ceil(totalPersonas / LISTADO_PAGE_SIZE) - 1}
-                                                className="px-3 py-1 rounded-lg border border-white/25 bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed transition hover:bg-white/20"
+                                                className="px-3 py-1.5 rounded-lg font-semibold border border-indigo-300 bg-gradient-to-r from-pink-400 via-purple-500 to-indigo-500 text-white shadow disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 hover:scale-105 hover:bg-gradient-to-r hover:from-indigo-500 hover:to-pink-400 sm:px-3 sm:py-1.5 px-2 py-1 text-sm"
                                             >
-                                                Siguiente
+                                                Siguiente ▶
                                             </button>
                                         </div>
                                 </>

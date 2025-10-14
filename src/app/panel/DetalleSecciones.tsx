@@ -1,8 +1,6 @@
 // app/panel/DetalleSecciones.tsx
 "use client";
 
-// PASO 1: AÑADIR IMPORTACIONES PARA NAVEGACIÓN Y TIPOS
-import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState, CSSProperties, memo } from "react";
 import {
   PieChart,
@@ -11,20 +9,20 @@ import {
   ResponsiveContainer,
   Tooltip,
 } from "recharts";
-import { scaleBand, scaleLinear, max as d3max } from "d3";
-import type { Range } from "@/lib/metrics";
 
-/* ============================ Tipos (Actualizado) ============================ */
+/* ============================ Tipos ============================ */
 type AsistEtapaRow = {
   etapa: string;
   confirmados: number;
   noAsistieron: number;
   total: number;
 };
+
 type AgendadoRow = {
   etapa_modulo: string;
   agendados_pendientes: number;
 };
+
 type AsistModuloRow = {
   etapa: string;
   modulo: number;
@@ -33,21 +31,20 @@ type AsistModuloRow = {
   total: number;
 };
 
-// PASO 2: ACTUALIZAR LAS PROPS PARA ACEPTAR EL FILTRO ACTUAL
 type DetalleSeccionesProps = {
   asistEtapas: AsistEtapaRow[];
   agendados?: AgendadoRow[];
   asistPorModulo?: AsistModuloRow[];
   defaultKey?: string;
-  currentRange?: Range;
 };
 
-/* ============================ Constantes y Utils (Sin cambios) ============================ */
+/* ============================ Constantes ============================ */
 const GREEN = "#34d399";
 const GREEN_LIGHT = "#4ade80";
 const RED = "#dc2626";
 const RED_LIGHT = "#f87171";
 
+/* ============================ Util ============================ */
 function etiquetaEtapaModulo(etapa: string, modulo: number) {
   if (!etapa) return `Módulo ${modulo}`;
   const base = etapa.trim().split(/\s+/)[0];
@@ -55,6 +52,7 @@ function etiquetaEtapaModulo(etapa: string, modulo: number) {
   return `${nombre} ${modulo}`;
 }
 
+/* ====================== Paleta para etapas (stack) ===================== */
 function colorPorEtapa(etapa: string): string {
   const m: Record<string, string> = {
     Semillas: "linear-gradient(180deg, #fecaca 0%, #f87171 100%)",
@@ -81,340 +79,143 @@ function colorPorEtapa(etapa: string): string {
   return `linear-gradient(180deg, ${c1} 0%, ${c2} 100%)`;
 }
 
-// PASO 3: AÑADIR EL NUEVO COMPONENTE PARA LOS BOTONES DE FILTRO
-function RangeSelector({ currentRange }: { currentRange?: Range }) {
-  const router = useRouter();
-  const pathname = usePathname();
 
-  const setRange = (range: Range) => {
-    const params = new URLSearchParams();
-    if (range) {
-      params.set("range", range);
-    }
-    router.replace(`${pathname}?${params.toString()}`);
-  };
+/* ====================== Componentes de Gráficos de Barras Horizontales ===================== */
 
-  const ranges: { key: Range; label: string }[] = [
-    { key: 'today', label: 'Hoy' },
-    { key: 'week', label: 'Semana' },
-    { key: 'month', label: 'Mes' },
+// --- Componente de Gráfico para la sección de AGENDADOS ---
+const PremiumHorizontalBars = ({ data }: { data: AgendadoRow[] }) => {
+  const [widths, setWidths] = useState<Record<string, number>>({});
+  const sortedData = [...data].sort((a, b) => b.agendados_pendientes - a.agendados_pendientes);
+  const maxValue = Math.max(...sortedData.map(d => d.agendados_pendientes), 0);
+  
+  const gradients = [
+    "from-violet-500 to-purple-500",
+    "from-sky-500 to-indigo-500",
+    "from-emerald-500 to-teal-500",
+    "from-rose-500 to-pink-500",
+    "from-amber-500 to-orange-500",
   ];
+  
+  useEffect(() => {
+    const newWidths: Record<string, number> = {};
+    sortedData.forEach(d => {
+      newWidths[d.etapa_modulo] = maxValue > 0 ? (d.agendados_pendientes / maxValue) * 100 : 0;
+    });
+    const id = requestAnimationFrame(() => setWidths(newWidths));
+    return () => cancelAnimationFrame(id);
+  }, [data, maxValue]);
 
+  if (!data || data.length === 0) {
+    return <p className="text-center text-slate-500 py-8">No hay datos de agendados.</p>
+  }
+  
   return (
-    <div className="range-selector">
-      {ranges.map(({ key, label }) => (
-        <button
-          key={key}
-          onClick={() => setRange(key)}
-          className={currentRange === key ? 'active' : ''}
-        >
-          {label}
-        </button>
+    <div className="w-full h-full flex flex-col gap-3 py-2 pr-4">
+      {sortedData.map((d, index) => (
+        <div key={d.etapa_modulo} className="grid grid-cols-[minmax(80px,1fr)_2fr] items-center gap-x-3">
+          <div className="text-sm text-slate-500 text-right truncate" title={d.etapa_modulo}>
+            {d.etapa_modulo}
+          </div>
+          <div className="flex items-center gap-2.5">
+            <div className="relative h-3.5 w-full bg-slate-200/60 rounded-full overflow-hidden">
+              <div
+                className={`absolute inset-y-0 left-0 rounded-full bg-gradient-to-r ${gradients[index % gradients.length]}`}
+                style={{
+                  width: `${widths[d.etapa_modulo] || 0}%`,
+                  transition: 'width 800ms cubic-bezier(0.25, 1, 0.5, 1)'
+                }}
+              />
+            </div>
+            <div className="text-sm font-semibold text-slate-700 tabular-nums w-8 text-left">
+              {d.agendados_pendientes}
+            </div>
+          </div>
+        </div>
       ))}
     </div>
   );
-}
+};
 
-/* ====================== Barras Horizontales (base) - Sin Cambios ===================== */
-type HBarDatum = { key: string; value: number; color?: string };
+// --- NUEVO Componente de Gráfico para la sección de ASISTENCIAS ---
+type AsistBarData = { label: string; value: number; type: 'asistencia' | 'inasistencia' };
 
-const BarRow = memo(function BarRow({
-  topPct,
-  heightPct,
-  widthPct,
-  gradientClass,
-  value,
-}: {
-  topPct: number;
-  heightPct: number;
-  widthPct: number; // 0..100
-  gradientClass: string;
-  value: number;
-}) {
-  const [w, setW] = useState(0);
-  useEffect(() => {
-    const id = requestAnimationFrame(() => setW(widthPct));
-    return () => cancelAnimationFrame(id);
-  }, [widthPct]);
+const AsistenciasHorizontalBars = ({ data }: { data: AsistBarData[] }) => {
+  const [widths, setWidths] = useState<Record<string, number>>({});
+  // Ordenar por tipo (inasistencia al final) y luego por valor
+  const sortedData = [...data].sort((a, b) => {
+    if (a.type === 'inasistencia' && b.type !== 'inasistencia') return 1;
+    if (a.type !== 'inasistencia' && b.type === 'inasistencia') return -1;
+    return b.value - a.value;
+  });
+  
+  const maxValue = Math.max(...sortedData.map(d => d.value), 0);
 
-  return (
-    <div
-      style={{
-        position: "absolute",
-        left: 0,
-        top: `${topPct}%`,
-        width: `${w}%`,
-        height: `${heightPct}%`,
-        borderRadius: "0 6px 6px 0",
-        boxShadow: "0 2px 18px 0 rgba(56,189,248,0.18)",
-        transition: "width 800ms cubic-bezier(.2,.8,.2,1)",
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'flex-end',
-        paddingRight: 8,
-      }}
-      className={`bg-gradient-to-b ${gradientClass}`}
-    >
-      <span
-        className="text-[12px] font-bold text-white pointer-events-none tabular-nums"
-        style={{
-          textShadow: "0 2px 8px rgba(0,0,0,0.18)",
-          background: "rgba(56,189,248,0.18)",
-          borderRadius: 6,
-          padding: "2px 8px",
-          maxWidth: '90%',
-          overflow: 'hidden',
-          whiteSpace: 'nowrap',
-          textAlign: 'right',
-        }}
-      >
-        {value}
-      </span>
-    </div>
-  );
-});
-
-/* ======= Segmento para barra apilada de inasistencias - Sin Cambios ======= */
-const EtapaSegment = memo(function EtapaSegment({
-  leftPct,
-  widthPct,
-  color,
-  radiusLeft,
-  radiusRight,
-}: {
-  leftPct: number;
-  widthPct: number;
-  color: string;
-  radiusLeft?: number;
-  radiusRight?: number;
-}) {
-  const [w, setW] = useState(0);
-  useEffect(() => {
-    const id = requestAnimationFrame(() => setW(widthPct));
-    return () => cancelAnimationFrame(id);
-  }, [widthPct]);
-
-  return (
-    <div
-      className="absolute top-0 h-full"
-      style={{
-        left: `${leftPct}%`,
-        width: `${w}%`,
-        background: color,
-        borderTopLeftRadius: radiusLeft ?? 0,
-        borderBottomLeftRadius: radiusLeft ?? 0,
-        borderTopRightRadius: radiusRight ?? 0,
-        borderBottomRightRadius: radiusRight ?? 0,
-        transition: "width 800ms cubic-bezier(.2,.8,.2,1)",
-        boxShadow: "0 2px 12px rgba(0,0,0,0.08) inset",
-      }}
-    />
-  );
-});
-
-/* ============ Barras por módulo + barra apilada de inasistencias - Sin Cambios ============ */
-function BarsWithInasistStack({
-  dataBars,
-  asistPorModulo,
-  className = "",
-}: {
-  dataBars: HBarDatum[];
-  asistPorModulo: AsistModuloRow[];
-  className?: string;
-}) {
-  const sorted = [...dataBars].sort((a, b) => (b.value ?? 0) - (a.value ?? 0));
-  const byEtapa = new Map<string, number>();
-  for (const row of asistPorModulo) {
-    const etapa = (row.etapa || "Desconocido").trim();
-    const n = row.noAsistieron || 0;
-    if (n > 0) byEtapa.set(etapa, (byEtapa.get(etapa) || 0) + n);
-  }
-  const etapas = [...byEtapa.entries()].sort((a, b) =>
-    a[0].localeCompare(b[0], "es", { sensitivity: "base" })
-  );
-  const totalInasist = etapas.reduce((s, [, v]) => s + v, 0);
-  const maxValue = d3max([
-    ...sorted.map((d) => d.value),
-    totalInasist,
-    0,
-  ]) ?? 0;
-  const xScale = scaleLinear().domain([0, maxValue]).range([0, 100]);
-  const keys = [...sorted.map((d) => d.key), "Inasistencias"];
-  const yScale = scaleBand<string>().domain(keys).range([0, 100]).padding(0.175);
-  const longest = keys.reduce((m, k) => Math.max(m, k.length), 1);
-  const rows = keys.length;
-  const heightPx = Math.max(120, 22 * rows);
-  const gradients = [
-    "from-pink-300 to-pink-400",
-    "from-purple-300 to-purple-400",
-    "from-indigo-300 to-indigo-400",
-    "from-sky-300 to-sky-400",
-    "from-orange-200 to-orange-300",
-    "from-lime-300 to-lime-400",
+  const asistGradients = [
+    "from-emerald-400 to-teal-500",
+    "from-green-400 to-emerald-500",
+    "from-cyan-400 to-sky-500",
+    "from-teal-400 to-cyan-500",
+    "from-lime-400 to-green-500",
   ];
+  const inasistGradient = "from-rose-500 to-red-600";
+  
+  useEffect(() => {
+    const newWidths: Record<string, number> = {};
+    sortedData.forEach(d => {
+      newWidths[d.label] = maxValue > 0 ? (d.value / maxValue) * 100 : 0;
+    });
+    const id = requestAnimationFrame(() => setWidths(newWidths));
+    return () => cancelAnimationFrame(id);
+  }, [data, maxValue]);
+
+  if (!data || data.length === 0) {
+    return <p className="text-center text-slate-500 py-8">No hay datos de asistencias.</p>;
+  }
+  
+  let asistenciaIndex = 0;
   return (
-    <div
-      className={`relative w-full ${className}`}
-      style={
-        {
-          height: heightPx,
-          "--marginTop": "0px",
-          "--marginRight": "0px",
-          "--marginBottom": "16px",
-          "--marginLeft": `${longest * 7}px`,
-        } as CSSProperties
-      }
-    >
-      <div
-        className="absolute inset-0 z-10
-          h-[calc(100%-var(--marginTop)-var(--marginBottom))]
-          translate-y-[var(--marginTop)]
-          w-[calc(100%-var(--marginLeft)-var(--marginRight))]
-          translate-x-[var(--marginLeft)]
-          overflow-visible"
-      >
-        {sorted.map((d, index) => {
-          const widthPct = xScale(d.value);
-          const heightPct = yScale.bandwidth();
-          const topPct = yScale(d.key)!;
-          const gradientClass = d.color ?? gradients[index % gradients.length];
-          return (
-            <BarRow
-              key={`mod-${d.key}`}
-              topPct={topPct}
-              heightPct={heightPct}
-              widthPct={widthPct}
-              gradientClass={gradientClass}
-              value={d.value}
-            />
-          );
-        })}
-        {totalInasist > 0 && (
-          <div
-            className="absolute left-0"
-            style={{
-              top: `${yScale("Inasistencias")!}%`,
-              width: `${xScale(totalInasist)}%`,
-              height: `${yScale.bandwidth()}%`,
-              borderRadius: "0 6px 6px 0",
-              background: "transparent",
-            }}
-          >
-            {(() => {
-              let acc = 0;
-              const segments = etapas.map(([etapa, value], i, arr) => {
-                const start = acc;
-                acc += value;
-                const leftPct = xScale(start);
-                const widthPct = xScale(value);
-                const isFirst = i === 0;
-                const isLast = i === arr.length - 1;
-                return (
-                  <EtapaSegment
-                    key={`seg-${etapa}`}
-                    leftPct={leftPct}
-                    widthPct={widthPct}
-                    color={colorPorEtapa(etapa)}
-                    radiusLeft={isFirst ? 8 : 0}
-                    radiusRight={isLast ? 8 : 0}
-                  />
-                );
-              });
-              const totalLeft = Math.max(0, xScale(totalInasist) - 4);
-              return (
-                <>
-                  {segments}
-                  <span
-                    className="absolute -top-4 right-0 text-[12px] font-bold tabular-nums"
-                    style={{
-                      background: 'rgba(255, 71, 87, 0.18)',
-                      color: '#e11d48',
-                      borderRadius: '6px',
-                      padding: '2px 8px',
-                      maxWidth: '90%',
-                      overflow: 'hidden',
-                      whiteSpace: 'nowrap',
-                      textAlign: 'right',
-                      boxShadow: '0 2px 8px rgba(0,0,0,0.10)',
-                    }}
-                  >
-                    {totalInasist}
-                  </span>
-                </>
-              );
-            })()}
-          </div>
-        )}
-        <svg className="h-full w-full" viewBox="0 0 100 100" preserveAspectRatio="none">
-          {xScale
-            .ticks(8)
-            .map(xScale.tickFormat(8, "d"))
-            .map((active, i) => (
-              <g
-                key={`grid-${i}`}
-                transform={`translate(${xScale(+active)},0)`}
-                className="text-gray-300/80 dark:text-gray-800/80"
-              >
-                <line
-                  y1={0}
-                  y2={100}
-                  stroke="currentColor"
-                  strokeDasharray="6,5"
-                  strokeWidth={0.5}
-                  vectorEffect="non-scaling-stroke"
+    <div className="w-full h-full flex flex-col gap-3.5 py-2 px-4">
+      {sortedData.map((d) => {
+        const isAsistencia = d.type === 'asistencia';
+        const gradient = isAsistencia ? asistGradients[asistenciaIndex++ % asistGradients.length] : inasistGradient;
+        const labelColor = isAsistencia ? "text-slate-500" : "text-red-600 font-semibold";
+        
+        return (
+          <div key={d.label} className="grid grid-cols-[minmax(80px,1.2fr)_2fr] items-center gap-x-3">
+            <div className={`text-sm text-right truncate ${labelColor}`} title={d.label}>
+              {d.label}
+            </div>
+            <div className="flex items-center gap-2.5">
+              <div className="relative h-3.5 w-full bg-slate-200/60 rounded-full overflow-hidden">
+                <div
+                  className={`absolute inset-y-0 left-0 rounded-full bg-gradient-to-r ${gradient}`}
+                  style={{
+                    width: `${widths[d.label] || 0}%`,
+                    transition: 'width 800ms cubic-bezier(0.25, 1, 0.5, 1)'
+                  }}
                 />
-              </g>
-            ))}
-        </svg>
-        {xScale.ticks(4).map((value, i) => (
-          <div
-            key={`xtick-${i}`}
-            style={{ left: `${xScale(value)}%`, top: "100%" }}
-            className="absolute text-xs -translate-x-1/2 tabular-nums text-gray-400"
-          >
-            {value}
+              </div>
+              <div className="text-sm font-semibold text-slate-700 tabular-nums w-8 text-left">
+                {d.value}
+              </div>
+            </div>
           </div>
-        ))}
-      </div>
-      <div
-        className="h-[calc(100%-var(--marginTop)-var(--marginBottom))]
-           w-[var(--marginLeft)]
-           translate-y-[var(--marginTop)]
-           overflow-visible relative"
-      >
-        {keys.map((k) => (
-          <span
-            key={`ylabel-${k}`}
-            style={{
-              left: "-8px",
-              top: `${yScale(k)! + yScale.bandwidth() / 2}%`,
-            }}
-            className={`absolute text-xs -translate-y-1/2 w-full text-right ${
-              k === "Inasistencias" ? "text-rose-500 font-semibold" : "text-gray-400"
-            }`}
-            title={k}
-          >
-            {k}
-          </span>
-        ))}
-      </div>
+        );
+      })}
     </div>
   );
-}
+};
 
-/* ========================= Componente principal (Actualizado) ========================= */
-// PASO 4: ACTUALIZAR LA "FIRMA" DEL COMPONENTE PARA RECIBIR LA PROP
+
+/* ========================= Componente principal ========================= */
 export default function DetalleSecciones({
   asistEtapas,
   agendados = [],
   asistPorModulo = [],
   defaultKey,
-  currentRange = 'month', // Recibimos la prop y le damos un valor por defecto
 }: DetalleSeccionesProps) {
   const [view, setView] = useState<string | null>(defaultKey || null);
 
-  // El resto de tu lógica de cálculo de totales y datos para los gráficos
-  // permanece exactamente igual. No se toca nada aquí.
   const totalConfirmados = asistEtapas.reduce((s, r) => s + (r.confirmados || 0), 0);
   const totalNoAsistieron = asistEtapas.reduce((s, r) => s + (r.noAsistieron || 0), 0);
   const totalAsist = totalConfirmados + totalNoAsistieron;
@@ -426,13 +227,23 @@ export default function DetalleSecciones({
   const pctOk = pct(totalConfirmados, totalAsist);
   const pctNo = pct(totalNoAsistieron, totalAsist);
   const totalAgend = agendados.reduce((s, r) => s + (r.agendados_pendientes || 0), 0);
-  const barsDataTotal: HBarDatum[] = asistPorModulo
-    .map((m) => ({
-      key: etiquetaEtapaModulo(m.etapa, m.modulo),
+  
+  // --- Datos para el NUEVO gráfico de barras de Asistencias ---
+  const totalInasist = asistPorModulo.reduce((s, r) => s + (r.noAsistieron || 0), 0);
+  const asistenciasChartData: AsistBarData[] = [
+    ...asistPorModulo.map(m => ({
+      label: etiquetaEtapaModulo(m.etapa, m.modulo),
       value: m.total,
-      color: ["from-pink-300 to-pink-400","from-purple-300 to-purple-400","from-indigo-300 to-indigo-400","from-sky-300 to-sky-400","from-orange-200 to-orange-300","from-lime-300 to-lime-400"][(m.modulo - 1) % 6],
-    }))
-    .sort((a, b) => b.value - a.value);
+      type: 'asistencia' as const,
+    })),
+    {
+      label: 'Inasistencias',
+      value: totalInasist,
+      type: 'inasistencia' as const,
+    }
+  ].filter(item => item.value > 0);
+
+  // --- Datos para los CHIPS de Inasistencias (CONSERVADO) ---
   const inasistChips = asistPorModulo
     .filter((m) => (m.noAsistieron || 0) > 0)
     .map((m) => ({
@@ -443,13 +254,7 @@ export default function DetalleSecciones({
     }))
     .sort((a, b) => b.value - a.value);
 
-  const CustomTooltip = ({
-    active,
-    payload,
-  }: {
-    active?: boolean;
-    payload?: Array<{ value: number; name: string }>;
-  }) => {
+  const CustomTooltip = ({ active, payload }: { active?: boolean; payload?: Array<{ value: number; name: string }>; }) => {
     if (active && payload && payload.length) {
       const { name, value } = payload[0];
       const base = view === "agendados" ? totalAgend : totalAsist;
@@ -490,192 +295,154 @@ export default function DetalleSecciones({
   }, [view, totalAsist, totalAgend]);
 
   return (
-    <div className="grid premium-grid items-start overflow-visible">
-      {!view && (
-        <section className="card span-2 animate-fadeIn premium-glass">
-          <h2 className="card-title">Bienvenido</h2>
-          <p className="text-muted">Selecciona una tarjeta KPI para ver detalles.</p>
-        </section>
-      )}
+    <>
+      <style jsx>{`
+        .agendados-container, .asistencias-container {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+          gap: 1.5rem; /* 24px */
+          align-items: start;
+        }
+      `}</style>
+    
+      <div className="overflow-visible mt-6">
+        {!view && (
+          <div className="grid premium-grid">
+            <section className="card span-2 animate-fadeIn premium-glass">
+              <h2 className="card-title">Bienvenido</h2>
+              <p className="text-muted">Selecciona una tarjeta KPI para ver detalles.</p>
+            </section>
+          </div>
+        )}
 
-      {view === "asistencias" && (
-        <>
-          <section className="card premium-glass animate-slideIn relative panel-compact self-start max-w-[min(560px,94vw)] mx-auto lg:max-w-none">
-            <div className="card-head">
-              <h2 className="card-title">Gráfico de Asistencias</h2>
-            </div>
-            <div className="panel-body">
-              <div className="asistencias-labels flex justify-between w-full px-4 mt-1 mb-3 text-sm">
-                <div className="flex flex-col items-center text-green-600 font-semibold">
-                  <span>
-                    Asistieron{" "}
-                    <span className="font-bold text-lg tabular-nums">{totalConfirmados}</span>
-                  </span>
-                  <span className="text-green-600 font-bold text-sm tabular-nums">{pctOk}%</span>
+        {view === "asistencias" && (
+          <div className="asistencias-container">
+            <section className="card premium-glass animate-slideIn relative panel-compact self-start">
+              <div className="card-head"><h2 className="card-title">Gráfico de Asistencias</h2></div>
+              <div className="panel-body">
+                <div className="asistencias-labels flex justify-between w-full px-4 mt-1 mb-3 text-sm">
+                  <div className="flex flex-col items-center text-green-600 font-semibold">
+                    <span>Asistieron <span className="font-bold text-lg tabular-nums">{totalConfirmados}</span></span>
+                    <span className="text-green-600 font-bold text-sm tabular-nums">{pctOk}%</span>
+                  </div>
+                  <div className="flex flex-col items-center text-red-600 font-semibold">
+                    <span>No asistieron <span className="font-bold text-lg tabular-nums">{totalNoAsistieron}</span></span>
+                    <span className="text-red-600 font-bold text-sm tabular-nums">{pctNo}%</span>
+                  </div>
                 </div>
-                <div className="flex flex-col items-center text-red-600 font-semibold">
-                  <span>
-                    No asistieron{" "}
-                    <span className="font-bold text-lg tabular-nums">{totalNoAsistieron}</span>
-                  </span>
-                  <span className="text-red-600 font-bold text-sm tabular-nums">{pctNo}%</span>
-                </div>
-              </div>
-              <div className="panel-chart relative mx-auto max-w-[min(360px,88vw)] aspect-square overflow-hidden flex items-center justify-center">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <defs>
-                      <linearGradient id="gradOk" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor={GREEN_LIGHT} />
-                        <stop offset="100%" stopColor={GREEN} />
-                      </linearGradient>
-                      <linearGradient id="gradNo" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor={RED_LIGHT} />
-                        <stop offset="100%" stopColor={RED} />
-                      </linearGradient>
-                    </defs>
-                    <Pie
-                      data={dataAsist}
-                      dataKey="value"
-                      innerRadius="55%"
-                      outerRadius="82%"
-                      startAngle={90}
-                      endAngle={-270}
-                      paddingAngle={0}
-                      cornerRadius={12}
-                      isAnimationActive
-                      animationBegin={100}
-                      animationDuration={900}
-                      animationEasing="ease-out"
-                    >
-                      {dataAsist.map((d, i) => (
-                        <Cell key={i} fill={d.color} stroke="#ffffff" strokeWidth={3} />
-                      ))}
-                    </Pie>
-                    <Tooltip content={<CustomTooltip />} />
-                  </PieChart>
-                </ResponsiveContainer>
-                <div className="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none donut-center px-2">
-                  <p className="text-3xl leading-tight font-extrabold text-gray-900 tabular-nums">
-                    {animatedTotal.toLocaleString()}
-                  </p>
-                  <p className="text-gray-500 text-xs mt-0.5">Total</p>
-                </div>
-              </div>
-            </div>
-          </section>
-
-          <section className="card premium-glass animate-slideIn panel-compact panel-elastico self-start max-w-[min(560px,94vw)] mx-auto lg:max-w-none flex flex-col overflow-visible pb-4">
-            
-            {/* PASO 5: INTEGRAR EL COMPONENTE DE FILTROS EN EL JSX */}
-            <div className="card-head pb-0 flex justify-between items-center">
-              <h2 className="card-title">Detalle por etapa</h2>
-              <RangeSelector currentRange={currentRange} />
-            </div>
-
-            <div className="px-2 pt-3">
-              <h3 className="text-sm font-semibold text-slate-700 px-1 mb-2">
-                Asistencias por módulo (Total) + Inasistencias
-              </h3>
-              <BarsWithInasistStack
-                dataBars={barsDataTotal}
-                asistPorModulo={asistPorModulo}
-              />
-            </div>
-
-            {inasistChips.length > 0 && (
-              <div className="px-4 pt-2 pb-3">
-                <div className="w-full rounded-xl bg-white/70 ring-1 ring-slate-200/70 backdrop-blur-sm px-3 py-2 flex items-center gap-3">
-                  <span className="text-rose-600 font-semibold whitespace-nowrap">
-                    Inasistencias
-                  </span>
-                  <div className="overflow-visible">
-                    {Array.from({ length: Math.ceil(inasistChips.length / 2) }).map((_, rowIdx) => (
-                      <div key={`chip-row-${rowIdx}`} className="chip-row">
-                        {inasistChips.slice(rowIdx * 2, rowIdx * 2 + 2).map((c) => (
-                          <span
-                            key={`chip-${c.label}`}
-                            className="chip-inasistencia"
-                            title={`${c.label}: ${c.value}`}
-                          >
-                            <span
-                              className="chip-inasistencia-color"
-                              style={{ background: c.color, boxShadow: '0 0 0 1px rgba(0,0,0,0.06) inset' }}
-                            />
-                            <span className="truncate">{c.label}</span>
-                            <span className="tabular-nums font-semibold">={' '}{c.value}</span>
-                          </span>
-                        ))}
-                      </div>
-                    ))}
+                <div className="panel-chart relative mx-auto max-w-[min(360px,88vw)] aspect-square overflow-hidden flex items-center justify-center">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <defs>
+                        <linearGradient id="gradOk" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={GREEN_LIGHT} /><stop offset="100%" stopColor={GREEN} /></linearGradient>
+                        <linearGradient id="gradNo" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={RED_LIGHT} /><stop offset="100%" stopColor={RED} /></linearGradient>
+                      </defs>
+                      <Pie data={dataAsist} dataKey="value" innerRadius="55%" outerRadius="82%" startAngle={90} endAngle={-270} paddingAngle={0} cornerRadius={12} isAnimationActive animationBegin={100} animationDuration={900} animationEasing="ease-out">
+                        {dataAsist.map((d, i) => (<Cell key={i} fill={d.color} stroke="#ffffff" strokeWidth={3} />))}
+                      </Pie>
+                      <Tooltip content={<CustomTooltip />} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none donut-center px-2">
+                    <p className="text-3xl leading-tight font-extrabold text-gray-900 tabular-nums">{animatedTotal.toLocaleString()}</p>
+                    <p className="text-gray-500 text-xs mt-0.5">Total</p>
                   </div>
                 </div>
               </div>
-            )}
-
-            <div className="panel-body px-0 py-0 mt-1">
-              <div className="premium-table-row premium-table-header">
-                <span>ETAPA</span>
-                <span className="text-center">ASISTENCIAS</span>
-                <span className="text-center">INASISTENCIAS</span>
-                <span className="text-right">TOTAL</span>
+            </section>
+            
+            <section className="card premium-glass animate-slideIn panel-compact panel-elastico self-start flex flex-col overflow-visible pb-4">
+              <div className="card-head pb-0"><h2 className="card-title">Detalle por etapa</h2></div>
+              <div className="px-2 pt-3">
+                <h3 className="text-sm font-semibold text-slate-700 px-1 mb-2">Asistencias por módulo (Total) + Inasistencias</h3>
+                {/* --- REEMPLAZO QUIRÚRGICO DEL GRÁFICO --- */}
+                <AsistenciasHorizontalBars data={asistenciasChartData} />
               </div>
-              {asistEtapas.map((row, i) => (
-                <div key={i} className="premium-table-row premium-table-item">
-                  <span className="font-medium text-slate-700">{row.etapa}</span>
-                  <span className="text-center font-semibold text-green-600 tabular-nums">{row.confirmados}</span>
-                  <span className="text-center font-semibold text-red-600 tabular-nums">{row.noAsistieron}</span>
-                  <span className="text-right font-semibold text-gray-800 tabular-nums">{row.total}</span>
+              
+              {/* --- SECCIÓN DE CHIPS CONSERVADA --- */}
+              {inasistChips.length > 0 && (
+                <div className="px-4 pt-2 pb-3">
+                  <div className="w-full rounded-xl bg-white/70 ring-1 ring-slate-200/70 backdrop-blur-sm px-3 py-2 flex items-center gap-3">
+                    <span className="text-rose-600 font-semibold whitespace-nowrap">Inasistencias</span>
+                    <div className="overflow-visible">
+                      {Array.from({ length: Math.ceil(inasistChips.length / 2) }).map((_, rowIdx) => (
+                        <div key={`chip-row-${rowIdx}`} className="chip-row">
+                          {inasistChips.slice(rowIdx * 2, rowIdx * 2 + 2).map((c) => (
+                            <span key={`chip-${c.label}`} className="chip-inasistencia" title={`${c.label}: ${c.value}`}>
+                              <span className="chip-inasistencia-color" style={{ background: c.color, boxShadow: '0 0 0 1px rgba(0,0,0,0.06) inset' }} />
+                              <span className="truncate">{c.label}</span>
+                      <span className="tabular-nums font-semibold">={' '}{c.value}</span>
+                            </span>
+                          ))}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 </div>
-              ))}
-            </div>
-          </section>
-        </>
-      )}
+              )}
+              
+              {/* --- TABLA INFERIOR CONSERVADA --- */}
+              <div className="panel-body px-0 py-0 mt-1">
+                <div className="premium-table-row premium-table-header">
+                  <span>ETAPA</span>
+                  <span className="text-center">ASISTENCIAS</span>
+                  <span className="text-center">INASISTENCIAS</span>
+                  <span className="text-right">TOTAL</span>
+                </div>
+                {asistEtapas.map((row, i) => (
+                  <div key={i} className="premium-table-row premium-table-item">
+                    <span className="font-medium text-slate-700">{row.etapa}</span>
+                    <span className="text-center font-semibold text-green-600 tabular-nums">{row.confirmados}</span>
+                    <span className="text-center font-semibold text-red-600 tabular-nums">{row.noAsistieron}</span>
+                    <span className="text-right font-semibold text-gray-800 tabular-nums">{row.total}</span>
+                  </div>
+                ))}
+              </div>
+            </section>
+          </div>
+        )}
 
-      {view === "agendados" && (
-        <>
-          <section className="card premium-glass animate-slideIn relative panel-compact self-start">
-            <div className="card-head">
-              <h2 className="card-title">Agendados por semana</h2>
-            </div>
-            <div className="panel-body">
-              <div className="panel-chart relative">
-                <ResponsiveContainer width="100%" height="100%">
-                  <></>
-                </ResponsiveContainer>
-                <div className="absolute top-3 right-4 text-right chart-meta">
+        {view === "agendados" && (
+          <div className="agendados-container">
+            <section className="agendados-grafico card premium-glass animate-slideIn">
+              <div className="card-head flex justify-between items-center">
+                <h2 className="card-title">Agendados por semana</h2>
+                <div className="text-right chart-meta">
                   <p className="chart-meta-label">Total agendados</p>
                   <p className="chart-meta-value tabular-nums">{totalAgend.toLocaleString()}</p>
                 </div>
               </div>
-            </div>
-          </section>
-          <section className="card premium-glass animate-slideIn panel-compact self-start">
-            <div className="card-head pb-0">
-              <h2 className="card-title">Detalle por etapa/módulo</h2>
-            </div>
-            <div className="panel-body px-0 py-0">
-              <div className="premium-table-row premium-table-header two-cols">
-                <span>Etapa · Módulo</span>
-                <span className="text-right">Agendados</span>
+              <div className="panel-body py-2 px-4">
+                <PremiumHorizontalBars data={agendados} />
               </div>
-              {agendados.map((row, i) => (
-                <div key={i} className="premium-table-row premium-table-item two-cols">
-                  <span className="font-medium text-slate-700">{row.etapa_modulo}</span>
-                  <span className="text-right font-semibold text-gray-800 tabular-nums">
-                    {row.agendados_pendientes}
-                  </span>
+            </section>
+
+            <section className="agendados-detalle card premium-glass animate-slideIn">
+              <div className="card-head pb-0">
+                <h2 className="card-title">Detalle por etapa/módulo</h2>
+              </div>
+              <div className="panel-body px-0 py-0">
+                <div className="premium-table-row premium-table-header two-cols">
+                  <span>Etapa · Módulo</span>
+                  <span className="text-right">Agendados</span>
                 </div>
-              ))}
-              <div className="premium-table-row premium-table-total two-cols">
-                <span>Total</span>
-                <span className="text-right tabular-nums">{totalAgend}</span>
+                {agendados.map((row, i) => (
+                  <div key={i} className="premium-table-row premium-table-item two-cols">
+                    <span className="font-medium text-slate-700">{row.etapa_modulo}</span>
+                    <span className="text-right font-semibold text-gray-800 tabular-nums">
+                      {row.agendados_pendientes}
+                    </span>
+                  </div>
+                ))}
+                <div className="premium-table-row premium-table-total two-cols">
+                  <span>Total</span>
+                  <span className="text-right tabular-nums">{totalAgend}</span>
+                </div>
               </div>
-            </div>
-          </section>
-        </>
-      )}
-    </div>
+            </section>
+          </div>
+        )}
+      </div>
+    </>
   );
 }
