@@ -120,11 +120,13 @@ export async function getAsistenciasConfirmadosYNo(
   return { confirmados, noAsistieron, total };
 }
 
+// ✅ SECCIÓN MODIFICADA
 export async function getAgendadosPorSemana(): Promise<
   Array<{ etapa_modulo: string; agendados_pendientes: number }>
 > {
   const supabase = getClient();
-  const { data, error } = await supabase.from('v_agendados').select('etapa, modulo');
+  // ✅ 1. Añadimos 'dia' a la consulta SELECT
+  const { data, error } = await supabase.from('v_agendados').select('etapa, modulo, dia');
 
   if (error) {
     console.error('getAgendadosPorSemana:', error.message);
@@ -133,11 +135,14 @@ export async function getAgendadosPorSemana(): Promise<
   if (!data) return [];
 
   const agg = new Map<string, number>();
-  for (const row of data as { etapa: string; modulo: number }[]) {
-    const key = `${row.etapa} ${row.modulo}`;
+  // ✅ 2. Tipamos la fila para incluir 'dia'
+  for (const row of data as { etapa: string; modulo: number; dia: string }[]) {
+    // ✅ 3. Creamos una clave de agrupación más descriptiva que incluye el día
+    const key = `${row.etapa} ${row.modulo} (${row.dia})`;
     agg.set(key, (agg.get(key) ?? 0) + 1);
   }
 
+  // 4. El resto de la función no necesita cambios. El `key` se convierte en `etapa_modulo`.
   return Array.from(agg.entries()).map(([etapa_modulo, agendados_pendientes]) => ({
     etapa_modulo,
     agendados_pendientes,
@@ -152,20 +157,20 @@ export async function getAgendadosPorSemana(): Promise<
 export type Etapa = 'Semillas' | 'Devocionales' | 'Restauracion' | string;
 
 /**
- * Agrupa asistencias por MÓDULO.
+ * Agrupa asistencias por MÓDULO y DÍA.
  * Esta versión es RÁPIDA y LÓGICAMENTE CORRECTA, ya que usa los datos históricos
  * de la tabla 'asistencia' que modificamos anteriormente.
  */
 export async function getAsistenciasPorModulo(
   range: Range = 'month'
-): Promise<Array<{ etapa: string; modulo: number; confirmados: number; noAsistieron: number; total: number }>> {
+): Promise<Array<{ etapa: string; modulo: number; dia: string; confirmados: number; noAsistieron: number; total: number }>> {
   noStore();
   const supabase = getClient();
   const r = getRangeUTC(range);
 
   let query = supabase
     .from('asistencia')
-    .select('etapa, modulo, asistio, creado_en');
+    .select('etapa, modulo, dia, asistio, creado_en');
 
   if (r) {
     query = query.gte('creado_en', r.from).lt('creado_en', r.to);
@@ -180,16 +185,17 @@ export async function getAsistenciasPorModulo(
   if (!data || data.length === 0) {
     return [];
   }
-
-  const agg = new Map<string, { etapa: string; modulo: number; confirmados: number; noAsistieron: number }>();
-
-  for (const row of data as { etapa?: string; modulo?: number; asistio?: boolean }[]) {
+  
+  const agg = new Map<string, { etapa: string; modulo: number; dia: string; confirmados: number; noAsistieron: number }>();
+  
+  for (const row of data as { etapa?: string; modulo?: number; dia?: string; asistio?: boolean }[]) {
     const etapa = row.etapa ?? 'Desconocido';
     const modulo = row.modulo ?? 0;
-    const key = `${etapa}#${modulo}`;
+    const dia = row.dia ?? 'Sin día';
+    const key = `${etapa}#${modulo}#${dia}`; // La clave de agrupación ahora incluye el día.
 
     if (!agg.has(key)) {
-      agg.set(key, { etapa, modulo, confirmados: 0, noAsistieron: 0 });
+      agg.set(key, { etapa, modulo, dia, confirmados: 0, noAsistieron: 0 });
     }
 
     const current = agg.get(key)!;
@@ -207,9 +213,13 @@ export async function getAsistenciasPorModulo(
     }))
     .sort((a, b) => {
       const et = a.etapa.localeCompare(b.etapa, 'es', { sensitivity: 'base' });
-      return et !== 0 ? et : a.modulo - b.modulo;
+      if (et !== 0) return et;
+      const diaCompare = a.dia.localeCompare(b.dia, 'es', { sensitivity: 'base' });
+      if (diaCompare !== 0) return diaCompare;
+      return a.modulo - b.modulo;
     });
 }
+
 
 /**
  * Agrupa asistencias por ETAPA.

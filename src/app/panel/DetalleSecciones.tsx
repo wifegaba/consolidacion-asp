@@ -23,9 +23,11 @@ type AgendadoRow = {
   agendados_pendientes: number;
 };
 
+// ✅ MODIFICADO: Se añade 'dia' al tipo de dato que viene del backend.
 type AsistModuloRow = {
   etapa: string;
   modulo: number;
+  dia: string;
   confirmados: number;
   noAsistieron: number;
   total: number;
@@ -45,11 +47,12 @@ const RED = "#dc2626";
 const RED_LIGHT = "#f87171";
 
 /* ============================ Util ============================ */
-function etiquetaEtapaModulo(etapa: string, modulo: number) {
+// ✅ MODIFICADO: La función ahora acepta y muestra el día.
+function etiquetaEtapaModulo(etapa: string, modulo: number, dia: string) {
   if (!etapa) return `Módulo ${modulo}`;
   const base = etapa.trim().split(/\s+/)[0];
   const nombre = base.charAt(0).toUpperCase() + base.slice(1).toLowerCase();
-  return `${nombre} ${modulo}`;
+  return `${nombre} ${modulo} (${dia})`;
 }
 
 /* ====================== Paleta para etapas (stack) ===================== */
@@ -230,9 +233,11 @@ export default function DetalleSecciones({
   
   // --- Datos para el NUEVO gráfico de barras de Asistencias ---
   const totalInasist = asistPorModulo.reduce((s, r) => s + (r.noAsistieron || 0), 0);
+  
+  // ✅ MODIFICADO: Se pasa 'm.dia' a la función de etiquetas.
   const asistenciasChartData: AsistBarData[] = [
     ...asistPorModulo.map(m => ({
-      label: etiquetaEtapaModulo(m.etapa, m.modulo),
+      label: etiquetaEtapaModulo(m.etapa, m.modulo, m.dia),
       value: m.total,
       type: 'asistencia' as const,
     })),
@@ -243,12 +248,12 @@ export default function DetalleSecciones({
     }
   ].filter(item => item.value > 0);
 
-  // --- Datos para los CHIPS de Inasistencias (CONSERVADO) ---
+  // ✅ MODIFICADO: Se pasa 'm.dia' a la función de etiquetas para los chips.
   const inasistChips = asistPorModulo
     .filter((m) => (m.noAsistieron || 0) > 0)
     .map((m) => ({
       etapa: m.etapa,
-      label: `${etiquetaEtapaModulo(m.etapa, m.modulo)}`,
+      label: `${etiquetaEtapaModulo(m.etapa, m.modulo, m.dia)}`,
       value: m.noAsistieron,
       color: colorPorEtapa(m.etapa),
     }))
