@@ -4,7 +4,9 @@ import Image from 'next/image';
 import { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 
-const normalizeCedula = (raw: string) => raw.replace(/\D+/g, '').trim();
+// CAMBIO 1: La función ahora solo quita espacios al inicio y al final.
+// Ya no elimina las letras ni otros caracteres.
+const normalizeCedula = (raw: string) => raw.trim();
 
 export default function LoginPage() {
   const router = useRouter();
@@ -18,6 +20,7 @@ export default function LoginPage() {
     if (pendingRef.current) return; // bloquea doble click
     setErrorMsg(null);
 
+    // Esta lógica sigue funcionando igual, pero ahora `cedula` puede tener letras.
     const ced = normalizeCedula(cedula);
     if (!ced) {
       setErrorMsg('Por favor ingrese su cédula.');
@@ -34,7 +37,6 @@ export default function LoginPage() {
         body: JSON.stringify({ cedula: ced }),
       });
 
-      // Parseo robusto del JSON (evita "Unexpected end of JSON input")
       let data: any = null;
       try {
         data = await res.json();
@@ -46,7 +48,6 @@ export default function LoginPage() {
         throw new Error(data?.error || 'Error de autenticación');
       }
 
-      // ✅ Sin fallback. Solo seguimos lo que diga el backend.
       if (!data?.redirect || typeof data.redirect !== 'string') {
         throw new Error('El servidor no envió una ruta de redirección.');
       }
@@ -101,10 +102,13 @@ export default function LoginPage() {
             <input
               id="cedula"
               type="text"
-              inputMode="numeric"
+              // CAMBIO 2: Se cambia a 'text' para permitir el teclado alfanumérico en móviles.
+              inputMode="text"
               autoComplete="off"
-              placeholder="Ingrese su cédula"
+              // CAMBIO 3: Placeholder actualizado para ser más general.
+              placeholder="Ingrese su cédula o usuario"
               value={cedula}
+              // El `onChange` no cambia, pero ahora usa la nueva lógica de `normalizeCedula`.
               onChange={(e) => setCedula(normalizeCedula(e.target.value))}
               className="w-full px-4 py-3 rounded-2xl bg-white/35 border border-white/60 text-slate-800 placeholder-slate-400 shadow-inner focus:outline-none focus:ring-2 focus:ring-sky-400 focus:border-transparent backdrop-blur-md"
             />
@@ -124,7 +128,8 @@ export default function LoginPage() {
         </form>
 
         <p className="mt-4 text-xs text-center text-slate-500">
-          Ingrese solo números de cédula. Su acceso está protegido con sesión segura.
+          {/* CAMBIO 4: Texto de ayuda actualizado. */}
+          Su acceso está protegido con sesión segura.
         </p>
       </div>
     </main>

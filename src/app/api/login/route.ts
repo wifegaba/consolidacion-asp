@@ -3,7 +3,9 @@ import { NextResponse } from 'next/server';
 import jwt from 'jsonwebtoken';
 import { getServerSupabase } from '@/lib/supabaseClient';
 
-const normalizeCedula = (raw: string) => raw?.replace(/\D+/g, '').trim() ?? '';
+// CAMBIO 1: La función se modifica para aceptar cualquier caracter.
+// Solo quita espacios en blanco al inicio y al final.
+const normalizeCedula = (raw: string) => raw?.trim() ?? '';
 
 export async function POST(req: Request) {
   const isProd = process.env.NODE_ENV === 'production';
@@ -19,6 +21,7 @@ export async function POST(req: Request) {
     const supabase = getServerSupabase();
 
     // 1) Servidor por cédula
+    // Esta consulta ahora buscará un valor que puede contener letras.
     const { data: servidor, error: errServ } = await supabase
       .from('servidores')
       .select('id, activo')
@@ -37,7 +40,8 @@ export async function POST(req: Request) {
 
     const servidorId = servidor.id;
 
-    // 2) Roles por servidor_id (vigente=true)
+    // ... el resto del código no necesita cambios ...
+
     const { data: contacto, error: errC } = await supabase
       .from('asignaciones_contacto')
       .select('etapa, dia, semana, vigente')
@@ -63,12 +67,10 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'No tiene roles asignados' }, { status: 401 });
     }
 
-    // 3) Decidir rol y asignación (prioridad contacto; ajusta si prefieres maestro)
     const rol: 'contacto' | 'maestro' = tieneContacto ? 'contacto' : 'maestro';
     const asignacion = tieneContacto ? contacto! : maestro!;
     const redirect = rol === 'contacto' ? '/login/contactos1' : '/login/maestros';
 
-    // 4) JWT
     const secret = process.env.JWT_SECRET;
     if (!secret) {
       return NextResponse.json({ error: 'Falta JWT_SECRET en .env' }, { status: 500 });
@@ -81,17 +83,14 @@ export async function POST(req: Request) {
         servidorId,
         etapa: asignacion?.etapa ?? null,
         dia: asignacion?.dia ?? null,
-        // semana solo aplica a contacto (maestro no tiene semana)
         semana: rol === 'contacto' ? contacto?.semana ?? null : null,
       },
       secret,
       { expiresIn: '8h' }
     );
-
-    // 5) Cookies + respuesta
+    
     const res = NextResponse.json({ redirect });
 
-    // Cookie principal (prod y dev)
     res.cookies.set('__Host-session', token, {
       httpOnly: true,
       secure: isProd,
@@ -100,7 +99,6 @@ export async function POST(req: Request) {
       maxAge: 60 * 60 * 8, // 8h
     });
 
-    // Compatibilidad con tu panel en desarrollo (lee "session")
     if (!isProd) {
       res.cookies.set('session', token, {
         httpOnly: true,

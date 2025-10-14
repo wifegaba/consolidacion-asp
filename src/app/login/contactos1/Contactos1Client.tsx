@@ -1,9 +1,4 @@
-﻿
-
-
-'use client';
-
-
+﻿'use client';
 
 // Placeholder visual premium para el panel derecho
 const EmptyRightPlaceholder = () => (
@@ -99,11 +94,6 @@ function estaInhabilitado(h?: string | null) {
   return h > todayUTC; // solo bloquea si la fecha es después de HOY (UTC)
 }
 
-
-
-
-
-
 type PendRowUI = PendienteRow & { _ui?: 'new' | 'changed' };
 
 type AgendadoRow = {
@@ -132,8 +122,6 @@ const V_PEND_BASE   = 'v_llamadas_pendientes';
 const V_AGENDADOS   = 'v_agendados';
 const RPC_GUARDAR_LLAMADA = 'fn_guardar_llamada';
 const RPC_ASIST     = 'fn_marcar_asistencia';
-
-
 
 const MAC2025_PANEL_VARIANTS = {
   initial: {
@@ -180,7 +168,6 @@ const resultadoLabels: Record<Resultado, string> = {
   rechazado: 'NO ME INTERESA',
 };
 
-
 // Easing idéntico al del formulario Maestros
 const EASE_SMOOTH = [0.16, 1, 0.3, 1] as const;
 const EASE_EXIT   = [0.7, 0, 0.84, 0] as const;
@@ -219,9 +206,9 @@ const LIST_ITEM_VARIANTS = {
   }
 };
 
-
 /* ================= Helpers ================= */
-const normalizeCedula = (s: string) => (s || '').replace(/\D+/g, '');
+// ÚNICO CAMBIO REALIZADO: Esta función ahora solo limpia espacios en blanco.
+const normalizeCedula = (s: string) => (s || '').trim();
 const norm = (t: string) =>
   (t ?? '')
     .normalize('NFD')
@@ -772,8 +759,6 @@ export default function Contactos1Client(
     );
   }
 
-
-
   return (
     <main
       className="relative min-h-[100dvh] px-5 md:px-8 py-6 overflow-hidden supports-[backdrop-filter]:backdrop-blur-2xl"
@@ -799,7 +784,6 @@ export default function Contactos1Client(
         </section>
 
         {/* ===== Encabezado ===== */}
-
          <header className="mb-3 md:mb-4 flex items-baseline gap-3 rounded-2xl px-4 py-3 shadow-[0_10px_40px_-20px_rgba(0,0,0,.35)] ring-1 ring-white/60 backdrop-blur-xl bg-[radial-gradient(900px_220px_at_0%_-20%,rgba(56,189,248,0.18),transparent),radial-gradient(900px_240px_at_120%_-30%,rgba(99,102,241,0.16),transparent),linear-gradient(135deg,rgba(255,255,255,.78),rgba(255,255,255,.48))] supports-[backdrop-filter]:bg-[radial-gradient(900px_220px_at_0%_-20%,rgba(56,189,248,0.18),transparent),radial-gradient(900px_240px_at_120%_-30%,rgba(99,102,241,0.16),transparent),linear-gradient(135deg,rgba(255,255,255,.68),rgba(255,255,255,.40))]">
           <h1 className="text-[22px] md:text-[28px] font-semibold text-neutral-900">
             {nombre || 'Servidor'}
@@ -824,11 +808,6 @@ export default function Contactos1Client(
               </span>
             </button>
           </div>
-
-
-
-
-          
         </header>
       {/* Modal Persona Nueva */}
       <AnimatePresence mode="sync" initial={false}>
@@ -887,11 +866,7 @@ export default function Contactos1Client(
           </div>
         )}
       </AnimatePresence>
-
-
         
-
-
         {/* Tarjeta de semanas y botones (igual que Maestros) */}
   <div className="flex flex-wrap items-center gap-3 rounded-2xl bg-white/55 supports-[backdrop-filter]:bg-white/35 backdrop-blur-xl px-3 py-3 shadow-[0_10px_40px_-20px_rgba(0,0,0,.35)] ring-1 ring-white/60 mb-4">
           <div className="inline-flex items-center gap-2">
@@ -990,7 +965,6 @@ export default function Contactos1Client(
                     <div className="p-6 text-neutral-500">No hay llamadas con los filtros actuales.</div>
                   ) : (
                     <>
-
                       <motion.ul
                         variants={LIST_WRAPPER_VARIANTS}
                         initial="initial"
@@ -1048,7 +1022,6 @@ export default function Contactos1Client(
                           );
                         })}
                       </motion.ul>
-               
                     </>
                   )}
                 </motion.div>
@@ -1057,7 +1030,6 @@ export default function Contactos1Client(
           </section>
 
           {/* Panel derecho de llamada */}
-   {/* Panel derecho de llamada */}
 <section
   ref={rightPanelRef}
   className={`relative rounded-[20px] bg-white/78 supports-[backdrop-filter]:bg-white/52 backdrop-blur-xl backdrop-saturate-150 ring-1 ring-white/70 shadow-[0_18px_56px_-28px_rgba(2,6,23,.28)] before:content-[''] before:absolute before:inset-0 before:rounded-[inherit] before:pointer-events-none before:shadow-[inset_0_1px_0_rgba(255,255,255,.72)] p-4 md:p-5 ${!selectedId ? 'hidden lg:block' : ''}`}
@@ -1250,12 +1222,9 @@ export default function Contactos1Client(
             </table>
           </div>
         </div>
-
           </div>
         </div>
       )}
-
-
 
     {/* Modal premium para registros inhabilitados */}
       <AnimatePresence>
@@ -1282,8 +1251,6 @@ export default function Contactos1Client(
               transition={{ type: "spring", stiffness: 240, damping: 22 }}
               className="fixed z-[61] inset-0 flex items-center justify-center p-4"
             >
-
-
               <div className="w-full max-w-md rounded-2xl bg-white/80 backdrop-blur-xl shadow-2xl ring-1 ring-white/40">
                 <div className="p-6 md:p-7">
                   {/* Header */}
@@ -1316,7 +1283,6 @@ export default function Contactos1Client(
                     </div>
                   </div>
 
-
                   {/* Footer */}
                   <div className="mt-6 flex justify-end gap-3">
                     <button
@@ -1333,17 +1299,6 @@ export default function Contactos1Client(
           </>
         )}
       </AnimatePresence>
-
-
-
-
-
-
-
-
-      
-
-
 
       {/* Animaciones / estilos */}
       <style jsx global>{`
@@ -1398,8 +1353,6 @@ async function openBanco() {
     setBancoLoading(false);
   }
 }
-
-
 
   async function reactivar(row: BancoRow) {
     if (!asig || !servidorId) return;
@@ -1519,12 +1472,6 @@ const openObsModal = async () => {
   }                                
 };                
 
-
-
-
-
-
-
   const initials =
     (row.nombre ?? 'U')
       .split(' ')
@@ -1541,9 +1488,6 @@ const openObsModal = async () => {
     void refreshObsCount();
   }, [row?.progreso_id, refreshObsCount]);
 
-
-
-
   return (
     <div>
       <div className="animate-cardIn">
@@ -1559,17 +1503,8 @@ const openObsModal = async () => {
             <div className="text-[12px] text-neutral-500 leading-none">
               Semana {semana} • {dia}
             </div>
-
-
-
-
-
-
-            
           </div>
         </div>
-
-        
 
   <div className="shrink-0 flex flex-col items-stretch gap-2 lg:flex-col lg:items-end lg:justify-center lg:gap-3 sm:flex-row sm:overflow-visible sm:flex-nowrap sm:max-w-none">
           {telHref ? (
@@ -1588,10 +1523,6 @@ const openObsModal = async () => {
               -
             </div>
           )}
-
-
-
-          
 
           {(() => {
             const digits = (row.telefono ?? '').replace(/\D+/g, '');
@@ -1735,5 +1666,3 @@ const openObsModal = async () => {
     </div>
   );
 }
-
-

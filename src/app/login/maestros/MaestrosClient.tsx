@@ -10,8 +10,6 @@ const PersonaNueva = dynamic(() => import('@/app/panel/contactos/page'), { ssr: 
 const Servidores = dynamic(() => import('@/app/panel/servidores/page'), { ssr: false });
 import { motion, AnimatePresence, type Variants } from "framer-motion";
 
-
-
 /* ================= Tipos ================= */
 type Dia = 'Domingo' | 'Martes' | 'Virtual';
 type Semana = 1 | 2 | 3; // BD limita a 1..3
@@ -65,8 +63,6 @@ const DUR_IN = 0.24;
 const DUR_OUT = 0.18;
 
 // Hook para dirección (→ abrir, ← volver)
-// Hook para dirección (→ abrir, ← volver)
-// Hook para dirección (→ abrir, ← volver)
 function useDirection<T>(value: T | null | undefined) {
   const prev = useRef<T | null | undefined>(value);
   const dir = useRef<1 | -1>(1);
@@ -78,14 +74,6 @@ function useDirection<T>(value: T | null | undefined) {
   }, [value]);
   return dir.current;
 }
-
-
-
-
-
-
-
-
 
 const MAC2025_PANEL_VARIANTS = {
   initial: {
@@ -114,17 +102,7 @@ const MAC2025_PANEL_VARIANTS = {
     transition: { duration: 0.22 }
   }
 };
-
-
-
-
-
-
-
            
-
-
-
 /** ======== Banco Archivo ======== */
 type BancoRow = {
   progreso_id: string;
@@ -138,10 +116,6 @@ type BancoRow = {
   etapa: 'Semillas' | 'Devocionales' | 'Restauracion';
 };
 
-
-
-
-
 /* ================= Constantes ================= */
 const V_PEND_HIST   = 'v_llamadas_pendientes_hist';
 const V_PEND_BASE   = 'v_llamadas_pendientes';
@@ -154,10 +128,6 @@ const RPC_ASIST     = 'fn_marcar_asistencia';
 const V_BANCO = 'v_banco_archivo';
 /** RPC que re-activa un registro desde Banco Archivo hacia el panel actual */
 const RPC_REACTIVAR = 'fn_reactivar_desde_archivo';
-
-
-
-
 
 // Duraciones UI centralizadas
 const NEW_UI_MS = 5000;
@@ -279,7 +249,7 @@ const LIST_ITEM_VARIANTS = {
 };
 
 /* ================= Helpers ================= */
-const normalizeCedula = (s: string) => (s || '').replace(/\D+/g, '');
+const normalizeCedula = (s: string) => (s || '').trim();
 const norm = (t: string) =>
   (t ?? '')
     .normalize('NFD')
@@ -287,22 +257,12 @@ const norm = (t: string) =>
     .toLowerCase()
     .trim();
 
-
-
 function estaInhabilitado(h?: string | null) {
   if (!h) return false;
   // Compara contra HOY en UTC para no "castigar" por huso horario.
   const todayUTC = new Date().toISOString().slice(0, 10); // 'YYYY-MM-DD' en UTC
   return h > todayUTC; // solo bloquea si la fecha es después de HOY (UTC)
 }
-
-
-
-
-
-
-
-
 
 /** "Semilla 3" | "Devocionales 2" | "Restauracion 1" -> etapaBase + módulo */
 function mapEtapaDetToBase(etapaDet: string): {
@@ -386,13 +346,10 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
   // refs para estado “vivo” dentro de handlers realtime
   const semanaRef = useRef(semana);
   const diaRef = useRef<Dia | null>(dia);
-  const asigRef = useRef<MaestroAsignacion | null>(null);
-  const pendRef = useRef<PendRowUI[]>([]);
+  const asigRef = useRef<MaestroAsignacion | null>(asig);
+  const pendRef = useRef<PendRowUI[]>(pendientes);
   const rightPanelRef = useRef<HTMLElement | null>(null);
-const dir = useDirection(selectedId);
-
-
-  
+  const dir = useDirection(selectedId);
 
   useEffect(() => { semanaRef.current = semana; }, [semana]);
   useEffect(() => { diaRef.current = dia; }, [dia]);
@@ -843,11 +800,6 @@ if (!opts?.quiet) setLoadingPend(false);
   return (
 <main className="min-h-[100dvh] px-5 md:px-8 py-6 bg-[radial-gradient(1200px_600px_at_-10%_-10%,rgba(120,180,255,0.25),transparent),radial-gradient(900px_500px_at_110%_20%,rgba(96,165,250,0.20),transparent),radial-gradient(circle_at_bottom_right,rgba(56,189,248,0.18),transparent),linear-gradient(120deg,#f7f8ff_0%,#eef0ff_35%,#f7f8ff_100%)] supports-[backdrop-filter]:backdrop-blur-2xl">
 
-
-
-
-
-
       <div className="mx-auto w-full max-w-[1260px]">
         {/* ===== Título ===== */}
         <section className="mb-6 md:mb-8">
@@ -1062,11 +1014,6 @@ if (!opts?.quiet) setLoadingPend(false);
   </div>
 </section>
 
-
-
-
-
-        
 {/* Panel derecho de llamada – Animación premium Mac 2025 */}
 <section
   ref={rightPanelRef}
@@ -1084,8 +1031,6 @@ if (!opts?.quiet) setLoadingPend(false);
       className="relative transform-gpu will-change-transform will-change-opacity"
       style={{ transformOrigin: '50% 50%' }}
     >
-      {/* Elimina el scrim/cross-fade aquí */}
-      {/* ...resto del contenido igual... */}
       {!selectedId ? (
         <div className="grid place-items-center text-neutral-700 h-full min-h-[300px]">
           Selecciona un nombre de la lista para llamar / registrar.
@@ -1124,9 +1069,6 @@ if (!opts?.quiet) setLoadingPend(false);
     </motion.div>
   </AnimatePresence>
 </section>
-
-        
-
 
         </div>
 
@@ -1268,13 +1210,6 @@ if (!opts?.quiet) setLoadingPend(false);
         </div>
       )}
 
-
-
-
-
-
-      
-
       {/* Modal premium para registros inhabilitados */}
       <AnimatePresence>
         {showNextWeekModal && (
@@ -1352,11 +1287,6 @@ if (!opts?.quiet) setLoadingPend(false);
         )}
       </AnimatePresence>
 
-      
-
-      
-
-      {/* Animaciones / estilos */}
       {/* Modal Nueva Alma */}
       <AnimatePresence mode="sync" initial={false}>
         {nuevaAlmaOpen && (
@@ -1434,8 +1364,6 @@ if (!opts?.quiet) setLoadingPend(false);
           100% { background-color: transparent; }
         }
         .animate-flashBg { animation: flashBg 1.2s ease-out 1; }
-
-    
       `}</style>
     </main>
   );
@@ -1470,8 +1398,6 @@ async function openBanco() {
   }
 }
 
-
-
   async function reactivar(row: BancoRow) {
     if (!asig || !servidorId) return;
     setReactivating((m) => ({ ...m, [row.progreso_id]: true }));
@@ -1502,10 +1428,6 @@ async function openBanco() {
   }
 }
 
-
-
-
-
 /* ================= Panel derecho (detalle y envío) ================= */
 function FollowUp({
   semana,
@@ -1520,9 +1442,6 @@ function FollowUp({
   saving: boolean;
   onSave: (p: { resultado: Resultado; notas?: string }) => Promise<void>;
 }) {
-
-
-
   const opciones: { label: string; value: Resultado }[] = [
     { label: 'CONFIRMÓ ASISTENCIA', value: 'confirmo_asistencia' },
     { label: 'NO CONTESTA', value: 'no_contesta' },
@@ -1597,16 +1516,7 @@ const openObsModal = async () => {
     setObsLoading(false);
   }
 };
-
-
-
-
-
-
-                                            
-
-
-
+                                         
   const initials =
     row.nombre
       .split(' ')
@@ -1633,9 +1543,6 @@ const openObsModal = async () => {
     setObsCount(null);
     void refreshObsCount();
   }, [row.progreso_id, refreshObsCount]);
-
-
-
 
   return (
     <>
@@ -1817,5 +1724,3 @@ const openObsModal = async () => {
     </>
   );
 }
-
-// Modal Observaciones (dentro de FollowUp render)
