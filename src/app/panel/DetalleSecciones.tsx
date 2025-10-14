@@ -371,7 +371,7 @@ export default function DetalleSecciones({
                             <span key={`chip-${c.label}`} className="chip-inasistencia" title={`${c.label}: ${c.value}`}>
                               <span className="chip-inasistencia-color" style={{ background: c.color, boxShadow: '0 0 0 1px rgba(0,0,0,0.06) inset' }} />
                               <span className="truncate">{c.label}</span>
-                      <span className="tabular-nums font-semibold">={' '}{c.value}</span>
+                              <span className="tabular-nums font-semibold"> = {c.value}</span>
                             </span>
                           ))}
                         </div>
