@@ -1,7 +1,9 @@
 // app/panel/page.tsx
 export const dynamic = "force-dynamic";
 
-import { ContactosKPIRealtime, ServidoresKPIRealtime } from "@/components/ContactosWidget";
+import { ContactosKPI } from "@/components/kpi/ContactosKPI";
+import { ServidoresKPI } from "@/components/kpi/ServidoresKPI";
+
 import {
   getContactosCount,
   getServidoresCount,
@@ -10,6 +12,7 @@ import {
   getRestauracionCount,
   getAgendadosPorSemana,
   getAsistenciasPorModulo,
+  getContactosPorEtapaDia,
   Range
 } from "@/lib/metrics";
 
@@ -24,10 +27,11 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ r
   const params = await searchParams;
   const currentRange = (params?.range ?? 'month') as Range;
 
-  const [totalContactos, totalServidores, totalRestauracion] = await Promise.all([
+  const [totalContactos, totalServidores, totalRestauracion, contactosPorEtapaDia] = await Promise.all([
     getContactosCount(),
     getServidoresCount(),
     getRestauracionCount(),
+    getContactosPorEtapaDia(),
   ]);
 
   const [asistDetalle, asistEtapas, asistPorModulo] = await Promise.all([
@@ -46,10 +50,10 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ r
     <>
       <RtDashboardWatch />
 
-      {/* ✅ CORRECCIÓN ESTRUCTURAL: Se eliminaron los divs "kpi-row-group" para simplificar el layout. */}
       <div className="kpi-row">
-        <ContactosKPIRealtime label="Contactos" initialValue={totalContactos} delta={"+"} className="contactos" />
-        <ServidoresKPIRealtime label="Servidores" initialValue={totalServidores} className="servidores" />
+        <ContactosKPI label="Contactos" initialValue={totalContactos} delta={"+"} className="contactos" data-key="contactos" />
+        <ServidoresKPI label="Servidores" initialValue={totalServidores} className="servidores" data-key="servidores" />
+        
         <article className="kpi-card asistencias" data-key="asistencias">
           <div className="flex items-center justify-between">
             <span className="kpi-label">Asistencias</span>
@@ -75,6 +79,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ r
         asistEtapas={asistEtapas}
         asistPorModulo={asistPorModulo}
         agendados={agendados}
+        contactosPorEtapaDia={contactosPorEtapaDia}
         defaultKey="asistencias"
       />
     </>

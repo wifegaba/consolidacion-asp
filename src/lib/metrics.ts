@@ -25,7 +25,6 @@ function getRangeUTC(range: Range) {
   const now = new Date();
 
   if (range === 'today') {
-    // CORREGIDO: Usa la hora local del servidor para definir "Hoy"
     const start = new Date(now);
     start.setHours(0, 0, 0, 0); 
     const end = new Date(start);
@@ -34,7 +33,6 @@ function getRangeUTC(range: Range) {
   }
 
   if (range === 'week') {
-    // RESTAURADO: Tu lógica original que funciona correctamente
     const start = new Date(now);
     const dow = start.getUTCDay();
     const diff = (dow === 0 ? -6 : 1 - dow);
@@ -45,14 +43,13 @@ function getRangeUTC(range: Range) {
   }
 
   // month
-  // RESTAURADO: Tu lógica original que funciona correctamente
   const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
   const end   = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth()+1, 1));
   return { from: start.toISOString(), to: end.toISOString() };
 }
 
 // =================================================================
-// FUNCIONES DE MÉTRICAS (KPIs y otras) - SIN CAMBIOS
+// FUNCIONES DE MÉTRICAS (KPIs y otras)
 // =================================================================
 
 export async function getContactosCount(): Promise<number> {
@@ -120,12 +117,10 @@ export async function getAsistenciasConfirmadosYNo(
   return { confirmados, noAsistieron, total };
 }
 
-// ✅ SECCIÓN MODIFICADA
 export async function getAgendadosPorSemana(): Promise<
   Array<{ etapa_modulo: string; agendados_pendientes: number }>
 > {
   const supabase = getClient();
-  // ✅ 1. Añadimos 'dia' a la consulta SELECT
   const { data, error } = await supabase.from('v_agendados').select('etapa, modulo, dia');
 
   if (error) {
@@ -135,14 +130,11 @@ export async function getAgendadosPorSemana(): Promise<
   if (!data) return [];
 
   const agg = new Map<string, number>();
-  // ✅ 2. Tipamos la fila para incluir 'dia'
   for (const row of data as { etapa: string; modulo: number; dia: string }[]) {
-    // ✅ 3. Creamos una clave de agrupación más descriptiva que incluye el día
     const key = `${row.etapa} ${row.modulo} (${row.dia})`;
     agg.set(key, (agg.get(key) ?? 0) + 1);
   }
 
-  // 4. El resto de la función no necesita cambios. El `key` se convierte en `etapa_modulo`.
   return Array.from(agg.entries()).map(([etapa_modulo, agendados_pendientes]) => ({
     etapa_modulo,
     agendados_pendientes,
@@ -151,16 +143,11 @@ export async function getAgendadosPorSemana(): Promise<
 
 
 // =================================================================
-// FUNCIONES PARA GRÁFICOS - OPTIMIZADAS Y CORREGIDAS
+// FUNCIONES PARA GRÁFICOS
 // =================================================================
 
 export type Etapa = 'Semillas' | 'Devocionales' | 'Restauracion' | string;
 
-/**
- * Agrupa asistencias por MÓDULO y DÍA.
- * Esta versión es RÁPIDA y LÓGICAMENTE CORRECTA, ya que usa los datos históricos
- * de la tabla 'asistencia' que modificamos anteriormente.
- */
 export async function getAsistenciasPorModulo(
   range: Range = 'month'
 ): Promise<Array<{ etapa: string; modulo: number; dia: string; confirmados: number; noAsistieron: number; total: number }>> {
@@ -192,7 +179,7 @@ export async function getAsistenciasPorModulo(
     const etapa = row.etapa ?? 'Desconocido';
     const modulo = row.modulo ?? 0;
     const dia = row.dia ?? 'Sin día';
-    const key = `${etapa}#${modulo}#${dia}`; // La clave de agrupación ahora incluye el día.
+    const key = `${etapa}#${modulo}#${dia}`;
 
     if (!agg.has(key)) {
       agg.set(key, { etapa, modulo, dia, confirmados: 0, noAsistieron: 0 });
@@ -220,12 +207,6 @@ export async function getAsistenciasPorModulo(
     });
 }
 
-
-/**
- * Agrupa asistencias por ETAPA.
- * Esta versión también es RÁPIDA y CORRECTA. Reemplaza la versión anterior
- * que era lenta y tenía el error de datos históricos.
- */
 export async function getAsistenciasPorEtapa(range: Range = 'month'): Promise<
   Array<{ etapa: Etapa; confirmados: number; noAsistieron: number; total: number }>
 > {
@@ -270,3 +251,51 @@ export async function getAsistenciasPorEtapa(range: Range = 'month'): Promise<
 
   return Array.from(grupos.entries()).map(([etapa, v]) => ({ etapa, ...v }));
 }
+
+export async function getContactosPorEtapaDia(): Promise<
+  Array<{ key: string; value: number; color: string }>
+> {
+  noStore();
+  const supabase = getClient();
+  
+  // ✅ CORRECCIÓN: Se añade 'modulo' a la consulta.
+  const { data, error } = await supabase
+    .from('progreso')
+    .select('etapa, modulo, dia')
+    .eq('activo', true);
+
+  if (error) {
+    console.error('getContactosPorEtapaDia:', error.message);
+    return [];
+  }
+  if (!data) return [];
+
+  const agg = new Map<string, number>();
+  // ✅ CORRECCIÓN: Se incluye 'modulo' en el tipo y en la creación de la clave.
+  for (const row of data as { etapa: string; modulo: number; dia: string }[]) {
+    const key = `${row.etapa} ${row.modulo} (${row.dia})`;
+    agg.set(key, (agg.get(key) ?? 0) + 1);
+  }
+
+  const colors = [
+    "bg-pink-300 dark:bg-pink-400",
+    "bg-purple-300 dark:bg-purple-400",
+    "bg-indigo-300 dark:bg-indigo-400",
+    "bg-sky-300 dark:bg-sky-400",
+    "bg-orange-300 dark:bg-orange-400",
+    "bg-lime-400 dark:bg-lime-500",
+    "bg-emerald-300 dark:bg-emerald-400",
+  ];
+
+  return Array.from(agg.entries())
+    .map(([key, value], index) => ({
+      key,
+      value,
+      color: colors[index % colors.length],
+    }))
+    .sort((a, b) => b.value - a.value);
+}
+
+
+
+
