@@ -23,7 +23,6 @@ type AgendadoRow = {
   agendados_pendientes: number;
 };
 
-// ✅ MODIFICADO: Se añade 'dia' al tipo de dato que viene del backend.
 type AsistModuloRow = {
   etapa: string;
   modulo: number;
@@ -47,7 +46,6 @@ const RED = "#dc2626";
 const RED_LIGHT = "#f87171";
 
 /* ============================ Util ============================ */
-// ✅ MODIFICADO: La función ahora acepta y muestra el día.
 function etiquetaEtapaModulo(etapa: string, modulo: number, dia: string) {
   if (!etapa) return `Módulo ${modulo}`;
   const base = etapa.trim().split(/\s+/)[0];
@@ -113,7 +111,7 @@ const PremiumHorizontalBars = ({ data }: { data: AgendadoRow[] }) => {
   }
   
   return (
-    <div className="w-full h-full flex flex-col gap-3 py-2 pr-4">
+    <div className="w-full h-full flex flex-col gap-1 py-1 pr-2">
       {sortedData.map((d, index) => (
         <div key={d.etapa_modulo} className="grid grid-cols-[minmax(80px,1fr)_2fr] items-center gap-x-3">
           <div className="text-sm text-slate-500 text-right truncate" title={d.etapa_modulo}>
@@ -144,7 +142,6 @@ type AsistBarData = { label: string; value: number; type: 'asistencia' | 'inasis
 
 const AsistenciasHorizontalBars = ({ data }: { data: AsistBarData[] }) => {
   const [widths, setWidths] = useState<Record<string, number>>({});
-  // Ordenar por tipo (inasistencia al final) y luego por valor
   const sortedData = [...data].sort((a, b) => {
     if (a.type === 'inasistencia' && b.type !== 'inasistencia') return 1;
     if (a.type !== 'inasistencia' && b.type === 'inasistencia') return -1;
@@ -177,19 +174,19 @@ const AsistenciasHorizontalBars = ({ data }: { data: AsistBarData[] }) => {
   
   let asistenciaIndex = 0;
   return (
-    <div className="w-full h-full flex flex-col gap-3.5 py-2 px-4">
+    <div className="w-full h-full flex flex-col gap-4 py-1 px-1">
       {sortedData.map((d) => {
         const isAsistencia = d.type === 'asistencia';
         const gradient = isAsistencia ? asistGradients[asistenciaIndex++ % asistGradients.length] : inasistGradient;
         const labelColor = isAsistencia ? "text-slate-500" : "text-red-600 font-semibold";
         
         return (
-          <div key={d.label} className="grid grid-cols-[minmax(80px,1.2fr)_2fr] items-center gap-x-3">
-            <div className={`text-sm text-right truncate ${labelColor}`} title={d.label}>
+          <div key={d.label} className="grid grid-cols-[minmax(0,1.2fr)_2fr_auto] items-center gap-x-2">
+            <div className={`text-xs sm:text-sm text-right truncate ${labelColor}`} title={d.label}>
               {d.label}
             </div>
-            <div className="flex items-center gap-2.5">
-              <div className="relative h-3.5 w-full bg-slate-200/60 rounded-full overflow-hidden">
+
+            <div className="relative h-4 w-full bg-slate-200/60 rounded-full overflow-hidden">
                 <div
                   className={`absolute inset-y-0 left-0 rounded-full bg-gradient-to-r ${gradient}`}
                   style={{
@@ -197,10 +194,10 @@ const AsistenciasHorizontalBars = ({ data }: { data: AsistBarData[] }) => {
                     transition: 'width 800ms cubic-bezier(0.25, 1, 0.5, 1)'
                   }}
                 />
-              </div>
-              <div className="text-sm font-semibold text-slate-700 tabular-nums w-8 text-left">
-                {d.value}
-              </div>
+            </div>
+
+            <div className="text-sm font-semibold text-slate-700 tabular-nums w-8 text-left">
+              {d.value}
             </div>
           </div>
         );
@@ -231,10 +228,8 @@ export default function DetalleSecciones({
   const pctNo = pct(totalNoAsistieron, totalAsist);
   const totalAgend = agendados.reduce((s, r) => s + (r.agendados_pendientes || 0), 0);
   
-  // --- Datos para el NUEVO gráfico de barras de Asistencias ---
   const totalInasist = asistPorModulo.reduce((s, r) => s + (r.noAsistieron || 0), 0);
   
-  // ✅ MODIFICADO: Se pasa 'm.dia' a la función de etiquetas.
   const asistenciasChartData: AsistBarData[] = [
     ...asistPorModulo.map(m => ({
       label: etiquetaEtapaModulo(m.etapa, m.modulo, m.dia),
@@ -248,7 +243,6 @@ export default function DetalleSecciones({
     }
   ].filter(item => item.value > 0);
 
-  // ✅ MODIFICADO: Se pasa 'm.dia' a la función de etiquetas para los chips.
   const inasistChips = asistPorModulo
     .filter((m) => (m.noAsistieron || 0) > 0)
     .map((m) => ({
@@ -304,7 +298,7 @@ export default function DetalleSecciones({
       <style jsx>{`
         .agendados-container, .asistencias-container {
           display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+          grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
           gap: 1.5rem; /* 24px */
           align-items: start;
         }
@@ -313,7 +307,7 @@ export default function DetalleSecciones({
       <div className="overflow-visible mt-6">
         {!view && (
           <div className="grid premium-grid">
-            <section className="card span-2 animate-fadeIn premium-glass">
+            <section className="card span-2 animate-fadeIn premium-glass p-4">
               <h2 className="card-title">Bienvenido</h2>
               <p className="text-muted">Selecciona una tarjeta KPI para ver detalles.</p>
             </section>
@@ -322,10 +316,10 @@ export default function DetalleSecciones({
 
         {view === "asistencias" && (
           <div className="asistencias-container">
-            <section className="card premium-glass animate-slideIn relative panel-compact self-start">
-              <div className="card-head"><h2 className="card-title">Gráfico de Asistencias</h2></div>
-              <div className="panel-body">
-                <div className="asistencias-labels flex justify-between w-full px-4 mt-1 mb-3 text-sm">
+            <section className="card premium-glass animate-slideIn relative self-start p-4">
+              <div className="card-head !pb-0"><h2 className="card-title">Gráfico de Asistencias</h2></div>
+              <div className="panel-body !p-2">
+                <div className="asistencias-labels flex justify-between w-full px-4 mt-1 mb-2 text-sm">
                   <div className="flex flex-col items-center text-green-600 font-semibold">
                     <span>Asistieron <span className="font-bold text-lg tabular-nums">{totalConfirmados}</span></span>
                     <span className="text-green-600 font-bold text-sm tabular-nums">{pctOk}%</span>
@@ -335,7 +329,7 @@ export default function DetalleSecciones({
                     <span className="text-red-600 font-bold text-sm tabular-nums">{pctNo}%</span>
                   </div>
                 </div>
-                <div className="panel-chart relative mx-auto max-w-[min(360px,88vw)] aspect-square overflow-hidden flex items-center justify-center">
+                <div className="relative mx-auto max-w-[180px] aspect-square overflow-hidden flex items-center justify-center">
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                       <defs>
@@ -349,44 +343,38 @@ export default function DetalleSecciones({
                     </PieChart>
                   </ResponsiveContainer>
                   <div className="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none donut-center px-2">
-                    <p className="text-3xl leading-tight font-extrabold text-gray-900 tabular-nums">{animatedTotal.toLocaleString()}</p>
+                    <p className="text-2xl leading-tight font-extrabold text-gray-900 tabular-nums">{animatedTotal.toLocaleString()}</p>
                     <p className="text-gray-500 text-xs mt-0.5">Total</p>
                   </div>
                 </div>
               </div>
             </section>
             
-            <section className="card premium-glass animate-slideIn panel-compact panel-elastico self-start flex flex-col overflow-visible pb-4">
+            <section className="card premium-glass animate-slideIn self-start flex flex-col overflow-visible p-4">
               <div className="card-head pb-0"><h2 className="card-title">Detalle por etapa</h2></div>
               <div className="px-2 pt-3">
                 <h3 className="text-sm font-semibold text-slate-700 px-1 mb-2">Asistencias por módulo (Total) + Inasistencias</h3>
-                {/* --- REEMPLAZO QUIRÚRGICO DEL GRÁFICO --- */}
                 <AsistenciasHorizontalBars data={asistenciasChartData} />
               </div>
               
-              {/* --- SECCIÓN DE CHIPS CONSERVADA --- */}
               {inasistChips.length > 0 && (
                 <div className="px-4 pt-2 pb-3">
-                  <div className="w-full rounded-xl bg-white/70 ring-1 ring-slate-200/70 backdrop-blur-sm px-3 py-2 flex items-center gap-3">
-                    <span className="text-rose-600 font-semibold whitespace-nowrap">Inasistencias</span>
-                    <div className="overflow-visible">
-                      {Array.from({ length: Math.ceil(inasistChips.length / 2) }).map((_, rowIdx) => (
-                        <div key={`chip-row-${rowIdx}`} className="chip-row">
-                          {inasistChips.slice(rowIdx * 2, rowIdx * 2 + 2).map((c) => (
-                            <span key={`chip-${c.label}`} className="chip-inasistencia" title={`${c.label}: ${c.value}`}>
-                              <span className="chip-inasistencia-color" style={{ background: c.color, boxShadow: '0 0 0 1px rgba(0,0,0,0.06) inset' }} />
-                              <span className="truncate">{c.label}</span>
-                              <span className="tabular-nums font-semibold"> = {c.value}</span>
-                            </span>
-                          ))}
-                        </div>
+                  {/* ✅ CORRECCIÓN DE LAYOUT DE CHIPS */}
+                  <div className="w-full rounded-xl bg-white/70 ring-1 ring-slate-200/70 backdrop-blur-sm px-3 py-2 flex items-start gap-x-3 gap-y-2">
+                    <span className="text-rose-600 font-semibold whitespace-nowrap pt-1">Inasistencias</span>
+                    <div className="flex flex-wrap gap-2">
+                      {inasistChips.map((c) => (
+                        <span key={`chip-${c.label}`} className="chip-inasistencia" title={`${c.label}: ${c.value}`}>
+                          <span className="chip-inasistencia-color" style={{ background: c.color, boxShadow: '0 0 0 1px rgba(0,0,0,0.06) inset' }} />
+                          <span className="truncate">{c.label}</span>
+                          <span className="tabular-nums font-semibold"> = {c.value}</span>
+                        </span>
                       ))}
                     </div>
                   </div>
                 </div>
               )}
               
-              {/* --- TABLA INFERIOR CONSERVADA --- */}
               <div className="panel-body px-0 py-0 mt-1">
                 <div className="premium-table-row premium-table-header">
                   <span>ETAPA</span>
