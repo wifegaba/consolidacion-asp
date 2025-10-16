@@ -17,9 +17,6 @@ function getClient() {
   });
 }
 
-// =================================================================
-// FUNCIÓN DE RANGOS CORREGIDA Y FINAL
-// =================================================================
 function getRangeUTC(range: Range) {
   if (!range) return undefined;
   const now = new Date();
@@ -42,15 +39,10 @@ function getRangeUTC(range: Range) {
     return { from: start.toISOString(), to: end.toISOString() };
   }
 
-  // month
   const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
   const end   = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth()+1, 1));
   return { from: start.toISOString(), to: end.toISOString() };
 }
-
-// =================================================================
-// FUNCIONES DE MÉTRICAS (KPIs y otras)
-// =================================================================
 
 export async function getContactosCount(): Promise<number> {
   const supabase = getClient();
@@ -87,33 +79,14 @@ export async function getAsistenciasConfirmadosYNo(
 ): Promise<{ confirmados: number; noAsistieron: number; total: number }> {
   const supabase = getClient();
   const r = getRangeUTC(range);
-
-  let qOk = supabase
-    .from('asistencia')
-    .select('id', { count: 'exact', head: true })
-    .eq('asistio', true);
-
-  let qNo = supabase
-    .from('asistencia')
-    .select('id', { count: 'exact', head: true })
-    .eq('asistio', false);
-
-  if (r) {
-    qOk = qOk.gte('creado_en', r.from).lt('creado_en', r.to);
-    qNo = qNo.gte('creado_en', r.from).lt('creado_en', r.to);
-  }
-
+  let qOk = supabase.from('asistencia').select('id', { count: 'exact', head: true }).eq('asistio', true);
+  let qNo = supabase.from('asistencia').select('id', { count: 'exact', head: true }).eq('asistio', false);
+  if (r) { qOk = qOk.gte('creado_en', r.from).lt('creado_en', r.to); qNo = qNo.gte('creado_en', r.from).lt('creado_en', r.to); }
   const [{ count: c, error: e1 }, { count: n, error: e2 }] = await Promise.all([qOk, qNo]);
-
-  if (e1 || e2) {
-    console.error('getAsistenciasConfirmadosYNo:', { e1: e1?.message, e2: e2?.message });
-    return { confirmados: 0, noAsistieron: 0, total: 0 };
-  }
-
+  if (e1 || e2) { console.error('getAsistenciasConfirmadosYNo:', { e1: e1?.message, e2: e2?.message }); return { confirmados: 0, noAsistieron: 0, total: 0 }; }
   const confirmados = c ?? 0;
   const noAsistieron = n ?? 0;
   const total = confirmados + noAsistieron;
-
   return { confirmados, noAsistieron, total };
 }
 
@@ -122,29 +95,15 @@ export async function getAgendadosPorSemana(): Promise<
 > {
   const supabase = getClient();
   const { data, error } = await supabase.from('v_agendados').select('etapa, modulo, dia');
-
-  if (error) {
-    console.error('getAgendadosPorSemana:', error.message);
-    return [];
-  }
+  if (error) { console.error('getAgendadosPorSemana:', error.message); return []; }
   if (!data) return [];
-
   const agg = new Map<string, number>();
   for (const row of data as { etapa: string; modulo: number; dia: string }[]) {
     const key = `${row.etapa} ${row.modulo} (${row.dia})`;
     agg.set(key, (agg.get(key) ?? 0) + 1);
   }
-
-  return Array.from(agg.entries()).map(([etapa_modulo, agendados_pendientes]) => ({
-    etapa_modulo,
-    agendados_pendientes,
-  }));
+  return Array.from(agg.entries()).map(([etapa_modulo, agendados_pendientes]) => ({ etapa_modulo, agendados_pendientes, }));
 }
-
-
-// =================================================================
-// FUNCIONES PARA GRÁFICOS
-// =================================================================
 
 export type Etapa = 'Semillas' | 'Devocionales' | 'Restauracion' | string;
 
@@ -154,57 +113,22 @@ export async function getAsistenciasPorModulo(
   noStore();
   const supabase = getClient();
   const r = getRangeUTC(range);
-
-  let query = supabase
-    .from('asistencia')
-    .select('etapa, modulo, dia, asistio, creado_en');
-
-  if (r) {
-    query = query.gte('creado_en', r.from).lt('creado_en', r.to);
-  }
-
+  let query = supabase.from('asistencia').select('etapa, modulo, dia, asistio, creado_en');
+  if (r) { query = query.gte('creado_en', r.from).lt('creado_en', r.to); }
   const { data, error } = await query;
-
-  if (error) {
-    console.error('getAsistenciasPorModulo:', error.message);
-    return [];
-  }
-  if (!data || data.length === 0) {
-    return [];
-  }
-  
+  if (error) { console.error('getAsistenciasPorModulo:', error.message); return []; }
+  if (!data || data.length === 0) { return []; }
   const agg = new Map<string, { etapa: string; modulo: number; dia: string; confirmados: number; noAsistieron: number }>();
-  
   for (const row of data as { etapa?: string; modulo?: number; dia?: string; asistio?: boolean }[]) {
     const etapa = row.etapa ?? 'Desconocido';
     const modulo = row.modulo ?? 0;
     const dia = row.dia ?? 'Sin día';
     const key = `${etapa}#${modulo}#${dia}`;
-
-    if (!agg.has(key)) {
-      agg.set(key, { etapa, modulo, dia, confirmados: 0, noAsistieron: 0 });
-    }
-
+    if (!agg.has(key)) { agg.set(key, { etapa, modulo, dia, confirmados: 0, noAsistieron: 0 }); }
     const current = agg.get(key)!;
-    if (row.asistio) {
-      current.confirmados++;
-    } else {
-      current.noAsistieron++;
-    }
+    if (row.asistio) { current.confirmados++; } else { current.noAsistieron++; }
   }
-
-  return [...agg.values()]
-    .map(v => ({
-      ...v,
-      total: v.confirmados + v.noAsistieron,
-    }))
-    .sort((a, b) => {
-      const et = a.etapa.localeCompare(b.etapa, 'es', { sensitivity: 'base' });
-      if (et !== 0) return et;
-      const diaCompare = a.dia.localeCompare(b.dia, 'es', { sensitivity: 'base' });
-      if (diaCompare !== 0) return diaCompare;
-      return a.modulo - b.modulo;
-    });
+  return [...agg.values()].map(v => ({ ...v, total: v.confirmados + v.noAsistieron, })).sort((a, b) => { const et = a.etapa.localeCompare(b.etapa, 'es', { sensitivity: 'base' }); if (et !== 0) return et; const diaCompare = a.dia.localeCompare(b.dia, 'es', { sensitivity: 'base' }); if (diaCompare !== 0) return diaCompare; return a.modulo - b.modulo; });
 }
 
 export async function getAsistenciasPorEtapa(range: Range = 'month'): Promise<
@@ -213,42 +137,19 @@ export async function getAsistenciasPorEtapa(range: Range = 'month'): Promise<
   noStore();
   const supabase = getClient();
   const r = getRangeUTC(range);
-
-  let query = supabase
-    .from('asistencia')
-    .select('etapa, asistio, creado_en');
-    
-  if (r) {
-    query = query.gte('creado_en', r.from).lt('creado_en', r.to);
-  }
-
+  let query = supabase.from('asistencia').select('etapa, asistio, creado_en');
+  if (r) { query = query.gte('creado_en', r.from).lt('creado_en', r.to); }
   const { data, error } = await query;
-
-  if (error) {
-    console.error('getAsistenciasPorEtapa:', error.message);
-    return [];
-  }
-  if (!data || data.length === 0) {
-    return [];
-  }
-
+  if (error) { console.error('getAsistenciasPorEtapa:', error.message); return []; }
+  if (!data || data.length === 0) { return []; }
   const grupos = new Map<Etapa, { confirmados: number; noAsistieron: number; total: number }>();
-  
   for (const row of data as { etapa?: string; asistio?: boolean }[]) {
     const etapa: Etapa = row.etapa ?? 'Desconocido';
-    if (!grupos.has(etapa)) {
-      grupos.set(etapa, { confirmados: 0, noAsistieron: 0, total: 0 });
-    }
-    
+    if (!grupos.has(etapa)) { grupos.set(etapa, { confirmados: 0, noAsistieron: 0, total: 0 }); }
     const g = grupos.get(etapa)!;
-    if (row.asistio) {
-      g.confirmados++;
-    } else {
-      g.noAsistieron++;
-    }
+    if (row.asistio) { g.confirmados++; } else { g.noAsistieron++; }
     g.total++;
   }
-
   return Array.from(grupos.entries()).map(([etapa, v]) => ({ etapa, ...v }));
 }
 
@@ -257,35 +158,74 @@ export async function getContactosPorEtapaDia(): Promise<
 > {
   noStore();
   const supabase = getClient();
-  
-  // ✅ CORRECCIÓN: Se añade 'modulo' a la consulta.
+  const { data, error } = await supabase.from('progreso').select('etapa, modulo, dia').eq('activo', true);
+  if (error) { console.error('getContactosPorEtapaDia:', error.message); return []; }
+  if (!data) return [];
+  const agg = new Map<string, number>();
+  for (const row of data as { etapa: string; modulo: number; dia: string }[]) {
+    const key = `${row.etapa} ${row.modulo} (${row.dia})`;
+    agg.set(key, (agg.get(key) ?? 0) + 1);
+  }
+  const colors = [ "bg-pink-300 dark:bg-pink-400", "bg-purple-300 dark:bg-purple-400", "bg-indigo-300 dark:bg-indigo-400", "bg-sky-300 dark:bg-sky-400", "bg-orange-300 dark:bg-orange-400", "bg-lime-400 dark:bg-lime-500", "bg-emerald-300 dark:bg-emerald-400", ];
+  return Array.from(agg.entries()).map(([key, value], index) => ({ key, value, color: colors[index % colors.length], })).sort((a, b) => b.value - a.value);
+}
+
+// =================================================================
+// ✅ FUNCIÓN CORREGIDA PARA EL DETALLE DE SERVIDORES
+// =================================================================
+export async function getServidoresPorRolEtapaDia(): Promise<
+  Array<{ key: string; value: number; color: string }>
+> {
+  noStore();
+  const supabase = getClient();
+
+  // Se realiza una consulta que une las tablas necesarias para obtener toda la información.
   const { data, error } = await supabase
-    .from('progreso')
-    .select('etapa, modulo, dia')
-    .eq('activo', true);
+    .from('servidores')
+    .select(`
+      id,
+      rol:servidores_roles!inner ( rol ),
+      asig_maestro:asignaciones_maestro ( etapa, dia ),
+      asig_contacto:asignaciones_contacto ( etapa, dia )
+    `)
+    .eq('activo', true)
+    .eq('servidores_roles.vigente', true);
 
   if (error) {
-    console.error('getContactosPorEtapaDia:', error.message);
+    console.error('Error fetching servers data:', JSON.stringify(error, null, 2));
     return [];
   }
   if (!data) return [];
 
   const agg = new Map<string, number>();
-  // ✅ CORRECCIÓN: Se incluye 'modulo' en el tipo y en la creación de la clave.
-  for (const row of data as { etapa: string; modulo: number; dia: string }[]) {
-    const key = `${row.etapa} ${row.modulo} (${row.dia})`;
+  
+  for (const row of data as any[]) {
+    const rol = row.rol[0]?.rol || 'Rol no definido';
+    const asig_maestro = row.asig_maestro[0];
+    const asig_contacto = row.asig_contacto[0];
+    
+    let etapa_det = null;
+    let dia = null;
+
+    if (asig_maestro) {
+      etapa_det = asig_maestro.etapa;
+      dia = asig_maestro.dia;
+    } else if (asig_contacto) {
+      etapa_det = asig_contacto.etapa;
+      dia = asig_contacto.dia;
+    }
+
+    let key: string;
+    if (etapa_det && dia) {
+      key = `${rol} - ${etapa_det} (${dia})`;
+    } else {
+      key = rol;
+    }
+
     agg.set(key, (agg.get(key) ?? 0) + 1);
   }
 
-  const colors = [
-    "bg-pink-300 dark:bg-pink-400",
-    "bg-purple-300 dark:bg-purple-400",
-    "bg-indigo-300 dark:bg-indigo-400",
-    "bg-sky-300 dark:bg-sky-400",
-    "bg-orange-300 dark:bg-orange-400",
-    "bg-lime-400 dark:bg-lime-500",
-    "bg-emerald-300 dark:bg-emerald-400",
-  ];
+  const colors = [ "bg-blue-300 dark:bg-blue-400", "bg-cyan-300 dark:bg-cyan-400", "bg-teal-300 dark:bg-teal-400", "bg-gray-300 dark:bg-gray-400", "bg-orange-300 dark:bg-orange-400", "bg-yellow-300 dark:bg-yellow-400", ];
 
   return Array.from(agg.entries())
     .map(([key, value], index) => ({
@@ -295,7 +235,3 @@ export async function getContactosPorEtapaDia(): Promise<
     }))
     .sort((a, b) => b.value - a.value);
 }
-
-
-
-

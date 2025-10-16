@@ -1,9 +1,9 @@
 // app/panel/page.tsx
 export const dynamic = "force-dynamic";
 
+import { RangeFilterButtons } from '@/components/ui/RangeFilterButtons';
 import { ContactosKPI } from "@/components/kpi/ContactosKPI";
 import { ServidoresKPI } from "@/components/kpi/ServidoresKPI";
-
 import {
   getContactosCount,
   getServidoresCount,
@@ -13,9 +13,10 @@ import {
   getAgendadosPorSemana,
   getAsistenciasPorModulo,
   getContactosPorEtapaDia,
+  // ✅ 1. Importar la nueva función de métricas
+  getServidoresPorRolEtapaDia,
   Range
 } from "@/lib/metrics";
-
 import DetalleSecciones from "./DetalleSecciones";
 import RtDashboardWatch from "./RtDashboardWatch";
 
@@ -23,15 +24,23 @@ function formatNumber(n: number) {
   return new Intl.NumberFormat("es-CO").format(n);
 }
 
-export default async function Page({ searchParams }: { searchParams: Promise<{ range?: string }> }) {
-  const params = await searchParams;
-  const currentRange = (params?.range ?? 'month') as Range;
+export default async function Page({ searchParams }: { searchParams?: Promise<{ range?: string }> }) {
+  const sp = await searchParams;
+  const currentRange = sp?.range === 'week' ? 'week' : 'month' as Range;
 
-  const [totalContactos, totalServidores, totalRestauracion, contactosPorEtapaDia] = await Promise.all([
+  // ✅ 2. Añadir la nueva llamada de datos al Promise.all para eficiencia
+  const [
+    totalContactos, 
+    totalServidores, 
+    totalRestauracion, 
+    contactosPorEtapaDia,
+    servidoresPorRolEtapaDia, // <- Nueva variable
+  ] = await Promise.all([
     getContactosCount(),
     getServidoresCount(),
     getRestauracionCount(),
     getContactosPorEtapaDia(),
+    getServidoresPorRolEtapaDia(), // <- Nueva llamada
   ]);
 
   const [asistDetalle, asistEtapas, asistPorModulo] = await Promise.all([
@@ -50,13 +59,18 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ r
     <>
       <RtDashboardWatch />
 
+      <div className="flex justify-between items-center mb-6 px-1">
+        <h1 className="text-2xl font-bold text-slate-800">Dashboard General</h1>
+        <RangeFilterButtons />
+      </div>
+
       <div className="kpi-row">
-        <ContactosKPI label="Contactos" initialValue={totalContactos} delta={"+"} className="contactos" data-key="contactos" />
+        <ContactosKPI label="Contactos" initialValue={totalContactos} className="contactos" data-key="contactos" />
         <ServidoresKPI label="Servidores" initialValue={totalServidores} className="servidores" data-key="servidores" />
         
         <article className="kpi-card asistencias" data-key="asistencias">
           <div className="flex items-center justify-between">
-            <span className="kpi-label">Asistencias</span>
+            <span className="kpi-label">Asistencias ({currentRange === 'week' ? 'Semana' : 'Mes'})</span>
           </div>
           <div className="flex items-center gap-6 mt-2">
             <div className="kpi-value">{formatNumber(asistDetalle.total)}</div>
@@ -75,11 +89,13 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ r
         </article>
       </div>
 
+      {/* ✅ 3. Pasar los nuevos datos como prop al componente de detalles */}
       <DetalleSecciones
         asistEtapas={asistEtapas}
         asistPorModulo={asistPorModulo}
         agendados={agendados}
         contactosPorEtapaDia={contactosPorEtapaDia}
+        servidoresPorRolEtapaDia={servidoresPorRolEtapaDia} // <- Nueva prop
         defaultKey="asistencias"
       />
     </>

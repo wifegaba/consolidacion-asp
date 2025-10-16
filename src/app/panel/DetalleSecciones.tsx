@@ -1,92 +1,76 @@
-// app/panel/DetalleSecciones.tsx
+// src/app/panel/DetalleSecciones.tsx
 "use client";
 
 import React, { useEffect, useState } from "react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
-import { getContactosPorFiltro } from "@/app/actions";
-
-// ✅ PASO 1: Importar las librerías para generar el PDF
+import { getContactosPorFiltro, getServidoresPorFiltro } from "@/app/actions";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
-
 /* ============================ Tipos ============================ */
-type AsistEtapaRow = {
-  etapa: string;
-  confirmados: number;
-  noAsistieron: number;
-  total: number;
-};
-
-type AgendadoRow = {
-  etapa_modulo: string;
-  agendados_pendientes: number;
-};
-
-type AsistModuloRow = {
-  etapa: string;
-  modulo: number;
-  dia: string;
-  confirmados: number;
-  noAsistieron: number;
-  total: number;
-};
-
-type BarChartData = {
-  key: string;
-  value: number;
-  color: string;
-};
-
-type Persona = {
-  nombre: string;
-  telefono: string | null;
-};
+type AsistEtapaRow = { etapa: string; confirmados: number; noAsistieron: number; total: number; };
+type AgendadoRow = { etapa_modulo: string; agendados_pendientes: number; };
+type AsistModuloRow = { etapa: string; modulo: number; dia: string; confirmados: number; noAsistieron: number; total: number; };
+type BarChartData = { key: string; value: number; color: string; };
+type Persona = { nombre: string; telefono: string | null; };
+type ServidorDetalle = { nombre: string; telefono: string | null; cedula: string; };
 
 type DetalleSeccionesProps = {
   asistEtapas: AsistEtapaRow[];
   agendados?: AgendadoRow[];
   asistPorModulo?: AsistModuloRow[];
   contactosPorEtapaDia?: BarChartData[];
+  servidoresPorRolEtapaDia?: BarChartData[];
   defaultKey?: string;
 };
 
-/* ============================ Constantes y Utils (Sin cambios) ============================ */
-const GREEN = "#34d399";
-const GREEN_LIGHT = "#4ade80";
-const RED = "#dc2626";
-const RED_LIGHT = "#f87171";
+/* ============================ Constantes y Utils ============================ */
+const GREEN = "#34d399"; const GREEN_LIGHT = "#4ade80"; const RED = "#dc2626"; const RED_LIGHT = "#f87171";
+function etiquetaEtapaModulo(etapa: string, modulo: number, dia: string) { if (!etapa) return `Módulo ${modulo}`; const base = etapa.trim().split(/\s+/)[0]; const nombre = base.charAt(0).toUpperCase() + base.slice(1).toLowerCase(); return `${nombre} ${modulo} (${dia})`; }
+function colorPorEtapa(etapa: string): string { const m: Record<string, string> = { Semillas: "linear-gradient(180deg, #fecaca 0%, #f87171 100%)", Devocionales: "linear-gradient(180deg, #ddd6fe 0%, #a78bfa 100%)", Restauracion: "linear-gradient(180deg, #bfdbfe 0%, #60a5fa 100%)", Consolidacion: "linear-gradient(180deg, #fde68a 0%, #f59e0b 100%)", Discipulado: "linear-gradient(180deg, #bbf7d0 0%, #34d399 100%)", Liderazgo: "linear-gradient(180deg, #fbcfe8 0%, #f472b6 100%)", }; if (m[etapa]) return m[etapa]; const colors = [ ["#fecaca", "#f87171"], ["#ddd6fe", "#a78bfa"], ["#bfdbfe", "#60a5fa"], ["#fde68a", "#f59e0b"], ["#bbf7d0", "#34d399"], ["#fbcfe8", "#f472b6"], ["#c7d2fe", "#6366f1"], ["#bae6fd", "#38bdf8"], ]; let hash = 0; for (let i = 0; i < etapa.length; i++) hash = (hash * 31 + etapa.charCodeAt(i)) >>> 0; const [c1, c2] = colors[hash % colors.length]; return `linear-gradient(180deg, ${c1} 0%, ${c2} 100%)`; }
 
-function etiquetaEtapaModulo(etapa: string, modulo: number, dia: string) {
-  if (!etapa) return `Módulo ${modulo}`;
-  const base = etapa.trim().split(/\s+/)[0];
-  const nombre = base.charAt(0).toUpperCase() + base.slice(1).toLowerCase();
-  return `${nombre} ${modulo} (${dia})`;
-}
+// ✅ 1. LÓGICA DE PDF REFACTORIZADA A UNA FUNCIÓN UTILITARIA
+const generateContactosPdf = (title: string, data: Persona[]) => {
+  if (!data.length) return;
+  const doc = new jsPDF();
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(16);
+  doc.setTextColor("#ffffff");
+  doc.setFillColor(44, 62, 80);
+  doc.rect(0, 0, 210, 25, "F");
+  doc.text(title, 105, 16, { align: "center" });
+  autoTable(doc, {
+    startY: 35,
+    head: [['Nombre', 'Teléfono']],
+    body: data.map(persona => [persona.nombre, persona.telefono || 'N/A']),
+    theme: 'grid',
+    headStyles: { fillColor: [52, 152, 219], textColor: 255, fontStyle: 'bold' },
+    styles: { cellPadding: 3, fontSize: 10, valign: 'middle' },
+    alternateRowStyles: { fillColor: [245, 245, 245] },
+  });
+  const pageCount = (doc as any).internal.getNumberOfPages();
+  for (let i = 1; i <= pageCount; i++) {
+    doc.setPage(i);
+    doc.setFontSize(8);
+    doc.setTextColor(150);
+    doc.text(`Página ${i} de ${pageCount}`, doc.internal.pageSize.getWidth() / 2, doc.internal.pageSize.getHeight() - 10, { align: 'center' });
+  }
+  const fileName = `${title.replace(/[^\w\s]/gi, '').replace(/ /g, '_')}.pdf`;
+  doc.save(fileName);
+};
 
-function colorPorEtapa(etapa: string): string {
-  const m: Record<string, string> = {
-    Semillas: "linear-gradient(180deg, #fecaca 0%, #f87171 100%)",
-    Devocionales: "linear-gradient(180deg, #ddd6fe 0%, #a78bfa 100%)",
-    Restauracion: "linear-gradient(180deg, #bfdbfe 0%, #60a5fa 100%)",
-    Consolidacion: "linear-gradient(180deg, #fde68a 0%, #f59e0b 100%)",
-    Discipulado: "linear-gradient(180deg, #bbf7d0 0%, #34d399 100%)",
-    Liderazgo: "linear-gradient(180deg, #fbcfe8 0%, #f472b6 100%)",
-  };
-  if (m[etapa]) return m[etapa];
-  const colors = [
-    ["#fecaca", "#f87171"], ["#ddd6fe", "#a78bfa"], ["#bfdbfe", "#60a5fa"],
-    ["#fde68a", "#f59e0b"], ["#bbf7d0", "#34d399"], ["#fbcfe8", "#f472b6"],
-    ["#c7d2fe", "#6366f1"], ["#bae6fd", "#38bdf8"],
-  ];
-  let hash = 0;
-  for (let i = 0; i < etapa.length; i++) hash = (hash * 31 + etapa.charCodeAt(i)) >>> 0;
-  const [c1, c2] = colors[hash % colors.length];
-  return `linear-gradient(180deg, ${c1} 0%, ${c2} 100%)`;
-}
+// Reuse the contactos PDF generator for servidores: map ServidorDetalle -> Persona and combine title+subTitle
+const generateServidoresPdf = (title: string, subTitle: string, data: ServidorDetalle[]) => {
+  // Map servidores to the Persona shape (include cédula in the name column)
+  const personas: Persona[] = data.map(s => ({ nombre: `${s.nombre}${s.cedula ? ` — ${s.cedula}` : ''}`, telefono: s.telefono }));
+  const fullTitle = subTitle ? `${title} ${subTitle}` : title;
+  generateContactosPdf(fullTitle, personas);
+};
 
 
-/* ====================== Componentes de Gráficos (Sin cambios) ===================== */
+/* ====================== Componentes Internos (Completos) ===================== */
+type AsistBarData = { label: string; value: number; type: 'asistencia' | 'inasistencia' };
+
 const PremiumHorizontalBars = ({ data }: { data: AgendadoRow[] }) => {
     const [widths, setWidths] = useState<Record<string, number>>({});
     const sortedData = [...data].sort((a, b) => b.agendados_pendientes - a.agendados_pendientes);
@@ -96,7 +80,7 @@ const PremiumHorizontalBars = ({ data }: { data: AgendadoRow[] }) => {
     if (!data || data.length === 0) { return <p className="text-center text-slate-500 py-8">No hay datos de agendados.</p> }
     return (<div className="w-full h-full flex flex-col gap-1 py-1 pr-2">{sortedData.map((d, index) => (<div key={d.etapa_modulo} className="grid grid-cols-[minmax(80px,1fr)_2fr] items-center gap-x-3"><div className="text-sm text-slate-500 text-right truncate" title={d.etapa_modulo}>{d.etapa_modulo}</div><div className="flex items-center gap-2.5"><div className="relative h-3.5 w-full bg-slate-200/60 rounded-full overflow-hidden"><div className={`absolute inset-y-0 left-0 rounded-full bg-gradient-to-r ${gradients[index % gradients.length]}`} style={{ width: `${widths[d.etapa_modulo] || 0}%`, transition: 'width 800ms cubic-bezier(0.25, 1, 0.5, 1)' }} /></div><div className="text-sm font-semibold text-slate-700 tabular-nums w-8 text-left">{d.agendados_pendientes}</div></div></div>))}</div>);
 };
-type AsistBarData = { label: string; value: number; type: 'asistencia' | 'inasistencia' };
+
 const AsistenciasHorizontalBars = ({ data }: { data: AsistBarData[] }) => {
     const [widths, setWidths] = useState<Record<string, number>>({});
     const sortedData = [...data].sort((a, b) => { if (a.type === 'inasistencia' && b.type !== 'inasistencia') return 1; if (a.type !== 'inasistencia' && b.type === 'inasistencia') return -1; return b.value - a.value; });
@@ -108,139 +92,29 @@ const AsistenciasHorizontalBars = ({ data }: { data: AsistBarData[] }) => {
     let asistenciaIndex = 0;
     return (<div className="w-full h-full flex flex-col gap-4 py-1 px-1">{sortedData.map((d) => { const isAsistencia = d.type === 'asistencia'; const gradient = isAsistencia ? asistGradients[asistenciaIndex++ % asistGradients.length] : inasistGradient; const labelColor = isAsistencia ? "text-slate-500" : "text-red-600 font-semibold"; return (<div key={d.label} className="grid grid-cols-[minmax(0,1.2fr)_2fr_auto] items-center gap-x-2"><div className={`text-xs sm:text-sm text-right truncate ${labelColor}`} title={d.label}>{d.label}</div><div className="relative h-4 w-full bg-slate-200/60 rounded-full overflow-hidden"><div className={`absolute inset-y-0 left-0 rounded-full bg-gradient-to-r ${gradient}`} style={{ width: `${widths[d.label] || 0}%`, transition: 'width 800ms cubic-bezier(0.25, 1, 0.5, 1)' }}/></div><div className="text-sm font-semibold text-slate-700 tabular-nums w-8 text-left">{d.value}</div></div>); })}</div>);
 };
-const ContactosBenchmarkChart = ({ data }: { data: BarChartData[] }) => {
-    const [widths, setWidths] = useState<Record<string, number>>({});
-    useEffect(() => { const maxValue = Math.max(...data.map((d) => d.value), 1); const newWidths: Record<string, number> = {}; data.forEach(d => { newWidths[d.key] = (d.value / maxValue) * 100; }); const timer = setTimeout(() => { setWidths(newWidths); }, 100); return () => clearTimeout(timer); }, [data]);
-    if (!data || data.length === 0) { return <p className="text-center text-slate-500 py-8">No hay datos de contactos.</p>; }
-    return (<div className="w-full h-full grid grid-cols-[max-content_1fr_max-content] items-center gap-x-3 gap-y-3 py-2">{data.map((d, index) => (<React.Fragment key={d.key}><div className={`text-xs whitespace-nowrap ${index === 0 ? "bg-lime-500 dark:bg-[#00F2FF] text-transparent bg-clip-text font-bold" : "text-gray-500 dark:text-zinc-400"}`}>{d.key}</div><div className="relative rounded-sm h-2.5 bg-gray-200 dark:bg-zinc-800 overflow-hidden w-full"><div className={`absolute inset-0 rounded-r-sm bg-gradient-to-r ${index === 0 ? "from-lime-300 to-teal-300 dark:from-[#00F2FF] dark:to-[#7AED5C]" : "from-zinc-400 to-gray-400 dark:from-zinc-500 dark:to-zinc-400"}`} style={{ width: `${widths[d.key] || 0}%`, transition: 'width 800ms cubic-bezier(0.25, 1, 0.5, 1)', }}/></div><div className={`text-xs whitespace-nowrap ${index === 0 ? "bg-teal-400 dark:bg-[#7AED5C] text-transparent bg-clip-text font-bold" : "text-gray-500 dark:text-zinc-400"} tabular-nums`}>{d.value}</div></React.Fragment>))}</div>);
-};
-const ContactosCompactTable = ({ data, onRowClick }: { data: BarChartData[], onRowClick: (key: string) => void }) => {
-    const total = data.reduce((sum, item) => sum + item.value, 0);
-  
-    return (
-      <div className="flex flex-col text-xs w-full">
-        <div className="grid grid-cols-[1fr_auto] gap-x-4 px-2 py-1 border-b border-slate-200/60">
-          <span className="font-semibold text-slate-400 uppercase tracking-wider text-[0.65rem]">Etapa · Día</span>
-          <span className="font-semibold text-slate-400 uppercase tracking-wider text-right text-[0.65rem]">Total</span>
-        </div>
-        <div className="flex flex-col">
-          {data.map((row, i) => (
-            <div 
-              key={i} 
-              className="grid grid-cols-[1fr_auto] gap-x-4 px-2 py-2 border-b border-slate-200/30 cursor-pointer hover:bg-slate-100/80 transition-colors duration-150"
-              onClick={() => onRowClick(row.key)}
-            >
-              <span className="font-medium text-slate-600 truncate">{row.key}</span>
-              <span className="font-semibold text-slate-700 tabular-nums text-right">
-                {row.value}
-              </span>
-            </div>
-          ))}
-        </div>
-        <div className="grid grid-cols-[1fr_auto] gap-x-4 px-2 py-2 mt-2 bg-slate-100/60 rounded-lg">
-          <span className="font-semibold text-slate-700">Total de Contactos Activos</span>
-          <span className="font-bold text-slate-800 tabular-nums text-right">{total}</span>
-        </div>
-      </div>
-    );
-};
-  
-const ContactosDetalleModal = ({ isOpen, onClose, title, data, isLoading }: { 
-  isOpen: boolean; 
-  onClose: () => void;
-  title: string;
-  data: Persona[];
-  isLoading: boolean;
-}) => {
+
+const ContactosDetalleModal = ({ isOpen, onClose, title, data, isLoading }: { isOpen: boolean; onClose: () => void; title: string; data: Persona[]; isLoading: boolean; }) => {
   const [currentPage, setCurrentPage] = useState(0);
   const ITEMS_PER_PAGE = 10;
-
-  useEffect(() => {
-    setCurrentPage(0);
-  }, [data]);
+  useEffect(() => { setCurrentPage(0); }, [data]);
   
-  // ✅ PASO 2: Crear la función para generar y descargar el PDF
-  const handleDownloadPDF = () => {
-    if (!data.length) return;
-
-    const doc = new jsPDF();
-    
-    // Encabezado Premium
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(16);
-    doc.setTextColor("#ffffff");
-    doc.setFillColor(44, 62, 80); // Un color azul oscuro elegante
-    doc.rect(0, 0, 210, 25, "F"); // Fondo del encabezado
-    doc.text(title, 105, 16, { align: "center" });
-
-    // Tabla con los datos
-    autoTable(doc, {
-      startY: 35,
-      head: [['Nombre', 'Teléfono']],
-      body: data.map(persona => [persona.nombre, persona.telefono || 'N/A']),
-      theme: 'grid',
-      headStyles: {
-        fillColor: [52, 152, 219], // Un azul más brillante para la cabecera de la tabla
-        textColor: 255,
-        fontStyle: 'bold',
-      },
-      styles: {
-        cellPadding: 3,
-        fontSize: 10,
-        valign: 'middle',
-      },
-      alternateRowStyles: {
-        fillColor: [245, 245, 245] // Un gris muy claro para las filas alternas
-      },
-    });
-
-    // Pie de página
-    const pageCount = (doc as any).internal.getNumberOfPages();
-    for(let i = 1; i <= pageCount; i++) {
-        doc.setPage(i);
-        doc.setFontSize(8);
-        doc.setTextColor(150);
-        doc.text(
-            `Página ${i} de ${pageCount}`,
-            doc.internal.pageSize.getWidth() / 2,
-            doc.internal.pageSize.getHeight() - 10,
-            { align: 'center' }
-        );
-    }
-
-    // Guardar el archivo
-    const fileName = `${title.replace(/[^\w\s]/gi, '').replace(/ /g, '_')}.pdf`;
-    doc.save(fileName);
-  };
-
   if (!isOpen) return null;
 
   const totalPages = Math.ceil(data.length / ITEMS_PER_PAGE);
   const startIndex = currentPage * ITEMS_PER_PAGE;
   const paginatedData = data.slice(startIndex, startIndex + ITEMS_PER_PAGE);
-
   const handlePrev = () => setCurrentPage(p => Math.max(0, p - 1));
   const handleNext = () => setCurrentPage(p => Math.min(totalPages - 1, p + 1));
 
+  const modalTitle = `Contactos de ${title}`;
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div 
-        className="absolute inset-0 bg-black/40 backdrop-blur-sm transition-opacity duration-300 ease-out"
-        onClick={onClose}
-      />
-      <div 
-        className="relative z-10 w-full max-w-md bg-black/80 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl text-white transition-all duration-300 ease-out"
-        style={{ transform: 'scale(0.95)', opacity: 0, animation: 'enter 0.3s cubic-bezier(0.2, 0.8, 0.2, 1) forwards' }}
-      >
-        {/* ✅ PASO 3: Añadir el botón de descarga en el encabezado del modal */}
-        <div className="px-5 py-3 bg-white/10 rounded-t-2xl border-b border-white/10 flex justify-between items-center">
-          <h3 className="text-base font-semibold text-white truncate pr-4">{title}</h3>
-          <button 
-            onClick={handleDownloadPDF}
-            disabled={isLoading || data.length === 0}
-            className="p-1.5 rounded-full text-slate-300 hover:text-white hover:bg-white/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
-            title="Descargar en PDF"
-          >
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm transition-opacity duration-300 ease-out" onClick={onClose} />
+      <div className="relative z-10 w-full max-w-md bg-black/80 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl text-white transition-all duration-300 ease-out" style={{ transform: 'scale(0.95)', opacity: 0, animation: 'enter 0.3s cubic-bezier(0.2, 0.8, 0.2, 1) forwards' }}>
+        <div className="px-5 py-3 bg-gradient-to-b from-slate-100 to-slate-200 rounded-t-2xl border-b border-slate-300 flex justify-between items-center">
+          <h3 className="text-base font-semibold text-slate-900 truncate pr-4">{modalTitle}</h3>
+          <button onClick={() => generateContactosPdf(title, data)} disabled={isLoading || data.length === 0} className="p-1.5 rounded-full text-slate-700 hover:text-slate-900 hover:bg-white/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200" title="Descargar en PDF">
             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
               <polyline points="7 10 12 15 17 10"></polyline>
@@ -268,16 +142,137 @@ const ContactosDetalleModal = ({ isOpen, onClose, title, data, isLoading }: {
           <button onClick={handleNext} disabled={currentPage >= totalPages - 1} className="text-sm text-white disabled:text-slate-600 disabled:cursor-not-allowed transition-colors">Siguiente</button>
         </div>
       </div>
-      <style jsx global>{`
-        @keyframes enter {
-          from { transform: scale(0.95); opacity: 0; }
-          to { transform: scale(1); opacity: 1; }
-        }
+      <style jsx global>{` @keyframes enter { from { transform: scale(0.95); opacity: 0; } to { transform: scale(1); opacity: 1; } } `}</style>
+    </div>
+  );
+};
+
+const ServidoresDetalleModal = ({ isOpen, onClose, title, subTitle, data, isLoading }: { 
+  isOpen: boolean; 
+  onClose: () => void;
+  title: string;
+  subTitle: string;
+  data: ServidorDetalle[];
+  isLoading: boolean;
+}) => {
+  if (!isOpen) return null;
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm transition-opacity duration-300 ease-out animate-fadeIn" onClick={onClose} />
+      <div 
+        className="relative z-10 w-full max-w-lg bg-black rounded-2xl shadow-2xl text-white border border-slate-700/80"
+        style={{ transform: 'scale(0.95)', opacity: 0, animation: 'enter 0.3s cubic-bezier(0.2, 0.8, 0.2, 1) forwards' }}
+      >
+        <div className="px-5 py-3 bg-gradient-to-b from-slate-200 to-slate-300 rounded-t-2xl border-b border-slate-400">
+          <h2 className="text-lg font-bold text-slate-800">{title}</h2>
+          <p className="text-sm text-slate-600 font-medium">{subTitle}</p>
+        </div>
+        <div className="p-1 sm:p-3 min-h-[300px] max-h-[60vh] overflow-y-auto">
+          {isLoading ? (
+            <div className="flex items-center justify-center h-[300px] text-slate-400">Cargando servidores...</div>
+          ) : (
+            <div className="flex flex-col">
+              <div className="grid grid-cols-[1fr_auto_auto] gap-x-4 px-3 py-2 border-b border-white/20 sticky top-0 bg-black z-10">
+                  <span className="font-semibold text-slate-400 uppercase tracking-wider text-[0.65rem]">Nombre</span>
+                  <span className="font-semibold text-slate-400 uppercase tracking-wider text-[0.65rem]">Cédula</span>
+                  <span className="font-semibold text-slate-400 uppercase tracking-wider text-[0.65rem] text-right">Teléfono</span>
+              </div>
+              {data.map((servidor, index) => (
+                <div key={index} className="grid grid-cols-[1fr_auto_auto] items-center gap-x-4 text-sm px-3 py-3 border-b border-white/10">
+                  <span className="text-slate-200 truncate font-medium">{servidor.nombre}</span>
+                  <span className="text-slate-400 font-mono">{servidor.cedula}</span>
+                  <span className="text-slate-400 font-mono text-right">{servidor.telefono || 'N/A'}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+      <style jsx global>{` 
+        @keyframes enter { from { transform: scale(0.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+        .animate-fadeIn { animation: fadeIn 0.3s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
       `}</style>
     </div>
   );
 };
 
+const StyledDetailList = ({ data, title, onRowClick, onPdfClick, loadingPdfKey }: { 
+  data: BarChartData[], 
+  title: string, 
+  onRowClick: (key: string) => void,
+  onPdfClick?: (key: string) => void,
+  loadingPdfKey?: string | null
+}) => {
+    const [widths, setWidths] = useState<Record<string, number>>({});
+
+    useEffect(() => {
+      const maxValue = Math.max(...data.map((d) => d.value), 1);
+      const newWidths: Record<string, number> = {};
+      data.forEach(d => { newWidths[d.key] = (d.value / maxValue) * 100; });
+      const id = requestAnimationFrame(() => setWidths(newWidths));
+      return () => cancelAnimationFrame(id);
+    }, [data]);
+
+    if (!data || data.length === 0) {
+      return <p className="text-center text-slate-500 py-8">No hay datos para mostrar.</p>;
+    }
+    
+    const gradients = [ "from-sky-400 to-blue-500", "from-emerald-400 to-teal-500", "from-violet-400 to-purple-500", "from-amber-400 to-orange-500", "from-rose-400 to-red-500", "from-lime-400 to-green-500", ];
+    const total = data.reduce((sum, item) => sum + item.value, 0);
+
+    const parseKey = (key: string) => {
+      const parts = key.split(' - ');
+      const rest = parts[1] || key;
+      const match = rest.match(/(.+) \((.+)\)/);
+      if (match) { return { etapa: match[1], dia: match[2] }; }
+      return { etapa: rest, dia: '' };
+    };
+
+    return (
+      <div className="flex flex-col text-sm w-full">
+        <div className="grid grid-cols-[1.5fr_1fr_1.5fr_auto] gap-x-4 px-2 pb-2 border-b border-slate-200/60">
+          <span className="font-semibold text-slate-400 uppercase tracking-wider text-[0.65rem]">Etapa</span>
+          <span className="font-semibold text-slate-400 uppercase tracking-wider text-[0.65rem]">Día</span>
+          <span className="font-semibold text-slate-400 uppercase tracking-wider text-[0.65rem]">Distribución</span>
+          <span className="w-12"></span>
+        </div>
+        <div className="flex flex-col">
+          {data.map((row, i) => {
+            const { etapa, dia } = parseKey(row.key);
+            return (
+              <div key={i} className="grid grid-cols-[1.5fr_1fr_1.5fr_auto] items-center gap-x-4 px-2 py-2 border-b border-slate-200/30">
+                <span className="font-medium text-slate-500 truncate" title={etapa}>{etapa}</span>
+                <span className="font-medium text-slate-500 truncate" title={dia}>({dia})</span>
+                <div className="relative h-5 w-full bg-slate-200/70 rounded-md overflow-hidden flex items-center justify-end pr-2">
+                     <div className={`absolute inset-y-0 left-0 rounded-md bg-gradient-to-r ${gradients[i % gradients.length]}`} style={{ width: `${widths[row.key] || 0}%`, transition: 'width 800ms cubic-bezier(0.25, 1, 0.5, 1)' }} />
+                     <span className="relative z-10 font-bold text-white text-xs" style={{ textShadow: '0 1px 2px rgba(0,0,0,0.4)' }}>{row.value}</span>
+                </div>
+                <div className="flex items-center justify-end space-x-2">
+                  <button onClick={() => onRowClick(row.key)} className="text-slate-400 hover:text-slate-700 transition-colors" title="Consultar detalles">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                  </button>
+                  {onPdfClick && (
+                    loadingPdfKey === row.key ? (
+                      <div className="w-6 h-6 flex items-center justify-center"><svg className="animate-spin h-4 w-4 text-slate-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg></div>
+                    ) : (
+                      <button onClick={() => onPdfClick(row.key)} className="text-slate-400 hover:text-red-600 transition-colors" title="Descargar PDF">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                      </button>
+                    )
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        <div className="grid grid-cols-[1.5fr_1fr_1.5fr_auto] gap-x-4 px-2 pt-3">
+          <span className="col-span-3 font-semibold text-slate-700 text-right">{title}</span>
+          <span className="font-bold text-slate-800 text-right pr-10">{total}</span>
+        </div>
+      </div>
+    );
+};
 
 /* ========================= Componente principal ========================= */
 export default function DetalleSecciones({
@@ -285,6 +280,7 @@ export default function DetalleSecciones({
   agendados = [],
   asistPorModulo = [],
   contactosPorEtapaDia = [],
+  servidoresPorRolEtapaDia = [],
   defaultKey,
 }: DetalleSeccionesProps) {
   const [view, setView] = useState<string | null>(defaultKey || null);
@@ -292,33 +288,106 @@ export default function DetalleSecciones({
   const [modalOpen, setModalOpen] = useState(false);
   const [modalIsLoading, setModalIsLoading] = useState(false);
   const [modalContent, setModalContent] = useState<{ title: string; data: Persona[] }>({ title: '', data: [] });
+  
+  const [servidoresModalOpen, setServidoresModalOpen] = useState(false);
+  const [servidoresModalIsLoading, setServidoresModalIsLoading] = useState(false);
+  const [servidoresModalContent, setServidoresModalContent] = useState<{ title: string; subTitle: string; data: ServidorDetalle[] }>({ title: '', subTitle: '', data: [] });
+
+  const [pdfLoadingKey, setPdfLoadingKey] = useState<string | null>(null);
 
   const handleContactRowClick = async (key: string) => {
     const match = key.match(/(.+) (\d+) \(([^)]+)\)/);
-    if (!match) {
-      console.error("El formato del key no es válido y no se puede procesar:", key);
-      return;
-    }
-    const etapa = match[1]; 
+    if (!match) { console.error("El formato del key no es válido:", key); return; }
+    const etapa = match[1];
     const modulo = parseInt(match[2], 10);
     const dia = match[3];
-    
     setModalOpen(true);
     setModalIsLoading(true);
     setModalContent({ title: key, data: [] });
-
     try {
       const personas = await getContactosPorFiltro(etapa, modulo, dia);
       setModalContent({ title: key, data: personas });
     } catch (error) {
-      console.error("Error al obtener los contactos para el filtro:", error);
-      setModalContent({ title: `Error al cargar datos de "${key}"`, data: [] });
+      console.error("Error al obtener detalles de contactos:", error);
+      setModalContent(prev => ({ ...prev, title: `Error al cargar ${key}` }));
     } finally {
       setModalIsLoading(false);
     }
   };
+
+  const handleContactPdfDownload = async (key: string) => {
+    setPdfLoadingKey(key);
+    try {
+      const match = key.match(/(.+) (\d+) \(([^)]+)\)/);
+      if (!match) { throw new Error("Clave de contacto no válida"); }
+      const etapa = match[1];
+      const modulo = parseInt(match[2], 10);
+      const dia = match[3];
+      
+      const personas = await getContactosPorFiltro(etapa, modulo, dia);
+      generateContactosPdf(key, personas);
+    } catch (error) {
+      console.error("Error al generar PDF de contactos:", error);
+    } finally {
+      setPdfLoadingKey(null);
+    }
+  };
   
-  // Lógica existente (sin cambios)
+  const handleServidorRowClick = async (key: string) => {
+    const parts = key.split(' - ');
+    const rol = parts[0];
+    const rest = parts[1] || '';
+    const match = rest.match(/(.+) \((.+)\)/);
+
+    if (!match || !rol) { console.error("Clave de servidor no válida:", key); return; }
+    
+    const etapa_det = match[1];
+    const dia = match[2];
+
+    const titleMapping: { [key: string]: string } = { 'Maestros': 'Coordinadores', 'Contactos': 'Timoteos' };
+    const modalTitle = titleMapping[rol] || rol;
+
+    setServidoresModalOpen(true);
+    setServidoresModalIsLoading(true);
+    setServidoresModalContent({ title: modalTitle, subTitle: `de ${etapa_det} (${dia})`, data: [] });
+
+    try {
+      const servidores = await getServidoresPorFiltro(rol, etapa_det, dia);
+      setServidoresModalContent(prev => ({ ...prev, data: servidores }));
+    } catch (error) {
+      console.error("Error al obtener detalles de servidores:", error);
+      setServidoresModalContent(prev => ({ ...prev, subTitle: 'Error al cargar los datos' }));
+    } finally {
+      setServidoresModalIsLoading(false);
+    }
+  };
+
+  const handleServidorPdfDownload = async (key: string) => {
+    setPdfLoadingKey(key);
+    try {
+        const parts = key.split(' - ');
+        const rol = parts[0];
+        const rest = parts[1] || '';
+        const match = rest.match(/(.+) \((.+)\)/);
+
+        if (!match || !rol) { throw new Error("Clave de servidor no válida"); }
+        
+        const etapa_det = match[1];
+        const dia = match[2];
+
+        const titleMapping: { [key: string]: string } = { 'Maestros': 'Coordinadores', 'Contactos': 'Timoteos' };
+        const pdfTitle = titleMapping[rol] || rol;
+        const pdfSubTitle = `de ${etapa_det} (${dia})`;
+
+        const servidores = await getServidoresPorFiltro(rol, etapa_det, dia);
+        generateServidoresPdf(pdfTitle, pdfSubTitle, servidores);
+    } catch (error) {
+        console.error("Error al generar PDF de servidores:", error);
+    } finally {
+        setPdfLoadingKey(null);
+    }
+  };
+
   const totalConfirmados = asistEtapas.reduce((s, r) => s + (r.confirmados || 0), 0);
   const totalNoAsistieron = asistEtapas.reduce((s, r) => s + (r.noAsistieron || 0), 0);
   const totalAsist = totalConfirmados + totalNoAsistieron;
@@ -331,18 +400,55 @@ export default function DetalleSecciones({
   const asistenciasChartData: AsistBarData[] = [ ...asistPorModulo.map(m => ({ label: etiquetaEtapaModulo(m.etapa, m.modulo, m.dia), value: m.total, type: 'asistencia' as const, })), { label: 'Inasistencias', value: totalInasist, type: 'inasistencia' as const, } ].filter(item => item.value > 0);
   const inasistChips = asistPorModulo.filter((m) => (m.noAsistieron || 0) > 0).map((m) => ({ etapa: m.etapa, label: `${etiquetaEtapaModulo(m.etapa, m.modulo, m.dia)}`, value: m.noAsistieron, color: colorPorEtapa(m.etapa), })).sort((a, b) => b.value - a.value);
   const CustomTooltip = ({ active, payload }: { active?: boolean; payload?: Array<{ value: number; name: string }>; }) => { if (active && payload && payload.length) { const { name, value } = payload[0]; const base = view === "agendados" ? totalAgend : totalAsist; return ( <div className="bg-white/95 backdrop-blur-sm px-3 py-2 rounded-lg shadow-md text-[12px] ring-1 ring-black/10"> <p className="font-semibold text-slate-800">{name}</p> <p className="tabular-nums text-slate-700"> {value} <span className="text-slate-500">({pct(value, base)}%)</span> </p> </div> ); } return null; };
+  
   useEffect(() => { const handler = (e: MouseEvent) => { const target = (e.target as HTMLElement).closest("[data-key]"); if (target) setView(target.getAttribute("data-key")); }; document.addEventListener("click", handler); return () => document.removeEventListener("click", handler); }, []);
   const [animatedTotal, setAnimatedTotal] = useState(0);
   useEffect(() => { const target = view === "agendados" ? totalAgend : totalAsist; let raf = 0; const start = performance.now(); const dur = 800; const tick = (now: number) => { const t = Math.min((now - start) / dur, 1); setAnimatedTotal(Math.round(target * t)); if (t < 1) raf = requestAnimationFrame(tick); }; requestAnimationFrame(tick); return () => cancelAnimationFrame(raf); }, [view, totalAsist, totalAgend]);
 
+  const parseSortKey = (key: string) => {
+    const match = key.match(/(.+) (\d+) \((.+)\)/);
+    if (match) {
+        const etapaNameParts = match[1].split(' ');
+        const etapaName = etapaNameParts.length > 1 ? etapaNameParts.slice(0, -1).join(' ') : match[1];
+        return { etapa: etapaName, modulo: parseInt(match[2], 10), dia: match[3] };
+    }
+    const simpleMatch = key.match(/(Semillas|Devocionales|Restauracion) (\d+)/);
+    if(simpleMatch) { return { etapa: simpleMatch[1], modulo: parseInt(simpleMatch[2], 10), dia: '' }; }
+    return { etapa: key, modulo: 0, dia: '' };
+  };
+  
+  const etapaOrder: { [key: string]: number } = { 'Semillas': 1, 'Devocionales': 2, 'Restauracion': 3 };
+  
+  const genericSort = (a: BarChartData, b: BarChartData, keyPrefix: string) => {
+      const aKey = a.key.replace(keyPrefix, '').trim();
+      const bKey = b.key.replace(keyPrefix, '').trim();
+      const aParsed = parseSortKey(aKey);
+      const bParsed = parseSortKey(bKey);
+      
+      const etapaOrderA = etapaOrder[aParsed.etapa] || 99;
+      const etapaOrderB = etapaOrder[bParsed.etapa] || 99;
+      if (etapaOrderA !== etapaOrderB) { return etapaOrderA - etapaOrderB; }
+      if (aParsed.modulo !== bParsed.modulo) { return aParsed.modulo - bParsed.modulo; }
+      return a.key.localeCompare(b.key);
+  };
+
+  const maestrosData = servidoresPorRolEtapaDia.filter(d => d.key.startsWith('Maestros')).sort((a,b) => genericSort(a,b, 'Maestros -'));
+  const timoteosData = servidoresPorRolEtapaDia.filter(d => d.key.startsWith('Contactos')).sort((a,b) => genericSort(a,b, 'Contactos -'));
+  const sortedContactosData = [...contactosPorEtapaDia].sort((a,b) => genericSort(a,b, ''));
+
   return (
     <>
       <style jsx>{`
-        .agendados-container, .asistencias-container, .contactos-container {
+        .agendados-container, .asistencias-container, .contactos-container, .servidores-container {
           display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-          gap: 1.5rem; /* 24px */
+          grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+          gap: 1.5rem;
           align-items: start;
+        }
+        @media (min-width: 1024px) {
+          .servidores-container {
+            grid-template-columns: 1fr 1fr;
+          }
         }
       `}</style>
 
@@ -353,161 +459,55 @@ export default function DetalleSecciones({
         data={modalContent.data}
         isLoading={modalIsLoading}
       />
+      <ServidoresDetalleModal
+        isOpen={servidoresModalOpen}
+        onClose={() => setServidoresModalOpen(false)}
+        title={servidoresModalContent.title}
+        subTitle={servidoresModalContent.subTitle}
+        data={servidoresModalContent.data}
+        isLoading={servidoresModalIsLoading}
+      />
     
       <div className="overflow-visible mt-6">
-        {!view && (
-          <div className="grid premium-grid">
-            <section className="card span-2 animate-fadeIn premium-glass p-4">
-              <h2 className="card-title">Bienvenido</h2>
-              <p className="text-muted">Selecciona una tarjeta KPI para ver detalles.</p>
-            </section>
-          </div>
-        )}
-
+        {!view && ( <div className="grid premium-grid"><section className="card span-2 animate-fadeIn premium-glass p-4"><h2 className="card-title">Bienvenido</h2><p className="text-muted">Selecciona una tarjeta KPI para ver detalles.</p></section></div> )}
+        
         {view === "asistencias" && (
           <div className="asistencias-container">
-            <section className="card premium-glass animate-slideIn relative self-start p-4">
-              <div className="card-head !pb-0"><h2 className="card-title">Gráfico de Asistencias</h2></div>
-              <div className="panel-body !p-2">
-                <div className="asistencias-labels flex justify-between w-full px-4 mt-1 mb-2 text-sm">
-                  <div className="flex flex-col items-center text-green-600 font-semibold">
-                    <span>Asistieron <span className="font-bold text-lg tabular-nums">{totalConfirmados}</span></span>
-                    <span className="text-green-600 font-bold text-sm tabular-nums">{pctOk}%</span>
-                  </div>
-                  <div className="flex flex-col items-center text-red-600 font-semibold">
-                    <span>No asistieron <span className="font-bold text-lg tabular-nums">{totalNoAsistieron}</span></span>
-                    <span className="text-red-600 font-bold text-sm tabular-nums">{pctNo}%</span>
-                  </div>
-                </div>
-                <div className="relative mx-auto max-w-[180px] aspect-square overflow-hidden flex items-center justify-center">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <defs>
-                        <linearGradient id="gradOk" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={GREEN_LIGHT} /><stop offset="100%" stopColor={GREEN} /></linearGradient>
-                        <linearGradient id="gradNo" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={RED_LIGHT} /><stop offset="100%" stopColor={RED} /></linearGradient>
-                      </defs>
-                      <Pie data={dataAsist} dataKey="value" innerRadius="55%" outerRadius="82%" startAngle={90} endAngle={-270} paddingAngle={0} cornerRadius={12} isAnimationActive animationBegin={100} animationDuration={900} animationEasing="ease-out">
-                        {dataAsist.map((d, i) => (<Cell key={i} fill={d.color} stroke="#ffffff" strokeWidth={3} />))}
-                      </Pie>
-                      <Tooltip content={<CustomTooltip />} />
-                    </PieChart>
-                  </ResponsiveContainer>
-                  <div className="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none donut-center px-2">
-                    <p className="text-2xl leading-tight font-extrabold text-gray-900 tabular-nums">{animatedTotal.toLocaleString()}</p>
-                    <p className="text-gray-500 text-xs mt-0.5">Total</p>
-                  </div>
-                </div>
-              </div>
-            </section>
-            
-            <section className="card premium-glass animate-slideIn self-start flex flex-col overflow-visible p-4">
-              <div className="card-head pb-0"><h2 className="card-title">Detalle por etapa</h2></div>
-              <div className="px-2 pt-3">
-                <h3 className="text-sm font-semibold text-slate-700 px-1 mb-2">Asistencias por módulo (Total) + Inasistencias</h3>
-                <AsistenciasHorizontalBars data={asistenciasChartData} />
-              </div>
-              
-
-              {inasistChips.length > 0 && (
-                <div className="px-4 pt-2 pb-3">
-                  <div className="w-full rounded-xl bg-white/70 ring-1 ring-slate-200/70 backdrop-blur-sm px-3 py-2">
-                    <div className="flex items-center gap-x-3 mb-2">
-                      <span className="text-rose-600 font-semibold whitespace-nowrap">Inasistencias</span>
-                    </div>
-                    <div className="grid grid-cols-2 gap-x-3 gap-y-2 w-full">
-                      {inasistChips.map((c) => (
-                        <span key={`chip-${c.label}`} className="chip-inasistencia" title={`${c.label}: ${c.value}`}> 
-                          <span className="chip-inasistencia-color" style={{ background: c.color, boxShadow: '0 0 0 1px rgba(0,0,0,0.06) inset' }} />
-                          <span className="truncate">{c.label}</span>
-                          <span className="tabular-nums font-semibold"> = {c.value}</span>
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              )}
-              
-              <div className="panel-body px-0 py-0 mt-1">
-                <div className="premium-table-row premium-table-header">
-                  <span>ETAPA</span>
-                  <span className="text-center">ASISTENCIAS</span>
-                  <span className="text-center">INASISTENCIAS</span>
-                  <span className="text-right">TOTAL</span>
-                </div>
-                {asistEtapas.map((row, i) => (
-                  <div key={i} className="premium-table-row premium-table-item">
-                    <span className="font-medium text-slate-700">{row.etapa}</span>
-                    <span className="text-center font-semibold text-green-600 tabular-nums">{row.confirmados}</span>
-                    <span className="text-center font-semibold text-red-600 tabular-nums">{row.noAsistieron}</span>
-                    <span className="text-right font-semibold text-gray-800 tabular-nums">{row.total}</span>
-                  </div>
-                ))}
-              </div>
-            </section>
+            <section className="card premium-glass animate-slideIn relative self-start overflow-hidden"><div className="px-4 py-3 border-b border-slate-200/80"><h2 className="text-base font-semibold text-slate-700">Gráfico de Asistencias</h2></div><div className="panel-body p-4"><div className="asistencias-labels flex justify-between w-full px-4 mt-1 mb-2 text-sm"><div className="flex flex-col items-center text-green-600 font-semibold"><span>Asistieron <span className="font-bold text-lg tabular-nums">{totalConfirmados}</span></span><span className="text-green-600 font-bold text-sm tabular-nums">{pctOk}%</span></div><div className="flex flex-col items-center text-red-600 font-semibold"><span>No asistieron <span className="font-bold text-lg tabular-nums">{totalNoAsistieron}</span></span><span className="text-red-600 font-bold text-sm tabular-nums">{pctNo}%</span></div></div><div className="relative mx-auto max-w-[180px] aspect-square overflow-hidden flex items-center justify-center"><ResponsiveContainer width="100%" height="100%"><PieChart><defs><linearGradient id="gradOk" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={GREEN_LIGHT} /><stop offset="100%" stopColor={GREEN} /></linearGradient><linearGradient id="gradNo" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={RED_LIGHT} /><stop offset="100%" stopColor={RED} /></linearGradient></defs><Pie data={dataAsist} dataKey="value" innerRadius="55%" outerRadius="82%" startAngle={90} endAngle={-270} paddingAngle={0} cornerRadius={12} isAnimationActive animationBegin={100} animationDuration={900} animationEasing="ease-out">{dataAsist.map((d, i) => (<Cell key={i} fill={d.color} stroke="#ffffff" strokeWidth={3} />))}</Pie><Tooltip content={<CustomTooltip />} /></PieChart></ResponsiveContainer><div className="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none donut-center px-2"><p className="text-2xl leading-tight font-extrabold text-gray-900 tabular-nums">{animatedTotal.toLocaleString()}</p><p className="text-gray-500 text-xs mt-0.5">Total</p></div></div></div></section>
+            <section className="card premium-glass animate-slideIn self-start flex flex-col overflow-hidden"><div className="px-4 py-3 border-b border-slate-200/80"><h2 className="text-base font-semibold text-slate-700">Detalle por etapa</h2></div><div className="panel-body p-4 space-y-6"><div><h3 className="text-sm font-semibold text-slate-700 px-1 mb-3">Asistencias por módulo (Total) + Inasistencias</h3><AsistenciasHorizontalBars data={asistenciasChartData} /></div>{inasistChips.length > 0 && (<div><h3 className="text-sm font-semibold text-rose-600 px-1 mb-2">Detalle de Inasistencias</h3><div className="w-full rounded-xl bg-white/70 ring-1 ring-slate-200/70 backdrop-blur-sm px-3 py-3"><div className="grid grid-cols-2 gap-x-3 gap-y-2 w-full">{inasistChips.map((c) => (<span key={`chip-${c.label}`} className="chip-inasistencia" title={`${c.label}: ${c.value}`}> <span className="chip-inasistencia-color" style={{ background: c.color, boxShadow: '0 0 0 1px rgba(0,0,0,0.06) inset' }} /><span className="truncate">{c.label}</span><span className="tabular-nums font-semibold"> = {c.value}</span></span>))}</div></div></div>)}<div><h3 className="text-sm font-semibold text-slate-700 px-1 mb-2">Resumen por Etapa</h3><div className="premium-table-row premium-table-header"><span>ETAPA</span><span className="text-center">ASISTENCIAS</span><span className="text-center">INASISTENCIAS</span><span className="text-right">TOTAL</span></div>{asistEtapas.map((row, i) => (<div key={i} className="premium-table-row premium-table-item"><span className="font-medium text-slate-700">{row.etapa}</span><span className="text-center font-semibold text-green-600 tabular-nums">{row.confirmados}</span><span className="text-center font-semibold text-red-600 tabular-nums">{row.noAsistieron}</span><span className="text-right font-semibold text-gray-800 tabular-nums">{row.total}</span></div>))}</div></div></section>
           </div>
         )}
 
         {view === "agendados" && (
           <div className="agendados-container">
-            <section className="agendados-grafico card premium-glass animate-slideIn">
-              <div className="card-head flex justify-between items-center">
-                <h2 className="card-title">Agendados por semana</h2>
-                <div className="text-right chart-meta">
-                  <p className="chart-meta-label">Total agendados</p>
-                  <p className="chart-meta-value tabular-nums">{totalAgend.toLocaleString()}</p>
-                </div>
-              </div>
-              <div className="panel-body py-2 px-4">
-                <PremiumHorizontalBars data={agendados} />
-              </div>
-            </section>
-
-            <section className="agendados-detalle card premium-glass animate-slideIn">
-              <div className="card-head pb-0">
-                <h2 className="card-title">Detalle por etapa/módulo</h2>
-              </div>
-              <div className="panel-body px-0 py-0">
-                <div className="premium-table-row premium-table-header two-cols">
-                  <span>Etapa · Módulo</span>
-                  <span className="text-right">Agendados</span>
-                </div>
-                {agendados.map((row, i) => (
-                  <div key={i} className="premium-table-row premium-table-item two-cols">
-                    <span className="font-medium text-slate-700">{row.etapa_modulo}</span>
-                    <span className="text-right font-semibold text-gray-800 tabular-nums">
-                      {row.agendados_pendientes}
-                    </span>
-                  </div>
-                ))}
-                <div className="premium-table-row premium-table-total two-cols">
-                  <span>Total</span>
-                  <span className="text-right tabular-nums">{totalAgend}</span>
-                </div>
-              </div>
-            </section>
+            <section className="agendados-grafico card premium-glass animate-slideIn p-4"><div className="card-head flex justify-between items-center"><h2 className="card-title">Agendados por semana</h2><div className="text-right chart-meta"><p className="chart-meta-label">Total agendados</p><p className="chart-meta-value tabular-nums">{totalAgend.toLocaleString()}</p></div></div><div className="panel-body py-2 px-4"><PremiumHorizontalBars data={agendados} /></div></section>
+            <section className="agendados-detalle card premium-glass animate-slideIn p-4"><div className="card-head pb-0"><h2 className="card-title">Detalle por etapa/módulo</h2></div><div className="panel-body px-0 py-0"><div className="premium-table-row premium-table-header two-cols"><span>Etapa · Módulo</span><span className="text-right">Agendados</span></div>{agendados.map((row, i) => (<div key={i} className="premium-table-row premium-table-item two-cols"><span className="font-medium text-slate-700">{row.etapa_modulo}</span><span className="text-right font-semibold text-gray-800 tabular-nums">{row.agendados_pendientes}</span></div>))}<div className="premium-table-row premium-table-total two-cols"><span>Total</span><span className="text-right tabular-nums">{totalAgend}</span></div></div></section>
           </div>
         )}
         
         {view === "contactos" && (
-          <div className="contactos-container">
-            <section className="card premium-glass animate-slideIn self-start p-3 sm:p-4">
-              <div className="card-head !p-0 !pb-2">
-                <h2 className="card-title">Contactos por Etapa</h2>
-              </div>
-              <div className="panel-body !p-0">
-                <ContactosBenchmarkChart data={contactosPorEtapaDia} />
-              </div>
+          <div className="contactos-container animate-slideIn">
+            <div className="max-w-2xl mx-auto w-full">
+              <section className="card premium-glass self-start flex flex-col overflow-hidden">
+                <div className="px-4 py-3 border-b border-slate-200/80"><h2 className="text-base font-semibold text-slate-700">Detalle de Contactos Activos</h2></div>
+                <div className="panel-body p-4"><StyledDetailList data={sortedContactosData} title="Total de Contactos Activos" onRowClick={handleContactRowClick} onPdfClick={handleContactPdfDownload} loadingPdfKey={pdfLoadingKey} /></div>
+              </section>
+            </div>
+          </div>
+        )}
+        
+        {view === "servidores" && (
+          <div className="servidores-container animate-slideIn">
+            <section className="card premium-glass self-start flex flex-col overflow-hidden">
+              <div className="px-4 py-3 border-b border-slate-200/80"><h2 className="text-base font-semibold text-slate-700">Detalle de Coordinadores</h2></div>
+              <div className="panel-body p-4"><StyledDetailList data={maestrosData} title="Total de Coordinadores" onRowClick={handleServidorRowClick} onPdfClick={handleServidorPdfDownload} loadingPdfKey={pdfLoadingKey} /></div>
             </section>
-            
-            <section className="card premium-glass animate-slideIn self-start flex flex-col p-3 sm:p-4">
-              <div className="card-head !p-0 !pb-2">
-                <h2 className="card-title">Detalle de Contactos Activos</h2>
-              </div>
-              <ContactosCompactTable data={contactosPorEtapaDia} onRowClick={handleContactRowClick} />
+            <section className="card premium-glass self-start flex flex-col overflow-hidden">
+              <div className="px-4 py-3 border-b border-slate-200/80"><h2 className="text-base font-semibold text-slate-700">Detalle de Timoteos</h2></div>
+              <div className="panel-body p-4"><StyledDetailList data={timoteosData} title="Total de Timoteos" onRowClick={handleServidorRowClick} onPdfClick={handleServidorPdfDownload} loadingPdfKey={pdfLoadingKey} /></div>
             </section>
           </div>
         )}
-
       </div>
     </>
   );
