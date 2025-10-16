@@ -153,7 +153,7 @@ const ContactosDetalleModal = ({ isOpen, onClose, title, data, isLoading }: {
   isLoading: boolean;
 }) => {
   const [currentPage, setCurrentPage] = useState(0);
-  const ITEMS_PER_PAGE = 7;
+  const ITEMS_PER_PAGE = 10;
 
   useEffect(() => {
     setCurrentPage(0);
@@ -407,13 +407,16 @@ export default function DetalleSecciones({
                 <AsistenciasHorizontalBars data={asistenciasChartData} />
               </div>
               
+
               {inasistChips.length > 0 && (
                 <div className="px-4 pt-2 pb-3">
-                  <div className="w-full rounded-xl bg-white/70 ring-1 ring-slate-200/70 backdrop-blur-sm px-3 py-2 flex items-start gap-x-3 gap-y-2">
-                    <span className="text-rose-600 font-semibold whitespace-nowrap pt-1">Inasistencias</span>
-                    <div className="grid grid-cols-2 gap-x-3 gap-y-1 w-full">
+                  <div className="w-full rounded-xl bg-white/70 ring-1 ring-slate-200/70 backdrop-blur-sm px-3 py-2">
+                    <div className="flex items-center gap-x-3 mb-2">
+                      <span className="text-rose-600 font-semibold whitespace-nowrap">Inasistencias</span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-x-3 gap-y-2 w-full">
                       {inasistChips.map((c) => (
-                        <span key={`chip-${c.label}`} className="chip-inasistencia" title={`${c.label}: ${c.value}`}>
+                        <span key={`chip-${c.label}`} className="chip-inasistencia" title={`${c.label}: ${c.value}`}> 
                           <span className="chip-inasistencia-color" style={{ background: c.color, boxShadow: '0 0 0 1px rgba(0,0,0,0.06) inset' }} />
                           <span className="truncate">{c.label}</span>
                           <span className="tabular-nums font-semibold"> = {c.value}</span>
