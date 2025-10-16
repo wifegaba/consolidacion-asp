@@ -62,7 +62,9 @@ type Resultado =
   | 'no_tiene_transporte'
   | 'vive_fuera'
   | 'murio'
-  | 'rechazado';
+  | 'rechazado'
+  | 'correo_de_voz'
+  | 'otro';
 
 type AsigMaestro = {
   etapa: string;
@@ -166,6 +168,8 @@ const resultadoLabels: Record<Resultado, string> = {
   vive_fuera: 'VIVE FUERA DE LA CIUDAD',
   murio: 'MURIÓ',
   rechazado: 'NO ME INTERESA',
+  correo_de_voz: 'BUZÓN DE VOZ',
+  otro: 'OTRO',
 };
 
 // Easing idéntico al del formulario Maestros
@@ -1409,6 +1413,8 @@ function FollowUp({
     { label: 'VIVE FUERA DE LA CIUDAD', value: 'vive_fuera' },
     { label: 'MURIÓ', value: 'murio' },
     { label: 'NO ME INTERESA', value: 'rechazado' },
+    { label: 'BUZÓN DE VOZ', value: 'correo_de_voz' },
+    { label: 'OTRO', value: 'otro' },
   ];
 
   const [resultado, setResultado] = useState<Resultado | null>(null);

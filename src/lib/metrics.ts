@@ -44,6 +44,15 @@ function getRangeUTC(range: Range) {
   return { from: start.toISOString(), to: end.toISOString() };
 }
 
+// ✅ NUEVA FUNCIÓN DE AYUDA para normalizar texto (Mayúscula inicial, sin espacios)
+function normalizeString(str: string | null | undefined): string {
+  if (!str) return '';
+  const trimmed = str.trim();
+  if (trimmed.length === 0) return '';
+  return trimmed.charAt(0).toUpperCase() + trimmed.slice(1).toLowerCase();
+}
+
+
 export async function getContactosCount(): Promise<number> {
   const supabase = getClient();
   const { count, error } = await supabase
@@ -163,23 +172,22 @@ export async function getContactosPorEtapaDia(): Promise<
   if (!data) return [];
   const agg = new Map<string, number>();
   for (const row of data as { etapa: string; modulo: number; dia: string }[]) {
-    const key = `${row.etapa} ${row.modulo} (${row.dia})`;
+    // Se mantiene la normalización para asegurar consistencia
+    const etapaNorm = normalizeString(row.etapa);
+    const diaNorm = normalizeString(row.dia);
+    const key = `${etapaNorm} ${row.modulo} (${diaNorm})`;
     agg.set(key, (agg.get(key) ?? 0) + 1);
   }
   const colors = [ "bg-pink-300 dark:bg-pink-400", "bg-purple-300 dark:bg-purple-400", "bg-indigo-300 dark:bg-indigo-400", "bg-sky-300 dark:bg-sky-400", "bg-orange-300 dark:bg-orange-400", "bg-lime-400 dark:bg-lime-500", "bg-emerald-300 dark:bg-emerald-400", ];
   return Array.from(agg.entries()).map(([key, value], index) => ({ key, value, color: colors[index % colors.length], })).sort((a, b) => b.value - a.value);
 }
 
-// =================================================================
-// ✅ FUNCIÓN CORREGIDA PARA EL DETALLE DE SERVIDORES
-// =================================================================
 export async function getServidoresPorRolEtapaDia(): Promise<
   Array<{ key: string; value: number; color: string }>
 > {
   noStore();
   const supabase = getClient();
 
-  // Se realiza una consulta que une las tablas necesarias para obtener toda la información.
   const { data, error } = await supabase
     .from('servidores')
     .select(`
@@ -200,7 +208,7 @@ export async function getServidoresPorRolEtapaDia(): Promise<
   const agg = new Map<string, number>();
   
   for (const row of data as any[]) {
-    const rol = row.rol[0]?.rol || 'Rol no definido';
+    const rol = row.rol[0]?.rol;
     const asig_maestro = row.asig_maestro[0];
     const asig_contacto = row.asig_contacto[0];
     
@@ -215,14 +223,26 @@ export async function getServidoresPorRolEtapaDia(): Promise<
       dia = asig_contacto.dia;
     }
 
+    const rolNorm = normalizeString(rol);
     let key: string;
+
     if (etapa_det && dia) {
-      key = `${rol} - ${etapa_det} (${dia})`;
+      let etapaNorm = normalizeString(etapa_det);
+      const diaNorm = normalizeString(dia);
+
+      // ✅ CORRECCIÓN QUIRÚRGICA: Se fuerza la forma plural de "Semilla"
+      if (etapaNorm.startsWith('Semilla ')) {
+        etapaNorm = etapaNorm.replace('Semilla ', 'Semillas ');
+      }
+      
+      key = `${rolNorm} - ${etapaNorm} (${diaNorm})`;
     } else {
-      key = rol;
+      key = rolNorm;
     }
 
-    agg.set(key, (agg.get(key) ?? 0) + 1);
+    if (key) {
+      agg.set(key, (agg.get(key) ?? 0) + 1);
+    }
   }
 
   const colors = [ "bg-blue-300 dark:bg-blue-400", "bg-cyan-300 dark:bg-cyan-400", "bg-teal-300 dark:bg-teal-400", "bg-gray-300 dark:bg-gray-400", "bg-orange-300 dark:bg-orange-400", "bg-yellow-300 dark:bg-yellow-400", ];

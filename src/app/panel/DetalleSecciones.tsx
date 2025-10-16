@@ -29,6 +29,26 @@ const GREEN = "#34d399"; const GREEN_LIGHT = "#4ade80"; const RED = "#dc2626"; c
 function etiquetaEtapaModulo(etapa: string, modulo: number, dia: string) { if (!etapa) return `Módulo ${modulo}`; const base = etapa.trim().split(/\s+/)[0]; const nombre = base.charAt(0).toUpperCase() + base.slice(1).toLowerCase(); return `${nombre} ${modulo} (${dia})`; }
 function colorPorEtapa(etapa: string): string { const m: Record<string, string> = { Semillas: "linear-gradient(180deg, #fecaca 0%, #f87171 100%)", Devocionales: "linear-gradient(180deg, #ddd6fe 0%, #a78bfa 100%)", Restauracion: "linear-gradient(180deg, #bfdbfe 0%, #60a5fa 100%)", Consolidacion: "linear-gradient(180deg, #fde68a 0%, #f59e0b 100%)", Discipulado: "linear-gradient(180deg, #bbf7d0 0%, #34d399 100%)", Liderazgo: "linear-gradient(180deg, #fbcfe8 0%, #f472b6 100%)", }; if (m[etapa]) return m[etapa]; const colors = [ ["#fecaca", "#f87171"], ["#ddd6fe", "#a78bfa"], ["#bfdbfe", "#60a5fa"], ["#fde68a", "#f59e0b"], ["#bbf7d0", "#34d399"], ["#fbcfe8", "#f472b6"], ["#c7d2fe", "#6366f1"], ["#bae6fd", "#38bdf8"], ]; let hash = 0; for (let i = 0; i < etapa.length; i++) hash = (hash * 31 + etapa.charCodeAt(i)) >>> 0; const [c1, c2] = colors[hash % colors.length]; return `linear-gradient(180deg, ${c1} 0%, ${c2} 100%)`; }
 
+// 🔧 Normalizadores seguros (no cambian tildes, solo espacios)
+const normalizeWs = (s: string) => (s ?? "").replace(/\s+/g, " ").trim();
+
+// 🔎 Parsers robustos para claves
+const parseContactoKey = (key: string) => {
+  const k = normalizeWs(key);
+  // Formatos esperados: "Semillas 1 (Domingo)" o "Devocionales 2 (Miércoles)"
+  const m = k.match(/^(.+?)\s+(\d+)\s*\(([^)]+)\)\s*$/);
+  if (!m) return null;
+  return { etapa: normalizeWs(m[1]), modulo: parseInt(m[2], 10), dia: normalizeWs(m[3]) };
+};
+
+const parseServidorKey = (key: string) => {
+  const k = normalizeWs(key);
+  // Formato esperado: "Rol - EtapaX ... (Día)"
+  const m = k.match(/^([^-\n]+)-\s*(.+?)\s*\(([^)]+)\)\s*$/);
+  if (!m) return null;
+  return { rol: normalizeWs(m[1]), etapa: normalizeWs(m[2]), dia: normalizeWs(m[3]) };
+};
+
 // ✅ 1. LÓGICA DE PDF REFACTORIZADA A UNA FUNCIÓN UTILITARIA
 const generateContactosPdf = (title: string, data: Persona[]) => {
   if (!data.length) return;
@@ -222,10 +242,11 @@ const StyledDetailList = ({ data, title, onRowClick, onPdfClick, loadingPdfKey }
     const total = data.reduce((sum, item) => sum + item.value, 0);
 
     const parseKey = (key: string) => {
-      const parts = key.split(' - ');
-      const rest = parts[1] || key;
-      const match = rest.match(/(.+) \((.+)\)/);
-      if (match) { return { etapa: match[1], dia: match[2] }; }
+      const k = normalizeWs(key);
+      const parts = k.split(' - ');
+      const rest = parts[1] || k;
+      const match = rest.match(/^(.+?)\s*\(([^)]+)\)\s*$/);
+      if (match) { return { etapa: normalizeWs(match[1]), dia: normalizeWs(match[2]) }; }
       return { etapa: rest, dia: '' };
     };
 
@@ -296,20 +317,19 @@ export default function DetalleSecciones({
   const [pdfLoadingKey, setPdfLoadingKey] = useState<string | null>(null);
 
   const handleContactRowClick = async (key: string) => {
-    const match = key.match(/(.+) (\d+) \(([^)]+)\)/);
-    if (!match) { console.error("El formato del key no es válido:", key); return; }
-    const etapa = match[1];
-    const modulo = parseInt(match[2], 10);
-    const dia = match[3];
+    const parsed = parseContactoKey(key);
+    if (!parsed) { console.error("El formato del key de contacto no es válido:", key); return; }
+    const { etapa, modulo, dia } = parsed;
+
     setModalOpen(true);
     setModalIsLoading(true);
-    setModalContent({ title: key, data: [] });
+    setModalContent({ title: normalizeWs(key), data: [] });
     try {
       const personas = await getContactosPorFiltro(etapa, modulo, dia);
-      setModalContent({ title: key, data: personas });
+      setModalContent({ title: normalizeWs(key), data: personas });
     } catch (error) {
       console.error("Error al obtener detalles de contactos:", error);
-      setModalContent(prev => ({ ...prev, title: `Error al cargar ${key}` }));
+      setModalContent(prev => ({ ...prev, title: `Error al cargar ${normalizeWs(key)}` }));
     } finally {
       setModalIsLoading(false);
     }
@@ -318,14 +338,11 @@ export default function DetalleSecciones({
   const handleContactPdfDownload = async (key: string) => {
     setPdfLoadingKey(key);
     try {
-      const match = key.match(/(.+) (\d+) \(([^)]+)\)/);
-      if (!match) { throw new Error("Clave de contacto no válida"); }
-      const etapa = match[1];
-      const modulo = parseInt(match[2], 10);
-      const dia = match[3];
-      
+      const parsed = parseContactoKey(key);
+      if (!parsed) throw new Error("Clave de contacto no válida");
+      const { etapa, modulo, dia } = parsed;
       const personas = await getContactosPorFiltro(etapa, modulo, dia);
-      generateContactosPdf(key, personas);
+      generateContactosPdf(normalizeWs(key), personas);
     } catch (error) {
       console.error("Error al generar PDF de contactos:", error);
     } finally {
@@ -334,25 +351,19 @@ export default function DetalleSecciones({
   };
   
   const handleServidorRowClick = async (key: string) => {
-    const parts = key.split(' - ');
-    const rol = parts[0];
-    const rest = parts[1] || '';
-    const match = rest.match(/(.+) \((.+)\)/);
-
-    if (!match || !rol) { console.error("Clave de servidor no válida:", key); return; }
-    
-    const etapa_det = match[1];
-    const dia = match[2];
+    const parsed = parseServidorKey(key);
+    if (!parsed) { console.error("Clave de servidor no válida:", key); return; }
+    const { rol, etapa, dia } = parsed;
 
     const titleMapping: { [key: string]: string } = { 'Maestros': 'Coordinadores', 'Contactos': 'Timoteos' };
     const modalTitle = titleMapping[rol] || rol;
 
     setServidoresModalOpen(true);
     setServidoresModalIsLoading(true);
-    setServidoresModalContent({ title: modalTitle, subTitle: `de ${etapa_det} (${dia})`, data: [] });
+    setServidoresModalContent({ title: modalTitle, subTitle: `de ${etapa} (${dia})`, data: [] });
 
     try {
-      const servidores = await getServidoresPorFiltro(rol, etapa_det, dia);
+      const servidores = await getServidoresPorFiltro(rol, etapa, dia);
       setServidoresModalContent(prev => ({ ...prev, data: servidores }));
     } catch (error) {
       console.error("Error al obtener detalles de servidores:", error);
@@ -365,21 +376,15 @@ export default function DetalleSecciones({
   const handleServidorPdfDownload = async (key: string) => {
     setPdfLoadingKey(key);
     try {
-        const parts = key.split(' - ');
-        const rol = parts[0];
-        const rest = parts[1] || '';
-        const match = rest.match(/(.+) \((.+)\)/);
-
-        if (!match || !rol) { throw new Error("Clave de servidor no válida"); }
-        
-        const etapa_det = match[1];
-        const dia = match[2];
+        const parsed = parseServidorKey(key);
+        if (!parsed) { throw new Error("Clave de servidor no válida"); }
+        const { rol, etapa, dia } = parsed;
 
         const titleMapping: { [key: string]: string } = { 'Maestros': 'Coordinadores', 'Contactos': 'Timoteos' };
         const pdfTitle = titleMapping[rol] || rol;
-        const pdfSubTitle = `de ${etapa_det} (${dia})`;
+        const pdfSubTitle = `de ${etapa} (${dia})`;
 
-        const servidores = await getServidoresPorFiltro(rol, etapa_det, dia);
+        const servidores = await getServidoresPorFiltro(rol, etapa, dia);
         generateServidoresPdf(pdfTitle, pdfSubTitle, servidores);
     } catch (error) {
         console.error("Error al generar PDF de servidores:", error);
@@ -406,22 +411,23 @@ export default function DetalleSecciones({
   useEffect(() => { const target = view === "agendados" ? totalAgend : totalAsist; let raf = 0; const start = performance.now(); const dur = 800; const tick = (now: number) => { const t = Math.min((now - start) / dur, 1); setAnimatedTotal(Math.round(target * t)); if (t < 1) raf = requestAnimationFrame(tick); }; requestAnimationFrame(tick); return () => cancelAnimationFrame(raf); }, [view, totalAsist, totalAgend]);
 
   const parseSortKey = (key: string) => {
-    const match = key.match(/(.+) (\d+) \((.+)\)/);
+    const k = normalizeWs(key);
+    const match = k.match(/^(.+?)\s+(\d+)\s*\((.+)\)\s*$/);
     if (match) {
         const etapaNameParts = match[1].split(' ');
         const etapaName = etapaNameParts.length > 1 ? etapaNameParts.slice(0, -1).join(' ') : match[1];
         return { etapa: etapaName, modulo: parseInt(match[2], 10), dia: match[3] };
     }
-    const simpleMatch = key.match(/(Semillas|Devocionales|Restauracion) (\d+)/);
+    const simpleMatch = k.match(/(Semillas|Devocionales|Restauracion)\s+(\d+)/);
     if(simpleMatch) { return { etapa: simpleMatch[1], modulo: parseInt(simpleMatch[2], 10), dia: '' }; }
-    return { etapa: key, modulo: 0, dia: '' };
+    return { etapa: k, modulo: 0, dia: '' };
   };
   
   const etapaOrder: { [key: string]: number } = { 'Semillas': 1, 'Devocionales': 2, 'Restauracion': 3 };
   
   const genericSort = (a: BarChartData, b: BarChartData, keyPrefix: string) => {
-      const aKey = a.key.replace(keyPrefix, '').trim();
-      const bKey = b.key.replace(keyPrefix, '').trim();
+      const aKey = normalizeWs(a.key.replace(keyPrefix, ''));
+      const bKey = normalizeWs(b.key.replace(keyPrefix, ''));
       const aParsed = parseSortKey(aKey);
       const bParsed = parseSortKey(bKey);
       
@@ -429,7 +435,7 @@ export default function DetalleSecciones({
       const etapaOrderB = etapaOrder[bParsed.etapa] || 99;
       if (etapaOrderA !== etapaOrderB) { return etapaOrderA - etapaOrderB; }
       if (aParsed.modulo !== bParsed.modulo) { return aParsed.modulo - bParsed.modulo; }
-      return a.key.localeCompare(b.key);
+      return aKey.localeCompare(bKey);
   };
 
   const maestrosData = servidoresPorRolEtapaDia.filter(d => d.key.startsWith('Maestros')).sort((a,b) => genericSort(a,b, 'Maestros -'));
