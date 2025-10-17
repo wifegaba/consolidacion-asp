@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from '@supabase/supabase-js';
+import { unstable_noStore } from 'next/cache';
 
 // ============================ Tipos ============================
 type Persona = {
@@ -8,7 +9,6 @@ type Persona = {
   telefono: string | null;
 };
 
-// Se añade el nuevo tipo para los detalles del servidor
 type ServidorDetalle = {
   nombre: string;
   telefono: string | null;
@@ -18,10 +18,6 @@ type ServidorDetalle = {
 
 // ============================ Server Actions ============================
 
-/**
- * Server Action para obtener los contactos (personas) filtrados por etapa, módulo y día.
- * (Esta función se mantiene sin cambios)
- */
 export async function getContactosPorFiltro(etapa: string, modulo: number, dia: string): Promise<Persona[]> {
   const supabaseAdmin = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -46,14 +42,20 @@ export async function getContactosPorFiltro(etapa: string, modulo: number, dia: 
     return [];
   }
   
-  const personas = data.flatMap((item: any) => item.persona ?? []);
+  const personasRaw: any[] = data.flatMap((item: any) => {
+    const p = item.persona;
+    if (!p) return [];
+    if (Array.isArray(p)) return p;
+    return [p];
+  });
+
+  const personas: Persona[] = personasRaw
+    .filter(Boolean)
+    .map((p: any) => ({ nombre: p?.nombre ?? '', telefono: p?.telefono ?? null }));
+
   return personas;
 }
 
-/**
- * NUEVA SERVER ACTION para obtener los detalles de los servidores por filtro.
- * (Versión corregida que soluciona el error de TypeScript)
- */
 export async function getServidoresPorFiltro(rol: string, etapa_det: string, dia: string): Promise<ServidorDetalle[]> {
   const supabaseAdmin = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -63,8 +65,6 @@ export async function getServidoresPorFiltro(rol: string, etapa_det: string, dia
 
   let query;
 
-  // ✅ CORRECCIÓN: La lógica condicional ahora construye una única cadena de consulta
-  // para cada caso, aplicando los filtros '.eq()' directamente después del '.select()'.
   if (rol === 'Maestros') {
     query = supabaseAdmin
       .from('servidores')
@@ -90,7 +90,6 @@ export async function getServidoresPorFiltro(rol: string, etapa_det: string, dia
       .eq('asig.etapa', etapa_det)
       .eq('asig.dia', dia);
   } else {
-    // Caso por defecto para roles sin asignación de etapa/día (ej. Timoteos, Coordinadores)
     query = supabaseAdmin
       .from('servidores')
       .select('nombre, telefono, cedula, rol:servidores_roles!inner(rol)')
@@ -106,4 +105,61 @@ export async function getServidoresPorFiltro(rol: string, etapa_det: string, dia
   }
   
   return data || [];
+}
+
+export async function getAsistentesPorEtapaFiltro(
+  etapa: string,
+  modulo: number,
+  dia: string,
+  asistio: boolean
+): Promise<Persona[]> {
+  unstable_noStore();
+
+  const supabaseAdmin = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { persistSession: false, autoRefreshToken: false } }
+  );
+
+  // ✅ **SOLUCIÓN DEFINITIVA:**
+  // Esta consulta ahora se origina en 'asistencia' y se asegura de que por cada registro
+  // de asistencia que coincida, se devuelva un registro de persona, incluso si es un duplicado.
+  // Esto alinea la lógica de obtención de detalles con la lógica de agregación en metrics.ts.
+  const query = supabaseAdmin
+    .from('asistencia')
+    .select(`
+      progreso:progreso_id!inner (
+        etapa,
+        modulo,
+        dia,
+        persona:persona_id!inner (
+          nombre,
+          telefono
+        )
+      )
+    `)
+    .eq('asistio', asistio)
+    .eq('progreso_id.etapa', etapa)
+    .eq('progreso_id.modulo', modulo)
+    .eq('progreso_id.dia', dia);
+
+  const { data, error } = await query;
+
+  if (error) {
+    console.error('Error fetching asistentes por etapa:', error.message);
+    return [];
+  }
+
+  if (!data) {
+    return [];
+  }
+  
+  // ✅ **CORRECCIÓN:** Lógica de procesamiento simplificada y robusta que extrae
+  // el objeto 'persona' de cada registro de 'asistencia' devuelto.
+  // Esto garantiza que si hay 6 registros de asistencia, se devuelvan 6 personas.
+  const personas: Persona[] = data
+      .map((item: any) => item.progreso?.persona)
+      .filter(Boolean); // Filtra cualquier resultado nulo o indefinido
+
+  return personas;
 }

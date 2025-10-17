@@ -44,7 +44,6 @@ function getRangeUTC(range: Range) {
   return { from: start.toISOString(), to: end.toISOString() };
 }
 
-// ✅ NUEVA FUNCIÓN DE AYUDA para normalizar texto (Mayúscula inicial, sin espacios)
 function normalizeString(str: string | null | undefined): string {
   if (!str) return '';
   const trimmed = str.trim();
@@ -122,21 +121,49 @@ export async function getAsistenciasPorModulo(
   noStore();
   const supabase = getClient();
   const r = getRangeUTC(range);
-  let query = supabase.from('asistencia').select('etapa, modulo, dia, asistio, creado_en');
+  
+  // ✅ **CORRECCIÓN:** Se realiza un JOIN para obtener los datos de la tabla 'progreso'.
+  let query = supabase.from('asistencia').select(`
+    asistio,
+    creado_en,
+    progreso:progreso_id (
+      etapa,
+      modulo,
+      dia
+    )
+  `);
+
   if (r) { query = query.gte('creado_en', r.from).lt('creado_en', r.to); }
   const { data, error } = await query;
+  
   if (error) { console.error('getAsistenciasPorModulo:', error.message); return []; }
   if (!data || data.length === 0) { return []; }
+
   const agg = new Map<string, { etapa: string; modulo: number; dia: string; confirmados: number; noAsistieron: number }>();
-  for (const row of data as { etapa?: string; modulo?: number; dia?: string; asistio?: boolean }[]) {
-    const etapa = row.etapa ?? 'Desconocido';
-    const modulo = row.modulo ?? 0;
-    const dia = row.dia ?? 'Sin día';
+  
+  // ✅ **CORRECCIÓN:** Se procesa la nueva estructura de datos anidada.
+  type AsistenciaConProgreso = {
+      asistio?: boolean;
+      progreso: {
+          etapa?: string;
+          modulo?: number;
+          dia?: string;
+      } | null;
+  };
+
+  for (const row of data as AsistenciaConProgreso[]) {
+    if (!row.progreso) continue; // Si no hay progreso asociado, se ignora.
+
+    const etapa = row.progreso.etapa ?? 'Desconocido';
+    const modulo = row.progreso.modulo ?? 0;
+    const dia = row.progreso.dia ?? 'Sin día';
     const key = `${etapa}#${modulo}#${dia}`;
+
     if (!agg.has(key)) { agg.set(key, { etapa, modulo, dia, confirmados: 0, noAsistieron: 0 }); }
     const current = agg.get(key)!;
     if (row.asistio) { current.confirmados++; } else { current.noAsistieron++; }
   }
+  
   return [...agg.values()].map(v => ({ ...v, total: v.confirmados + v.noAsistieron, })).sort((a, b) => { const et = a.etapa.localeCompare(b.etapa, 'es', { sensitivity: 'base' }); if (et !== 0) return et; const diaCompare = a.dia.localeCompare(b.dia, 'es', { sensitivity: 'base' }); if (diaCompare !== 0) return diaCompare; return a.modulo - b.modulo; });
 }
 
@@ -146,14 +173,34 @@ export async function getAsistenciasPorEtapa(range: Range = 'month'): Promise<
   noStore();
   const supabase = getClient();
   const r = getRangeUTC(range);
-  let query = supabase.from('asistencia').select('etapa, asistio, creado_en');
+
+  // ✅ **CORRECCIÓN:** Se realiza un JOIN para obtener 'etapa' de la tabla 'progreso'.
+  let query = supabase.from('asistencia').select(`
+    asistio,
+    creado_en,
+    progreso:progreso_id (
+      etapa
+    )
+  `);
+
   if (r) { query = query.gte('creado_en', r.from).lt('creado_en', r.to); }
   const { data, error } = await query;
+  
   if (error) { console.error('getAsistenciasPorEtapa:', error.message); return []; }
   if (!data || data.length === 0) { return []; }
+  
   const grupos = new Map<Etapa, { confirmados: number; noAsistieron: number; total: number }>();
-  for (const row of data as { etapa?: string; asistio?: boolean }[]) {
-    const etapa: Etapa = row.etapa ?? 'Desconocido';
+
+  // ✅ **CORRECCIÓN:** Se procesa la nueva estructura de datos anidada.
+  type AsistenciaConEtapa = {
+      asistio?: boolean;
+      progreso: { etapa?: string } | null;
+  };
+
+  for (const row of data as AsistenciaConEtapa[]) {
+    if (!row.progreso) continue;
+
+    const etapa: Etapa = row.progreso.etapa ?? 'Desconocido';
     if (!grupos.has(etapa)) { grupos.set(etapa, { confirmados: 0, noAsistieron: 0, total: 0 }); }
     const g = grupos.get(etapa)!;
     if (row.asistio) { g.confirmados++; } else { g.noAsistieron++; }
@@ -172,7 +219,6 @@ export async function getContactosPorEtapaDia(): Promise<
   if (!data) return [];
   const agg = new Map<string, number>();
   for (const row of data as { etapa: string; modulo: number; dia: string }[]) {
-    // Se mantiene la normalización para asegurar consistencia
     const etapaNorm = normalizeString(row.etapa);
     const diaNorm = normalizeString(row.dia);
     const key = `${etapaNorm} ${row.modulo} (${diaNorm})`;
@@ -230,7 +276,7 @@ export async function getServidoresPorRolEtapaDia(): Promise<
       let etapaNorm = normalizeString(etapa_det);
       const diaNorm = normalizeString(dia);
 
-      // ✅ CORRECCIÓN QUIRÚRGICA: Se fuerza la forma plural de "Semilla"
+      // This logic is correct as it handles inconsistencies from other sources
       if (etapaNorm.startsWith('Semilla ')) {
         etapaNorm = etapaNorm.replace('Semilla ', 'Semillas ');
       }
