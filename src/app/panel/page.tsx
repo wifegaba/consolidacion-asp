@@ -13,7 +13,6 @@ import {
   getAgendadosPorSemana,
   getAsistenciasPorModulo,
   getContactosPorEtapaDia,
-  // ✅ 1. Importar la nueva función de métricas
   getServidoresPorRolEtapaDia,
   Range
 } from "@/lib/metrics";
@@ -28,28 +27,31 @@ export default async function Page({ searchParams }: { searchParams?: Promise<{ 
   const sp = await searchParams;
   const currentRange = sp?.range === 'week' ? 'week' : 'month' as Range;
 
-  // ✅ 2. Añadir la nueva llamada de datos al Promise.all para eficiencia
+  // ✅ OPTIMIZACIÓN: Todas las llamadas a la base de datos se agrupan en un único Promise.all.
+  // Esto ejecuta todas las consultas en paralelo, reduciendo drásticamente el tiempo de carga.
   const [
-    totalContactos, 
-    totalServidores, 
-    totalRestauracion, 
+    totalContactos,
+    totalServidores,
+    totalRestauracion,
     contactosPorEtapaDia,
-    servidoresPorRolEtapaDia, // <- Nueva variable
+    servidoresPorRolEtapaDia,
+    asistDetalle,
+    asistEtapas,
+    asistPorModulo,
+    agendados,
   ] = await Promise.all([
     getContactosCount(),
     getServidoresCount(),
     getRestauracionCount(),
     getContactosPorEtapaDia(),
-    getServidoresPorRolEtapaDia(), // <- Nueva llamada
-  ]);
-
-  const [asistDetalle, asistEtapas, asistPorModulo] = await Promise.all([
+    getServidoresPorRolEtapaDia(),
     getAsistenciasConfirmadosYNo(currentRange),
     getAsistenciasPorEtapa(currentRange),
     getAsistenciasPorModulo(currentRange),
+    getAgendadosPorSemana(),
   ]);
-
-  const agendados = await getAgendadosPorSemana();
+  
+  // Esta operación se mantiene después, ya que depende de los datos que acabamos de obtener.
   const agendadosTotal = agendados.reduce(
     (s: number, r: { agendados_pendientes: number }) => s + r.agendados_pendientes,
     0
@@ -89,14 +91,14 @@ export default async function Page({ searchParams }: { searchParams?: Promise<{ 
         </article>
       </div>
 
-      {/* ✅ 3. Pasar los nuevos datos como prop al componente de detalles */}
       <DetalleSecciones
         asistEtapas={asistEtapas}
         asistPorModulo={asistPorModulo}
         agendados={agendados}
         contactosPorEtapaDia={contactosPorEtapaDia}
-        servidoresPorRolEtapaDia={servidoresPorRolEtapaDia} // <- Nueva prop
+        servidoresPorRolEtapaDia={servidoresPorRolEtapaDia}
         defaultKey="asistencias"
+        range={currentRange} // <-- Pasamos el rango actual por si el componente hijo lo necesita
       />
     </>
   );
