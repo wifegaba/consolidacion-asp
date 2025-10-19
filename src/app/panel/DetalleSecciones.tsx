@@ -120,7 +120,7 @@ const AsistenciasHorizontalBars = ({ data, onDetalleClick, onPdfClick, loadingPd
 };
 
 // ==============================================================================
-// MODAL DE DETALLE DE CONTACTOS (Corregida la distribución de tabla/grid)
+// MODAL DE DETALLE DE CONTACTOS (CORREGIDO: Eliminada altura estática y ajustado scroll)
 // ==============================================================================
 const ContactosDetalleModal = ({ isOpen, onClose, title, data, isLoading }: { isOpen: boolean; onClose: () => void; title: string; data: Persona[]; isLoading: boolean; }) => { 
   const [currentPage, setCurrentPage] = useState(0); 
@@ -136,6 +136,7 @@ const ContactosDetalleModal = ({ isOpen, onClose, title, data, isLoading }: { is
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm transition-opacity duration-300 ease-out" onClick={onClose} />
+      {/* Contenedor principal con max-w-md */}
       <div className="relative z-10 w-full max-w-md bg-black/80 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl text-white transition-all duration-300 ease-out" style={{ transform: 'scale(0.95)', opacity: 0, animation: 'enter 0.3s cubic-bezier(0.2, 0.8, 0.2, 1) forwards' }}>
         <div className="px-5 py-3 bg-gradient-to-b from-slate-100 to-slate-200 rounded-t-2xl border-b border-slate-300 flex justify-between items-center">
           <h3 className="text-base font-semibold text-slate-900 truncate pr-4">{title}</h3>
@@ -144,26 +145,23 @@ const ContactosDetalleModal = ({ isOpen, onClose, title, data, isLoading }: { is
           </button>
         </div>
 
-        <div className="p-5 min-h-[340px]">
+        {/* Contenedor de contenido - Permite Scroll vertical y define una altura máxima */}
+        <div className="p-5 max-h-[60vh] overflow-y-auto">
           {isLoading ? (
             <div className="flex items-center justify-center h-full text-slate-400">Cargando...</div>
           ) : (
-            <div className="min-h-[220px]">
-              {/* ENCABEZADO CORREGIDO: 1fr para Nombre, 120px para Cédula (aunque vacía), 140px para Teléfono */}
-              <div className="grid grid-cols-[1fr_120px_140px] gap-x-4 px-3 py-2 border-b border-white/20 sticky top-0 bg-black z-10">
+            <div className="flex flex-col">
+              {/* ENCABEZADO: Solo Nombre y Teléfono (1fr_140px) */}
+              <div className="grid grid-cols-[1fr_140px] gap-x-4 px-3 py-2 border-b border-white/20 sticky top-0 bg-black z-10">
                 <span className="font-semibold text-slate-400 uppercase tracking-wider text-[0.65rem]">Nombre</span>
-                <span className="font-semibold text-slate-400 uppercase tracking-wider text-[0.65rem] text-center">Cédula</span>
                 <span className="font-semibold text-slate-400 uppercase tracking-wider text-[0.65rem] text-right">Teléfono</span>
               </div>
 
               <div className="flex flex-col gap-3 mt-2">
                 {paginatedData.map((persona, index) => (
-                  // FILA DE DATOS CORREGIDA
-                  <div key={index} className="grid grid-cols-[1fr_120px_140px] items-center gap-x-4 text-sm px-3 py-2 border-b border-white/10">
+                  // FILA DE DATOS: Solo Nombre y Teléfono
+                  <div key={index} className="grid grid-cols-[1fr_140px] items-center gap-x-4 text-sm px-3 py-2 border-b border-white/10">
                     <span className="text-slate-200 truncate">{persona.nombre}</span>
-                    {/* Cédula - alineada al centro */}
-                    <span className="text-slate-400 font-mono text-center">{'N/A'}</span> 
-                    {/* Teléfono - alineada a la derecha */}
                     <span className="text-slate-400 font-mono text-right">{persona.telefono || 'N/A'}</span>
                   </div>
                 ))}
@@ -184,38 +182,41 @@ const ContactosDetalleModal = ({ isOpen, onClose, title, data, isLoading }: { is
 };
 
 // ==============================================================================
-// MODAL DE DETALLE DE SERVIDORES (Corregida la distribución de tabla/grid)
+// MODAL DE DETALLE DE SERVIDORES (Mantiene 3 columnas y Cédula centrada)
 // ==============================================================================
 const ServidoresDetalleModal = ({ isOpen, onClose, title, subTitle, data, isLoading }: { isOpen: boolean; onClose: () => void; title: string; subTitle: string; data: ServidorDetalle[]; isLoading: boolean; }) => { 
   if (!isOpen) return null; 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm transition-opacity duration-300 ease-out animate-fadeIn" onClick={onClose} />
+      {/* Contenedor principal con max-w-lg */}
       <div className="relative z-10 w-full max-w-lg bg-black rounded-2xl shadow-2xl text-white border border-slate-700/80" style={{ transform: 'scale(0.95)', opacity: 0, animation: 'enter 0.3s cubic-bezier(0.2, 0.8, 0.2, 1) forwards' }}>
         <div className="px-5 py-3 bg-gradient-to-b from-slate-200 to-slate-300 rounded-t-2xl border-b border-slate-400">
           <h2 className="text-lg font-bold text-slate-800">{title}</h2>
           <p className="text-sm text-slate-600 font-medium">{subTitle}</p>
         </div>
 
-        <div className="p-1 sm:p-3 min-h-[300px] max-h-[60vh] overflow-y-auto">
+        {/* Contenedor de contenido - Permite Scroll vertical y define una altura máxima */}
+        <div className="p-1 sm:p-3 max-h-[60vh] overflow-y-auto">
           {isLoading ? (
             <div className="flex items-center justify-center h-[300px] text-slate-400">Cargando servidores...</div>
           ) : (
             <div className="flex flex-col">
-              {/* ENCABEZADO CORREGIDO: 1fr para Nombre, 120px para Cédula, 140px para Teléfono */}
+              {/* ENCABEZADO CORRECTO: 1fr Nombre, 120px Cédula, 140px Teléfono */}
               <div className="grid grid-cols-[1fr_120px_140px] gap-x-4 px-3 py-2 border-b border-white/20 sticky top-0 bg-black z-10">
                 <span className="font-semibold text-slate-400 uppercase tracking-wider text-[0.65rem]">Nombre</span>
+                {/* Cédula centrada */}
                 <span className="font-semibold text-slate-400 uppercase tracking-wider text-[0.65rem] text-center">Cédula</span>
                 <span className="font-semibold text-slate-400 uppercase tracking-wider text-[0.65rem] text-right">Teléfono</span>
               </div>
 
               {data.map((servidor, index) => (
-                // FILA DE DATOS CORREGIDA
+                // FILA DE DATOS
                 <div key={index} className="grid grid-cols-[1fr_120px_140px] items-center gap-x-4 text-sm px-3 py-3 border-b border-white/10">
                   <span className="text-slate-200 truncate font-medium">{servidor.nombre}</span>
-                  {/* Cédula - alineada al centro */}
+                  {/* Cédula alineada al centro */}
                   <span className="text-slate-400 font-mono text-center">{servidor.cedula}</span>
-                  {/* Teléfono - alineada a la derecha */}
+                  {/* Teléfono alineado a la derecha */}
                   <span className="text-slate-400 font-mono text-right">{servidor.telefono || 'N/A'}</span>
                 </div>
               ))}
@@ -410,6 +411,7 @@ interface ServerGroup {
 
 // -------------------------------------------------------------
 // COMPONENTE 2: GroupedStyledList (Coordinadores/Timoteos)
+// Incluye el estilo 'Mac 2025 Premium Light Bars'
 // -------------------------------------------------------------
 const GroupedStyledList = ({
   data,
