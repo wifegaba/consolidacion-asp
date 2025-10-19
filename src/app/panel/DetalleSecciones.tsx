@@ -44,6 +44,10 @@ function colorPorEtapa(etapa: string): string { const m: Record<string, string> 
 const normalizeWs = (s: string) => (s ?? "").replace(/\s+/g, " ").trim();
 const parseContactoKey = (key: string) => { const k = normalizeWs(key); const m = k.match(/^(.+?)\s+(\d+)\s*\(([^)]+)\)\s*$/); if (!m) return null; return { etapa: normalizeWs(m[1]), modulo: parseInt(m[2], 10), dia: normalizeWs(m[3]) }; };
 const parseServidorKey = (key: string) => { const k = normalizeWs(key); const m = k.match(/^([^-\n]+)-\s*(.+?)\s*\(([^)]+)\)\s*$/); if (!m) return null; return { rol: normalizeWs(m[1]), etapa: normalizeWs(m[2]), dia: normalizeWs(m[3]) }; };
+
+const parseSortKey = (key: string) => { const k = normalizeWs(key); const match = k.match(/^(.+?)\s+(\d+)\s*\((.+)\)\s*$/); if (match) { const etapaNameParts = match[1].split(' '); const etapaName = etapaNameParts.length > 1 ? etapaNameParts.slice(0, -1).join(' ') : match[1]; return { etapa: etapaName, modulo: parseInt(match[2], 10), dia: match[3] }; } const simpleMatch = k.match(/(Semillas|Devocionales|Restauracion)\s+(\d+)/); if(simpleMatch) { return { etapa: simpleMatch[1], modulo: parseInt(simpleMatch[2], 10), dia: '' }; } return { etapa: k, modulo: 0, dia: '' }; };
+
+
 const generateContactosPdf = (title: string, data: Persona[]) => { if (!data.length) return; const doc = new jsPDF(); doc.setFont("helvetica", "bold"); doc.setFontSize(16); doc.setTextColor("#ffffff"); doc.setFillColor(44, 62, 80); doc.rect(0, 0, 210, 25, "F"); doc.text(title, 105, 16, { align: "center" }); autoTable(doc, { startY: 35, head: [['Nombre', 'Teléfono']], body: data.map(p => [p.nombre, p.telefono || 'N/A']), theme: 'grid', headStyles: { fillColor: [52, 152, 219], textColor: 255, fontStyle: 'bold' }, styles: { cellPadding: 3, fontSize: 10, valign: 'middle' }, alternateRowStyles: { fillColor: [245, 245, 245] }, }); const pageCount = (doc as any).internal.getNumberOfPages(); for (let i = 1; i <= pageCount; i++) { doc.setPage(i); doc.setFontSize(8); doc.setTextColor(150); doc.text(`Página ${i} de ${pageCount}`, doc.internal.pageSize.getWidth() / 2, doc.internal.pageSize.getHeight() - 10, { align: 'center' }); } const fileName = `${title.replace(/[^\w\s]/gi, '').replace(/ /g, '_')}.pdf`; doc.save(fileName); };
 const generateServidoresPdf = (title: string, subTitle: string, data: ServidorDetalle[]) => { const personas: Persona[] = data.map(s => ({ nombre: `${s.nombre}${s.cedula ? ` — ${s.cedula}` : ''}`, telefono: s.telefono })); const fullTitle = subTitle ? `${title} ${subTitle}` : title; generateContactosPdf(fullTitle, personas); };
 
@@ -115,9 +119,447 @@ const AsistenciasHorizontalBars = ({ data, onDetalleClick, onPdfClick, loadingPd
     );
 };
 
-const ContactosDetalleModal = ({ isOpen, onClose, title, data, isLoading }: { isOpen: boolean; onClose: () => void; title: string; data: Persona[]; isLoading: boolean; }) => { const [currentPage, setCurrentPage] = useState(0); const ITEMS_PER_PAGE = 10; useEffect(() => { setCurrentPage(0); }, [data]); if (!isOpen) return null; const totalPages = Math.ceil(data.length / ITEMS_PER_PAGE); const startIndex = currentPage * ITEMS_PER_PAGE; const paginatedData = data.slice(startIndex, startIndex + ITEMS_PER_PAGE); const handlePrev = () => setCurrentPage(p => Math.max(0, p - 1)); const handleNext = () => setCurrentPage(p => Math.min(totalPages - 1, p + 1)); return (<div className="fixed inset-0 z-50 flex items-center justify-center p-4"><div className="absolute inset-0 bg-black/40 backdrop-blur-sm transition-opacity duration-300 ease-out" onClick={onClose} /><div className="relative z-10 w-full max-w-md bg-black/80 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl text-white transition-all duration-300 ease-out" style={{ transform: 'scale(0.95)', opacity: 0, animation: 'enter 0.3s cubic-bezier(0.2, 0.8, 0.2, 1) forwards' }}><div className="px-5 py-3 bg-gradient-to-b from-slate-100 to-slate-200 rounded-t-2xl border-b border-slate-300 flex justify-between items-center"><h3 className="text-base font-semibold text-slate-900 truncate pr-4">{title}</h3><button onClick={() => generateContactosPdf(title, data)} disabled={isLoading || data.length === 0} className="p-1.5 rounded-full text-slate-700 hover:text-slate-900 hover:bg-white/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200" title="Descargar en PDF"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg></button></div><div className="p-5 min-h-[340px]">{isLoading ? (<div className="flex items-center justify-center h-full text-slate-400">Cargando...</div>) : (<div className="flex flex-col gap-3">{paginatedData.map((persona, index) => (<div key={index} className="flex justify-between items-center text-sm"><span className="text-slate-200 truncate">{persona.nombre}</span><span className="text-slate-400 font-mono">{persona.telefono || 'N/A'}</span></div>))}</div>)}</div><div className="px-5 py-3 border-t border-white/20 flex justify-between items-center"><button onClick={handlePrev} disabled={currentPage === 0} className="text-sm text-white disabled:text-slate-600 disabled:cursor-not-allowed transition-colors">Anterior</button><span className="text-xs text-slate-400">Página {currentPage + 1} de {totalPages > 0 ? totalPages : 1}</span><button onClick={handleNext} disabled={currentPage >= totalPages - 1} className="text-sm text-white disabled:text-slate-600 disabled:cursor-not-allowed transition-colors">Siguiente</button></div></div><style jsx global>{` @keyframes enter { from { transform: scale(0.95); opacity: 0; } to { transform: scale(1); opacity: 1; } } `}</style></div>); };
-const ServidoresDetalleModal = ({ isOpen, onClose, title, subTitle, data, isLoading }: { isOpen: boolean; onClose: () => void; title: string; subTitle: string; data: ServidorDetalle[]; isLoading: boolean; }) => { if (!isOpen) return null; return (<div className="fixed inset-0 z-50 flex items-center justify-center p-4"><div className="absolute inset-0 bg-black/50 backdrop-blur-sm transition-opacity duration-300 ease-out animate-fadeIn" onClick={onClose} /><div className="relative z-10 w-full max-w-lg bg-black rounded-2xl shadow-2xl text-white border border-slate-700/80" style={{ transform: 'scale(0.95)', opacity: 0, animation: 'enter 0.3s cubic-bezier(0.2, 0.8, 0.2, 1) forwards' }}><div className="px-5 py-3 bg-gradient-to-b from-slate-200 to-slate-300 rounded-t-2xl border-b border-slate-400"><h2 className="text-lg font-bold text-slate-800">{title}</h2><p className="text-sm text-slate-600 font-medium">{subTitle}</p></div><div className="p-1 sm:p-3 min-h-[300px] max-h-[60vh] overflow-y-auto">{isLoading ? (<div className="flex items-center justify-center h-[300px] text-slate-400">Cargando servidores...</div>) : (<div className="flex flex-col"><div className="grid grid-cols-[1fr_auto_auto] gap-x-4 px-3 py-2 border-b border-white/20 sticky top-0 bg-black z-10"><span className="font-semibold text-slate-400 uppercase tracking-wider text-[0.65rem]">Nombre</span><span className="font-semibold text-slate-400 uppercase tracking-wider text-[0.65rem]">Cédula</span><span className="font-semibold text-slate-400 uppercase tracking-wider text-[0.65rem] text-right">Teléfono</span></div>{data.map((servidor, index) => (<div key={index} className="grid grid-cols-[1fr_auto_auto] items-center gap-x-4 text-sm px-3 py-3 border-b border-white/10"><span className="text-slate-200 truncate font-medium">{servidor.nombre}</span><span className="text-slate-400 font-mono">{servidor.cedula}</span><span className="text-slate-400 font-mono text-right">{servidor.telefono || 'N/A'}</span></div>))}</div>)}</div></div><style jsx global>{` @keyframes enter { from { transform: scale(0.95); opacity: 0; } to { transform: scale(1); opacity: 1; } } .animate-fadeIn { animation: fadeIn 0.3s ease-out; } @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } } `}</style></div>); };
-const StyledDetailList = ({ data, title, onRowClick, onPdfClick, loadingPdfKey }: { data: BarChartData[], title: string, onRowClick: (key: string) => void, onPdfClick?: (key: string) => void, loadingPdfKey?: string | null }) => { const [widths, setWidths] = useState<Record<string, number>>({}); useEffect(() => { const maxValue = Math.max(...data.map((d) => d.value), 1); const newWidths: Record<string, number> = {}; data.forEach(d => { newWidths[d.key] = (d.value / maxValue) * 100; }); const id = requestAnimationFrame(() => setWidths(newWidths)); return () => cancelAnimationFrame(id); }, [data]); if (!data || data.length === 0) { return <p className="text-center text-slate-500 py-8">No hay datos para mostrar.</p>; } const gradients = [ "from-sky-400 to-blue-500", "from-emerald-400 to-teal-500", "from-violet-400 to-purple-500", "from-amber-400 to-orange-500", "from-rose-400 to-red-500", "from-lime-400 to-green-500", ]; const total = data.reduce((sum, item) => sum + item.value, 0); const parseKey = (key: string) => { const k = normalizeWs(key); const parts = k.split(' - '); const rest = parts[1] || k; const match = rest.match(/^(.+?)\s*\(([^)]+)\)\s*$/); if (match) { return { etapa: normalizeWs(match[1]), dia: normalizeWs(match[2]) }; } return { etapa: rest, dia: '' }; }; return (<div className="flex flex-col text-sm w-full"><div className="grid grid-cols-[1.5fr_1fr_1.5fr_auto] gap-x-4 px-2 pb-2 border-b border-slate-200/60"><span className="font-semibold text-slate-400 uppercase tracking-wider text-[0.65rem]">Etapa</span><span className="font-semibold text-slate-400 uppercase tracking-wider text-[0.65rem]">Día</span><span className="font-semibold text-slate-400 uppercase tracking-wider text-[0.65rem]">Distribución</span><span className="w-12"></span></div><div className="flex flex-col">{data.map((row, i) => { const { etapa, dia } = parseKey(row.key); return (<div key={i} className="grid grid-cols-[1.5fr_1fr_1.5fr_auto] items-center gap-x-4 px-2 py-2 border-b border-slate-200/30"><span className="font-medium text-slate-500 truncate" title={etapa}>{etapa}</span><span className="font-medium text-slate-500 truncate" title={dia}>({dia})</span><div className="relative h-5 w-full bg-slate-200/70 rounded-md overflow-hidden flex items-center justify-end pr-2"><div className={`absolute inset-y-0 left-0 rounded-md bg-gradient-to-r ${gradients[i % gradients.length]}`} style={{ width: `${widths[row.key] || 0}%`, transition: 'width 800ms cubic-bezier(0.25, 1, 0.5, 1)' }} /><span className="relative z-10 font-bold text-white text-xs" style={{ textShadow: '0 1px 2px rgba(0,0,0,0.4)' }}>{row.value}</span></div><div className="flex items-center justify-end space-x-2"><button onClick={() => onRowClick(row.key)} className="text-slate-400 hover:text-slate-700 transition-colors" title="Consultar detalles"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg></button>{onPdfClick && (loadingPdfKey === row.key ? (<div className="w-6 h-6 flex items-center justify-center"><svg className="animate-spin h-4 w-4 text-slate-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg></div>) : (<button onClick={() => onPdfClick(row.key)} className="text-slate-400 hover:text-red-600 transition-colors" title="Descargar PDF"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg></button>))}</div></div>); })}</div><div className="grid grid-cols-[1.5fr_1fr_1.5fr_auto] gap-x-4 px-2 pt-3"><span className="col-span-3 font-semibold text-slate-700 text-right">{title}</span><span className="font-bold text-slate-800 text-right pr-10">{total}</span></div></div>); };
+// ==============================================================================
+// MODAL DE DETALLE DE CONTACTOS (Corregida la distribución de tabla/grid)
+// ==============================================================================
+const ContactosDetalleModal = ({ isOpen, onClose, title, data, isLoading }: { isOpen: boolean; onClose: () => void; title: string; data: Persona[]; isLoading: boolean; }) => { 
+  const [currentPage, setCurrentPage] = useState(0); 
+  const ITEMS_PER_PAGE = 10; 
+  useEffect(() => { setCurrentPage(0); }, [data]); 
+  if (!isOpen) return null; 
+  const totalPages = Math.ceil(data.length / ITEMS_PER_PAGE); 
+  const startIndex = currentPage * ITEMS_PER_PAGE; 
+  const paginatedData = data.slice(startIndex, startIndex + ITEMS_PER_PAGE); 
+  const handlePrev = () => setCurrentPage(p => Math.max(0, p - 1)); 
+  const handleNext = () => setCurrentPage(p => Math.min(totalPages - 1, p + 1)); 
+  
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm transition-opacity duration-300 ease-out" onClick={onClose} />
+      <div className="relative z-10 w-full max-w-md bg-black/80 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl text-white transition-all duration-300 ease-out" style={{ transform: 'scale(0.95)', opacity: 0, animation: 'enter 0.3s cubic-bezier(0.2, 0.8, 0.2, 1) forwards' }}>
+        <div className="px-5 py-3 bg-gradient-to-b from-slate-100 to-slate-200 rounded-t-2xl border-b border-slate-300 flex justify-between items-center">
+          <h3 className="text-base font-semibold text-slate-900 truncate pr-4">{title}</h3>
+          <button onClick={() => generateContactosPdf(title, data)} disabled={isLoading || data.length === 0} className="p-1.5 rounded-full text-slate-700 hover:text-slate-900 hover:bg-white/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200" title="Descargar en PDF">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+          </button>
+        </div>
+
+        <div className="p-5 min-h-[340px]">
+          {isLoading ? (
+            <div className="flex items-center justify-center h-full text-slate-400">Cargando...</div>
+          ) : (
+            <div className="min-h-[220px]">
+              {/* ENCABEZADO CORREGIDO: 1fr para Nombre, 120px para Cédula (aunque vacía), 140px para Teléfono */}
+              <div className="grid grid-cols-[1fr_120px_140px] gap-x-4 px-3 py-2 border-b border-white/20 sticky top-0 bg-black z-10">
+                <span className="font-semibold text-slate-400 uppercase tracking-wider text-[0.65rem]">Nombre</span>
+                <span className="font-semibold text-slate-400 uppercase tracking-wider text-[0.65rem] text-center">Cédula</span>
+                <span className="font-semibold text-slate-400 uppercase tracking-wider text-[0.65rem] text-right">Teléfono</span>
+              </div>
+
+              <div className="flex flex-col gap-3 mt-2">
+                {paginatedData.map((persona, index) => (
+                  // FILA DE DATOS CORREGIDA
+                  <div key={index} className="grid grid-cols-[1fr_120px_140px] items-center gap-x-4 text-sm px-3 py-2 border-b border-white/10">
+                    <span className="text-slate-200 truncate">{persona.nombre}</span>
+                    {/* Cédula - alineada al centro */}
+                    <span className="text-slate-400 font-mono text-center">{'N/A'}</span> 
+                    {/* Teléfono - alineada a la derecha */}
+                    <span className="text-slate-400 font-mono text-right">{persona.telefono || 'N/A'}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="px-5 py-3 border-t border-white/20 flex justify-between items-center">
+          <button onClick={handlePrev} disabled={currentPage === 0} className="text-sm text-white disabled:text-slate-600 disabled:cursor-not-allowed transition-colors">Anterior</button>
+          <span className="text-xs text-slate-400">Página {currentPage + 1} de {totalPages > 0 ? totalPages : 1}</span>
+          <button onClick={handleNext} disabled={currentPage >= totalPages - 1} className="text-sm text-white disabled:text-slate-600 disabled:cursor-not-allowed transition-colors">Siguiente</button>
+        </div>
+      </div>
+      <style jsx global>{` @keyframes enter { from { transform: scale(0.95); opacity: 0; } to { transform: scale(1); opacity: 1; } } `}</style>
+    </div>
+  );
+};
+
+// ==============================================================================
+// MODAL DE DETALLE DE SERVIDORES (Corregida la distribución de tabla/grid)
+// ==============================================================================
+const ServidoresDetalleModal = ({ isOpen, onClose, title, subTitle, data, isLoading }: { isOpen: boolean; onClose: () => void; title: string; subTitle: string; data: ServidorDetalle[]; isLoading: boolean; }) => { 
+  if (!isOpen) return null; 
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm transition-opacity duration-300 ease-out animate-fadeIn" onClick={onClose} />
+      <div className="relative z-10 w-full max-w-lg bg-black rounded-2xl shadow-2xl text-white border border-slate-700/80" style={{ transform: 'scale(0.95)', opacity: 0, animation: 'enter 0.3s cubic-bezier(0.2, 0.8, 0.2, 1) forwards' }}>
+        <div className="px-5 py-3 bg-gradient-to-b from-slate-200 to-slate-300 rounded-t-2xl border-b border-slate-400">
+          <h2 className="text-lg font-bold text-slate-800">{title}</h2>
+          <p className="text-sm text-slate-600 font-medium">{subTitle}</p>
+        </div>
+
+        <div className="p-1 sm:p-3 min-h-[300px] max-h-[60vh] overflow-y-auto">
+          {isLoading ? (
+            <div className="flex items-center justify-center h-[300px] text-slate-400">Cargando servidores...</div>
+          ) : (
+            <div className="flex flex-col">
+              {/* ENCABEZADO CORREGIDO: 1fr para Nombre, 120px para Cédula, 140px para Teléfono */}
+              <div className="grid grid-cols-[1fr_120px_140px] gap-x-4 px-3 py-2 border-b border-white/20 sticky top-0 bg-black z-10">
+                <span className="font-semibold text-slate-400 uppercase tracking-wider text-[0.65rem]">Nombre</span>
+                <span className="font-semibold text-slate-400 uppercase tracking-wider text-[0.65rem] text-center">Cédula</span>
+                <span className="font-semibold text-slate-400 uppercase tracking-wider text-[0.65rem] text-right">Teléfono</span>
+              </div>
+
+              {data.map((servidor, index) => (
+                // FILA DE DATOS CORREGIDA
+                <div key={index} className="grid grid-cols-[1fr_120px_140px] items-center gap-x-4 text-sm px-3 py-3 border-b border-white/10">
+                  <span className="text-slate-200 truncate font-medium">{servidor.nombre}</span>
+                  {/* Cédula - alineada al centro */}
+                  <span className="text-slate-400 font-mono text-center">{servidor.cedula}</span>
+                  {/* Teléfono - alineada a la derecha */}
+                  <span className="text-slate-400 font-mono text-right">{servidor.telefono || 'N/A'}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+      <style jsx global>{` @keyframes enter { from { transform: scale(0.95); opacity: 0; } to { transform: scale(1); opacity: 1; } } .animate-fadeIn { animation: fadeIn 0.3s ease-out; } @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } } `}</style>
+    </div>
+  );
+};
+
+// Componentes y tipos para agrupamiento (Contactos)
+interface ContactGroup {
+  key: string;
+  etapa: string;
+  modulo: number;
+  items: BarChartData[];
+  // Se agregan estas propiedades para evitar el error de asignación con ServerGroup
+  role: string; 
+  dia: string;
+}
+
+// -------------------------------------------------------------
+// COMPONENTE 1: MinimalistContactCard (Contactos Activos)
+// -------------------------------------------------------------
+const MinimalistContactCard = ({
+  data,
+  title,
+  onRowClick,
+  onPdfClick,
+  loadingPdfKey
+}: {
+  data: BarChartData[];
+  title: string;
+  onRowClick: (key: string) => void;
+  onPdfClick: (key: string) => void;
+  loadingPdfKey: string | null;
+}) => {
+  const [widths, setWidths] = useState<Record<string, number>>({});
+  const maxValue = Math.max(...data.map((d) => d.value), 1);
+  const total = data.reduce((sum, item) => sum + item.value, 0);
+
+  useEffect(() => {
+    const newWidths: Record<string, number> = {};
+    data.forEach(d => { newWidths[d.key] = (d.value / maxValue) * 100; });
+    const id = requestAnimationFrame(() => setWidths(newWidths));
+    return () => cancelAnimationFrame(id);
+  }, [data, maxValue]);
+
+  if (!data || data.length === 0) {
+    return <p className="text-center text-slate-500 py-8">No hay datos para mostrar.</p>;
+  }
+
+  // 1. Agrupar la data por Etapa y Módulo para obtener los títulos de tarjeta (Semillas 1, Semillas 2...)
+  const groups: ContactGroup[] = data.reduce((acc, row) => {
+    const parsed = parseContactoKey(row.key);
+    if (!parsed) return acc;
+    const groupKey = `${parsed.etapa} ${parsed.modulo}`;
+    
+    // Inicialización corregida para cumplir con la interfaz ContactGroup (y evitar el error ServerGroup)
+    let group = acc.find(g => g.key === groupKey);
+    if (!group) {
+      group = { 
+        key: groupKey, 
+        etapa: parsed.etapa, 
+        modulo: parsed.modulo, 
+        items: [],
+        role: 'Contacto', // Propiedad añadida para cumplir la interfaz
+        dia: '' // Propiedad añadida para cumplir la interfaz
+      };
+      acc.push(group);
+    }
+    group.items.push(row);
+    return acc;
+  }, [] as ContactGroup[]).sort((a, b) => {
+    const etapaOrder: { [key: string]: number } = { 'Semillas': 1, 'Devocionales': 2, 'Restauracion': 3 };
+    const orderA = etapaOrder[a.etapa] || 99;
+    const orderB = etapaOrder[b.etapa] || 99;
+    if (orderA !== orderB) return orderA - orderB;
+    return a.modulo - b.modulo;
+  });
+
+  // Degradados de color CLAROS y FRESCOS (Estilo Mac Premium - Replicado de GroupedStyledList)
+  const premiumLightGradients = [
+    "linear-gradient(90deg, #93c5fd, #a5b4fc)", // Blue/Lavender
+    "linear-gradient(90deg, #a7f3d0, #6ee7b7)", // Mint/Aqua
+    "linear-gradient(90deg, #fbcfe8, #f0abfc)", // Pink/Fuchsia
+    "linear-gradient(90deg, #fde68a, #fcd34d)", // Yellow/Amber
+  ];
+
+  return (
+    <div className="flex flex-col gap-4 w-full">
+      {groups.map((group, groupIndex) => {
+        const groupTotal = group.items.reduce((sum, item) => sum + item.value, 0); // Calcular total del grupo
+
+        return (
+          // Estilo de tarjeta Mac (Glassmorphism sutil)
+          <div key={group.key} className="p-4 bg-white/50 backdrop-blur-xl rounded-2xl ring-1 ring-white/30 shadow-2xl shadow-slate-300/60 transition-all duration-300 hover:shadow-slate-400/70">
+            
+            {/* Título de la Tarjeta (Ej: Semillas 1) con Círculo Premium de Total */}
+            <div className="flex justify-between items-center border-b border-slate-200/80 pb-2 mb-3">
+              <h3 className="text-lg font-bold text-slate-800">
+                {group.key}
+              </h3>
+              {/* Círculo Premium (Estilo Mac Neumorphism/Glassmorphism para el total) */}
+              <div 
+                className="w-8 h-8 flex items-center justify-center rounded-full text-xs font-extrabold text-slate-700 tabular-nums"
+                style={{
+                  background: 'linear-gradient(145deg, #e6e6e6, #ffffff)',
+                  boxShadow: '4px 4px 8px #cccccc, -4px -4px 8px #ffffff',
+                  color: '#475569', // text-slate-600
+                  fontWeight: 'bold'
+                }}
+              >
+                {groupTotal}
+              </div>
+            </div>
+
+            {/* CONTENEDOR PRINCIPAL: Única línea horizontal para Días, Barras e Íconos */}
+            <div className="flex flex-row space-x-3 items-center">
+              {group.items.map((row, i) => {
+                const parsed = parseContactoKey(row.key)!;
+                const currentPdfKey = row.key;
+                const barGradient = premiumLightGradients[i % premiumLightGradients.length]; // Usar degradados claros
+                const isVirtual = parsed.dia.toLowerCase() === 'virtual';
+
+                return (
+                  // Mini-Card o Grupo de 3 elementos (Día, Barra/Valor, Iconos)
+                  <div key={row.key} className="flex-1 min-w-0 flex flex-col space-y-1 items-center">
+                    
+                    {/* Etiqueta del Día (Arriba) */}
+                    <span className={`text-xs font-semibold ${isVirtual ? 'text-violet-600' : 'text-slate-600'} truncate uppercase`}>
+                      {parsed.dia}
+                    </span>
+                    
+                    {/* Barra de Progreso (Abajo, elemento más grande) */}
+                    {/* Se agrega shadow-inner shadow-black/10 para el look Mac 2025 */}
+                    <div className="relative h-5 w-full bg-slate-200/70 rounded-full overflow-hidden flex items-center shadow-inner shadow-black/10">
+                      <div
+                        className={`absolute inset-y-0 left-0 rounded-full`}
+                        style={{ 
+                          width: `${widths[row.key] || 0}%`, 
+                          background: barGradient, // Aplicar degradado claro
+                          transition: 'width 800ms cubic-bezier(0.25, 1, 0.5, 1)' 
+                        }}
+                      />
+                      {/* Valor de Contactos (Sombra ajustada para degradados claros) */}
+                      <span className="absolute right-2 font-extrabold text-white text-sm tabular-nums" style={{ textShadow: '0 0 4px rgba(0,0,0,0.4), 0 0 1px rgba(0,0,0,0.3)' }}>
+                          {row.value}
+                      </span>
+                    </div>
+                    
+                    {/* Íconos de Acción (Debajo de la barra, alineados al final) */}
+                    <div className="flex items-center justify-center space-x-1 w-full mt-1">
+                      {/* Icono de Lupa (Consultar detalles) */}
+                      <button onClick={() => onRowClick(row.key)} className="text-slate-400 hover:text-blue-500 transition-colors p-1 rounded-full hover:bg-slate-100" title="Consultar detalles">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                      </button>
+                      {/* Icono de PDF (Descargar) */}
+                      {onPdfClick && (loadingPdfKey === currentPdfKey ? (
+                        <div className="w-4 h-4 flex items-center justify-center">
+                          <svg className="animate-spin h-3 w-3 text-slate-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                        </div>
+                      ) : (
+                        <button onClick={() => onPdfClick(row.key)} className="text-slate-400 hover:text-red-500 transition-colors p-1 rounded-full hover:bg-slate-100" title="Descargar PDF">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })}
+      <div className="flex justify-end pt-3 pr-2 text-lg font-bold text-slate-800 border-t border-slate-200 mt-4">
+        {title}: <span className="tabular-nums ml-2">{total}</span>
+      </div>
+    </div>
+  );
+};
+
+// Se mantiene GroupedStyledList (Servidores) para el otro panel.
+interface ServerGroup {
+  key: string;
+  role: string;
+  etapa: string;
+  items: BarChartData[];
+}
+
+// -------------------------------------------------------------
+// COMPONENTE 2: GroupedStyledList (Coordinadores/Timoteos)
+// -------------------------------------------------------------
+const GroupedStyledList = ({
+  data,
+  baseTitle, // Ej: "Total de Coordinadores"
+  rolePrefix, // Ej: 'Maestros -'
+  onRowClick,
+  onPdfClick,
+  loadingPdfKey
+}: {
+  data: BarChartData[];
+  baseTitle: string;
+  rolePrefix: string;
+  onRowClick: (key: string) => void;
+  onPdfClick: (key: string) => void;
+  loadingPdfKey: string | null;
+}) => {
+  const [widths, setWidths] = useState<Record<string, number>>({});
+  const maxValue = Math.max(...data.map((d) => d.value), 1);
+  const total = data.reduce((sum, item) => sum + item.value, 0);
+
+  useEffect(() => {
+    const newWidths: Record<string, number> = {};
+    data.forEach(d => { newWidths[d.key] = (d.value / maxValue) * 100; });
+    const id = requestAnimationFrame(() => setWidths(newWidths));
+    return () => cancelAnimationFrame(id);
+  }, [data, maxValue]);
+
+  if (!data || data.length === 0) {
+    return <p className="text-center text-slate-500 py-8">No hay datos para mostrar.</p>;
+  }
+
+  // 1. Group data by Etapa (ej: Semillas 1)
+  const groups: ServerGroup[] = data.reduce((acc, row) => {
+    const keyWithoutRole = normalizeWs(row.key.replace(rolePrefix, ''));
+    
+    const matchSimple = keyWithoutRole.match(/^(.+?)\s*\(([^)]+)\)\s*$/); 
+    const matchModulo = keyWithoutRole.match(/^(.+?)\s+(\d+)\s*\(([^)]+)\)\s*$/); 
+
+    let etapaName = keyWithoutRole; 
+    if (matchModulo) {
+        etapaName = normalizeWs(`${matchModulo[1]} ${matchModulo[2]}`);
+    } else if (matchSimple) {
+        const parts = matchSimple[1].split(' ');
+        etapaName = parts.length > 1 ? parts.slice(0, 2).join(' ') : matchSimple[1];
+    }
+    
+    const groupKey = etapaName;
+    let group = acc.find(g => g.key === groupKey);
+    
+    if (!group) {
+      group = { key: groupKey, role: rolePrefix.replace(' -', ''), etapa: etapaName, items: [] };
+      acc.push(group);
+    }
+    group.items.push(row);
+    return acc;
+  }, [] as ServerGroup[]).sort((a, b) => {
+    const aKey = a.key;
+    const bKey = b.key;
+    const aParsed = parseSortKey(aKey);
+    const bParsed = parseSortKey(bKey);
+    const etapaOrder: { [key: string]: number } = { 'Semillas': 1, 'Devocionales': 2, 'Restauracion': 3, 'Consolidacion': 4, 'Discipulado': 5, 'Liderazgo': 6 };
+    const orderA = etapaOrder[aParsed.etapa] || 99;
+    const orderB = etapaOrder[bParsed.etapa] || 99;
+    if (orderA !== orderB) { return orderA - orderB; }
+    if (aParsed.modulo !== bParsed.modulo) { return aParsed.modulo - bParsed.modulo; }
+    return aKey.localeCompare(bKey);
+  });
+
+  // Degradados de color CLAROS y FRESCOS (Estilo Mac Premium)
+  const premiumLightGradients = [
+    "linear-gradient(90deg, #93c5fd, #a5b4fc)", // Blue/Lavender
+    "linear-gradient(90deg, #a7f3d0, #6ee7b7)", // Mint/Aqua
+    "linear-gradient(90deg, #fbcfe8, #f0abfc)", // Pink/Fuchsia
+    "linear-gradient(90deg, #fde68a, #fcd34d)", // Yellow/Amber
+  ];
+
+  return (
+    <div className="flex flex-col gap-4 w-full"> 
+      {groups.map((group, groupIndex) => (
+        // Contenedor de Grupo: Glassmorphism más claro y premium
+        <div key={group.key} className="bg-white/80 backdrop-blur-xl rounded-2xl ring-1 ring-white/70 shadow-2xl shadow-slate-300/60 transition-all duration-300 hover:shadow-slate-400/70 overflow-hidden">
+          
+          {/* Encabezado del Grupo (Etapa y Módulo) - Estilo limpio y fresco */}
+          <div className="px-4 py-3 text-slate-800 font-extrabold text-lg border-b border-slate-200/80 bg-slate-100/50">
+            {group.key}
+          </div>
+
+          <div className="flex flex-col divide-y divide-slate-200/50 p-3">
+            {group.items.map((row, i) => {
+              const parsedServidor = parseServidorKey(row.key)!;
+              const keyWithoutRole = normalizeWs(row.key.replace(rolePrefix, ''));
+              const parsedKey = parseContactoKey(keyWithoutRole) || parseSortKey(keyWithoutRole);
+              
+              // Usar degradados claros y rotarlos por índice de ítem
+              const barGradient = premiumLightGradients[i % premiumLightGradients.length]; 
+              const currentPdfKey = row.key;
+              
+              const diaDisplay = parsedKey.dia ? `${parsedKey.dia}` : '';
+
+              return (
+                <div key={row.key} className="grid grid-cols-[3fr_1.5fr_auto] items-center gap-x-3 py-2 text-sm">
+                  {/* Día/Rol */}
+                  <div className="font-medium text-slate-700 truncate" title={`${parsedServidor.rol} (${diaDisplay})`}>
+                    <span className="text-slate-500 font-normal">{diaDisplay}</span>
+                  </div>
+                  
+                  {/* Distribución/Barra - Más alta (h-5) y con shadow-inner para efecto 3D Mac */}
+                  <div className="relative h-5 w-full bg-slate-200/70 rounded-full overflow-hidden flex items-center justify-end pr-1 shadow-inner shadow-black/10">
+                    <div
+                      className={`absolute inset-y-0 left-0 rounded-full`}
+                      style={{ 
+                        width: `${widths[row.key] || 0}%`, 
+                        background: barGradient,
+                        transition: 'width 800ms cubic-bezier(0.25, 1, 0.5, 1)' 
+                      }}
+                    />
+                    {/* Número con sombra de texto para que resalte sobre el degradado claro */}
+                    <span className="absolute right-2 font-extrabold text-white text-sm tabular-nums" style={{ textShadow: '0 0 4px rgba(0,0,0,0.4), 0 0 1px rgba(0,0,0,0.3)' }}>
+                      {row.value}
+                    </span>
+                  </div>
+                  
+                  {/* Acciones */}
+                  <div className="flex items-center justify-end space-x-1 w-[40px]">
+                    <button onClick={() => onRowClick(row.key)} className="text-slate-400 hover:text-blue-500 transition-colors p-1 rounded-full hover:bg-blue-50" title="Consultar detalles">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                    </button>
+                    {onPdfClick && (loadingPdfKey === currentPdfKey ? (
+                      <div className="w-5 h-5 flex items-center justify-center">
+                        <svg className="animate-spin h-4 w-4 text-slate-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                      </div>
+                    ) : (
+                      <button onClick={() => onPdfClick(row.key)} className="text-slate-400 hover:text-red-500 transition-colors p-1 rounded-full hover:bg-red-50" title="Descargar PDF">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ))}
+      <div className="flex justify-end pt-3 pr-2 text-lg font-bold text-slate-800 border-t border-slate-200 mt-4">
+        {baseTitle}: <span className="tabular-nums ml-2">{total}</span>
+      </div>
+    </div>
+  );
+};
+
 
 /* ========================= Componente principal ========================= */
 export default function DetalleSecciones({
@@ -211,8 +653,8 @@ export default function DetalleSecciones({
   const [animatedTotal, setAnimatedTotal] = useState(0);
   useEffect(() => { const target = view === "agendados" ? totalAgend : totalAsist; let raf = 0; const start = performance.now(); const dur = 800; const tick = (now: number) => { const t = Math.min((now - start) / dur, 1); setAnimatedTotal(Math.round(target * t)); if (t < 1) raf = requestAnimationFrame(tick); }; requestAnimationFrame(tick); return () => cancelAnimationFrame(raf); }, [view, totalAsist, totalAgend]);
 
-  const parseSortKey = (key: string) => { const k = normalizeWs(key); const match = k.match(/^(.+?)\s+(\d+)\s*\((.+)\)\s*$/); if (match) { const etapaNameParts = match[1].split(' '); const etapaName = etapaNameParts.length > 1 ? etapaNameParts.slice(0, -1).join(' ') : match[1]; return { etapa: etapaName, modulo: parseInt(match[2], 10), dia: match[3] }; } const simpleMatch = k.match(/(Semillas|Devocionales|Restauracion)\s+(\d+)/); if(simpleMatch) { return { etapa: simpleMatch[1], modulo: parseInt(simpleMatch[2], 10), dia: '' }; } return { etapa: k, modulo: 0, dia: '' }; };
-  const etapaOrder: { [key: string]: number } = { 'Semillas': 1, 'Devocionales': 2, 'Restauracion': 3 };
+  
+  const etapaOrder: { [key: string]: number } = { 'Semillas': 1, 'Devocionales': 2, 'Restauracion': 3, 'Consolidacion': 4, 'Discipulado': 5, 'Liderazgo': 6 };
   const genericSort = (a: BarChartData, b: BarChartData, keyPrefix: string) => { const aKey = normalizeWs(a.key.replace(keyPrefix, '')); const bKey = normalizeWs(b.key.replace(keyPrefix, '')); const aParsed = parseSortKey(aKey); const bParsed = parseSortKey(bKey); const etapaOrderA = etapaOrder[aParsed.etapa] || 99; const etapaOrderB = etapaOrder[bParsed.etapa] || 99; if (etapaOrderA !== etapaOrderB) { return etapaOrderA - etapaOrderB; } if (aParsed.modulo !== bParsed.modulo) { return aParsed.modulo - bParsed.modulo; } return aKey.localeCompare(bKey); };
   const maestrosData = servidoresPorRolEtapaDia.filter(d => d.key.startsWith('Maestros')).sort((a,b) => genericSort(a,b, 'Maestros -'));
   const timoteosData = servidoresPorRolEtapaDia.filter(d => d.key.startsWith('Contactos')).sort((a,b) => genericSort(a,b, 'Contactos -'));
@@ -283,11 +725,19 @@ export default function DetalleSecciones({
         )}
         
         {view === "contactos" && (
-          <div className="contactos-container animate-slideIn">
-            <div className="max-w-2xl mx-auto w-full">
+          <div className="contactos-container animate-slideIn justify-center">
+            <div className="w-full lg:max-w-4xl xl:max-w-6xl">
               <section className="card premium-glass self-start flex flex-col overflow-hidden">
                 <div className="px-4 py-3 border-b border-slate-200/80"><h2 className="text-base font-semibold text-slate-700">Detalle de Contactos Activos</h2></div>
-                <div className="panel-body p-4"><StyledDetailList data={sortedContactosData} title="Total de Contactos Activos" onRowClick={handleContactRowClick} onPdfClick={handleContactPdfDownload} loadingPdfKey={pdfLoadingKey} /></div>
+                <div className="panel-body p-5">
+                  <MinimalistContactCard 
+                    data={sortedContactosData} 
+                    title="Total de Contactos Activos" 
+                    onRowClick={handleContactRowClick} 
+                    onPdfClick={handleContactPdfDownload} 
+                    loadingPdfKey={pdfLoadingKey} 
+                  />
+                </div>
               </section>
             </div>
           </div>
@@ -297,11 +747,29 @@ export default function DetalleSecciones({
           <div className="servidores-container animate-slideIn">
             <section className="card premium-glass self-start flex flex-col overflow-hidden">
               <div className="px-4 py-3 border-b border-slate-200/80"><h2 className="text-base font-semibold text-slate-700">Detalle de Coordinadores</h2></div>
-              <div className="panel-body p-4"><StyledDetailList data={maestrosData} title="Total de Coordinadores" onRowClick={handleServidorRowClick} onPdfClick={handleServidorPdfDownload} loadingPdfKey={pdfLoadingKey} /></div>
+              <div className="panel-body p-4">
+                <GroupedStyledList 
+                  data={maestrosData} 
+                  baseTitle="Total de Coordinadores" 
+                  rolePrefix="Maestros -"
+                  onRowClick={handleServidorRowClick} 
+                  onPdfClick={handleServidorPdfDownload} 
+                  loadingPdfKey={pdfLoadingKey} 
+                />
+              </div>
             </section>
             <section className="card premium-glass self-start flex flex-col overflow-hidden">
               <div className="px-4 py-3 border-b border-slate-200/80"><h2 className="text-base font-semibold text-slate-700">Detalle de Timoteos</h2></div>
-              <div className="panel-body p-4"><StyledDetailList data={timoteosData} title="Total de Timoteos" onRowClick={handleServidorRowClick} onPdfClick={handleServidorPdfDownload} loadingPdfKey={pdfLoadingKey} /></div>
+              <div className="panel-body p-4">
+                <GroupedStyledList 
+                  data={timoteosData} 
+                  baseTitle="Total de Timoteos" 
+                  rolePrefix="Contactos -"
+                  onRowClick={handleServidorRowClick} 
+                  onPdfClick={handleServidorPdfDownload} 
+                  loadingPdfKey={pdfLoadingKey} 
+                />
+              </div>
             </section>
           </div>
         )}

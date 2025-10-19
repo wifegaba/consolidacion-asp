@@ -4,8 +4,19 @@ import Image from 'next/image';
 import { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 
-// CAMBIO 1: La función ahora solo quita espacios al inicio y al final.
-// Ya no elimina las letras ni otros caracteres.
+// IMPORTACIÓN SIMULADA DE ÍCONOS MODERNOS
+// En un proyecto real, se usaría una librería como 'lucide-react', 'react-icons', o similar.
+// Se recomienda instalar una para usar SVGs limpios en lugar de los placeholders de texto.
+// Por ejemplo: `npm install lucide-react` o `npm install react-icons`
+const EyeIcon = (props: React.SVGProps<SVGSVGElement>) => (
+  <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+);
+
+const EyeOffIcon = (props: React.SVGProps<SVGSVGElement>) => (
+  <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"></path><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"></path><path d="M6.61 6.61A13.11 13.11 0 0 0 2 12s3 7 10 7a9.8 9.8 0 0 0 5.61-1.92"></path><line x1="2" x2="22" y1="2" y2="22"></line></svg>
+);
+
+
 const normalizeCedula = (raw: string) => raw.trim();
 
 export default function LoginPage() {
@@ -14,16 +25,22 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const pendingRef = useRef(false); // evita doble submit rápido
+  
+  // ESTADO PREMIUM: Controla la visibilidad del campo (text vs password)
+  const [showPassword, setShowPassword] = useState(false); 
+
+  const togglePasswordVisibility = () => {
+    setShowPassword(prev => !prev);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (pendingRef.current) return; // bloquea doble click
+    if (pendingRef.current) return;
     setErrorMsg(null);
 
-    // Esta lógica sigue funcionando igual, pero ahora `cedula` puede tener letras.
     const ced = normalizeCedula(cedula);
     if (!ced) {
-      setErrorMsg('Por favor ingrese su cédula.');
+      setErrorMsg('Por favor ingrese su cédula o usuario.');
       return;
     }
 
@@ -97,21 +114,46 @@ export default function LoginPage() {
 
         {/* Formulario */}
         <form onSubmit={handleSubmit} className="mt-6 space-y-4">
-          <div>
-            <label htmlFor="cedula" className="sr-only">Cédula</label>
+          {/* CAMPO DE CONTRASEÑA/CÉDULA CON TOGGLE DE VISIBILIDAD */}
+          <div className="relative">
+            <label htmlFor="cedula" className="sr-only">Cédula o Usuario</label>
             <input
               id="cedula"
+              // Usamos siempre type="text" para evitar que el navegador muestre
+              // su propio control de visibilidad (icono de ojo). En su lugar
+              // aplicamos -webkit-text-security para enmascarar los caracteres
+              // cuando showPassword === false.
               type="text"
-              // CAMBIO 2: Se cambia a 'text' para permitir el teclado alfanumérico en móviles.
+              // Se mantiene 'text' en inputMode para permitir letras si el 'usuario' las tiene.
               inputMode="text"
               autoComplete="off"
-              // CAMBIO 3: Placeholder actualizado para ser más general.
               placeholder="Ingrese su cédula o usuario"
               value={cedula}
-              // El `onChange` no cambia, pero ahora usa la nueva lógica de `normalizeCedula`.
               onChange={(e) => setCedula(normalizeCedula(e.target.value))}
-              className="w-full px-4 py-3 rounded-2xl bg-white/35 border border-white/60 text-slate-800 placeholder-slate-400 shadow-inner focus:outline-none focus:ring-2 focus:ring-sky-400 focus:border-transparent backdrop-blur-md"
+              // Se agregó 'pr-12' para el padding derecho, dando espacio al ícono
+              className="w-full px-4 py-3 pr-12 rounded-2xl bg-white/35 border border-white/60 text-slate-800 placeholder-slate-400 shadow-inner focus:outline-none focus:ring-2 focus:ring-sky-400 focus:border-transparent backdrop-blur-md"
+              // Oculta visualmente los caracteres en navegadores WebKit/Blink
+              style={{ WebkitTextSecurity: showPassword ? 'none' : 'disc' } as React.CSSProperties}
             />
+            
+            {/* BOTÓN DE TOGGLE DE VISIBILIDAD (LA 'LUPITA') */}
+            {/* Solo se muestra si el campo tiene contenido para alternar */}
+            {cedula.length > 0 && (
+              <button
+                type="button"
+                onClick={togglePasswordVisibility}
+                // ARIA: Mejora la accesibilidad para lectores de pantalla
+                aria-label={showPassword ? 'Ocultar cédula' : 'Mostrar cédula'}
+                className="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-500 hover:text-slate-800 transition-colors"
+              >
+                {/* El ícono cambia dinámicamente según la visibilidad */}
+                {showPassword ? (
+                  <EyeOffIcon className="w-5 h-5" />
+                ) : (
+                  <EyeIcon className="w-5 h-5" />
+                )}
+              </button>
+            )}
           </div>
 
           {errorMsg && (
@@ -128,7 +170,6 @@ export default function LoginPage() {
         </form>
 
         <p className="mt-4 text-xs text-center text-slate-500">
-          {/* CAMBIO 4: Texto de ayuda actualizado. */}
           Su acceso está protegido con sesión segura.
         </p>
       </div>
