@@ -24,36 +24,57 @@ export async function getContactosPorFiltro(etapa: string, modulo: number, dia: 
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
     { auth: { persistSession: false, autoRefreshToken: false } }
   );
+  // Alineamos la fuente de datos con la que usa getAgendadosPorSemana (v_agendados)
+  // para que el modal muestre exactamente los registros contados.
+  // Primero intentamos la vista `v_agendados` (la que usa el contador).
+  // Si no devuelve filas, hacemos fallback a la consulta original sobre `progreso`
+  // para mantener compatibilidad con otros usos del modal.
+  try {
+    const { data: vdata, error: verror } = await supabaseAdmin
+      .from('v_agendados')
+      .select('progreso_id, nombre, telefono, semana')
+      .eq('etapa', etapa)
+      .eq('modulo', modulo)
+      .eq('dia', dia)
+      .order('nombre', { ascending: true });
 
-  const { data, error } = await supabaseAdmin
-    .from('progreso')
-    .select('persona (nombre, telefono)')
-    .eq('activo', true)
-    .eq('etapa', etapa)
-    .eq('modulo', modulo)
-    .eq('dia', dia)
-    .order('nombre', { referencedTable: 'persona', ascending: true });
+    if (!verror && Array.isArray(vdata) && vdata.length > 0) {
+      return vdata.map((p: any) => ({ nombre: p.nombre ?? '', telefono: p.telefono ?? null }));
+    }
+  } catch (e) {
+    // fallthrough a la consulta original
+    console.error('Warning: v_agendados query failed, falling back to progreso:', (e as any)?.message || e);
+  }
 
-  if (error) {
-    console.error("Error fetching filtered contacts:", error.message);
+  // Fallback: consulta por progreso -> persona { nombre, telefono }
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('progreso')
+      .select('persona (nombre, telefono)')
+      .eq('activo', true)
+      .eq('etapa', etapa)
+      .eq('modulo', modulo)
+      .eq('dia', dia)
+      .order('nombre', { referencedTable: 'persona', ascending: true });
+
+    if (error) {
+      console.error("Error fetching filtered contacts from progreso:", error.message);
+      return [];
+    }
+    if (!data) return [];
+
+    const personasRaw: any[] = data.flatMap((item: any) => {
+      const p = item.persona;
+      if (!p) return [];
+      if (Array.isArray(p)) return p;
+      return [p];
+    });
+
+    return personasRaw.filter(Boolean).map((p: any) => ({ nombre: p?.nombre ?? '', telefono: p?.telefono ?? null }));
+  } catch (e) {
+    console.error('Error in fallback progreso query:', (e as any)?.message || e);
     return [];
   }
-  if (!data) {
-    return [];
-  }
-  
-  const personasRaw: any[] = data.flatMap((item: any) => {
-    const p = item.persona;
-    if (!p) return [];
-    if (Array.isArray(p)) return p;
-    return [p];
-  });
-
-  const personas: Persona[] = personasRaw
-    .filter(Boolean)
-    .map((p: any) => ({ nombre: p?.nombre ?? '', telefono: p?.telefono ?? null }));
-
-  return personas;
 }
 
 export async function getServidoresPorFiltro(rol: string, etapa_det: string, dia: string): Promise<ServidorDetalle[]> {
