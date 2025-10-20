@@ -25,7 +25,7 @@ type Resultado =
   | 'vive_fuera'
   | 'murio'
   | 'rechazado'
-  | 'correo_de_voz'
+  | 'buzon_de_voz'
   | 'otro';
 
 type AsigMaestro = {
@@ -149,7 +149,7 @@ const resultadoLabels: Record<Resultado, string> = {
   vive_fuera: 'VIVE FUERA DE LA CIUDAD',
   murio: 'MURIÓ',
   rechazado: 'NO ME INTERESA',
-  correo_de_voz: 'BUZÓN DE VOZ',
+  buzon_de_voz: 'BUZÓN DE VOZ',
   otro: 'OTRO',
 };
 
@@ -1457,7 +1457,7 @@ function FollowUp({
     { label: 'VIVE FUERA DE LA CIUDAD', value: 'vive_fuera' },
     { label: 'MURIÓ', value: 'murio' },
     { label: 'NO ME INTERESA', value: 'rechazado' },
-    { label: 'BUZÓN DE VOZ', value: 'correo_de_voz' },
+    { label: 'BUZÓN DE VOZ', value: 'buzon_de_voz' },
     { label: 'OTRO', value: 'otro' },
   ];
 
