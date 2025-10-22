@@ -1,3 +1,4 @@
+// src/app/actions.ts
 "use server";
 
 import { createClient } from '@supabase/supabase-js';
@@ -76,6 +77,50 @@ export async function getContactosPorFiltro(etapa: string, modulo: number, dia: 
     return [];
   }
 }
+
+/**
+ * NUEVA FUNCIÓN AÑADIDA
+ * Obtiene contactos activos consultando *directamente* la tabla 'progreso'.
+ * Esto asegura que el modal de "Contactos" coincida con el contador de 'getContactosPorEtapaDia'.
+ */
+export async function getActivosPorFiltro(etapa: string, modulo: number, dia: string): Promise<Persona[]> {
+  const supabaseAdmin = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { persistSession: false, autoRefreshToken: false } }
+  );
+
+  // Consulta directa a 'progreso' (lógica del fallback original de getContactosPorFiltro)
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('progreso')
+      .select('persona (nombre, telefono)')
+      .eq('activo', true)
+      .eq('etapa', etapa)
+      .eq('modulo', modulo)
+      .eq('dia', dia)
+      .order('nombre', { referencedTable: 'persona', ascending: true });
+
+    if (error) {
+      console.error("Error fetching filtered contacts from progreso:", error.message);
+      return [];
+    }
+    if (!data) return [];
+
+    const personasRaw: any[] = data.flatMap((item: any) => {
+      const p = item.persona;
+      if (!p) return [];
+      if (Array.isArray(p)) return p;
+      return [p];
+    });
+
+    return personasRaw.filter(Boolean).map((p: any) => ({ nombre: p?.nombre ?? '', telefono: p?.telefono ?? null }));
+  } catch (e) {
+    console.error('Error in getActivosPorFiltro query:', (e as any)?.message || e);
+    return [];
+  }
+}
+
 
 export async function getServidoresPorFiltro(rol: string, etapa_det: string, dia: string): Promise<ServidorDetalle[]> {
   const supabaseAdmin = createClient(

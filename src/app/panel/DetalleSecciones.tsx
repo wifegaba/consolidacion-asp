@@ -3,7 +3,12 @@
 
 import React, { useEffect, useState } from "react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
-import { getContactosPorFiltro, getServidoresPorFiltro, getAsistentesPorEtapaFiltro } from "@/app/actions";
+import { 
+  getContactosPorFiltro, 
+  getServidoresPorFiltro, 
+  getAsistentesPorEtapaFiltro,
+  getActivosPorFiltro // <-- 1. IMPORTACIÓN AÑADIDA
+} from "@/app/actions";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import type { Range } from "@/lib/metrics";
@@ -425,7 +430,7 @@ const ContactosDetalleModal = ({ isOpen, onClose, title, data, isLoading, premiu
         <div className={"px-5 py-3 rounded-t-2xl border-b flex justify-between items-center " + (premium ? 'bg-white/70 backdrop-blur-md border border-white/30 shadow-sm' : 'bg-gradient-to-b from-slate-100 to-slate-200 border-slate-300')}>
           <h3 className={"text-base font-semibold truncate pr-4 " + (premium ? 'text-slate-900' : 'text-slate-900')}>{title}</h3>
           <button onClick={() => generateContactosPdf(title, data)} disabled={isLoading || data.length === 0} className={premium ? "p-1.5 rounded-full text-slate-800 hover:text-slate-900 hover:bg-white/30 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200" : "p-1.5 rounded-full text-slate-700 hover:text-slate-900 hover:bg-white/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"} title="Descargar en PDF">
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2 2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
           </button>
         </div>
 
@@ -910,6 +915,53 @@ export default function DetalleSecciones({
     }
   };
   const handleContactPdfDownload = async (key: string) => { setPdfLoadingKey(key); try { const parsed = parseContactoKey(key); if (!parsed) throw new Error("Invalid contact key"); const { etapa, modulo, dia } = parsed; const personas = await getContactosPorFiltro(etapa, modulo, dia); generateContactosPdf(`Contactos de ${normalizeWs(key)}`, personas); } catch (error) { console.error("Error generating contact PDF:", error); } finally { setPdfLoadingKey(null); } };
+  
+  // 
+  // 2. NUEVOS HANDLERS AÑADIDOS
+  //
+  const handleActivosRowClick = async (key: string) => {
+    const parsed = parseContactoKey(key);
+    if (!parsed) {
+      console.error("Invalid contact key format:", key);
+      return;
+    }
+
+    const { etapa, modulo, dia } = parsed;
+    const title = `Contactos de ${normalizeWs(key)}`;
+
+    // Abrir modal y marcar premium para usar el mismo fondo que el modal de servidores
+    setModalOpen(true);
+    setModalIsLoading(true);
+    setModalContent({ title, data: [], premium: true });
+
+    try {
+      // LLAMADA A LA NUEVA FUNCIÓN
+      const personas = await getActivosPorFiltro(etapa, modulo, dia);
+      setModalContent({ title, data: personas, premium: true });
+    } catch (error) {
+      console.error("Error fetching active contact details:", error);
+      setModalContent(prev => ({ ...prev, title: `Error al cargar ${normalizeWs(key)}`, premium: true }));
+    } finally {
+      setModalIsLoading(false);
+    }
+  };
+
+  const handleActivosPdfDownload = async (key: string) => { 
+    setPdfLoadingKey(key); 
+    try { 
+      const parsed = parseContactoKey(key); 
+      if (!parsed) throw new Error("Invalid contact key"); 
+      const { etapa, modulo, dia } = parsed; 
+      // LLAMADA A LA NUEVA FUNCIÓN
+      const personas = await getActivosPorFiltro(etapa, modulo, dia); 
+      generateContactosPdf(`Contactos de ${normalizeWs(key)}`, personas); 
+    } catch (error) { 
+      console.error("Error generating active contact PDF:", error); 
+    } finally { 
+      setPdfLoadingKey(null); 
+    } 
+  };
+  
   const handleServidorRowClick = async (key: string) => { const parsed = parseServidorKey(key); if (!parsed) { console.error("Invalid server key:", key); return; } const { rol, etapa, dia } = parsed; const titleMapping: { [key: string]: string } = { 'Maestros': 'Coordinadores', 'Contactos': 'Timoteos' }; const modalTitle = titleMapping[rol] || rol; setServidoresModalOpen(true); setServidoresModalIsLoading(true); // marcar premium=true cuando se abre desde el listado de servidores
     setServidoresModalContent({ title: modalTitle, subTitle: `de ${etapa} (${dia})`, data: [], premium: true });
     try { const servidores = await getServidoresPorFiltro(rol, etapa, dia); setServidoresModalContent(prev => ({ ...prev, data: servidores, premium: true })); } catch (error) { console.error("Error fetching server details:", error); setServidoresModalContent(prev => ({ ...prev, subTitle: 'Error al cargar los datos', premium: true })); } finally { setServidoresModalIsLoading(false); } };
@@ -1118,9 +1170,12 @@ export default function DetalleSecciones({
                 <div className="panel-body p-5">
                   <MinimalistContactCard 
                     data={sortedContactosData} 
-                    title="Total de Contactos Activos" 
-                    onRowClick={handleContactRowClick} 
-                    onPdfClick={handleContactPdfDownload} 
+                    title="Total de Contactos Activos"
+                    //
+                    // 3. HANDLERS ACTUALIZADOS
+                    //
+                    onRowClick={handleActivosRowClick} 
+                    onPdfClick={handleActivosPdfDownload} 
                     loadingPdfKey={pdfLoadingKey} 
                   />
                 </div>
