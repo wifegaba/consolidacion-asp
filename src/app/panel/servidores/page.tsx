@@ -6,10 +6,6 @@ import { supabase } from '@/lib/supabaseClient';
 /* ========= Tipos ========= */
 type AppEstudioDia = 'Domingo' | 'Martes' | 'Virtual';
 
-
-
-
-
 type Errores = {
     nombre?: string | null;
     telefono?: string | null;
@@ -116,8 +112,6 @@ const maskCedulaValue = (value?: string | null) => {
 
 const maskCedulaDisplay = (value?: string | null) => maskCedulaValue(value) || '—';
 
-
-
 type AsigBase = { id?: number; vigente?: boolean };
 
 const getVigente = <T extends AsigBase>(arr?: T[]) =>
@@ -129,7 +123,6 @@ const comparaMasReciente = (a?: AsigBase[], b?: AsigBase[]) => {
   return ida >= idb ? 'contactos' : 'maestros';
 };
 
-// Devuelve 'Contactos' | 'Maestros' | ''
 const rolDesdeServidor = (s: ServidorRow): 'Contactos' | 'Maestros' | '' => {
   const vigC = (s.asignaciones_contacto ?? []).some(x => x.vigente);
   const vigM = (s.asignaciones_maestro ?? []).some(x => x.vigente);
@@ -165,10 +158,10 @@ const toEtapaEnum = (
     return null;
 };
 
-const rolEs = (rol: string, base: 'Contactos' | 'Maestros' | 'Logistica') =>
+// <-- CORRECCIÓN: Se añade 'Director' para que la lógica de validación y guardado lo reconozca.
+const rolEs = (rol: string, base: 'Contactos' | 'Maestros' | 'Logistica' | 'Director') =>
     rol === base || rol === `Timoteo - ${base}`;
 
-/** "Semillas 1" / "Devocionales 3" / "Restauración 1" -> enum DB esperado */
 const toEtapaDetFromUi = (nivelSel: string): string | null => {
     const t = norm(nivelSel);
     const m = /^(semillas|devocionales|restauracion)\s+(\d+)/.exec(t);
@@ -300,13 +293,11 @@ export default function Servidores() {
         | null
     >(null);
 
-    // Modo edición (cuando eliges un registro desde Buscar)
     const [editMode, setEditMode] = useState(false);
     const [cedulaUnlocked, setCedulaUnlocked] = useState(true);
     const [adminPassModalVisible, setAdminPassModalVisible] = useState(false);
     const [adminPassValue, setAdminPassValue] = useState('');
     const [adminPassError, setAdminPassError] = useState<string | null>(null);
-
 
     useEffect(() => {
         if (editMode) {
@@ -347,9 +338,6 @@ export default function Servidores() {
         });
     };
 
-    // ...existing code...
-
-    // Estado para saber si la acción es eliminar
     const [pendingDelete, setPendingDelete] = useState(false);
 
     const handleDeleteButtonClick = () => {
@@ -357,7 +345,6 @@ export default function Servidores() {
         openAdminPassModal();
     };
 
-    // Modificar el submit del modal para soportar desbloqueo de cédula y eliminación
     const handleAdminPassSubmit = (event?: React.FormEvent) => {
         if (event) event.preventDefault();
         const pass = trim(adminPassValue);
@@ -381,20 +368,16 @@ export default function Servidores() {
         }
     };
 
-    /* ========================= MODALES ========================= */
     const [contactosModalVisible, setContactosModalVisible] = useState(false);
     const [timoteoModalVisible, setTimoteoModalVisible] = useState(false);
 
     const contactosModalTransition = useModalTransition(contactosModalVisible);
     const timoteoModalTransition = useModalTransition(timoteoModalVisible);
 
-    // Semana (solo Contactos)
     const [contactosSemana, setContactosSemana] = useState<string>('Semana 1');
-    // Día PTM
     const [contactosDia, setContactosDia] = useState<AppEstudioDia | ''>('');
 
-    // Nivel/Etapa
-    const [nivelSeleccionado, setNivelSeleccionado] = useState<string>(''); // 'Semillas 1' | 'Devocionales 2' | ...
+    const [nivelSeleccionado, setNivelSeleccionado] = useState<string>('');
     const [nivelSemillasSel, setNivelSemillasSel] = useState<string>('');
     const [nivelDevSel, setNivelDevSel] = useState<string>('');
     const [nivelResSel, setNivelResSel] = useState<string>('');
@@ -431,7 +414,6 @@ export default function Servidores() {
     };
 
     const confirmarModalContactos = () => {
-        // No escribir nada en 'observaciones' automáticamente
         setForm((prev) => ({
             ...prev,
             destino: contactosDia ? [contactosDia.toUpperCase()] : prev.destino,
@@ -439,14 +421,12 @@ export default function Servidores() {
         setContactosModalVisible(false);
     };
 
-    /* ========================= BUSCAR (modal online) ========================= */
     const [buscarModalVisible, setBuscarModalVisible] = useState(false);
     const [q, setQ] = useState('');
     const [results, setResults] = useState<ServidorRow[]>([]);
     const [searching, setSearching] = useState(false);
     const [focusIndex, setFocusIndex] = useState(0);
 
-    /* ===== LISTADO (modal paginado) ===== */
     const [listadoVisible, setListadoVisible] = useState(false);
     const [listPage, setListPage] = useState(1);
     const listPageSize = 7;
@@ -487,8 +467,6 @@ export default function Servidores() {
     const abrirListado = () => { setListadoVisible(true); cargarListado(1); };
     const cerrarListado = () => setListadoVisible(false);
 
-
-    // Modal Detalle (vista lateral con sidebar)
     const [detalleVisible, setDetalleVisible] = useState(false);
     const [detalleTab, setDetalleTab] = useState<'datos' | 'actualizar'>('datos');
     const [detalleSel, setDetalleSel] = useState<ServidorRow | null>(null);
@@ -496,7 +474,6 @@ export default function Servidores() {
     const [obsItems, setObsItems] = useState<ObservacionRow[]>([]);
     const [confirmDetalleDelete, setConfirmDetalleDelete] = useState(false);
 
-    // Volver al modal de búsqueda desde el detalle
     const volverABuscar = () => {
         setConfirmDetalleDelete(false);
         setDetalleVisible(false);
@@ -507,7 +484,6 @@ export default function Servidores() {
         setBuscarModalVisible(true);
     };
 
-    // Búsqueda online con debounce; sin resultados si no hay término suficiente
     useEffect(() => {
         if (!buscarModalVisible) return;
 
@@ -549,13 +525,11 @@ export default function Servidores() {
         return () => clearTimeout(h);
     }, [q, buscarModalVisible]);
 
-    // Resaltar siempre el primero cuando hay resultados
     useEffect(() => {
         if (buscarModalVisible && results.length) setFocusIndex(0);
     }, [results, buscarModalVisible]);
 
     const applyPick = (s: ServidorRow) => {
-        // Abrir modal de detalle en lugar de cargar el formulario
         setDetalleSel(s);
         setDetalleTab('datos');
         setObsItems([]);
@@ -578,64 +552,62 @@ export default function Servidores() {
     };
 
     const pickResult = (s: ServidorRow) => {
-  // Determina rol correcto: vigente > más reciente
-  const rol = rolDesdeServidor(s);
+      const rol = rolDesdeServidor(s);
 
-  setForm(prev => ({
-    ...prev,
-    nombre: s.nombre ?? '',
-    telefono: s.telefono ?? '',
-    cedula: s.cedula ?? '',
-    rol,
-  }));
+      setForm(prev => ({
+        ...prev,
+        nombre: s.nombre ?? '',
+        telefono: s.telefono ?? '',
+        cedula: s.cedula ?? '',
+        rol,
+      }));
 
-  if (rol === 'Contactos') {
-    const a = getVigenteContacto(s);
-    if (a) {
-      setContactosDia(a.dia);
-      setContactosSemana(`Semana ${a.semana ?? 1}`);
-      if (a.etapa === 'Semillas')         selectNivel('Semillas',      nivelSemillasSel || '1');
-      else if (a.etapa === 'Devocionales') selectNivel('Devocionales',  nivelDevSel      || '1');
-      else if (a.etapa === 'Restauracion') selectNivel('Restauración',  nivelResSel      || '1');
-    } else {
-      setContactosDia('');
-      setContactosSemana('Semana 1');
-      setNivelSeleccionado('');
-      setNivelSemillasSel('');
-      setNivelDevSel('');
-      setNivelResSel('');
-    }
-  } else if (rol === 'Maestros') {
-    const a = getVigenteMaestro(s);
-    if (a) {
-      setContactosDia(a.dia);
-      const det = parseEtapaDetFromDb(a.etapa);
-      if (det) selectNivel(det.grupoUI, det.num);
-      else {
-        if (a.etapa === 'Semillas')         selectNivel('Semillas',      nivelSemillasSel || '1');
-        else if (a.etapa === 'Devocionales') selectNivel('Devocionales',  nivelDevSel      || '1');
-        else if (a.etapa === 'Restauracion') selectNivel('Restauración',  nivelResSel      || '1');
+      if (rol === 'Contactos') {
+        const a = getVigenteContacto(s);
+        if (a) {
+          setContactosDia(a.dia);
+          setContactosSemana(`Semana ${a.semana ?? 1}`);
+          if (a.etapa === 'Semillas')         selectNivel('Semillas',      nivelSemillasSel || '1');
+          else if (a.etapa === 'Devocionales') selectNivel('Devocionales',  nivelDevSel      || '1');
+          else if (a.etapa === 'Restauracion') selectNivel('Restauración',  nivelResSel      || '1');
+        } else {
+          setContactosDia('');
+          setContactosSemana('Semana 1');
+          setNivelSeleccionado('');
+          setNivelSemillasSel('');
+          setNivelDevSel('');
+          setNivelResSel('');
+        }
+      } else if (rol === 'Maestros') {
+        const a = getVigenteMaestro(s);
+        if (a) {
+          setContactosDia(a.dia);
+          const det = parseEtapaDetFromDb(a.etapa);
+          if (det) selectNivel(det.grupoUI, det.num);
+          else {
+            if (a.etapa === 'Semillas')         selectNivel('Semillas',      nivelSemillasSel || '1');
+            else if (a.etapa === 'Devocionales') selectNivel('Devocionales',  nivelDevSel      || '1');
+            else if (a.etapa === 'Restauracion') selectNivel('Restauración',  nivelResSel      || '1');
+          }
+          setContactosSemana('');
+        } else {
+          setContactosDia('');
+          setContactosSemana('Semana 1');
+          setNivelSeleccionado('');
+          setNivelSemillasSel('');
+          setNivelDevSel('');
+          setNivelResSel('');
+        }
+      } else {
+        setContactosDia('');
+        setContactosSemana('Semana 1');
+        setNivelSeleccionado('');
+        setNivelSemillasSel('');
+        setNivelDevSel('');
+        setNivelResSel('');
       }
-      setContactosSemana('');
-    } else {
-      setContactosDia('');
-      setContactosSemana('Semana 1');
-      setNivelSeleccionado('');
-      setNivelSemillasSel('');
-      setNivelDevSel('');
-      setNivelResSel('');
-    }
-  } else {
-    setContactosDia('');
-    setContactosSemana('Semana 1');
-    setNivelSeleccionado('');
-    setNivelSemillasSel('');
-    setNivelDevSel('');
-    setNivelResSel('');
-  }
-};
+    };
 
-    // Cargar observaciones al abrir el detalle
     useEffect(() => {
         const loadObs = async () => {
             if (!detalleVisible || !detalleSel?.cedula) return;
@@ -687,7 +659,6 @@ export default function Servidores() {
         setConfirmDetalleDelete(false);
     };
 
-    // Reinicia todos los campos del formulario y estados relacionados
     const resetFormulario = () => {
         setForm({
             nombre: '',
@@ -714,24 +685,15 @@ export default function Servidores() {
         setContactosModalVisible(false);
         setTimoteoModalVisible(false);
         setGuidedError(null);
-        // Devuelve el foco al primer campo
         requestAnimationFrame(() => {
             inputNombreRef.current?.focus();
         });
     };
 
-
-
-
-
-
-    /* ========================= VALIDACIÓN & GUARDAR / ELIMINAR ========================= */
     const validateBeforeSave = (): boolean => {
-        // Validación guiada: determinamos el primer campo faltante y solo mostramos ese
         const mk = (k: 'nombre' | 'cedula' | 'rol' | 'etapa' | 'dia' | 'semana' | 'culto', msg: string) => {
             setErrores({ [k]: msg } as Errores);
             setGuidedError({ key: k, msg });
-            // Llevar al usuario al control correspondiente
             if (k === 'nombre') {
                 inputNombreRef.current?.focus();
             } else if (k === 'cedula') {
@@ -742,7 +704,6 @@ export default function Servidores() {
                 logisticaCultosRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
             } else if (k === 'etapa' || k === 'dia' || k === 'semana') {
                 setContactosModalVisible(true);
-                // pequeño delay para asegurar que el modal montó
                 setTimeout(() => {
                     const el = k === 'etapa' ? modalEtapasRef.current : k === 'dia' ? modalDiaRef.current : modalSemanaRef.current;
                     el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -751,7 +712,6 @@ export default function Servidores() {
             return false;
         };
 
-        // Orden de validación
         if (esVacio(form.nombre)) return mk('nombre', 'Ingresa el nombre del servidor.');
         if (esVacio(form.cedula)) return mk('cedula', 'Ingresa la cédula del servidor.');
         if (esVacio(form.rol)) return mk('rol', 'Selecciona un rol para continuar.');
@@ -778,7 +738,6 @@ export default function Servidores() {
         return true;
     };
 
-    // Toast helpers seguros (sin recursión)
     const toastClear = () => {
         if (feedbackTimer && feedbackTimer.current) {
             try { clearTimeout(feedbackTimer.current as any); } catch {}
@@ -801,114 +760,81 @@ export default function Servidores() {
         }, 5000);
         if (feedbackTimer) feedbackTimer.current = id as any;
     };
-
+    
+    // <-- CORRECCIÓN: Esta es la función onGuardar completamente refactorizada y corregida.
     const onGuardar = async () => {
         clearToast();
         if (!validateBeforeSave()) return;
-
+    
         const wasEdit = editMode;
         setBusy(true);
         try {
-            // Alta/actualización básica
             const ced = trim(form.cedula);
             const nom = trim(form.nombre);
             const tel = trim(form.telefono);
-            let sid = await findServidorIdByCedula(ced);
-
-            if (sid) {
-                // Actualizar registro existente para evitar duplicados
-                const up = await supabase
-                    .from('servidores')
-                    .update({ nombre: nom, telefono: tel || null, email: null, activo: true })
-                    .eq('id', sid);
-                if (up.error) throw up.error;
-            } else {
-                // No existe: usar RPC de upsert/insert
-                const { error: upErr } = await supabase.rpc('fn_upsert_servidor', {
-                    p_cedula: ced,
-                    p_nombre: nom,
-                    p_telefono: tel,
-                    p_email: null,
-                });
-                if (upErr) throw upErr;
-                sid = await findServidorIdByCedula(ced);
-            }
+    
+            // Paso 1: Llamada a la función RPC para crear o actualizar el servidor.
+            // Esta llamada ahora captura el `servidorId` directamente, eliminando la necesidad de una segunda consulta.
+            const { error: rpcError, data: servidorId } = await supabase.rpc('fn_upsert_servidor', {
+                p_cedula: ced,
+                p_nombre: nom,
+                p_telefono: tel,
+                p_email: null,
+            });
+    
+            if (rpcError) throw rpcError;
+            if (!servidorId) throw new Error('No se pudo obtener el ID del servidor tras la operación.');
+    
+            // Paso 2: Lógica de asignación de roles, usando el `servidorId` obtenido.
+            // Primero, se desactivan todas las asignaciones operativas para limpiar el estado.
+            await supabase.from('asignaciones_contacto').update({ vigente: false }).eq('servidor_id', servidorId);
+            await supabase.from('asignaciones_maestro').update({ vigente: false }).eq('servidor_id', servidorId);
+            await supabase.from('asignaciones_logistica').update({ vigente: false }).eq('servidor_id', servidorId);
 
             if (rolEs(form.rol, 'Contactos')) {
-                // Desactivar asignaciones de otras áreas
-                if (sid) {
-                    await supabase.from('asignaciones_maestro').update({ vigente: false }).eq('servidor_id', sid);
-                    await supabase.from('asignaciones_logistica').update({ vigente: false }).eq('servidor_id', sid);
-                }
                 const etapaDet = toEtapaDetFromUi(nivelSeleccionado || '');
-                if (!etapaDet) throw new Error('Etapa inválida. Elija por ejemplo "Semillas 1".');
-
-                const dia = contactosDia as AppEstudioDia;
-                const semana = semanaNumero;
-
+                if (!etapaDet) throw new Error('Etapa inválida para Contactos.');
                 const { error } = await supabase.rpc('fn_asignar_contactos', {
-                    p_cedula: trim(form.cedula),
-                    p_etapa: etapaDet,
-                    p_dia: dia,
-                    p_semana: semana,
+                    p_cedula: ced, p_etapa: etapaDet, p_dia: contactosDia, p_semana: semanaNumero,
                 });
                 if (error) throw error;
+    
             } else if (rolEs(form.rol, 'Maestros')) {
-                // Desactivar asignaciones de otras áreas
-                if (sid) {
-                    await supabase.from('asignaciones_contacto').update({ vigente: false }).eq('servidor_id', sid);
-                    await supabase.from('asignaciones_logistica').update({ vigente: false }).eq('servidor_id', sid);
-                }
                 const etapaDet = toEtapaDetFromUi(nivelSeleccionado || '');
-                if (!etapaDet) throw new Error('Etapa inválida. Elija por ejemplo "Semillas 1".');
-
-                const dia = contactosDia as AppEstudioDia;
-
+                if (!etapaDet) throw new Error('Etapa inválida para Maestros.');
                 const { error } = await supabase.rpc('fn_asignar_maestro', {
-                    p_cedula: trim(form.cedula),
-                    p_etapa: etapaDet,
-                    p_dia: dia,
+                    p_cedula: ced, p_etapa: etapaDet, p_dia: contactosDia,
                 });
                 if (error) throw error;
+    
             } else if (rolEs(form.rol, 'Logistica')) {
-                // Desactivar asignaciones anteriores de otras áreas
-                if (sid) {
-                    await supabase.from('asignaciones_contacto').update({ vigente: false }).eq('servidor_id', sid);
-                    await supabase.from('asignaciones_maestro').update({ vigente: false }).eq('servidor_id', sid);
-                    await supabase.from('asignaciones_logistica').update({ vigente: false }).eq('servidor_id', sid);
-                }
-                // Crear nueva asignación de logística a partir de 'cultoSeleccionado'
                 const full = trim(form.cultoSeleccionado);
                 if (!full) throw new Error('Seleccione una hora de culto para Logística.');
-                const parts = full.split(' - ');
-                const diaCulto = (parts[0] || '').trim();
-                const franja = (parts[1] || '').trim();
+                const [diaCulto, franja] = full.split(' - ').map(s => s.trim());
                 if (!diaCulto || !franja) throw new Error('Selección de culto inválida.');
-                // Insert directo; el tipo enum de dia_culto debe coincidir con el texto
-                const ins = await supabase
-                    .from('asignaciones_logistica')
-                    .insert({ servidor_id: sid, dia_culto: diaCulto, franja, vigente: true });
-                if (ins.error) throw ins.error;
+                
+                const { error } = await supabase.rpc('fn_asignar_logistica', {
+                    p_cedula: ced, p_dia: diaCulto, p_franja: franja
+                });
+                if (error) throw error;
             }
-
-            // Guardar observación, si existe
-            const okObs = await saveObservacion(form.observaciones);
-            if (okObs) {
-                toastShow('success', wasEdit ? 'Actualizado correctamente.' : 'Guardado correctamente.');
-            } else {
-                toastShow('success', (wasEdit ? 'Actualizado, ' : 'Guardado, ') + 'pero no se pudo guardar la observación.');
-            }
-            // Actualiza el rol vigente y limpia el formulario tras éxito
-            await upsertRolVigente();
+            // Para 'Director', no se necesita ninguna asignación operativa, así que la limpieza inicial es suficiente.
+    
+            // Paso 3: Actualizar el rol principal en `servidores_roles` usando el método `upsert` robusto.
+            await upsertRolVigente(servidorId);
+    
+            // Paso 4: Guardar observación, si existe.
+            await saveObservacion(form.observaciones, servidorId);
+    
+            toastShow('success', wasEdit ? 'Servidor actualizado correctamente.' : 'Servidor guardado correctamente.');
             resetFormulario();
+    
         } catch (e: any) {
-            toastShow('error', `Error al guardar: ${e?.message ?? e}`);
+            toastShow('error', `Error al guardar: ${e?.message ?? String(e)}`);
         } finally {
             setBusy(false);
         }
     };
-
-
 
     const findServidorIdByCedula = async (cedula: string): Promise<string | null> => {
         const { data, error } = await supabase
@@ -920,45 +846,45 @@ export default function Servidores() {
         if (error || !data) return null;
         return (data as any).id as string;
     };
-
-    // Mapea el rol del UI al valor esperado en DB
-    const mapRolForDB = (rolUi: string): string => {
-        const r = trim(rolUi);
-        if (!r) return r;
-        // Si viene "Timoteo - Contactos/Maestros/Logistica", guardamos como "Timoteos"
-        if (r.toLowerCase().startsWith('timoteo')) return 'Timoteos';
-        return r;
-    };
-
-    // Actualiza la tabla servidores_roles dejando vigente solo el rol actual
-    const upsertRolVigente_legacy = async () => {
+    
+    // <-- CORRECCIÓN: Esta es la función `upsertRolVigente` robusta y corregida.
+    const upsertRolVigente = async (servidorId: string) => {
+        const rolActual = trim(form.rol);
+        if (!servidorId || !rolActual) {
+            console.warn('No se puede actualizar el rol: falta servidorId o rol.');
+            return;
+        }
+    
         try {
-            const sid = await findServidorIdByCedula(trim(form.cedula));
-            const rolDb = mapRolForDB(form.rol);
-            if (sid && rolDb) {
-                await supabase.from('servidores_roles').update({ vigente: false }).eq('servidor_id', sid);
-                await supabase.from('servidores_roles').insert({ servidor_id: sid, rol: rolDb, vigente: true });
+            // Se utiliza `upsert` en lugar de `update` + `insert`.
+            // Esto le dice a Supabase: "Inserta este registro. Si ya existe una fila
+            // con este `servidor_id` (debido a la restricción `onConflict`),
+            // actualiza esa fila existente con los nuevos valores en lugar de fallar".
+            const { error } = await supabase
+                .from('servidores_roles')
+                .upsert(
+                    { 
+                        servidor_id: servidorId, 
+                        rol: rolActual, 
+                        vigente: true 
+                    },
+                    { 
+                        onConflict: 'servidor_id', // Nombre de la columna con la restricción UNIQUE
+                    }
+                );
+    
+            if (error) {
+                // Si hay un error, lo lanzamos para que sea capturado por el bloque `onGuardar`.
+                throw error;
             }
+    
         } catch (e) {
-            console.warn('No se pudo actualizar servidores_roles:', e);
+            console.error('Error crítico al actualizar el rol vigente:', e);
+            // Relanzamos el error para que la función `onGuardar` se detenga y muestre el feedback al usuario.
+            throw e; 
         }
     };
 
-    // Actualiza la tabla servidores_roles dejando vigente solo el rol actual
-    const upsertRolVigente = async () => {
-        try {
-            const sid = await findServidorIdByCedula(trim(form.cedula));
-            const rolActual = trim(form.rol);
-            if (sid && rolActual) {
-                await supabase.from('servidores_roles').update({ vigente: false }).eq('servidor_id', sid);
-                await supabase.from('servidores_roles').insert({ servidor_id: sid, rol: rolActual, vigente: true });
-            }
-        } catch (e) {
-            console.warn('No se pudo actualizar servidores_roles:', e);
-        }
-    };
-
-    // Eliminar por cédula desde el modal de detalle, replicando la lógica del formulario
     const eliminarByCedula = async (ced?: string) => {
         const cedula = trim(ced ?? '');
         if (!cedula) return;
@@ -982,6 +908,11 @@ export default function Servidores() {
                 .update({ vigente: false })
                 .eq('servidor_id', sid);
             if (up3.error && up3.error.code !== 'PGRST116') throw up3.error;
+            
+            // También desactivar rol en servidores_roles
+            const up4 = await supabase.from('servidores_roles').update({ vigente: false }).eq('servidor_id', sid);
+            if (up4.error && up4.error.code !== 'PGRST116') throw up4.error;
+
 
             toastShow('delete', 'Eliminado (inactivado) correctamente.');
             setDetalleVisible(false);
@@ -993,20 +924,21 @@ export default function Servidores() {
         }
     };
 
-    // Guarda la observación en 'observaciones_servidor' (por cedula o por servidor_id)
-    const saveObservacion = async (texto: string): Promise<boolean> => {
+    // <-- CORRECCIÓN: La función ahora acepta el `servidorId` para ser más eficiente.
+    const saveObservacion = async (texto: string, servidorId: string): Promise<void> => {
         const obs = trim(texto);
-        const ced = trim(form.cedula);
-        if (!obs || !ced) return true;
+        if (!obs || !servidorId) return;
+        
         try {
-            const ins1 = await supabase.from('observaciones_servidor').insert({ cedula: ced, texto: obs });
-            if (!ins1.error) return true;
-            const sid = await findServidorIdByCedula(ced);
-            if (!sid) return false;
-            const ins2 = await supabase.from('observaciones_servidor').insert({ servidor_id: sid, texto: obs });
-            return !ins2.error;
-        } catch {
-            return false;
+            const { error } = await supabase.from('observaciones_servidor').insert({ servidor_id: servidorId, texto: obs });
+            if (error) {
+                // Si falla, intentamos con la cédula como respaldo, aunque no es lo ideal.
+                console.warn('Fallo al guardar observación con servidor_id, intentando con cédula:', error.message);
+                const ced = trim(form.cedula);
+                await supabase.from('observaciones_servidor').insert({ cedula: ced, texto: obs });
+            }
+        } catch(e) {
+            console.error("No se pudo guardar la observación:", e);
         }
     };
 
@@ -1017,98 +949,14 @@ export default function Servidores() {
             setErrores((prev) => ({ ...prev, cedula: 'Cédula es obligatoria para eliminar' }));
             return;
         }
-        setBusy(true);
-        try {
-            const sid = await findServidorIdByCedula(ced);
-            if (!sid) throw new Error('Servidor no encontrado');
-
-            const up1 = await supabase.from('servidores').update({ activo: false }).eq('id', sid);
-            if (up1.error) throw up1.error;
-
-            const up2 = await supabase
-                .from('asignaciones_contacto')
-                .update({ vigente: false })
-                .eq('servidor_id', sid);
-            if (up2.error && up2.error.code !== 'PGRST116') throw up2.error;
-
-            const up3 = await supabase
-                .from('asignaciones_maestro')
-                .update({ vigente: false })
-                .eq('servidor_id', sid);
-            if (up3.error && up3.error.code !== 'PGRST116') throw up3.error;
-
-            setFeedback('🗑️ Eliminado (inactivado) correctamente.');
-        } catch (e: any) {
-            setFeedback(`❌ Error al eliminar: ${e?.message ?? e}`);
-        } finally {
-            setBusy(false);
-        }
+        await eliminarByCedula(ced);
     };
-
-    // Asigna y persiste de inmediato roles simples (Coordinador/Director)
-    const persistirRolSimple = async (valor: 'Coordinador' | 'Director') => {
-        // Validación mínima: nombre y cédula
-        const nombreOk = !esVacio(form.nombre);
-        const cedulaOk = !esVacio(form.cedula);
-        if (!nombreOk) {
-            setErrores({ nombre: 'Ingresa el nombre del servidor.' });
-            setGuidedError({ key: 'nombre', msg: 'Ingresa el nombre del servidor.' });
-            inputNombreRef.current?.focus();
-            return;
-        }
-        if (!cedulaOk) {
-            setErrores({ cedula: 'Ingresa la cédula del servidor.' });
-            setGuidedError({ key: 'cedula', msg: 'Ingresa la cédula del servidor.' });
-            inputCedulaRef.current?.focus();
-            return;
-        }
-
-        setBusy(true);
-        try {
-            // Asegurar existencia/actualización del servidor base
-            const ced = trim(form.cedula);
-            const nom = trim(form.nombre);
-            const tel = trim(form.telefono);
-            let sid = await findServidorIdByCedula(ced);
-
-            if (sid) {
-                const up = await supabase
-                    .from('servidores')
-                    .update({ nombre: nom, telefono: tel || null, email: null, activo: true })
-                    .eq('id', sid);
-                if (up.error) throw up.error;
-            } else {
-                const { error: upErr } = await supabase.rpc('fn_upsert_servidor', {
-                    p_cedula: ced,
-                    p_nombre: nom,
-                    p_telefono: tel,
-                    p_email: null,
-                });
-                if (upErr) throw upErr;
-                sid = await findServidorIdByCedula(ced);
-            }
-
-            if (!sid) throw new Error('No se pudo localizar el servidor.');
-
-            // Actualizar rol vigente
-            await supabase.from('servidores_roles').update({ vigente: false }).eq('servidor_id', sid);
-            const ins = await supabase.from('servidores_roles').insert({ servidor_id: sid, rol: valor, vigente: true });
-            if (ins.error) throw ins.error;
-
-            toastShow('success', `Rol asignado: ${valor}.`);
-        } catch (e: any) {
-            toastShow('error', `No fue posible asignar el rol: ${e?.message ?? e}`);
-        } finally {
-            setBusy(false);
-        }
-    };
-
+    
     const abrirModalRol = async (valor: string) => {
         setErrores((prev) => ({ ...prev, rol: null, etapa: null, dia: null, semana: null, culto: null }));
         if (guidedError?.key === 'rol') setGuidedError(null);
 
         if (valor === 'Timoteos') {
-            // Limpiar observaciones al cambiar de rol
             setForm((prev) => ({ ...prev, observaciones: '' }));
             setTimoteoModalVisible(true);
             return;
@@ -1120,7 +968,6 @@ export default function Servidores() {
             cultoSeleccionado: valor === 'Logistica' ? prev.cultoSeleccionado : '',
             cultos: valor === 'Logistica' ? prev.cultos : defaultCultos(),
             destino: valor === 'Maestros' ? prev.destino : [],
-            // Limpiar observaciones al cambiar de rol
             observaciones: '',
         }));
 
@@ -1129,8 +976,6 @@ export default function Servidores() {
         } else {
             setContactosModalVisible(false);
         }
-
-        // Quitar persistencia inmediata: Director también se guarda solo con el botón Guardar.
     };
 
     const elegirTimoteoDestino = (destino: 'Contactos' | 'Maestros' | 'Logistica') => {
@@ -1140,7 +985,6 @@ export default function Servidores() {
             rol: compuesto,
             cultoSeleccionado: destino === 'Logistica' ? prev.cultoSeleccionado : '',
             cultos: destino === 'Logistica' ? prev.cultos : defaultCultos(),
-            // Limpiar observaciones al cambiar de rol
             observaciones: '',
         }));
         if (guidedError?.key === 'rol') setGuidedError(null);
@@ -1159,7 +1003,6 @@ export default function Servidores() {
                     Registro de Servidores
                 </div>
 
-                {/* Modal TIMOTEO */}
                 {timoteoModalTransition.shouldRender && (
                     <div
                         className="srv-modal"
@@ -1213,7 +1056,6 @@ export default function Servidores() {
                     </div>
                 )}
 
-                {/* Modal CONTACTOS / MAESTROS */}
                 {contactosModalTransition.shouldRender && (
                     <div
                         className="srv-modal"
@@ -1279,7 +1121,6 @@ export default function Servidores() {
                                     )}
 
                                     <div className="srv-cultos srv-cultos--niveles" style={{ flexWrap: 'wrap', gap: '16px' }}>
-                                        {/* Semillas */}
                                         <div className="srv-culto-box" style={{ minWidth: 220 }}>
                                             {nivelSemillasSel ? `Semillas ${nivelSemillasSel}` : 'Semillas'}
                                             <ul className="srv-culto-lista" style={{ display: 'flex', gap: 10, padding: 10 }}>
@@ -1294,7 +1135,6 @@ export default function Servidores() {
                                             </ul>
                                         </div>
 
-                                        {/* Devocionales */}
                                         <div className="srv-culto-box" style={{ minWidth: 220 }}>
                                             {nivelDevSel ? `Devocionales ${nivelDevSel}` : 'Devocionales'}
                                             <ul className="srv-culto-lista" style={{ display: 'flex', gap: 10, padding: 10 }}>
@@ -1309,7 +1149,6 @@ export default function Servidores() {
                                             </ul>
                                         </div>
 
-                                        {/* Restauración */}
                                         <div className="srv-culto-box" style={{ minWidth: 220 }}>
                                             {nivelResSel ? `Restauración ${nivelResSel}` : 'Restauración'}
                                             <ul className="srv-culto-lista" style={{ display: 'flex', gap: 10, padding: 10 }}>
@@ -1339,7 +1178,6 @@ export default function Servidores() {
                     </div>
                 )}
 
-                {/* Fila: nombre / teléfono / cédula */}
                 <div className="srv-row srv-row-first">
                     <div>
                         <input
@@ -1416,7 +1254,6 @@ export default function Servidores() {
                     </div>
                 </div>
 
-                {/* Roles */}
                 <div className="srv-roles-card" ref={rolesCardRef}>
                     <div className="srv-roles-title">Roles del Servidor</div>
                     {guidedError?.key === 'rol' && (
@@ -1456,8 +1293,7 @@ export default function Servidores() {
                     </div>
                 </div>
 
-                {/* Cultos inline (solo Logística) */}
-                {form.rol === 'Logistica' && (
+                {rolEs(form.rol, 'Logistica') && (
                     <>
                         <div ref={logisticaCultosRef} className={`srv-cultos${errores.culto ? ' srv-cultos--error' : ''}`}>
                             <label className="srv-label-culto">Culto:</label>
@@ -1503,21 +1339,19 @@ export default function Servidores() {
                     </>
                 )}
 
-                {/* Observaciones */}
                 <div className="srv-group" style={{ marginTop: 10 }}>
                     <div style={{ flex: 1 }}>
-            <textarea
-                ref={observacionesRef}
-                id="observaciones"
-                className="srv-observaciones"
-                placeholder="Escribe aquí las observaciones..."
-                value={form.observaciones}
-                onChange={(e) => setForm({ ...form, observaciones: e.target.value })}
-            />
+                        <textarea
+                            ref={observacionesRef}
+                            id="observaciones"
+                            className="srv-observaciones"
+                            placeholder="Escribe aquí las observaciones..."
+                            value={form.observaciones}
+                            onChange={(e) => setForm({ ...form, observaciones: e.target.value })}
+                        />
                     </div>
                 </div>
 
-                {/* Feedback (Toast estilo Mac 2025) */}
                 {feedback && (
                     <div className="srv-toast" role="status" aria-live="polite">
                         <span className="srv-toast-icon" aria-hidden>
@@ -1570,7 +1404,6 @@ export default function Servidores() {
                     </div>
                 )}
 
-                {/* Botones */}
                 <div className="srv-actions">
                     <button className="srv-btn" onClick={onGuardar} disabled={busy} title={editMode ? 'Actualizar' : 'Guardar'}>
                         {busy ? (editMode ? 'Actualizando…' : 'Guardando…') : (editMode ? 'Actualizar' : 'Guardar')}
@@ -1589,7 +1422,6 @@ export default function Servidores() {
                 </div>
             </div>
 
-            {/* ===== Modal LISTADO — Mac 2025 con paginación ===== */}
             {listadoVisible && (
                 <div className="srv-modal" role="dialog" aria-modal="true">
                     <div className="srv-modal__box list-box">
@@ -1640,7 +1472,6 @@ export default function Servidores() {
                 </div>
             )}
 
-            {/* ===== Modal BUSCAR — Mac 2025 Neumorphism ===== */}
             {buscarModalVisible && (
                 <div className="srv-modal search-modal" role="dialog" aria-modal="true">
                     <div className="srv-modal__box search-box">
@@ -1674,38 +1505,35 @@ export default function Servidores() {
                                             role="option"
                                             aria-selected={active}
                                         >
-                                            {/* Nombre destacado (negro, fuerte) */}
                                             <div className="search-line">
                                                 <span className="search-name">{s.nombre || '—'}</span>
                                             </div>
 
-                                            {/* Etiquetas y datos en una línea horizontal */}
                                             <div className="search-meta">
-                        <span className="meta-item">
-                          <label>Teléfono:</label> {s.telefono || '—'}
-                        </span>
+                                                <span className="meta-item">
+                                                  <label>Teléfono:</label> {s.telefono || '—'}
+                                                </span>
                                                 <span className="meta-dot">•</span>
                                                 <span className="meta-item">
                                                    <label>Cédula:</label> {maskCedulaDisplay(s.cedula)}
-                        </span>
+                                                </span>
                                                 <span className="meta-dot">•</span>
                                                 <span className="meta-item">
-                          <label>Rol:</label> {uiRoleLabel(roleFromRow(s))}
-                        </span>
+                                                  <label>Rol:</label> {uiRoleLabel(roleFromRow(s))}
+                                                </span>
                                                 <span className="meta-dot">•</span>
                                                 <span className="meta-item">
-                          <label>Etapa:</label> {etapaDiaFromRow(s).etapa}
-                        </span>
+                                                  <label>Etapa:</label> {etapaDiaFromRow(s).etapa}
+                                                </span>
                                                 <span className="meta-dot">•</span>
                                                 <span className="meta-item">
-                          <label>Día:</label> {etapaDiaFromRow(s).dia}
-                        </span>
+                                                  <label>Día:</label> {etapaDiaFromRow(s).dia}
+                                                </span>
                                             </div>
                                         </button>
                                     );
                                 })}
 
-                                {/* Mostrar "sin resultados" solo si ya se escribió algo suficiente */}
                                 {!searching && results.length === 0 && trim(q).length >= MIN_SEARCH && (
                                     <div className="search-empty">Sin resultados. Prueba con otro término.</div>
                                 )}
@@ -1719,7 +1547,6 @@ export default function Servidores() {
                 </div>
             )}
 
-            {/* ===== Modal DETALLE — Vista con Sidebar (Mac 2025 + Neumorphism) ===== */}
             {detalleVisible && detalleSel && (
                 <div className="srv-modal" role="dialog" aria-modal="true">
                     <div className="srv-modal__box view-box">
@@ -1786,8 +1613,6 @@ export default function Servidores() {
                 </div>
             )}
 
-
-
             {adminPassModalVisible && (
                 <div className="srv-modal" role="dialog" aria-modal="true">
                     <div className="srv-modal__box premium-box">
@@ -1820,7 +1645,7 @@ export default function Servidores() {
                     </div>
                 </div>
             )}
-            {/* Confirmación de eliminación */}
+            
             {detalleVisible && confirmDetalleDelete && detalleSel && (
                 <div className="srv-modal" role="dialog" aria-modal="true">
                     <div className="srv-modal__box confirm-box">
@@ -1845,7 +1670,6 @@ export default function Servidores() {
                 </div>
             )}
 
-            {/* ===== Estilos locales del modal Buscar (Mac 2025 + Neumorphism) ===== */}
             <style jsx>{`
                 .search-box {
                     max-width: 760px;
@@ -1986,7 +1810,6 @@ export default function Servidores() {
                 .search-empty{
                     opacity: .7; font-size: 14px; padding: 10px 2px;
                 }
-                /* Callout estilo tooltip con flecha */
                 .srv-callout{
                     position: relative;
                     margin-top: 6px;
@@ -2026,7 +1849,6 @@ export default function Servidores() {
                     border: 1px solid rgba(0,0,0,0.08);
                     box-shadow: inset 0 1px 0 rgba(255,255,255,0.75);
                 }
-                /* Vista Detalle (Mac 2025) */
                 .view-box{
                     max-width: 900px;
                     padding: 22px 22px 16px;
@@ -2053,7 +1875,6 @@ export default function Servidores() {
                     display: flex; flex-direction: column; gap: 8px;
                     box-shadow: inset 2px 2px 6px rgba(255,255,255,.8), inset -2px -2px 6px rgba(0,0,0,.06);
                 }
-                /* Layout del detalle en dos tarjetas verticales SOLO en responsive */
                 @media (max-width: 900px){
                     .view-layout{ grid-template-columns: 1fr; }
                     .view-sidebar{ margin-top: 14px; width: 100%; }
@@ -2099,7 +1920,6 @@ export default function Servidores() {
                 .view-obs-text{ font-size: 14px; }
                 .view-obs-date{ font-size: 12px; opacity: .6; margin-top: 4px; }
                 .view-obs-empty{ opacity: .7; font-size: 13px; padding: 8px 2px; }
-                /* Toast de feedback (Mac 2025) */
                 .srv-toast{
                     position: relative;
                     margin-top: 10px;
@@ -2134,7 +1954,6 @@ export default function Servidores() {
                 .srv-btn-primary{ background: linear-gradient(180deg, #5f8dff, #3f6be8); color:#fff; font-weight:700; box-shadow: inset 1px 1px 3px rgba(255,255,255,.25), 0 10px 20px rgba(68,102,220,.22); }
                 .srv-btn-primary:hover{ filter:brightness(1.03); box-shadow: inset 1px 1px 3px rgba(255,255,255,.25), 0 12px 24px rgba(68,102,220,.3); }
                 .srv-btn-primary:active{ transform:translateY(0.5px); }
-                /* Confirmación eliminar */
                 .confirm-box{
                     max-width: 520px;
                     padding: 22px 22px 16px;
@@ -2148,12 +1967,10 @@ export default function Servidores() {
                 .confirm-text{ margin: 0 0 10px; opacity: .8; }
                 .confirm-data{ display: grid; gap: 6px; font-size: 14px; }
             
-                /* ===== LISTADO (modal) ===== */
                 .list-box{ width: min(92vw, 1200px); max-width: 1100px; padding: 16px 18px 14px; border-radius: 22px; background: radial-gradient(140% 160% at 10% 0%, rgba(255,255,255,.72), rgba(243,246,255,.68)); box-shadow: inset 10px 10px 28px rgba(255,255,255,.55), inset -8px -8px 24px rgba(0,0,0,.04), 0 28px 56px rgba(0,0,0,.28); border: 1px solid rgba(255,255,255,.66); }
                 .list-header{ display:flex; align-items:flex-end; justify-content:space-between; margin: 2px 2px 12px; padding: 0 2px; }
                 .list-title{ font-size:20px; font-weight:900; letter-spacing:.2px; color:#0b0b0b; }
                 .list-subtitle{ font-size:12.5px; opacity:.65; }
-                /* Cerrar (macOS 2025) solo para el modal Listado */
                 .list-box .srv-modal__close{
                     position: absolute; top: 10px; right: 12px; left: auto;
                     width: 22px; height: 22px; border-radius: 50%;
@@ -2174,7 +1991,6 @@ export default function Servidores() {
                 }
                 .list-table{ width: 100%;  border:1px solid rgba(0,0,0,.05); border-radius:16px; overflow:hidden; background:linear-gradient(180deg, rgba(255,255,255,.96), rgba(244,248,255,.9)); box-shadow: inset 2px 2px 7px rgba(255,255,255,.9), inset -2px -2px 6px rgba(0,0,0,.045); }
                 .list-row{ display:grid; grid-template-columns: 28px 1.6fr .9fr .8fr .9fr .8fr .8fr 120px; align-items:center; padding:7px 10px; border-bottom:1px solid rgba(0,0,0,.045); }
-                /* Responsive: mostrar solo Nombre, Rol y Etapa */
                 @media (max-width: 640px){
                     .list-row{ grid-template-columns: 1fr .8fr .8fr; }
                     .list-row .col-name{ grid-column: 1; }
@@ -2198,9 +2014,7 @@ export default function Servidores() {
                 .list-select:active{ transform: translateY(0.5px); box-shadow: inset 1px 1px 2px rgba(0,0,0,.05), 0 6px 14px rgba(40,80,200,.12) !important; }
                 .list-select:focus-visible{ outline: none; box-shadow: 0 0 0 3px rgba(88,132,255,.22), inset 1px 1px 3px rgba(255,255,255,.75) !important; }
 
-                /* ===== Listado en tarjetas (solo responsive) ===== */
                 @media (max-width: 640px){
-                    /* contenedor del modal listado con layout de columna y scroll interno */
                     .list-box{ display:flex; flex-direction:column; max-height: 92dvh; }
                     .list-table{ flex: 1 1 auto; min-height: 0; overflow: auto; }
                     .list-pager{ flex: 0 0 auto; }
@@ -2220,7 +2034,6 @@ export default function Servidores() {
                     }
                     .list-cell{ display: block; white-space: normal; }
                     .col-idx{ display: none; }
-                    /* Orden de presentación */
                     .col-name{ order: 1; font-weight: 800; font-size: 16px; color:#0b0b0b; }
                     .col-tel{ order: 2; }
                     .col-ced{ order: 3; }
@@ -2228,13 +2041,11 @@ export default function Servidores() {
                     .col-dia{ order: 5; }
                     .col-rol{ order: 6; }
                     .col-act{ order: 7; }
-                    /* Etiquetas antes del valor */
                     .col-tel::before{ content: 'Teléfono: '; font-weight: 700; opacity:.85; }
                     .col-ced::before{ content: 'Cédula: '; font-weight: 700; opacity:.85; }
                     .col-etp::before{ content: 'Etapa: '; font-weight: 700; opacity:.85; }
                     .col-dia::before{ content: 'Día: '; font-weight: 700; opacity:.85; }
                     .col-rol::before{ content: 'Rol: '; font-weight: 700; opacity:.85; }
-                    /* Botón seleccionar al ancho de la tarjeta */
                     .list-table .col-act{ display: block !important; margin-top: 6px; }
                     .col-act .list-select{ width: 100%; justify-content: center; }
                 }
@@ -2242,12 +2053,7 @@ export default function Servidores() {
                 .pager-btn{ padding:8px 12px; border-radius:12px; border:1px solid rgba(0,0,0,.08); background:linear-gradient(180deg, rgba(255,255,255,.95), rgba(246,248,255,.9)); font-weight:700; box-shadow: inset 1px 1px 3px rgba(255,255,255,.85), inset -1px -1px 3px rgba(0,0,0,.05); }
                 .pager-btn:disabled{ opacity:.5; cursor:not-allowed; }
                 .pager-info{ font-size:13px; opacity:.75; }
-
-
-
-
-                
-`}</style>
+            `}</style>
         </div>
     );
 }

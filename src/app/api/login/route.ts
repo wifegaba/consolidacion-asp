@@ -3,119 +3,116 @@ import { NextResponse } from 'next/server';
 import jwt from 'jsonwebtoken';
 import { getServerSupabase } from '@/lib/supabaseClient';
 
-const normalizeCedula = (raw: string) => raw?.replace(/\D+/g, '').trim() ?? '';
+const normalizeCedula = (raw: string) => raw?.trim() ?? '';
 
 export async function POST(req: Request) {
   const isProd = process.env.NODE_ENV === 'production';
+  const secret = process.env.JWT_SECRET;
+
+  if (!secret) {
+    console.error('CRITICAL: JWT_SECRET no está definido en el entorno.');
+    return NextResponse.json({ error: 'Configuración de servidor incompleta.' }, { status: 500 });
+  }
 
   try {
     const body = await req.json().catch(() => ({}));
     const cedula = normalizeCedula(body?.cedula);
 
     if (!cedula) {
-      return NextResponse.json({ error: 'Cédula requerida' }, { status: 400 });
+      return NextResponse.json({ error: 'Cédula o usuario es requerido.' }, { status: 400 });
     }
 
     const supabase = getServerSupabase();
 
-    // 1) Servidor por cédula
+    // PASO 1: Autenticación básica (esta es la única consulta que debe ser secuencial)
     const { data: servidor, error: errServ } = await supabase
       .from('servidores')
       .select('id, activo')
       .eq('cedula', cedula)
       .maybeSingle();
 
-    if (errServ) {
-      return NextResponse.json({ error: 'Error consultando servidor' }, { status: 500 });
-    }
-    if (!servidor) {
-      return NextResponse.json({ error: 'Servidor no encontrado' }, { status: 404 });
-    }
-    if (servidor.activo === false) {
-      return NextResponse.json({ error: 'Usuario inactivo' }, { status: 403 });
-    }
+    if (errServ) throw new Error('Error al buscar servidor en la base de datos.');
+    if (!servidor) return NextResponse.json({ error: 'Cédula o usuario no encontrado.' }, { status: 404 });
+    if (!servidor.activo) return NextResponse.json({ error: 'Este usuario se encuentra inactivo.' }, { status: 403 });
 
     const servidorId = servidor.id;
 
-    // 2) Roles por servidor_id (vigente=true)
-    const { data: contacto, error: errC } = await supabase
-      .from('asignaciones_contacto')
-      .select('etapa, dia, semana, vigente')
-      .eq('servidor_id', servidorId)
-      .eq('vigente', true)
-      .maybeSingle();
+    // --- OPTIMIZACIÓN: EJECUTAR TODAS LAS CONSULTAS DE ROLES EN PARALELO ---
+    const [
+      rolAdminResult,
+      contactoResult,
+      maestroResult
+    ] = await Promise.all([
+      // Consulta para el rol de Director
+      supabase
+        .from('servidores_roles')
+        .select('rol')
+        .eq('servidor_id', servidorId)
+        .eq('vigente', true)
+        .eq('rol', 'Director')
+        .maybeSingle(),
+      // Consulta para la asignación de Contacto
+      supabase
+        .from('asignaciones_contacto')
+        .select('etapa, dia, semana')
+        .eq('servidor_id', servidorId)
+        .eq('vigente', true)
+        .maybeSingle(),
+      // Consulta para la asignación de Maestro
+      supabase
+        .from('asignaciones_maestro')
+        .select('etapa, dia')
+        .eq('servidor_id', servidorId)
+        .eq('vigente', true)
+        .maybeSingle()
+    ]);
 
-    const { data: maestro, error: errM } = await supabase
-      .from('asignaciones_maestro')
-      .select('etapa, dia, vigente')
-      .eq('servidor_id', servidorId)
-      .eq('vigente', true)
-      .maybeSingle();
-
-    if (errC || errM) {
-      return NextResponse.json({ error: 'Error consultando roles' }, { status: 500 });
+    // Verificar si alguna de las consultas en paralelo falló
+    if (rolAdminResult.error || contactoResult.error || maestroResult.error) {
+      console.error("Error en consultas paralelas:", rolAdminResult.error || contactoResult.error || maestroResult.error);
+      throw new Error('Error al verificar los roles del usuario.');
     }
 
-    const tieneContacto = !!contacto;
-    const tieneMaestro = !!maestro;
+    const rolAdmin = rolAdminResult.data;
+    const contacto = contactoResult.data;
+    const maestro = maestroResult.data;
+    
+    // --- LÓGICA DE DECISIÓN (Ahora con los datos ya cargados) ---
 
-    if (!tieneContacto && !tieneMaestro) {
-      return NextResponse.json({ error: 'No tiene roles asignados' }, { status: 401 });
+    // Prioridad 1: ¿Es Director?
+    if (rolAdmin) {
+      const token = jwt.sign({ cedula, rol: 'Director', servidorId }, secret, { expiresIn: '8h' });
+      const res = NextResponse.json({ redirect: '/panel' });
+      res.cookies.set(isProd ? '__Host-session' : 'session', token, { httpOnly: true, secure: isProd, sameSite: 'lax', path: '/', maxAge: 60 * 60 * 8 });
+      return res;
     }
 
-    // 3) Decidir rol y asignación (prioridad contacto; ajusta si prefieres maestro)
-    const rol: 'contacto' | 'maestro' = tieneContacto ? 'contacto' : 'maestro';
-    const asignacion = tieneContacto ? contacto! : maestro!;
-    const redirect = rol === 'contacto' ? '/login/contactos1' : '/login/maestros';
+    // Prioridad 2: ¿Es Contacto o Maestro?
+    if (contacto || maestro) {
+      const rolOperativo: 'contacto' | 'maestro' = contacto ? 'contacto' : 'maestro';
+      const asignacion = contacto || maestro;
+      const redirect = rolOperativo === 'contacto' ? '/login/contactos1' : '/login/maestros';
 
-    // 4) JWT
-    const secret = process.env.JWT_SECRET;
-    if (!secret) {
-      return NextResponse.json({ error: 'Falta JWT_SECRET en .env' }, { status: 500 });
-    }
-
-    const token = jwt.sign(
-      {
+      const tokenPayload = {
         cedula,
-        rol,
+        rol: rolOperativo,
         servidorId,
-        etapa: asignacion?.etapa ?? null,
-        dia: asignacion?.dia ?? null,
-        // semana solo aplica a contacto (maestro no tiene semana)
-        semana: rol === 'contacto' ? contacto?.semana ?? null : null,
-      },
-      secret,
-      { expiresIn: '8h' }
-    );
+        etapa: asignacion!.etapa ?? null,
+        dia: asignacion!.dia ?? null,
+        ...(rolOperativo === 'contacto' && { semana: contacto!.semana ?? null }),
+      };
 
-    // 5) Cookies + respuesta
-    const res = NextResponse.json({ redirect });
-
-    // Cookie principal (prod y dev)
-    res.cookies.set('__Host-session', token, {
-      httpOnly: true,
-      secure: isProd,
-      sameSite: 'lax',
-      path: '/',
-      maxAge: 60 * 60 * 8, // 8h
-    });
-
-    // Compatibilidad con tu panel en desarrollo (lee "session")
-    if (!isProd) {
-      res.cookies.set('session', token, {
-        httpOnly: true,
-        secure: false,
-        sameSite: 'lax',
-        path: '/',
-        maxAge: 60 * 60 * 8,
-      });
+      const token = jwt.sign(tokenPayload, secret, { expiresIn: '8h' });
+      const res = NextResponse.json({ redirect });
+      res.cookies.set(isProd ? '__Host-session' : 'session', token, { httpOnly: true, secure: isProd, sameSite: 'lax', path: '/', maxAge: 60 * 60 * 8 });
+      return res;
     }
 
-    return res;
+    // Si no es ninguno de los anteriores
+    return NextResponse.json({ error: 'No tiene roles asignados' }, { status: 401 });
+
   } catch (e: any) {
-    return NextResponse.json(
-      { error: e?.message ?? 'Error interno' },
-      { status: 500 }
-    );
+    console.error('Error inesperado en API de login:', e.message);
+    return NextResponse.json({ error: 'Ocurrió un error inesperado en el servidor.' }, { status: 500 });
   }
 }

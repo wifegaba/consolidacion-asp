@@ -182,6 +182,14 @@ export default function PersonaNueva() {
     const [pendPage, setPendPage] = useState(0);
     const PEND_PAGE_SIZE = 7;
 
+    // Estados para el modo listado en el modal de búsqueda
+    const [modoListado, setModoListado] = useState(false);
+    const [listadoPersonas, setListadoPersonas] = useState<Registro[]>([]);
+    const [listadoPage, setListadoPage] = useState(0);
+    const [totalPersonas, setTotalPersonas] = useState(0);
+    const [listadoLoading, setListadoLoading] = useState(false);
+    const LISTADO_PAGE_SIZE = 10;
+
 
     const cacheSugs = useRef(new Map<string, { ts: number; data: Registro[] }>()).current;
     const TTL_MS = 60_000, MIN_CHARS = 3, DEBOUNCE_MS = 350;
@@ -407,9 +415,60 @@ const selectDesdePendiente = (row: PendienteItem) => {
         }
     };
 
+    // =================================================================
+    // ================== CAMBIO QUIRÚRGICO INICIA =====================
+    // =================================================================
 
+    // 1. FUNCIÓN `fetchListado` CORREGIDA
+    // Se cambia para usar el RPC 'fn_buscar_persona' que ya funciona, en lugar de una consulta directa.
+    // No necesita el parámetro 'page' porque trae todos los datos de una vez.
+    const fetchListado = async () => {
+        setListadoLoading(true);
+        try {
+            const { data, error } = await supabase.rpc('fn_buscar_persona', { q: '' });
 
+            if (error) throw error;
 
+            const arr: Registro[] = (data || []).map((r: any) => ({
+                id: r.id,
+                nombre: r.nombre,
+                telefono: r.telefono ?? null,
+                estudioDia: r.estudio_dia ?? null,
+                observaciones: r.observaciones ?? null,
+                etapa: r.etapa as AppEtapa | null,
+                semana: typeof r.semana === 'number' ? r.semana : null,
+                // Rellenar campos para mantener consistencia con el tipo Registro
+                fecha: '',
+                preferencias: null,
+                cultosSeleccionados: null,
+            }));
+
+            setListadoPersonas(arr);
+            setTotalPersonas(arr.length);
+
+        } catch (e) {
+            console.error('Error cargando listado:', e);
+            toast('❌ Error al cargar el listado');
+        } finally {
+            setListadoLoading(false);
+        }
+    };
+
+    // 2. useEffect OBSOLETO ELIMINADO
+    // Este `useEffect` ya no es necesario. La consulta se hace una sola vez al presionar
+    // el botón "Listado" y la paginación se maneja localmente (en el cliente).
+    // Dejarlo aquí causaría llamadas innecesarias.
+    /*
+    useEffect(() => {
+        if (modoListado) {
+            fetchListado(listadoPage);
+        }
+    }, [listadoPage, modoListado]);
+    */
+   
+    // =================================================================
+    // =================== CAMBIO QUIRÚRGICO TERMINA ====================
+    // =================================================================
 
 
     /* ===== Búsqueda (modal) ===== */
@@ -647,66 +706,174 @@ const selectDesdePendiente = (row: PendienteItem) => {
 
                 {/* Modal BUSCAR */}
                 {modalBuscarVisible && (
-                    <div className="modal-buscar" role="dialog" aria-modal="true">
-                        <div className="modal-buscar__box">
-                            <button className="modal-buscar__close" aria-label="Cerrar"
-                                    onClick={() => { setBusqueda(''); setSugs([]); setOpenSugs(false); setModalBuscarVisible(false); setModoSoloPendientes(false); }}>×</button>
+                    <div className="modal-buscar2-backdrop fixed inset-0 z-40 bg-[rgba(80,70,229,0.10)] backdrop-blur-md" style={{ overflow: 'hidden' }}></div>
+                )}
+                {modalBuscarVisible && (
+                    <div className="modal-buscar2 fixed top-0 left-0 right-0 z-50 flex items-start justify-center pt-6" role="dialog" aria-modal="true">
+                        <div className="modal-buscar2__box sm:max-w-[540px] max-w-[90vw] w-full mx-auto" style={{ width: '100%', maxWidth: '90vw', boxSizing: 'border-box', background: 'linear-gradient(135deg, #e0e7ff 0%, #f3f4f6 60%, #c7d2fe 100%)', boxShadow: '0 8px 32px rgba(80,70,229,0.18)', borderRadius: '22px', border: '1.5px solid #e0e7ff' }}>
+                            <button
+                                className="modal-buscar2__close"
+                                aria-label="Cerrar"
+                                style={{
+                                    transition: 'background 0.18s, color 0.18s',
+                                    position: 'absolute',
+                                    top: 12,
+                                    right: 12,
+                                    zIndex: 100,
+                                    width: 40,
+                                    height: 40,
+                                    padding: 0,
+                                    borderRadius: '50%',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    fontSize: '1.7rem',
+                                    border: 'none',
+                                    background: 'rgba(255,255,255,0.85)',
+                                    boxShadow: '0 2px 8px rgba(0,0,0,0.10)',
+                                    cursor: 'pointer',
+                                }}
+                                onMouseEnter={e => { e.currentTarget.style.background = '#ff4d4f'; e.currentTarget.style.color = '#fff'; }}
+                                onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.85)'; e.currentTarget.style.color = ''; }}
+                                onClick={() => {
+                                    setBusqueda('');
+                                    setSugs([]);
+                                    setOpenSugs(false);
+                                    setModalBuscarVisible(false);
+                                    setModoSoloPendientes(false);
+                                    setModoListado(false);
+                                    setListadoPage(0);
+                                    // Optimizacion: No limpiamos listadoPersonas para que sirva de caché
+                                    // si el usuario vuelve a abrir el modal en la misma sesión.
+                                    // Si prefieres que siempre recargue, descomenta la linea de abajo
+                                    // setListadoPersonas([]);
+                                }}
+                            >×</button>
 
-                            <h3 className="modal-buscar__heading">{modoSoloPendientes ? 'Registros Pendientes' : 'Buscar Registros en Base de Datos'}</h3>
-
-                            <div className="search-wrap" onBlur={() => setTimeout(() => setOpenSugs(false), 120)}>
-                                <div className="ghost" aria-hidden style={{ display: modoSoloPendientes ? 'none' : undefined }}>
-                                    <span className="ghost-typed">{busqueda}</span>
-                                    <span className="ghost-hint">{ghost}</span>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', position: 'relative' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                                    <h3 className="modal-buscar2__heading" style={{ textAlign: 'center', width: '100%', fontFamily: 'serif', fontWeight: 800, fontSize: '1.55rem', color: '#3b2f7f', letterSpacing: '0.03em', textShadow: '0 2px 8px #c7d2fe' }}>
+                                        {modoSoloPendientes ? 'Registros Pendientes' : (modoListado ? 'Listado General' : 'Buscar Registros')}
+                                    </h3>
+                                    {!modoSoloPendientes && (
+                                        <button 
+                                            className="btn-minimal px-1 py-0.5 text-xs rounded-md flex items-center justify-center"
+                                            style={{ position: 'relative', zIndex: 1, minWidth: 60, height: 28, fontWeight: 600, letterSpacing: '0.01em', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                            onClick={() => {
+                                                const entrandoEnModoListado = !modoListado;
+                                                setModoListado(entrandoEnModoListado);
+                                                if (entrandoEnModoListado && listadoPersonas.length === 0) {
+                                                    fetchListado();
+                                                }
+                                            }}
+                                        >
+                                            {modoListado ? 'Buscar' : 'Listado'}
+                                        </button>
+                                    )}
                                 </div>
-                                <input
-                                    style={{ display: modoSoloPendientes ? 'none' : undefined }}
-                                    type="text"
-                                    placeholder="Buscar por nombre o teléfono…"
-                                    value={busqueda}
-                                    ref={inputBusquedaModalRef}
-                                    onFocus={() => setOpenSugs(sugs.length > 0)}
-                                    onChange={(e) => { const v = e.target.value; setBusqueda(v); setOpenSugs(v.trim().length >= MIN_CHARS); }}
-                                    onKeyDown={onKeyDownSearch}
-                                    role="combobox"
-                                    aria-expanded={openSugs}
-                                    aria-controls="sug-list-modal"
-                                    aria-activedescendant={openSugs && sugs[active] ? `optm-${sugs[active].id}` : undefined}
-                                />
-                                {openSugs && (
-                                    <div id="sug-list-modal" role="listbox" className="sug-list">
-                                        {sugs.map((p, i) => (
-                                            <button
-                                                key={p.id}
-                                                id={`optm-${p.id}`}
-                                                role="option"
-                                                aria-selected={i === active}
-                                                onMouseEnter={() => setActive(i)}
-                                                onMouseDown={(ev) => ev.preventDefault()}
-                                                onClick={() => selectPersona(p)}
-                                                className={`sug-item ${i === active ? 'active' : ''}`}
-                                                title={`${p.nombre} • ${p.telefono ?? '—'}`}
-                                            >
-                                                <div className="sug-name">{p.nombre}</div>
-                                                <div className="sug-sub">
-                                                    {p.telefono ?? '—'}
-                                                    <span className="sug-pill" style={{ marginLeft: 8 }}>
-                            Grupo: {p.estudioDia ?? '—'}
-                          </span>
-                                                    <span className="sug-pill" style={{ marginLeft: 8 }}>
-                            Etapa: {p.etapa ?? '—'}
-                          </span>
-                                                    <span className="sug-pill" style={{ marginLeft: 8 }}>
-                            Semana: {p.semana ?? '—'}
-                          </span>
-                                                </div>
-                                            </button>
-                                        ))}
-                                        {loadingSug && <div className="sug-loading">Buscando…</div>}
-                                        {!loadingSug && sugs.length === 0 && <div className="sug-empty">Sin resultados</div>}
-                                    </div>
-                                )}
                             </div>
+                            
+                            {modoListado ? (
+                                <>
+                                    <table className="w-full border-collapse text-black rounded-xl overflow-hidden shadow-lg">
+                                        <thead>
+                                            <tr className="bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-400 text-white border-b border-indigo-300">
+                                                <th className="text-left font-extrabold px-4 py-3 tracking-wide text-lg drop-shadow">Nombre</th>
+                                                <th className="text-left font-extrabold px-4 py-3 tracking-wide text-lg drop-shadow">Teléfono</th>
+                                                <th className="text-left font-extrabold px-4 py-3 tracking-wide text-lg drop-shadow">Grupo</th>
+                                            </tr>
+                                        </thead>
+                                        {/* 4. RENDERIZADO DE TABLA MODIFICADO */}
+                                        {/* Se usa .slice() para paginar los datos que ya están en memoria. */}
+                                        <tbody>
+                                            {listadoLoading && <tr><td colSpan={3} className="text-center py-4">Cargando...</td></tr>}
+                                            {!listadoLoading && listadoPersonas.length === 0 && <tr><td colSpan={3} className="text-center py-4">No hay registros</td></tr>}
+                                            {!listadoLoading && listadoPersonas
+                                                .slice(listadoPage * 7, (listadoPage + 1) * 7)
+                                                .map(p => (
+                                                <tr key={p.id} onClick={() => selectPersona(p)} className="cursor-pointer transition-colors hover:bg-indigo-50">
+                                                    <td className="px-2 py-3">{p.nombre}</td>
+                                                    <td className="px-2 py-3">{p.telefono}</td>
+                                                    <td className="px-2 py-3">{p.estudioDia || 'N/A'}</td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                     <div className="mt-3 flex items-center justify-between text-white gap-4">
+                                            <button
+                                                onClick={() => setListadoPage(p => Math.max(0, p - 1))}
+                                                disabled={listadoPage === 0}
+                                                className="px-3 py-1.5 rounded-lg font-semibold border border-indigo-300 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-400 text-white shadow disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 hover:scale-105 hover:bg-gradient-to-r hover:from-pink-400 hover:to-indigo-500 sm:px-3 sm:py-1.5 px-2 py-1 text-sm"
+                                            >
+                                                ◀ Atrás
+                                            </button>
+                                            <div className="opacity-90 text-lg font-semibold drop-shadow">
+                                                Página {listadoPage + 1} de {Math.ceil(totalPersonas / LISTADO_PAGE_SIZE)}
+                                            </div>
+                                            <button
+                                                onClick={() => setListadoPage(p => Math.min(Math.ceil(totalPersonas / LISTADO_PAGE_SIZE) - 1, p + 1))}
+                                                disabled={listadoPage >= Math.ceil(totalPersonas / LISTADO_PAGE_SIZE) - 1}
+                                                className="px-3 py-1.5 rounded-lg font-semibold border border-indigo-300 bg-gradient-to-r from-pink-400 via-purple-500 to-indigo-500 text-white shadow disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 hover:scale-105 hover:bg-gradient-to-r hover:from-indigo-500 hover:to-pink-400 sm:px-3 sm:py-1.5 px-2 py-1 text-sm"
+                                            >
+                                                Siguiente ▶
+                                            </button>
+                                        </div>
+                                </>
+                            ) : (
+                                <div className="search-wrap" onBlur={() => setTimeout(() => setOpenSugs(false), 120)}>
+                                    <div className="ghost" aria-hidden style={{ display: modoSoloPendientes ? 'none' : undefined }}>
+                                        <span className="ghost-typed">{busqueda}</span>
+                                        <span className="ghost-hint">{ghost}</span>
+                                    </div>
+                                    <input
+                                        style={{ display: modoSoloPendientes ? 'none' : undefined }}
+                                        type="text"
+                                        placeholder="Buscar por nombre o teléfono…"
+                                        value={busqueda}
+                                        ref={inputBusquedaModalRef}
+                                        onFocus={() => setOpenSugs(sugs.length > 0)}
+                                        onChange={(e) => { const v = e.target.value; setBusqueda(v); setOpenSugs(v.trim().length >= MIN_CHARS); }}
+                                        onKeyDown={onKeyDownSearch}
+                                        role="combobox"
+                                        aria-expanded={openSugs}
+                                        aria-controls="sug-list-modal"
+                                        aria-activedescendant={openSugs && sugs[active] ? `optm-${sugs[active].id}` : undefined}
+                                    />
+                                    {openSugs && (
+                                        <div id="sug-list-modal" role="listbox" className="sug-list">
+                                            {sugs.map((p, i) => (
+                                                <button
+                                                    key={p.id}
+                                                    id={`optm-${p.id}`}
+                                                    role="option"
+                                                    aria-selected={i === active}
+                                                    onMouseEnter={() => setActive(i)}
+                                                    onMouseDown={(ev) => ev.preventDefault()}
+                                                    onClick={() => selectPersona(p)}
+                                                    className={`sug-item ${i === active ? 'active' : ''}`}
+                                                    title={`${p.nombre} • ${p.telefono ?? '—'}`}
+                                                >
+                                                    <div className="sug-name">{p.nombre}</div>
+                                                    <div className="sug-sub">
+                                                        {p.telefono ?? '—'}
+                                                        <span className="sug-pill" style={{ marginLeft: 8 }}>
+                                                            Grupo: {p.estudioDia ?? '—'}
+                                                        </span>
+                                                        <span className="sug-pill" style={{ marginLeft: 8 }}>
+                                                            Etapa: {p.etapa ?? '—'}
+                                                        </span>
+                                                        <span className="sug-pill" style={{ marginLeft: 8 }}>
+                                                            Semana: {p.semana ?? '—'}
+                                                        </span>
+                                                    </div>
+                                                </button>
+                                            ))}
+                                            {loadingSug && <div className="sug-loading">Buscando…</div>}
+                                            {!loadingSug && sugs.length === 0 && <div className="sug-empty">Sin resultados</div>}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
                         </div>
                     </div>
                 )}
@@ -837,7 +1004,27 @@ const selectDesdePendiente = (row: PendienteItem) => {
                                                 <button
                                                     aria-label="Cerrar"
                                                     onClick={() => setModalPendVisible(false)}
-                                                    className="absolute right-2 top-2 grid place-items-center w-9 h-9 rounded-full border border-black/20 bg-white/80 text-black text-xl leading-none shadow-[0_4px_14px_rgba(0,0,0,.12)] transition-transform hover:scale-105 hover:bg-white"
+                                                    style={{
+                                                        position: 'absolute',
+                                                        right: 8,
+                                                        top: 8,
+                                                        zIndex: 100,
+                                                        width: 40,
+                                                        height: 40,
+                                                        padding: 0,
+                                                        borderRadius: '50%',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center',
+                                                        fontSize: '1.7rem',
+                                                        border: 'none',
+                                                        background: 'rgba(255,255,255,0.85)',
+                                                        boxShadow: '0 2px 8px rgba(0,0,0,0.10)',
+                                                        cursor: 'pointer',
+                                                        transition: 'background 0.18s, color 0.18s',
+                                                    }}
+                                                    onMouseEnter={e => { e.currentTarget.style.background = '#ff4d4f'; e.currentTarget.style.color = '#fff'; }}
+                                                    onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.85)'; e.currentTarget.style.color = ''; }}
                                                 >
                                                     ×
                                                 </button>
