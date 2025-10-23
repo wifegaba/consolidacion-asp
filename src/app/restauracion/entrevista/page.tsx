@@ -785,7 +785,7 @@ export default function EntrevistaPage() {
                                 <path d="M4 8h3l2-2h6l2 2h3a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-6a2 2 0 0 1 2-2Z" />
                                 <circle cx="12" cy="13" r="3.2" />
                               </svg>
-                              <span className="text-sm">Cámara</span>
+                              {/* label removed: visually hide the word 'Cámara' but keep aria-label on the button for accessibility */}
                             </button>
                           </div>
                         </div>
