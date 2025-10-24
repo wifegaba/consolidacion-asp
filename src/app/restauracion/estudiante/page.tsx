@@ -14,6 +14,7 @@ import {
   Minus,
   X,
   Edit2,
+  Star,
 } from 'lucide-react';
 
 // --- TIPOS DE DATOS ---
@@ -31,11 +32,14 @@ type MainPanelState = 'welcome' | 'courseWelcome' | 'creating' | 'viewing';
 
 // --- MOCK DATA ---
 const mockStudents: Student[] = [
-  { id: '1', name: 'Olivia Chen', avatarUrl: 'https://placehold.co/100x100/F9F871/4A4A4A?text=OC' },
-  { id: '2', name: 'Ethan Sato',  avatarUrl: 'https://placehold.co/100x100/A3E4D7/4A4A4A?text=ES' },
-  { id: '3', name: 'Staya Patel', avatarUrl: 'https://placehold.co/100x100/D7BDE2/4A4A4A?text=SP' },
-  { id: '4', name: 'Maya Singh',  avatarUrl: 'https://placehold.co/100x100/F5B7B1/4A4A4A?text=MS' },
-  { id: '5', name: 'Alex Thompson', avatarUrl: 'https://placehold.co/100x100/AED6F1/4A4A4A?text=AT' },
+    { id: '1', name: 'Olivia Chen', avatarUrl: 'https://placehold.co/100x100/F9F871/4A4A4A?text=OC' },
+    { id: '2', name: 'Ethan Sato',  avatarUrl: 'https://placehold.co/100x100/A3E4D7/4A4A4A?text=ES' },
+    { id: '3', name: 'Staya Patel', avatarUrl: 'https://placehold.co/100x100/D7BDE2/4A4A4A?text=SP' },
+    { id: '4', name: 'Maya Singh',  avatarUrl: 'https://placehold.co/100x100/F5B7B1/4A4A4A?text=MS' },
+    { id: '5', name: 'Alex Thompson', avatarUrl: 'https://placehold.co/100x100/AED6F1/4A4A4A?text=AT' },
+    { id: '6', name: 'Liam Garcia', avatarUrl: 'https://placehold.co/100x100/FAD7A0/4A4A4A?text=LG' },
+    { id: '7', name: 'Sophia Kim',  avatarUrl: 'https://placehold.co/100x100/82E0AA/4A4A4A?text=SK' },
+    { id: '8', name: 'Noah Brown',  avatarUrl: 'https://placehold.co/100x100/D2B4DE/4A4A4A?text=NB' },
 ];
 
 function createDefaultGradePlaceholders(count = 5): GradePlaceholder[] {
@@ -56,6 +60,17 @@ const folderColors = {
   teal: 'text-teal-500/80 fill-teal-500/20',
   purple: 'text-purple-500/80 fill-purple-500/20',
   pink: 'text-pink-500/80 fill-pink-500/20',
+};
+
+// --- Fondos dinámicos "Cupertino" para el panel de contenido ---
+const defaultContentBg = 'bg-[radial-gradient(1200px_800px_at_80%_-10%,rgba(99,102,241,0.15),transparent_60%),radial-gradient(900px_600px_at_0%_110%,rgba(200,200,200,0.10),transparent_60%)]';
+
+const folderBackgrounds: Record<keyof typeof folderColors, string> = {
+  blue:   'bg-[radial-gradient(1300px_900px_at_95%_5%,rgba(59,130,246,0.35),transparent_70%)]',
+  indigo: 'bg-[radial-gradient(1300px_900px_at_95%_5%,rgba(99,102,241,0.35),transparent_70%)]',
+  teal:   'bg-[radial-gradient(1300px_900px_at_95%_5%,rgba(20,184,166,0.35),transparent_70%)]',
+  purple: 'bg-[radial-gradient(1300px_900px_at_95%_5%,rgba(168,85,247,0.35),transparent_70%)]',
+  pink:   'bg-[radial-gradient(1300px_900px_at_95%_5%,rgba(200,200,200,0.25),transparent_70%)]',
 };
 
 function chunkArray<T>(array: T[], size: number): T[][] {
@@ -79,6 +94,7 @@ export default function EstudiantePage() {
 
   const [mainState, setMainState] = useState<MainPanelState>('welcome');
   const [selectedCourse, setSelectedCourse] = useState<string | null>(null);
+  const [selectedColor, setSelectedColor] = useState<keyof typeof folderColors | null>(null);
 
   const handleTabClick = (newTab: ActiveTab) => {
     if (newTab !== activeTab) {
@@ -87,8 +103,9 @@ export default function EstudiantePage() {
     }
   };
 
-  const handleSelectCourse = (courseTitle: string) => {
+  const handleSelectCourse = (courseTitle: string, courseColor: keyof typeof folderColors) => {
     setSelectedCourse(courseTitle);
+    setSelectedColor(courseColor);
     setMainState('courseWelcome');
     setSelectedStudentId(null);
     const loadedTopics = JSON.parse(JSON.stringify(initialCourseTopics));
@@ -99,6 +116,7 @@ export default function EstudiantePage() {
   const handleGoBackToWelcome = () => {
     setMainState('welcome');
     setSelectedCourse(null);
+    setSelectedColor(null);
     setSelectedStudentId(null);
     setCourseTopics([]);
     setStudentGrades({});
@@ -191,7 +209,6 @@ export default function EstudiantePage() {
     if (selectedStudentId) {
       setStudentGrades(prev => {
         const copy = { ...prev };
-        // remove the topic's grades from the stored student grades
         delete copy[topicId as unknown as keyof typeof copy];
         return copy;
       });
@@ -241,12 +258,14 @@ export default function EstudiantePage() {
     });
   }, [lastAddedTopicId]);
 
+  const dynamicContentBg = selectedColor ? folderBackgrounds[selectedColor] : defaultContentBg;
+
   return (
     <main
       className="
-        relative flex h-screen w-screen items-stretch justify-stretch p-0
+        relative flex h-screen w-full items-stretch justify-stretch p-0
         text-gray-900 selection:bg-indigo-300/40 selection:text-gray-900
-        bg-[radial-gradient(1200px_800px_at_80%_-10%,rgba(99,102,241,0.22),transparent_60%),radial-gradient(900px_600px_at_0%_110%,rgba(236,72,153,0.18),transparent_60%),conic-gradient(from_210deg_at_50%_0%,#EEF2FF_0%,#FAF5FF_40%,#F9FAFB_85%)]
+        bg-[conic-gradient(from_210deg_at_50%_0%,#EEF2FF_0%,#FAF5FF_40%,#F9FAFB_85%)]
       "
     >
       <style>{`
@@ -258,9 +277,13 @@ export default function EstudiantePage() {
           from { transform: translateX(-100%); opacity: 0; flex-basis: 0; }
           to   { transform: translateX(0); opacity: 1; flex-basis: 25%; }
         }
-        .animate-slide-in-left { animation: slide-in-left 0.6s cubic-bezier(0.32,0.72,0,1) forwards; }
+        @media (min-width: 768px) {
+          .md\\:animate-slide-in-left { 
+            animation: slide-in-left 0.6s cubic-bezier(0.32,0.72,0,1) forwards; 
+          }
+        }
         @media (min-width: 768px) and (max-width: 1024px) {
-          .animate-slide-in-left { animation-name: slide-in-left-md; }
+          .md\\:animate-slide-in-left { animation-name: slide-in-left-md; }
           @keyframes slide-in-left-md {
             from { flex-basis: 0; } to { flex-basis: 33.333333%; }
           }
@@ -281,21 +304,24 @@ export default function EstudiantePage() {
       <div className="pointer-events-none absolute inset-0 opacity-[0.06] [background:radial-gradient(circle,_#000_1px,_transparent_1px)] [background-size:22px_22px]" />
 
       <div
+        // MODIFICADO: Añadido overflow-y-auto en móvil, min-h-0, quitado h-full y overflow-hidden
         className="
-          relative flex h-full w-full overflow-hidden
+          relative flex w-full min-h-0
+          overflow-y-auto md:overflow-hidden /* Scroll vertical solo en móvil */
           rounded-none border-none bg-white/40 backdrop-blur-2xl
           ring-0 shadow-none
-          bg-[linear-gradient(145deg,rgba(99,102,241,0.08),rgba(236,72,153,0.07))]
+          bg-[linear-gradient(145deg,rgba(99,102,241,0.08),rgba(255,255,255,0.07))]
+          flex-col md:flex-row
         "
       >
         {/* Sidebar */}
         {selectedCourse !== null && (
           <StudentSidebar
-            className="animate-slide-in-left"
+            className="md:animate-slide-in-left"
             students={mockStudents}
             selectedStudentId={selectedStudentId}
             mainState={mainState}
-            courseName={selectedCourse}
+            courseName={selectedCourse} 
             onSelectStudent={handleSelectStudent}
             onCreateNew={handleCreateNew}
             onGoBackToWelcome={handleGoBackToWelcome}
@@ -303,7 +329,15 @@ export default function EstudiantePage() {
         )}
 
         {/* Contenido principal */}
-        <div className="flex-1 flex flex-col min-w-0 min-h-0 overflow-hidden">
+        <div
+          // MODIFICADO: Quitada la clase 'overflow-hidden'
+          className={`
+            ${mainState === 'courseWelcome' ? 'hidden md:flex' : 'flex'}
+            flex-1 flex-col min-w-0 min-h-0 
+            ${dynamicContentBg}
+            transition-[background-image] duration-1000 ease-[cubic-bezier(0.32,0.72,0,1)]
+          `}
+        >
           {/* Topbar CON TABS estilo glass flotantes */}
           <div
             className="
@@ -354,9 +388,15 @@ export default function EstudiantePage() {
               <WelcomePanel onSelectCourse={handleSelectCourse} />
             )}
 
+            {/* Este componente solo se usa si no hay estudiante seleccionado en móvil */}
             {mainState === 'courseWelcome' && (
-              <CourseWelcomeMessage courseName={selectedCourse || 'Curso'} />
+              <div className="md:hidden flex items-center justify-center p-8 text-center text-gray-500">
+                Selecciona un estudiante de la lista.
+              </div>
             )}
+            {/* Este mensaje es para desktop cuando no hay estudiante sel. */}
+            {mainState === 'courseWelcome' && <CourseWelcomeMessage courseName={selectedCourse || 'Curso'} />}
+
 
             {(mainState === 'creating' || mainState === 'viewing') && (
               <form
@@ -385,21 +425,22 @@ export default function EstudiantePage() {
                     <div
                       className="
                         relative rounded-[22px]
-                        border border-white/80 bg-white/35 backdrop-blur-[22px]
+                        border border-white/80
+                        bg-white/25 backdrop-blur-[22px]
                         shadow-[0_30px_80px_-35px_rgba(2,6,23,0.45),inset_0_1px_0_rgba(255,255,255,0.7)]
                         ring-1 ring-black/5
                         p-5 md:p-7
                       "
                     >
                       {/* Halo suave */}
-                      <div className="pointer-events-none absolute -top-16 -left-16 h-44 w-44 rounded-full bg-gradient-to-br from-indigo-500/12 to-fuchsia-500/12 blur-3xl" />
-                      <div className="pointer-events-none absolute -bottom-10 -right-10 h-40 w-40 rounded-full bg-gradient-to-tl from-indigo-400/15 to-fuchsia-400/15 blur-3xl" />
+                      <div className="pointer-events-none absolute -top-16 -left-16 h-44 w-44 rounded-full bg-gradient-to-br from-indigo-500/12 to-white/12 blur-3xl" />
+                      <div className="pointer-events-none absolute -bottom-10 -right-10 h-40 w-40 rounded-full bg-gradient-to-tl from-indigo-400/15 to-gray-200/20 blur-3xl" />
 
                       {/* Encabezado */}
                       <div className="flex items-center justify-between mb-6">
                         <h2 className="text-[20px] md:text-[22px] font-semibold text-gray-900 tracking-[-0.015em]">
                           Registrar Notas para:{' '}
-                          <span className="bg-gradient-to-r from-indigo-600 to-fuchsia-600 bg-clip-text text-transparent">
+                          <span className="bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
                             {selectedStudent?.name ?? 'N/A'}
                           </span>
                         </h2>
@@ -509,36 +550,39 @@ export default function EstudiantePage() {
 
 // --- SUBCOMPONENTES ---
 
-function WelcomePanel({ onSelectCourse }: { onSelectCourse: (title: string) => void; }) {
+function WelcomePanel({ onSelectCourse }: { onSelectCourse: (title: string, color: keyof typeof folderColors) => void; }) {
   return (
     <div className="flex w-full h-full flex-col items-center justify-start pt-6 pb-10 px-12 text-center [grid-area:stack] overflow-y-auto">
       <div className="group relative overflow-hidden rounded-3xl border border-white/70 bg-white/55 px-10 py-12 shadow-xl backdrop-blur-xl">
-        <div className="absolute -top-24 -right-24 h-64 w-64 rounded-full bg-gradient-to-br from-indigo-500/25 to-fuchsia-500/25 blur-3xl" />
+        <div className="absolute -top-24 -right-24 h-64 w-64 rounded-full bg-gradient-to-br from-indigo-500/25 to-white/25 blur-3xl" />
         <BookMarked size={64} className="mx-auto text-indigo-500/90" />
         <h1 className="mt-6 text-2xl font-semibold tracking-tight text-gray-900">Bienvenido al Gestor Académico</h1>
         <p className="mt-2 max-w-sm text-base text-gray-700">Selecciona un curso para empezar a gestionar estudiantes y registrar calificaciones.</p>
       </div>
       <h2 className="text-xl font-semibold mt-10 mb-8 text-gray-800">Cursos Disponibles</h2>
       <div className="flex flex-wrap items-center justify-center gap-6 w-full">
-        <CourseFolder title="Restauración" color="blue" onSelect={() => onSelectCourse('Restauración')} />
-        <CourseFolder title="Fundamentos 1" color="indigo" onSelect={() => onSelectCourse('Fundamentos 1')} />
-        <CourseFolder title="Fundamentos 2" color="teal" onSelect={() => onSelectCourse('Fundamentos 2')} />
-        <CourseFolder title="Restauración 2" color="purple" onSelect={() => onSelectCourse('Restauración 2')} />
-        <CourseFolder title="Escuela de Siervos" color="pink" onSelect={() => onSelectCourse('Escuela de Siervos')} />
+        <CourseFolder title="Restauración" color="blue" onSelect={() => onSelectCourse('Restauración', 'blue')} />
+        <CourseFolder title="Fundamentos 1" color="indigo" onSelect={() => onSelectCourse('Fundamentos 1', 'indigo')} />
+        <CourseFolder title="Fundamentos 2" color="teal" onSelect={() => onSelectCourse('Fundamentos 2', 'teal')} />
+        <CourseFolder title="Restauración 2" color="purple" onSelect={() => onSelectCourse('Restauración 2', 'purple')} />
+        <CourseFolder title="Escuela de Siervos" color="indigo" hasSpecialBadge onSelect={() => onSelectCourse('Escuela de Siervos', 'indigo')} />
       </div>
     </div>
   );
 }
 
+// Este componente solo se muestra en Desktop cuando no hay estudiante seleccionado
 function CourseWelcomeMessage({ courseName }: { courseName: string }) {
   return (
-    <div className="flex flex-col items-center justify-center p-10 text-center [grid-area:stack] overflow-y-auto h-full">
+    <div className="hidden md:flex flex-col items-center justify-center p-10 text-center [grid-area:stack] overflow-y-auto h-full">
       <div className="group relative overflow-hidden rounded-3xl border border-white/70 bg-white/55 px-10 py-12 shadow-xl backdrop-blur-xl">
-        <div className="absolute -top-24 -right-24 h-64 w-64 rounded-full bg-gradient-to-br from-indigo-500/25 to-fuchsia-500/25 blur-3xl" />
+        <div className="absolute -top-24 -right-24 h-64 w-64 rounded-full bg-gradient-to-br from-indigo-500/25 to-white/25 blur-3xl" />
         <Folder size={64} className="mx-auto text-indigo-500/90" />
         <h1 className="mt-6 text-2xl font-semibold tracking-tight text-gray-900">
           Bienvenido al panel de <br />
-          <span className="bg-gradient-to-r from-indigo-600 to-fuchsia-600 bg-clip-text text-transparent">{courseName}</span>
+          <span className="bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+            {courseName}
+          </span>
         </h1>
         <p className="mt-4 max-w-sm text-base text-gray-700">Selecciona un estudiante de la lista para ver sus notas o crea un nuevo registro para este curso.</p>
       </div>
@@ -567,7 +611,13 @@ function StudentSidebar({
 }) {
   return (
     <aside
-      className={`w-1/3 lg:w-1/4 h-full flex-shrink-0 flex flex-col border-r border-white/60 bg-gradient-to-b from-white/65 to-white/40 backdrop-blur-2xl ${className}`}
+      className={`
+        w-full h-auto md:h-full md:w-1/3 lg:w-1/4 
+        flex-shrink-0 flex flex-col 
+        border-b md:border-b-0 md:border-r border-white/60 
+        bg-gradient-to-b from-white/65 to-white/40 backdrop-blur-2xl 
+        ${className}
+      `}
       aria-label="Barra lateral de estudiantes"
     >
       <div className="flex-shrink-0 p-3 border-b border-white/60 flex items-center bg-white/40 backdrop-blur">
@@ -583,7 +633,7 @@ function StudentSidebar({
       {courseName && (
         <div className="px-4 py-3 border-b border-white/60">
           <p className="text-xs text-gray-600">Módulo:</p>
-          <p className="mt-1 text-sm font-semibold bg-gradient-to-r from-indigo-600 to-fuchsia-600 bg-clip-text text-transparent truncate">
+          <p className="mt-1 text-sm font-semibold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent truncate">
             {courseName}
           </p>
         </div>
@@ -599,7 +649,7 @@ function StudentSidebar({
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={18} />
         </div>
       </div>
-      <nav className="flex-1 overflow-y-auto p-3 space-y-2">
+      <nav className="overflow-y-auto p-3 space-y-2 max-h-80 md:flex-1 md:max-h-none">
         {students.map((student) => {
           const active = selectedStudentId === student.id;
           return (
@@ -610,7 +660,7 @@ function StudentSidebar({
                 e.preventDefault();
                 onSelectStudent(student.id);
               }}
-              className={`group flex items-center gap-3 rounded-2xl p-3 transition-all border ${active ? 'border-indigo-200/80 bg-gradient-to-r from-indigo-50/80 to-fuchsia-50/70 text-indigo-900 shadow-sm' : 'border-white/70 bg-white/60 text-gray-700 hover:bg-white/80'}`}
+              className={`group flex items-center gap-3 rounded-2xl p-3 transition-all border ${active ? 'border-indigo-200/80 bg-gradient-to-r from-indigo-50/80 to-purple-50/70 text-indigo-900 shadow-sm' : 'border-white/70 bg-white/60 text-gray-700 hover:bg-white/80'}`}
             >
               <img
                 src={student.avatarUrl}
@@ -635,7 +685,7 @@ function StudentSidebar({
       <div className="flex-shrink-0 p-4 border-t border-white/60">
         <button
           onClick={onCreateNew}
-          className={`flex w-full items-center justify-center gap-2 rounded-2xl border py-3 text-sm font-medium backdrop-blur-sm transition-all ${mainState === 'creating' ? 'border-transparent bg-gradient-to-r from-indigo-500 to-fuchsia-600 text-white shadow-lg hover:shadow-[0_15px_35px_-15px_rgba(99,102,241,0.65)]' : 'border-white/70 bg-white/60 text-indigo-700 hover:bg-white/80'}`}
+          className={`flex w-full items-center justify-center gap-2 rounded-2xl border py-3 text-sm font-medium backdrop-blur-sm transition-all ${mainState === 'creating' ? 'border-transparent bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow-lg hover:shadow-[0_15px_35px_-15px_rgba(99,102,241,0.65)]' : 'border-white/70 bg-white/60 text-indigo-700 hover:bg-white/80'}`}
         >
           <Plus size={18} />
           <span>Nuevo Estudiante</span>
@@ -664,7 +714,7 @@ function TabButton({
       className={[
         'inline-flex items-center justify-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-all duration-200 focus:outline-none',
         isActive
-          ? 'bg-gradient-to-r from-indigo-500 to-fuchsia-500 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.5),0_8px_24px_-10px_rgba(76,29,149,0.45)]'
+          ? 'bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.5),0_8px_24px_-10px_rgba(76,29,149,0.45)]'
           : 'text-gray-700 bg-white/28 hover:bg-white/40 backdrop-blur-xl border border-white/70 shadow-[inset_0_1px_0_rgba(255,255,255,0.6)]',
       ].join(' ')}
       aria-current={isActive ? 'page' : undefined}
@@ -720,8 +770,8 @@ function CardSection({
   const saveTitle = () => { setIsEditing(false); if (onTitleChange && currentTitle !== title) { onTitleChange(currentTitle); } };
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => { if (e.key === 'Enter') { saveTitle(); } else if (e.key === 'Escape') { setCurrentTitle(title || ''); setIsEditing(false); } };
   return (
-    <section className="relative overflow-hidden rounded-3xl border border-white/70 bg-white/55 p-5 md:p-6 shadow-[0_10px_30px_-15px_rgba(2,6,23,0.2),inset_0_1px_0_0_#fff] backdrop-blur-xl">
-      <div className="pointer-events-none absolute -top-16 -left-16 h-40 w-40 rounded-full bg-gradient-to-br from-indigo-500/15 to-fuchsia-500/15 blur-2xl" />
+    <section className="relative overflow-hidden rounded-3xl border border-white/70 bg-white/30 p-5 md:p-6 shadow-[0_10px_30px_-15px_rgba(2,6,23,0.2),inset_0_1px_0_0_#fff] backdrop-blur-xl">
+      <div className="pointer-events-none absolute -top-16 -left-16 h-40 w-40 rounded-full bg-gradient-to-br from-indigo-500/15 to-white/15 blur-2xl" />
       {(title || actions) && (
         <div className="flex justify-between items-center mb-4">
           {title && isEditable ? (
@@ -829,11 +879,11 @@ function GradeGrid({
                 hover:bg-white/55 hover:shadow-[0_20px_40px_-18px_rgba(2,6,23,0.45)]
                 ${hasValue ? 'ring-2 ring-indigo-500/35 shadow-[0_22px_45px_-18px_rgba(99,102,241,0.35)]' : ''}
                 p-1 overflow-hidden
-                bg-[linear-gradient(145deg,rgba(99,102,241,0.06),rgba(236,72,153,0.05))]
+                bg-[linear-gradient(145deg,rgba(99,102,241,0.06),rgba(255,255,255,0.05))]
               `;
               return (
                 <div key={placeholder.id} className={boxClasses}>
-                  <div className="pointer-events-none absolute inset-0 rounded-[18px] opacity-70 bg-[radial-gradient(140px_90px_at_8%_-8%,rgba(99,102,241,0.18),transparent),radial-gradient(140px_90px_at_110%_120%,rgba(236,72,153,0.12),transparent)]" />
+                  <div className="pointer-events-none absolute inset-0 rounded-[18px] opacity-70 bg-[radial-gradient(140px_90px_at_8%_-8%,rgba(99,102,241,0.18),transparent),radial-gradient(140px_90px_at_110%_120%,rgba(200,200,200,0.08),transparent)]" />
                   <span className="relative text-[11px] uppercase tracking-wide text-gray-600/90 mb-1 select-none">
                     Nota {noteNumber}
                   </span>
@@ -866,7 +916,7 @@ function FormActions() {
     <div className="mt-8 pt-6 border-t border-white/60 flex justify-end">
       <button
         type="submit"
-        className="inline-flex items-center justify-center gap-2 rounded-full h-12 px-8 bg-gradient-to-r from-indigo-500 to-fuchsia-600 text-sm font-semibold text-white shadow-[0_12px_30px_-12px_rgba(99,102,241,0.6)] transition-all hover:shadow-[0_18px_40px_-14px_rgba(99,102,241,0.7)] focus:outline-none focus:ring-4 focus:ring-indigo-400/25 active:scale-[0.99]"
+        className="inline-flex items-center justify-center gap-2 rounded-full h-12 px-8 bg-gradient-to-r from-indigo-500 to-purple-600 text-sm font-semibold text-white shadow-[0_12px_30px_-12px_rgba(99,102,241,0.6)] transition-all hover:shadow-[0_18px_40px_-14px_rgba(99,102,241,0.7)] focus:outline-none focus:ring-4 focus:ring-indigo-400/25 active:scale-[0.99]"
       >
         Guardar
       </button>
@@ -877,10 +927,12 @@ function FormActions() {
 function CourseFolder({
   title,
   color = 'blue',
+  hasSpecialBadge = false,
   onSelect,
 }: {
   title: string;
   color?: keyof typeof folderColors;
+  hasSpecialBadge?: boolean;
   onSelect: () => void;
 }) {
   const colorClasses = folderColors[color] || folderColors.blue;
@@ -888,7 +940,7 @@ function CourseFolder({
     <button
       type="button"
       onClick={onSelect}
-      className="flex flex-col items-center justify-start w-44 h-44 rounded-3xl p-4 transition-all duration-200 hover:scale-[1.05] active:scale-[0.98] focus:outline-none focus:ring-4 focus:ring-indigo-400/25 group text-center"
+      className="relative flex flex-col items-center justify-start w-44 h-44 rounded-3xl p-4 transition-all duration-200 hover:scale-[1.05] active:scale-[0.98] focus:outline-none focus:ring-4 focus:ring-indigo-400/25 group text-center"
     >
       <Folder
         size={100}
@@ -896,6 +948,12 @@ function CourseFolder({
         strokeWidth={1}
       />
       <h4 className="text-sm font-semibold text-gray-800 w-full transition-colors group-hover:text-indigo-600">{title}</h4>
+      
+      {hasSpecialBadge && (
+        <div className="absolute top-8 right-8 z-10 p-1.5 rounded-full bg-white/70 border border-yellow-300 shadow-lg backdrop-blur-md">
+          <Star size={20} className="text-yellow-500 fill-yellow-400/30 drop-shadow-sm" strokeWidth={1.5}/>
+        </div>
+      )}
     </button>
   );
 }
