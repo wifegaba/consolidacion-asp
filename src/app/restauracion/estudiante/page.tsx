@@ -48,7 +48,6 @@ const initialCourseTopics: CourseTopic[] = [
 ];
 
 // --- CONSTANTES ---
-const TABS: ActiveTab[] = ['create', 'grades', 'reports'];
 const TAB_INDICES: Record<ActiveTab, number> = { create: 0, grades: 1, reports: 2 };
 
 const folderColors = {
@@ -191,8 +190,10 @@ export default function EstudiantePage() {
     setCourseTopics(prev => prev.filter(t => t.id !== topicId));
     if (selectedStudentId) {
       setStudentGrades(prev => {
-        const { [topicId]: _, ...rest } = prev;
-        return rest;
+        const copy = { ...prev };
+        // remove the topic's grades from the stored student grades
+        delete copy[topicId as unknown as keyof typeof copy];
+        return copy;
       });
     }
   };
@@ -427,7 +428,7 @@ export default function EstudiantePage() {
                         {courseTopics.length === 0 && (
                           <CardSection>
                             <p className="text-sm text-gray-700 text-center py-4">
-                              No hay temas definidos para este curso. Haz clic en "Añadir Tema" para empezar.
+                              No hay temas definidos para este curso. Haz clic en &quot;Añadir Tema&quot; para empezar.
                             </p>
                           </CardSection>
                         )}
