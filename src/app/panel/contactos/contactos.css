@@ -456,6 +456,30 @@
     }
 }
 
+/* Móvil: apilar Nombre y Teléfono (Teléfono debajo de Nombre) */
+@media (max-width:640px) {
+    /* Limitar el alcance solo a la primera fila del formulario (los dos inputs) */
+    .pn-root .form-row.first-row {
+        display: flex;
+        flex-direction: column; /* apilar verticalmente */
+        gap: 0.9rem;            /* espacio entre campos */
+        margin-bottom: 1rem;
+    }
+
+    .pn-root .form-row.first-row > div {
+        flex: none;            /* evitar reparto igualitario en fila */
+        width: 100%;
+        max-width: 100%;
+        box-sizing: border-box;
+    }
+
+    /* Asegurar que el input y mensajes de error ocupen el 100% del contenedor */
+    .pn-root .form-row.first-row input[type="text"],
+    .pn-root .form-row.first-row .error-msg {
+        width: 100%;
+    }
+}
+
 
 
 \n.pn-root .modal-buscar{
