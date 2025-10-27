@@ -235,6 +235,114 @@ export default function PersonaNueva() {
         document.body.appendChild(t); setTimeout(() => t.remove(), 3000);
     };
 
+    // --- INICIO: Premium "Cupertino 2025" toast/modal para descargas ---
+    const ensurePremiumToastStyles = () => {
+        if (document.getElementById('premium-toast-styles')) return;
+        const s = document.createElement('style');
+        s.id = 'premium-toast-styles';
+        s.textContent = `
+            .premium-toast-wrap {
+                position: fixed;
+                right: 20px;
+                bottom: 26px;
+                z-index: 99999;
+                backdrop-filter: blur(8px) saturate(120%);
+                -webkit-backdrop-filter: blur(8px) saturate(120%);
+                transition: transform .32s cubic-bezier(.22,.9,.3,1), opacity .28s ease;
+                transform-origin: bottom right;
+                opacity: 0;
+                transform: translateY(18px) scale(.98);
+                pointer-events: none;
+            }
+            .premium-toast-wrap.visible { opacity: 1; transform: translateY(0) scale(1); pointer-events: auto; }
+            .premium-toast-card {
+                display: flex;
+                align-items: center;
+                gap: 12px;
+                min-width: 320px;
+                max-width: 420px;
+                padding: 12px 14px;
+                border-radius: 14px;
+                box-shadow: 0 10px 32px rgba(20,20,40,0.08), inset 0 1px 0 rgba(255,255,255,0.6);
+                background: linear-gradient(180deg, rgba(255,255,255,0.86), rgba(245,246,250,0.86));
+                border: 1px solid rgba(60,60,90,0.06);
+                font-family: Inter, system-ui, -apple-system, "SF Pro Text", "Helvetica Neue", Arial;
+            }
+            .premium-toast-card.ok { border-color: rgba(16,185,129,0.12); }
+            .premium-toast-card.err { border-color: rgba(239,68,68,0.12); }
+            .premium-toast-icon {
+                flex: 0 0 44px;
+                height: 44px;
+                border-radius: 10px;
+                display: grid;
+                place-items: center;
+                font-weight: 700;
+                font-size: 18px;
+                color: white;
+            }
+            .premium-toast-icon.ok { background: linear-gradient(135deg,#10b981,#059669); box-shadow: 0 6px 20px rgba(16,185,129,0.18); }
+            .premium-toast-icon.err { background: linear-gradient(135deg,#ef4444,#dc2626); box-shadow: 0 6px 20px rgba(239,68,68,0.18); }
+            .premium-toast-body { display:flex; flex-direction:column; gap:3px; min-width:0; }
+            .premium-toast-title { font-weight:700; font-size:14px; color:#0f172a; line-height:1; }
+            .premium-toast-sub { font-size:13px; color:#475569; opacity:.95; line-height:1.1; }
+            .premium-toast-close { margin-left:8px; background:transparent; border:none; color:#64748b; cursor:pointer; font-size:14px; padding:6px; border-radius:8px; }
+            @media (max-width:420px){ .premium-toast-wrap{ left:12px; right:12px; bottom:18px } .premium-toast-card{min-width:unset;width:100%} }
+        `;
+        document.head.appendChild(s);
+    };
+
+    const showPremiumToast = (success: boolean, tipo: 'PDF'|'Excel') => {
+        ensurePremiumToastStyles();
+        const id = `premium-toast-${Date.now()}`;
+        const wrap = document.createElement('div');
+        wrap.className = 'premium-toast-wrap';
+        wrap.id = id;
+
+        const card = document.createElement('div');
+        card.className = `premium-toast-card ${success ? 'ok' : 'err'}`;
+
+        const icon = document.createElement('div');
+        icon.className = `premium-toast-icon ${success ? 'ok' : 'err'}`;
+        icon.textContent = success ? '✓' : '✕';
+
+        const body = document.createElement('div');
+        body.className = 'premium-toast-body';
+        const title = document.createElement('div');
+        title.className = 'premium-toast-title';
+        title.textContent = success ? 'Descarga completada' : 'Descarga fallida';
+        const sub = document.createElement('div');
+        sub.className = 'premium-toast-sub';
+        sub.textContent = success
+            ? `Archivo ${tipo} descargado exitosamente`
+            : `No se pudo descargar el archivo ${tipo}`;
+
+        const close = document.createElement('button');
+        close.className = 'premium-toast-close';
+        close.innerText = 'Cerrar';
+        close.onclick = (ev) => {
+            ev.stopPropagation();
+            wrap.classList.remove('visible');
+            setTimeout(() => wrap.remove(), 320);
+        };
+
+        body.appendChild(title);
+        body.appendChild(sub);
+        card.appendChild(icon);
+        card.appendChild(body);
+        card.appendChild(close);
+        wrap.appendChild(card);
+        document.body.appendChild(wrap);
+
+        // Animate in
+        requestAnimationFrame(() => wrap.classList.add('visible'));
+        // Auto remove
+        setTimeout(() => {
+            wrap.classList.remove('visible');
+            setTimeout(() => wrap.remove(), 340);
+        }, 4200);
+    };
+    // --- FIN: Premium toast ---
+
     // Cargar un registro desde el modal de Pendientes al formulario
     const selectDesdePendiente = (row: PendienteItem) => {
       const reg: Registro = {
@@ -749,19 +857,24 @@ export default function PersonaNueva() {
         // =================================================================
         // ======================= INICIO DE LA CORRECCIÓN =======================
         // =================================================================
-        // Llamar a autoTable como una función, pasando el 'doc'
-        autoTable(doc, {
-        // =================================================================
-        // ======================== FIN DE LA CORRECCIÓN =======================
-        // =================================================================
-            startY: 28,
-            head: headers,
-            body: body,
-            theme: 'striped',
-            headStyles: { fillColor: [79, 70, 229] } // Indigo color
-        });
+        try {
+            // Llamar a autoTable como una función, pasando el 'doc'
+            autoTable(doc, {
+                startY: 28,
+                head: headers,
+                body: body,
+                theme: 'striped',
+                headStyles: { fillColor: [79, 70, 229] } // Indigo color
+            });
 
-        doc.save(`pendientes_${mesActual}.pdf`);
+            doc.save(`pendientes_${mesActual}.pdf`);
+            // Notificación premium de éxito
+            try { showPremiumToast(true, 'PDF'); } catch { /* ignore */ }
+        } catch (err) {
+            console.error('Error exportando PDF:', err);
+            // Notificación premium de error
+            try { showPremiumToast(false, 'PDF'); } catch { /* ignore */ }
+        }
     };
 
     const handleExportExcel = () => {
@@ -798,12 +911,19 @@ export default function PersonaNueva() {
         // Unir celdas del título (A1 a D1)
         ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 3 } }];
         
-        // Crear libro y añadir hoja
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, `Pendientes ${mesActual}`);
+        try {
+            // Crear libro y añadir hoja
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, `Pendientes ${mesActual}`);
 
-        // Guardar archivo
-        XLSX.writeFile(wb, `pendientes_${mesActual}.xlsx`);
+            // Guardar archivo
+            XLSX.writeFile(wb, `pendientes_${mesActual}.xlsx`);
+            // Notificación premium de éxito
+            try { showPremiumToast(true, 'Excel'); } catch { /* ignore */ }
+        } catch (err) {
+            console.error('Error exportando Excel:', err);
+            try { showPremiumToast(false, 'Excel'); } catch { /* ignore */ }
+        }
     };
     
     /* ===== UI ===== */
