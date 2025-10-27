@@ -20,7 +20,11 @@ import {
 } from "@/app/actions";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import type { Range } from "@/lib/metrics";
+// --- INICIO DE MODIFICACIÓN ---
+// Se importa 'Range' desde 'actions.ts' donde ahora también debe estar definido
+import type { Range } from "@/app/actions";
+// --- FIN DE MODIFICACIÓN ---
+
 
 // 2. Importar PieChart dinámicamente SIN SSR
 const PieChart = dynamic(() => import('recharts').then(mod => mod.PieChart), {
@@ -31,6 +35,7 @@ const PieChart = dynamic(() => import('recharts').then(mod => mod.PieChart), {
 
 
 /* ============================ Tipos ============================ */
+// (Esta sección no se modifica)
 type AsistEtapaRow = { etapa: string; confirmados: number; noAsistieron: number; total: number; };
 type AgendadoRow = { etapa_modulo: string; agendados_pendientes: number; };
 type AsistModuloRow = { etapa: string; modulo: number; dia: string; confirmados: number; noAsistieron: number; total: number; };
@@ -69,6 +74,7 @@ type DetalleSeccionesProps = {
 };
 
 /* ============================ Constantes y Utils ============================ */
+// (Esta sección no se modifica)
 
 // 1. PALETA DE COLORES PREMIUM ("Mac 2025") - Colores base por Etapa
 const ETAPA_BASE_COLORS: Record<string, string> = {
@@ -140,6 +146,7 @@ const generateServidoresPdf = (title: string, subTitle: string, data: ServidorDe
 
 
 /* ====================== Componentes Internos ===================== */
+// (Toda esta sección de componentes internos no se modifica)
 
 // (PremiumHorizontalBars sin cambios)
 interface AgendadoGroup { key: string; items: AgendadoRow[]; }
@@ -171,7 +178,7 @@ const PremiumHorizontalBars = ({ data, onRowClick, onPdfClick, loadingPdfKey }: 
 };
 
 
-// (AsistenciasHorizontalBars sin cambios funcionales, solo prop renombrada)
+// (AsistenciasHorizontalBars sin cambios)
 interface AsistenciaGroup { key: string; items: AsistBarData[]; }
 const AsistenciasHorizontalBars = ({ data, onDetalleClick, onPdfClick, loadingPdfKey, hoveredModuloKey }: {
   data: AsistBarData[];
@@ -238,7 +245,7 @@ const AsistenciasHorizontalBars = ({ data, onDetalleClick, onPdfClick, loadingPd
     );
 };
 
-// (InasistenciasPanel sin cambios funcionales, solo prop renombrada)
+// (InasistenciasPanel sin cambios)
 const InasistenciasPanel = ({ data, onDetalleClick, onPdfClick, loadingPdfKey, hoveredModuloKey }: {
   data: AsistBarData[];
   onDetalleClick: (item: AsistBarData) => void;
@@ -397,7 +404,7 @@ export default function DetalleSecciones({
   const [hoveredEtapaKey, setHoveredEtapaKey] = useState<string | null>(null);   // Ej: "Semillas"
 
 
-  // (Handlers sin cambios)
+  // (Handlers de Contactos y Servidores no se modifican)
   const handleContactRowClick = async (key: string) => {
     const parsed = parseContactoKey(key);
     if (!parsed) { console.error("Invalid contact key format:", key); return; }
@@ -427,25 +434,42 @@ export default function DetalleSecciones({
   };
   const handleServidorRowClick = async (key: string) => { const parsed = parseServidorKey(key); if (!parsed) { console.error("Invalid server key:", key); return; } const { rol, etapa, dia } = parsed; const titleMapping: { [key: string]: string } = { 'Maestros': 'Coordinadores', 'Contactos': 'Timoteos' }; const modalTitle = titleMapping[rol] || rol; setServidoresModalOpen(true); setServidoresModalIsLoading(true); setServidoresModalContent({ title: modalTitle, subTitle: `de ${etapa} (${dia})`, data: [], premium: true }); try { const servidores = await getServidoresPorFiltro(rol, etapa, dia); setServidoresModalContent(prev => ({ ...prev, data: servidores, premium: true })); } catch (error) { console.error("Error fetching server details:", error); setServidoresModalContent(prev => ({ ...prev, subTitle: 'Error al cargar los datos', premium: true })); } finally { setServidoresModalIsLoading(false); } };
   const handleServidorPdfDownload = async (key: string) => { setPdfLoadingKey(key); try { const parsed = parseServidorKey(key); if (!parsed) { throw new Error("Invalid server key"); } const { rol, etapa, dia } = parsed; const titleMapping: { [key: string]: string } = { 'Maestros': 'Coordinadores', 'Contactos': 'Timoteos' }; const pdfTitle = titleMapping[rol] || rol; const pdfSubTitle = `de ${etapa} (${dia})`; const servidores = await getServidoresPorFiltro(rol, etapa, dia); generateServidoresPdf(pdfTitle, pdfSubTitle, servidores); } catch (error) { console.error("Error generating server PDF:", error); } finally { setPdfLoadingKey(null); } };
+  
+
+  // --- INICIO DE MODIFICACIÓN ---
   const handleAsistenciaDetalleClick = async (item: AsistBarData) => {
     const { etapa, modulo, dia, asistio } = item;
     const title = `${asistio ? 'Asistentes' : 'Inasistentes'} de ${etiquetaEtapaModulo(etapa, modulo, dia)}`;
     setModalOpen(true); setModalIsLoading(true); setModalContent({ title, data: [], premium: true });
-    try { const personas = await getAsistentesPorEtapaFiltro(etapa, modulo, dia, asistio); setModalContent({ title, data: personas, premium: true }); } 
+    try { 
+      // Se añade el parámetro 'range' a la llamada
+      const personas = await getAsistentesPorEtapaFiltro(etapa, modulo, dia, asistio, range); 
+      setModalContent({ title, data: personas, premium: true }); 
+    } 
     catch (error) { console.error("Error fetching attendance details:", error); setModalContent(prev => ({ ...prev, title: `Error al cargar ${etapa}`, premium: true })); } 
     finally { setModalIsLoading(false); }
   };
+  // --- FIN DE MODIFICACIÓN ---
+
+  // --- INICIO DE MODIFICACIÓN ---
   const handleAsistenciaPdfClick = async (item: AsistBarData) => {
     const { etapa, modulo, dia, asistio } = item;
     const loadingKey = `${etapa}-${modulo}-${dia}-${asistio}`;
     setPdfLoadingKey(loadingKey);
-    try { const title = `${asistio ? 'Asistentes' : 'Inasistentes'} de ${etiquetaEtapaModulo(etapa, modulo, dia)}`; const personas = await getAsistentesPorEtapaFiltro(etapa, modulo, dia, asistio); generateContactosPdf(title, personas); } 
+    try { 
+      const title = `${asistio ? 'Asistentes' : 'Inasistentes'} de ${etiquetaEtapaModulo(etapa, modulo, dia)}`; 
+      // Se añade el parámetro 'range' a la llamada
+      const personas = await getAsistentesPorEtapaFiltro(etapa, modulo, dia, asistio, range); 
+      generateContactosPdf(title, personas); 
+    } 
     catch (error) { console.error(`Error generating PDF for ${etapa}:`, error); } 
     finally { setPdfLoadingKey(null); }
   };
+  // --- FIN DE MODIFICACIÓN ---
 
 
   // --- 6. LÓGICA DE DATOS CORREGIDA Y REESTRUCTURADA ---
+  // (Toda esta sección no se modifica)
 
   // Total general (para el centro del gráfico - usa asistEtapas para precisión total)
   const totalAsist = asistEtapas.reduce((s, r) => s + (r.total || 0), 0);
@@ -623,6 +647,7 @@ export default function DetalleSecciones({
   const timoteosData = servidoresPorRolEtapaDia.filter(d => d.key.startsWith('Contactos')).sort((a,b) => genericSort(a,b, 'Contactos -'));
   const sortedContactosData = [...contactosPorEtapaDia].sort((a,b) => genericSort(a,b, ''));
 
+  // (Todo el JSX de retorno no se modifica)
   return (
     <>
       {/* (Estilos y Modales sin cambios) */}

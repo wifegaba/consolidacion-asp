@@ -16,9 +16,44 @@ type ServidorDetalle = {
   cedula: string;
 };
 
+// --- INICIO DE CÓDIGO AÑADIDO ---
+// Lógica de Rango (necesaria para filtrar las asistencias en el modal)
+export type Range = 'today' | 'week' | 'month' | undefined;
+
+function getRangeUTC(range: Range) {
+  if (!range) return undefined;
+  const now = new Date();
+
+  if (range === 'today') {
+    const start = new Date(now);
+    start.setHours(0, 0, 0, 0); 
+    const end = new Date(start);
+    end.setDate(end.getDate() + 1);
+    return { from: start.toISOString(), to: end.toISOString() };
+  }
+
+  if (range === 'week') {
+    // Lógica idéntica a metrics.ts para consistencia
+    const start = new Date(now);
+    const dow = start.getUTCDay();
+    const diff = (dow === 0 ? -6 : 1 - dow);
+    start.setUTCDate(start.getUTCDate() + diff);
+    start.setUTCHours(0,0,0,0);
+    const end = new Date(start); end.setUTCDate(end.getUTCDate() + 7);
+    return { from: start.toISOString(), to: end.toISOString() };
+  }
+  
+  // 'month'
+  const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+  const end   = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth()+1, 1));
+  return { from: start.toISOString(), to: end.toISOString() };
+}
+// --- FIN DE CÓDIGO AÑADIDO ---
+
 
 // ============================ Server Actions ============================
 
+// (Esta función no se modifica)
 export async function getContactosPorFiltro(etapa: string, modulo: number, dia: string): Promise<Persona[]> {
   const supabaseAdmin = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -83,6 +118,7 @@ export async function getContactosPorFiltro(etapa: string, modulo: number, dia: 
  * Obtiene contactos activos consultando *directamente* la tabla 'progreso'.
  * Esto asegura que el modal de "Contactos" coincida con el contador de 'getContactosPorEtapaDia'.
  */
+// (Esta función no se modifica)
 export async function getActivosPorFiltro(etapa: string, modulo: number, dia: string): Promise<Persona[]> {
   const supabaseAdmin = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -121,7 +157,7 @@ export async function getActivosPorFiltro(etapa: string, modulo: number, dia: st
   }
 }
 
-
+// (Esta función no se modifica)
 export async function getServidoresPorFiltro(rol: string, etapa_det: string, dia: string): Promise<ServidorDetalle[]> {
   const supabaseAdmin = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -173,12 +209,15 @@ export async function getServidoresPorFiltro(rol: string, etapa_det: string, dia
   return data || [];
 }
 
+// --- INICIO DE MODIFICACIÓN ---
 export async function getAsistentesPorEtapaFiltro(
   etapa: string,
   modulo: number,
   dia: string,
-  asistio: boolean
+  asistio: boolean,
+  range: Range // 1. AÑADIR PARÁMETRO 'range'
 ): Promise<Persona[]> {
+// --- FIN DE MODIFICACIÓN ---
   unstable_noStore();
 
   const supabaseAdmin = createClient(
@@ -187,11 +226,13 @@ export async function getAsistentesPorEtapaFiltro(
     { auth: { persistSession: false, autoRefreshToken: false } }
   );
 
-  // ✅ **SOLUCIÓN DEFINITIVA:**
-  // Esta consulta ahora se origina en 'asistencia' y se asegura de que por cada registro
-  // de asistencia que coincida, se devuelva un registro de persona, incluso si es un duplicado.
-  // Esto alinea la lógica de obtención de detalles con la lógica de agregación en metrics.ts.
-  const query = supabaseAdmin
+  // --- INICIO DE MODIFICACIÓN ---
+  // 2. OBTENER RANGO UTC
+  const r = getRangeUTC(range);
+
+  // 3. CAMBIAR 'const query' POR 'let query'
+  let query = supabaseAdmin
+  // --- FIN DE MODIFICACIÓN ---
     .from('asistencia')
     .select(`
       progreso:progreso_id!inner (
@@ -209,6 +250,13 @@ export async function getAsistentesPorEtapaFiltro(
     .eq('progreso_id.modulo', modulo)
     .eq('progreso_id.dia', dia);
 
+  // --- INICIO DE MODIFICACIÓN ---
+  // 4. APLICAR FILTRO DE RANGO SI EXISTE
+  if (r) {
+    query = query.gte('creado_en', r.from).lt('creado_en', r.to);
+  }
+  // --- FIN DE MODIFICACIÓN ---
+
   const { data, error } = await query;
 
   if (error) {
@@ -220,9 +268,7 @@ export async function getAsistentesPorEtapaFiltro(
     return [];
   }
   
-  // ✅ **CORRECCIÓN:** Lógica de procesamiento simplificada y robusta que extrae
-  // el objeto 'persona' de cada registro de 'asistencia' devuelto.
-  // Esto garantiza que si hay 6 registros de asistencia, se devuelvan 6 personas.
+  // (La lógica de procesamiento de datos no se modifica)
   const personas: Persona[] = data
       .map((item: any) => item.progreso?.persona)
       .filter(Boolean); // Filtra cualquier resultado nulo o indefinido
