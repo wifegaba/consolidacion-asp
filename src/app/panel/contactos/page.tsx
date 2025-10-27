@@ -2,8 +2,16 @@
 'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
-import { Trash2 } from "lucide-react";
+// Iconos actualizados: PDF, Excel y Teléfono
+import { Trash2, Phone, FileText, FileSpreadsheet } from "lucide-react";
 import { supabase } from '@/lib/supabaseClient';
+
+// Importaciones para exportar archivos
+import jsPDF from 'jspdf';
+// Importar 'autoTable' como una función nombrada
+import autoTable from 'jspdf-autotable';
+import * as XLSX from 'xlsx';
+
 
 /* ========= Tipos ========= */
 type AppEstudioDia = 'Domingo' | 'Martes' | 'Virtual' | 'Pendientes';
@@ -104,12 +112,35 @@ const existePendienteConTelefono = async (tel: string, excluirId?: string | null
 const normaliza = (s: string) =>
     s.toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '');
 
-// Formatea a solo fecha (sin hora)
+/** Formatea a solo fecha (dd/mm/aa) */
 const soloFecha = (v?: string | null): string => {
     if (!v) return '';
     const d = new Date(v);
-    if (isNaN((d as unknown) as number)) return v.slice(0, 10);
-    try { return d.toLocaleDateString('es-ES'); } catch { return v.slice(0, 10); }
+    
+    // Si la fecha es inválida, intenta formatear el string YYYY-MM-DD
+    if (isNaN((d as unknown) as number)) {
+        const parts = v.slice(0, 10).split('-');
+        if (parts.length === 3 && parts[0].length === 4) {
+             // Formato YYYY-MM-DD -> DD/MM/YY
+             return `${parts[2]}/${parts[1]}/${parts[0].slice(2)}`;
+        }
+        return v.slice(0, 10); // Fallback si el formato es desconocido
+    }
+    
+    // Si la fecha es válida, usa toLocaleDateString con año de 2 dígitos
+    try { 
+        return d.toLocaleDateString('es-ES', { 
+            day: '2-digit', 
+            month: '2-digit', 
+            year: '2-digit' 
+        }); 
+    } catch { 
+        // Fallback manual en caso de error
+        const year = d.getFullYear().toString().slice(-2);
+        const month = (d.getMonth() + 1).toString().padStart(2, '0');
+        const day = d.getDate().toString().padStart(2, '0');
+        return `${day}/${month}/${year}`;
+    }
 };
 
 const claveDia = (d: string): DiaKey | null => {
@@ -143,8 +174,11 @@ const extraerCultoDesdeNotas = (
     }
 
     const full = diaKey && hora ? `${diaKey[0] + diaKey.slice(1).toLowerCase()} - ${hora}` : null;
+    
+    // CORRECCIÓN: Asegurar que 'clean' siempre sea string
     return { diaKey, hora, full, clean: resto.join(' | ') };
 };
+
 
 export default function PersonaNueva() {
     const observacionesRef = useRef<HTMLTextAreaElement | null>(null);
@@ -193,7 +227,6 @@ export default function PersonaNueva() {
 
     const cacheSugs = useRef(new Map<string, { ts: number; data: Registro[] }>()).current;
     const TTL_MS = 60_000, MIN_CHARS = 3, DEBOUNCE_MS = 350;
-
     
     useEffect(() => { if (modalBuscarVisible) setTimeout(() => inputBusquedaModalRef.current?.focus(), 0); }, [modalBuscarVisible]);
 
@@ -203,28 +236,27 @@ export default function PersonaNueva() {
     };
 
     // Cargar un registro desde el modal de Pendientes al formulario
-const selectDesdePendiente = (row: PendienteItem) => {
-  const reg: Registro = {
-    id: row.persona_id || '', // este se usa para lógica normal
-    fecha: '',
-    nombre: row.nombre || '',
-    telefono: row.telefono || null,
-    preferencias: null,
-    cultosSeleccionados: null,
-    observaciones: row.observaciones ?? null,
-    estudioDia: 'PENDIENTES',
-    etapa: (row.etapa as AppEtapa) ?? null,
-    semana: typeof row.semana === 'number' ? row.semana : null,
-  };
+    const selectDesdePendiente = (row: PendienteItem) => {
+      const reg: Registro = {
+        id: row.persona_id || '', // este se usa para lógica normal
+        fecha: '',
+        nombre: row.nombre || '',
+        telefono: row.telefono || null,
+        preferencias: null,
+        cultosSeleccionados: null,
+        observaciones: row.observaciones ?? null,
+        estudioDia: 'PENDIENTES',
+        etapa: (row.etapa as AppEtapa) ?? null,
+        semana: typeof row.semana === 'number' ? row.semana : null,
+      };
 
-  setModalPendVisible(false);
+      setModalPendVisible(false);
 
-  // 👇 Aquí garantizamos que el form.pendienteId sea el UUID real de la tabla pendientes
-  selectPersona(reg, true);
-  setForm(prev => ({ ...prev, pendienteId: row.id })); 
-  setBloquearCultos(false);
-};
-
+      // 👇 Aquí garantizamos que el form.pendienteId sea el UUID real de la tabla pendientes
+      selectPersona(reg, true);
+      setForm(prev => ({ ...prev, pendienteId: row.id })); 
+      setBloquearCultos(false);
+    };
 
 
     /* ===== Guardar / Actualizar / Reactivar ===== */
@@ -415,13 +447,7 @@ const selectDesdePendiente = (row: PendienteItem) => {
         }
     };
 
-    // =================================================================
-    // ================== CAMBIO QUIRÚRGICO INICIA =====================
-    // =================================================================
-
-    // 1. FUNCIÓN `fetchListado` CORREGIDA
-    // Se cambia para usar el RPC 'fn_buscar_persona' que ya funciona, en lugar de una consulta directa.
-    // No necesita el parámetro 'page' porque trae todos los datos de una vez.
+    /* ===== Listado de Personas (desde el modal de búsqueda) ===== */
     const fetchListado = async () => {
         setListadoLoading(true);
         try {
@@ -453,22 +479,6 @@ const selectDesdePendiente = (row: PendienteItem) => {
             setListadoLoading(false);
         }
     };
-
-    // 2. useEffect OBSOLETO ELIMINADO
-    // Este `useEffect` ya no es necesario. La consulta se hace una sola vez al presionar
-    // el botón "Listado" y la paginación se maneja localmente (en el cliente).
-    // Dejarlo aquí causaría llamadas innecesarias.
-    /*
-    useEffect(() => {
-        if (modoListado) {
-            fetchListado(listadoPage);
-        }
-    }, [listadoPage, modoListado]);
-    */
-   
-    // =================================================================
-    // =================== CAMBIO QUIRÚRGICO TERMINA ====================
-    // =================================================================
 
 
     /* ===== Búsqueda (modal) ===== */
@@ -555,8 +565,8 @@ const selectDesdePendiente = (row: PendienteItem) => {
 
         if (culto.diaKey && culto.hora) {
             const key = culto.diaKey as DiaKey;
-            cultosMap = { ...defaultCultos(), [key]: culto.hora! } as CultosMap;
             const diaBonito = key[0] + key.slice(1).toLowerCase();
+            cultosMap = { ...defaultCultos(), [key]: culto.hora! } as CultosMap; // Asegurarse que es una hora no nula
             cultoSeleccionado = `${diaBonito} - ${culto.hora}`;
         }
 
@@ -583,14 +593,26 @@ const selectDesdePendiente = (row: PendienteItem) => {
 
     // Cargar un registro del modal de Pendientes como NUEVO
     const selectPendiente = (p: any) => {
+        const culto = extraerCultoDesdeNotas(p.observaciones);
+        let cultosMap: CultosMap = defaultCultos();
+        let cultoSeleccionado = '';
+
+        // Si el pendiente tiene un culto asociado, establecerlo en el formulario
+        if (culto.diaKey && culto.hora) {
+            const key = culto.diaKey as DiaKey;
+            const diaBonito = key[0] + key.slice(1).toLowerCase();
+            cultosMap = { ...defaultCultos(), [key]: culto.hora! } as CultosMap; // Asegurarse que es una hora no nula
+            cultoSeleccionado = `${diaBonito} - ${culto.hora}`;
+        }
+
         setForm(f => ({
             ...f,
             nombre: p?.nombre || '',
             telefono: p?.telefono || '',
-            observaciones: (p?.observaciones ?? ''),
+            observaciones: culto.clean || '', // Usar las observaciones limpias
             destino: [],
-            cultos: defaultCultos(),
-            cultoSeleccionado: '',
+            cultos: cultosMap, // Establecer el culto mapeado
+            cultoSeleccionado, // Establecer el string de culto seleccionado
             pendienteId: (p?.id ?? p?.progreso_id ?? p?.persona_id ?? null) || null,
         }));
         setModoEdicion(false);
@@ -698,6 +720,92 @@ const selectDesdePendiente = (row: PendienteItem) => {
       }
     };
 
+    
+    /* ===== FUNCIONES DE EXPORTACIÓN ===== */
+
+    const handleExportPDF = () => {
+        if (!pendientesRows.length) {
+            toast('No hay datos para exportar');
+            return;
+        }
+
+        const mesActual = new Date().toLocaleString('es-ES', { month: 'long' });
+        const doc = new jsPDF();
+        
+        doc.setFontSize(16);
+        doc.text(`Listado de Contactos pendientes del Mes ${mesActual.charAt(0).toUpperCase() + mesActual.slice(1)}`, 14, 20);
+
+        const headers = [["Nombre", "Teléfono", "Fecha", "Culto de Ingreso"]];
+        const body = pendientesRows.map(row => {
+            const culto = extraerCultoDesdeNotas(row.observaciones);
+            return [
+                row.nombre || '',
+                row.telefono || '',
+                soloFecha(row.creado_en ?? row.created_at ?? row.fecha ?? ""),
+                culto.full || 'N/A' // 'full' tiene el formato "Domingo - 7:00 AM"
+            ];
+        });
+
+        // =================================================================
+        // ======================= INICIO DE LA CORRECCIÓN =======================
+        // =================================================================
+        // Llamar a autoTable como una función, pasando el 'doc'
+        autoTable(doc, {
+        // =================================================================
+        // ======================== FIN DE LA CORRECCIÓN =======================
+        // =================================================================
+            startY: 28,
+            head: headers,
+            body: body,
+            theme: 'striped',
+            headStyles: { fillColor: [79, 70, 229] } // Indigo color
+        });
+
+        doc.save(`pendientes_${mesActual}.pdf`);
+    };
+
+    const handleExportExcel = () => {
+        if (!pendientesRows.length) {
+            toast('No hay datos para exportar');
+            return;
+        }
+
+        const mesActual = new Date().toLocaleString('es-ES', { month: 'long' });
+        
+        // Fila de Título
+        const title = [`Listado de Contactos pendientes del Mes ${mesActual.charAt(0).toUpperCase() + mesActual.slice(1)}`];
+        
+        // Fila de Encabezados
+        const headers = ["Nombre", "Teléfono", "Fecha", "Culto de Ingreso"];
+        
+        // Filas de Datos
+        const data = pendientesRows.map(row => {
+            const culto = extraerCultoDesdeNotas(row.observaciones);
+            return [
+                row.nombre || '',
+                row.telefono || '',
+                soloFecha(row.creado_en ?? row.created_at ?? row.fecha ?? ""),
+                culto.full || 'N/A'
+            ];
+        });
+
+        // Combinar todo
+        const allRows = [title, [], headers, ...data]; // Fila vacía para espaciado
+        
+        // Crear hoja de cálculo
+        const ws = XLSX.utils.aoa_to_sheet(allRows);
+        
+        // Unir celdas del título (A1 a D1)
+        ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 3 } }];
+        
+        // Crear libro y añadir hoja
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, `Pendientes ${mesActual}`);
+
+        // Guardar archivo
+        XLSX.writeFile(wb, `pendientes_${mesActual}.xlsx`);
+    };
+    
     /* ===== UI ===== */
     return (
         <div className="pn-root">
@@ -783,8 +891,6 @@ const selectDesdePendiente = (row: PendienteItem) => {
                                                 <th className="text-left font-extrabold px-4 py-3 tracking-wide text-lg drop-shadow">Grupo</th>
                                             </tr>
                                         </thead>
-                                        {/* 4. RENDERIZADO DE TABLA MODIFICADO */}
-                                        {/* Se usa .slice() para paginar los datos que ya están en memoria. */}
                                         <tbody>
                                             {listadoLoading && <tr><td colSpan={3} className="text-center py-4">Cargando...</td></tr>}
                                             {!listadoLoading && listadoPersonas.length === 0 && <tr><td colSpan={3} className="text-center py-4">No hay registros</td></tr>}
@@ -982,7 +1088,7 @@ const selectDesdePendiente = (row: PendienteItem) => {
                     </div>
                 </div>
 
-                                {/* Modal PENDIENTES - Premium 2025 */}
+                                {/* ========= INICIO: Modal PENDIENTES (Estilo Cupertino) ========= */}
                                 {modalPendVisible && (
                                     <div
                                         id="modal-pendientes"
@@ -990,111 +1096,165 @@ const selectDesdePendiente = (row: PendienteItem) => {
                                         aria-modal="true"
                                         aria-labelledby="pend-title"
                                         onKeyDown={(e) => e.key === "Escape" && setModalPendVisible(false)}
-                                        className="fixed inset-0 z-50 flex items-center justify-center bg-[radial-gradient(1200px_800px_at_50%_20%,rgba(79,70,229,.18),rgba(0,0,0,.45))] backdrop-blur-sm"
+                                        className="fixed inset-0 z-50 flex items-center justify-center bg-black/25 backdrop-blur-md"
                                     >
                                         <div
                                             tabIndex={-1}
-                                            className="w-[min(560px,92vw)] rounded-[22px] overflow-hidden border border-white/25 shadow-[0_18px_60px_-8px_rgba(17,24,39,.35)] bg-gradient-to-br from-indigo-500/90 via-violet-500/90 to-sky-400/85"
+                                            className="w-[min(600px,92vw)] rounded-[20px] overflow-hidden border border-neutral-200/50 shadow-2xl bg-white/90 backdrop-blur-xl"
                                         >
-                                            {/* Header sticky */}
-                                            <div className="sticky top-0 flex items-center justify-center py-4 px-5 bg-[radial-gradient(ellipse_at_top_left,_white_80%,_#f3f4f6_100%)] text-black shadow-[inset_0_-1px_0_rgba(255,255,255,.18)]">
-                                                <h3 id="pend-title" className="font-extrabold tracking-wide text-lg text-black">
+                                            
+                                            {/* Header sticky con Iconos de Exportación */}
+                                            <div className="sticky top-0 flex items-center justify-between py-3.5 px-5 bg-white/70 backdrop-blur-sm border-b border-neutral-300/80">
+                                                {/* Iconos Izquierda */}
+                                                <div className="flex items-center gap-2">
+                                                    <button 
+                                                        onClick={handleExportPDF} 
+                                                        className="grid place-items-center w-7 h-7 rounded-full text-red-600 bg-red-100/80 transition-all hover:bg-red-200/90" 
+                                                        title="Exportar PDF"
+                                                    >
+                                                        <FileText size={15} />
+                                                    </button>
+                                                    <button 
+                                                        onClick={handleExportExcel} 
+                                                        className="grid place-items-center w-7 h-7 rounded-full text-green-700 bg-green-100/80 transition-all hover:bg-green-200/90" 
+                                                        title="Exportar Excel"
+                                                    >
+                                                        <FileSpreadsheet size={15} />
+                                                    </button>
+                                                </div>
+
+                                                {/* Título Centrado */}
+                                                <h3 
+                                                    id="pend-title" 
+                                                    className="font-semibold tracking-tight text-lg text-neutral-900 absolute left-1/2 -translate-x-1/2"
+                                                >
                                                     Pendientes
                                                 </h3>
+
+                                                {/* Botón Cerrar Derecha */}
                                                 <button
                                                     aria-label="Cerrar"
                                                     onClick={() => setModalPendVisible(false)}
-                                                    style={{
-                                                        position: 'absolute',
-                                                        right: 8,
-                                                        top: 8,
-                                                        zIndex: 100,
-                                                        width: 40,
-                                                        height: 40,
-                                                        padding: 0,
-                                                        borderRadius: '50%',
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                        justifyContent: 'center',
-                                                        fontSize: '1.7rem',
-                                                        border: 'none',
-                                                        background: 'rgba(255,255,255,0.85)',
-                                                        boxShadow: '0 2px 8px rgba(0,0,0,0.10)',
-                                                        cursor: 'pointer',
-                                                        transition: 'background 0.18s, color 0.18s',
-                                                    }}
-                                                    onMouseEnter={e => { e.currentTarget.style.background = '#ff4d4f'; e.currentTarget.style.color = '#fff'; }}
-                                                    onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.85)'; e.currentTarget.style.color = ''; }}
+                                                    className="relative z-10 grid place-items-center w-8 h-8 rounded-full bg-neutral-200/80 text-neutral-600 transition-all hover:bg-neutral-300/90 hover:text-neutral-900"
                                                 >
-                                                    ×
+                                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-4 h-4">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                                    </svg>
                                                 </button>
                                             </div>
 
-                                            {/* Body */}
-                                            <div className="px-3 pb-4 pt-2">
-                                                <table className="w-full border-collapse text-white">
-                                                    <thead>
-                                                        <tr className="border-b border-white/20">
-                                                            <th className="text-left font-extrabold text-lg px-2 py-2 font-serif tracking-wide drop-shadow-sm text-white">Nombre</th>
-                                                            <th className="text-left font-extrabold text-lg px-2 py-2 font-serif tracking-wide drop-shadow-sm text-white">Teléfono</th>
-                                                            <th className="text-left font-extrabold text-lg px-2 py-2 font-serif tracking-wide drop-shadow-sm text-white hidden sm:table-cell">Día</th>
-                                                            <th className="text-left font-extrabold text-lg px-2 py-2 font-serif tracking-wide drop-shadow-sm text-white w-[86px]">Acciones</th>
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody>
+
+                                            {/* Body: Reemplazamos <table> con una lista de divs */}
+                                            <div className="px-3 pb-3 pt-2">
+                                                <div className="w-full text-black">
+                                                    
+                                                    {/* Encabezado del listado (Responsivo) */}
+                                                    <div className="flex w-full border-b border-neutral-300/80 px-3 py-2">
+                                                        <div className="flex-1 text-left text-xs font-semibold text-neutral-600 uppercase tracking-wider">Nombre</div>
+                                                        <div className="hidden sm:block w-32 text-left text-xs font-semibold text-neutral-600 uppercase tracking-wider">Teléfono</div>
+                                                        <div className="hidden sm:block w-28 text-left text-xs font-semibold text-neutral-600 uppercase tracking-wider">Día</div>
+                                                        <div className="w-[84px] sm:w-[100px] text-center text-xs font-semibold text-neutral-600 uppercase tracking-wider">Acciones</div>
+                                                    </div>
+
+
+                                                    {/* Contenedor de la lista con scroll */}
+                                                    <div className="list-body max-h-[60vh] overflow-y-auto">
                                                         {pendLoading && (
-                                                            <tr>
-                                                                <td colSpan={4} className="text-center opacity-90 px-2 py-4">Cargando…</td>
-                                                            </tr>
+                                                            <div className="text-center text-neutral-600 px-2 py-10">Cargando…</div>
                                                         )}
 
                                                         {!pendLoading && pendientesRows.length === 0 && (
-                                                            <tr>
-                                                                <td colSpan={4} className="text-center opacity-90 px-2 py-4">Sin pendientes</td>
-                                                            </tr>
+                                                            <div className="text-center text-neutral-600 px-2 py-10">Sin pendientes</div>
                                                         )}
 
                                                         {!pendLoading &&
                                                             pendientesRows
                                                                 .slice(pendPage * PEND_PAGE_SIZE, (pendPage + 1) * PEND_PAGE_SIZE)
                                                                 .map((row) => (
-                                                                    <tr
+                                                                    
+                                                                    // Fila de Pendiente (Responsiva)
+                                                                    <div
                                                                         key={(row.progreso_id ?? row.persona_id ?? row.id ?? Math.random().toString())}
                                                                         title="Cargar en el formulario"
                                                                         onClick={() => selectPendiente(row)}
-                                                                        className="cursor-pointer transition-colors odd:bg-white/[.035] hover:bg-white/10"
+                                                                        className="flex items-center w-full cursor-pointer transition-colors hover:bg-neutral-600/5 border-b border-neutral-200/70"
                                                                     >
-                                                                        <td className="px-2 py-3 text-[15px]">{row.nombre ?? ""}</td>
-                                                                        <td className="px-2 py-3 text-[15px]">{row.telefono ?? ""}</td>
-                                                                        <td className="px-2 py-3 text-[15px] hidden sm:table-cell">
+                                                                        {/* Columna Principal (Contiene Nombre, Fecha y Teléfono en móvil) */}
+                                                                        <div className="flex-1 px-3 py-3 truncate">
+                                                                            {/* Fila 1: Nombre (Desktop) */}
+                                                                            <div className="hidden sm:flex items-center justify-between">
+                                                                                <span className="text-sm font-medium text-neutral-800 truncate">
+                                                                                    {row.nombre ?? ""}
+                                                                                </span>
+                                                                            </div>
+
+                                                                            {/* Fila 1: Nombre + Fecha (Móvil) */}
+                                                                            <div className="flex sm:hidden items-center justify-between">
+                                                                                <span className="text-sm font-medium text-neutral-800 truncate">
+                                                                                    {row.nombre ?? ""}
+                                                                                </span>
+                                                                                {/* Fecha (Solo visible en móvil, al lado del nombre) */}
+                                                                                <span className="text-xs text-neutral-600 ml-2 flex-shrink-0">
+                                                                                    {soloFecha(row.creado_en ?? row.created_at ?? row.fecha ?? "")}
+                                                                                </span>
+                                                                            </div>
+                                                                            
+                                                                            {/* Fila 2: Teléfono (Solo visible en móvil) */}
+                                                                            <div className="sm:hidden text-sm text-neutral-700 truncate mt-0.5">
+                                                                                {row.telefono ?? ""}
+                                                                            </div>
+                                                                        </div>
+                                                                        
+                                                                        {/* Columna Teléfono (Solo visible en Desktop) */}
+                                                                        <div className="hidden sm:block w-32 px-3 py-3 text-sm text-neutral-700 truncate">
+                                                                            {row.telefono ?? ""}
+                                                                        </div>
+
+                                                                        {/* Columna Día (Solo visible en Desktop) */}
+                                                                        <div className="hidden sm:block w-28 px-3 py-3 text-sm text-neutral-600 truncate">
                                                                             {soloFecha(row.creado_en ?? row.created_at ?? row.fecha ?? "")}
-                                                                        </td>
-                                                                        <td className="px-2 py-3">
+                                                                        </div>
+                                                                        
+                                                                        {/* Columna Acciones (Llamar + Eliminar) (Visible en ambos) */}
+                                                                        <div className="w-[84px] sm:w-[100px] px-3 py-3 text-center flex items-center justify-end gap-1">
+                                                                            <a
+                                                                                href={`tel:${normalizaTelefono(row.telefono ?? '')}`}
+                                                                                onClick={(e) => {
+                                                                                    if (!row.telefono) e.preventDefault();
+                                                                                    e.stopPropagation(); // Evita que se active el selectPendiente del div padre
+                                                                                }}
+                                                                                title={`Llamar a ${row.nombre ?? ''}`}
+                                                                                className={`grid place-items-center w-7 h-7 rounded-full text-white transition-all hover:scale-110 shadow-sm ${
+                                                                                    row.telefono ? 'bg-blue-500 hover:bg-blue-600' : 'bg-neutral-400 cursor-not-allowed'
+                                                                                }`}
+                                                                            >
+                                                                                <Phone size={13} strokeWidth={2.5} />
+                                                                            </a>
                                                                             <button
                                                                                 aria-label="Eliminar pendiente"
                                                                                 title="Eliminar pendiente"
                                                                                 onClick={(e) => { e.stopPropagation(); handleEliminarPendiente(row); }}
-                                                                                className="inline-grid place-items-center w-8 h-8 rounded-xl border border-white/25 bg-black/20 transition-transform hover:scale-105 hover:bg-[#ff3b3b]/20 hover:border-[#ff3b3b]/40"
+                                                                                className="inline-grid place-items-center w-7 h-7 rounded-full transition-all hover:scale-105 bg-red-100/80 hover:bg-red-200/90"
                                                                             >
-                                                                                <Trash2 size={18} className="text-white" />
+                                                                                <Trash2 size={15} className="text-red-600" />
                                                                             </button>
-                                                                        </td>
-                                                                    </tr>
+                                                                        </div>
+                                                                    </div>
                                                                 ))}
-                                                    </tbody>
-                                                </table>
+                                                    </div>
+                                                </div>
 
-                                                {/* Paginación */}
+                                                {/* Paginación (Estilo Cupertino) */}
                                                 {!pendLoading && pendientesRows.length > PEND_PAGE_SIZE && (
-                                                    <div className="mt-3 flex items-center justify-between text-white">
+                                                    <div className="mt-2 pt-3 flex items-center justify-between text-neutral-800 border-t border-neutral-300/80">
                                                         <button
                                                             onClick={() => setPendPage((p) => Math.max(0, p - 1))}
                                                             disabled={pendPage === 0}
-                                                            className="px-3 py-1 rounded-lg border border-white/25 bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed transition hover:bg-white/20"
+                                                            className="px-2 py-1.5 text-sm font-medium text-blue-600 rounded-lg disabled:text-neutral-400 disabled:cursor-not-allowed transition-colors hover:bg-neutral-100 sm:px-4"
                                                         >
                                                             Atrás
                                                         </button>
-                                                        <div className="opacity-85">
+                                                        <div className="text-sm text-neutral-600">
                                                             Página {pendPage + 1} de {Math.max(1, Math.ceil(pendientesRows.length / PEND_PAGE_SIZE))}
                                                         </div>
                                                         <button
@@ -1104,7 +1264,7 @@ const selectDesdePendiente = (row: PendienteItem) => {
                                                                 )
                                                             }
                                                             disabled={pendPage >= Math.ceil(pendientesRows.length / PEND_PAGE_SIZE) - 1}
-                                                            className="px-3 py-1 rounded-lg border border-white/25 bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed transition hover:bg-white/20"
+                                                            className="px-2 py-1.5 text-sm font-medium text-blue-600 rounded-lg disabled:text-neutral-400 disabled:cursor-not-allowed transition-colors hover:bg-neutral-100 sm:px-4"
                                                         >
                                                             Siguiente
                                                         </button>
@@ -1114,6 +1274,8 @@ const selectDesdePendiente = (row: PendienteItem) => {
                                         </div>
                                     </div>
                                 )}
+                                {/* ========= FIN: Modal PENDIENTES (Estilo Cupertino) ========= */}
+
 
                 {/* Botones */}
                 <div className="btn-container" style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
