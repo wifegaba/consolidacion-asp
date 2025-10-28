@@ -63,6 +63,7 @@ type DonutSegmentData = {
 };
 
 
+// --- INICIO DE MODIFICACIÓN ---
 type DetalleSeccionesProps = {
   asistEtapas: AsistEtapaRow[];
   agendados?: AgendadoRow[];
@@ -71,7 +72,9 @@ type DetalleSeccionesProps = {
   servidoresPorRolEtapaDia?: BarChartData[];
   defaultKey?: string;
   range?: Range;
+  valor?: string; // 1. AÑADIR PARÁMETRO 'valor'
 };
+// --- FIN DE MODIFICACIÓN ---
 
 /* ============================ Constantes y Utils ============================ */
 // (Esta sección no se modifica)
@@ -389,6 +392,9 @@ export default function DetalleSecciones({
   servidoresPorRolEtapaDia = [],
   defaultKey,
   range = 'month',
+  // --- INICIO DE MODIFICACIÓN ---
+  valor, // 2. RECIBIR EL PARÁMETRO 'valor'
+  // --- FIN DE MODIFICACIÓN ---
 }: DetalleSeccionesProps) {
   const [view, setView] = useState<string | null>(defaultKey || null);
   const [modalOpen, setModalOpen] = useState(false);
@@ -442,8 +448,8 @@ export default function DetalleSecciones({
     const title = `${asistio ? 'Asistentes' : 'Inasistentes'} de ${etiquetaEtapaModulo(etapa, modulo, dia)}`;
     setModalOpen(true); setModalIsLoading(true); setModalContent({ title, data: [], premium: true });
     try { 
-      // Se añade el parámetro 'range' a la llamada
-      const personas = await getAsistentesPorEtapaFiltro(etapa, modulo, dia, asistio, range); 
+      // 3. PASAR EL 'valor' A LA FUNCIÓN
+      const personas = await getAsistentesPorEtapaFiltro(etapa, modulo, dia, asistio, range, valor); 
       setModalContent({ title, data: personas, premium: true }); 
     } 
     catch (error) { console.error("Error fetching attendance details:", error); setModalContent(prev => ({ ...prev, title: `Error al cargar ${etapa}`, premium: true })); } 
@@ -458,8 +464,8 @@ export default function DetalleSecciones({
     setPdfLoadingKey(loadingKey);
     try { 
       const title = `${asistio ? 'Asistentes' : 'Inasistentes'} de ${etiquetaEtapaModulo(etapa, modulo, dia)}`; 
-      // Se añade el parámetro 'range' a la llamada
-      const personas = await getAsistentesPorEtapaFiltro(etapa, modulo, dia, asistio, range); 
+      // 3. PASAR EL 'valor' A LA FUNCIÓN
+      const personas = await getAsistentesPorEtapaFiltro(etapa, modulo, dia, asistio, range, valor); 
       generateContactosPdf(title, personas); 
     } 
     catch (error) { console.error(`Error generating PDF for ${etapa}:`, error); } 

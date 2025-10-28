@@ -17,11 +17,18 @@ function getClient() {
   });
 }
 
-function getRangeUTC(range: Range) {
+// --- INICIO DE MODIFICACIÓN ---
+/**
+ * Actualizado para aceptar un 'valor' opcional para rangos históricos.
+ * @param range - El tipo de rango ('today', 'week', 'month')
+ * @param valor - El valor específico (ej. "2025-10" para mes, "2025-10-27" para semana)
+ */
+function getRangeUTC(range: Range, valor?: string) {
   if (!range) return undefined;
   const now = new Date();
 
   if (range === 'today') {
+    // (Lógica sin cambios)
     const start = new Date(now);
     start.setHours(0, 0, 0, 0); 
     const end = new Date(start);
@@ -30,6 +37,21 @@ function getRangeUTC(range: Range) {
   }
 
   if (range === 'week') {
+    // Si se provee un 'valor' (fecha de inicio de la semana), se usa ese
+    if (valor) {
+      try {
+        // Asume 'valor' es YYYY-MM-DD
+        const start = new Date(valor); 
+        start.setUTCHours(0,0,0,0);
+        const end = new Date(start);
+        end.setUTCDate(end.getUTCDate() + 7); // 7 días después
+        return { from: start.toISOString(), to: end.toISOString() };
+      } catch (e) {
+        console.error("Error parsing week 'valor':", e);
+        // Fallback al comportamiento original si el valor es inválido
+      }
+    }
+    // (Lógica original para la semana actual como fallback)
     const start = new Date(now);
     const dow = start.getUTCDay();
     const diff = (dow === 0 ? -6 : 1 - dow);
@@ -39,10 +61,27 @@ function getRangeUTC(range: Range) {
     return { from: start.toISOString(), to: end.toISOString() };
   }
 
+  // (Lógica para 'month')
+  // Si se provee un 'valor' (ej. "2025-10"), se usa ese
+  if (valor) {
+    try {
+      const [year, month] = valor.split('-').map(Number);
+      // month - 1 porque los meses en JS Date UTC son 0-indexados
+      const start = new Date(Date.UTC(year, month - 1, 1)); 
+      const end = new Date(Date.UTC(year, month, 1)); // Siguiente mes, día 1
+      return { from: start.toISOString(), to: end.toISOString() };
+    } catch (e) {
+      console.error("Error parsing month 'valor':", e);
+      // Fallback al comportamiento original si el valor es inválido
+    }
+  }
+  // (Lógica original para el mes actual como fallback)
   const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
   const end   = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth()+1, 1));
   return { from: start.toISOString(), to: end.toISOString() };
 }
+// --- FIN DE MODIFICACIÓN ---
+
 
 function normalizeString(str: string | null | undefined): string {
   if (!str) return '';
@@ -83,10 +122,15 @@ export async function getRestauracionCount(): Promise<number> {
 }
 
 export async function getAsistenciasConfirmadosYNo(
-  range: Range = 'month'
+  // --- INICIO DE MODIFICACIÓN ---
+  range: Range = 'month',
+  valor?: string // 1. AÑADIR PARÁMETRO 'valor'
+  // --- FIN DE MODIFICACIÓN ---
 ): Promise<{ confirmados: number; noAsistieron: number; total: number }> {
   const supabase = getClient();
-  const r = getRangeUTC(range);
+  // --- INICIO DE MODIFICACIÓN ---
+  const r = getRangeUTC(range, valor); // 2. PASAR 'valor'
+  // --- FIN DE MODIFICACIÓN ---
   let qOk = supabase.from('asistencia').select('id', { count: 'exact', head: true }).eq('asistio', true);
   let qNo = supabase.from('asistencia').select('id', { count: 'exact', head: true }).eq('asistio', false);
   if (r) { qOk = qOk.gte('creado_en', r.from).lt('creado_en', r.to); qNo = qNo.gte('creado_en', r.from).lt('creado_en', r.to); }
@@ -101,6 +145,7 @@ export async function getAsistenciasConfirmadosYNo(
 export async function getAgendadosPorSemana(): Promise<
   Array<{ etapa_modulo: string; agendados_pendientes: number }>
 > {
+  // (Esta función no usa rango, no se modifica)
   const supabase = getClient();
   const { data, error } = await supabase.from('v_agendados').select('etapa, modulo, dia');
   if (error) { console.error('getAgendadosPorSemana:', error.message); return []; }
@@ -116,11 +161,16 @@ export async function getAgendadosPorSemana(): Promise<
 export type Etapa = 'Semillas' | 'Devocionales' | 'Restauracion' | string;
 
 export async function getAsistenciasPorModulo(
-  range: Range = 'month'
+  // --- INICIO DE MODIFICACIÓN ---
+  range: Range = 'month',
+  valor?: string // 1. AÑADIR PARÁMETRO 'valor'
+  // --- FIN DE MODIFICACIÓN ---
 ): Promise<Array<{ etapa: string; modulo: number; dia: string; confirmados: number; noAsistieron: number; total: number }>> {
   noStore();
   const supabase = getClient();
-  const r = getRangeUTC(range);
+  // --- INICIO DE MODIFICACIÓN ---
+  const r = getRangeUTC(range, valor); // 2. PASAR 'valor'
+  // --- FIN DE MODIFICACIÓN ---
   
   // ✅ **CORRECCIÓN:** Se realiza un JOIN para obtener los datos de la tabla 'progreso'.
   let query = supabase.from('asistencia').select(`
@@ -167,12 +217,19 @@ export async function getAsistenciasPorModulo(
   return [...agg.values()].map(v => ({ ...v, total: v.confirmados + v.noAsistieron, })).sort((a, b) => { const et = a.etapa.localeCompare(b.etapa, 'es', { sensitivity: 'base' }); if (et !== 0) return et; const diaCompare = a.dia.localeCompare(b.dia, 'es', { sensitivity: 'base' }); if (diaCompare !== 0) return diaCompare; return a.modulo - b.modulo; });
 }
 
-export async function getAsistenciasPorEtapa(range: Range = 'month'): Promise<
+export async function getAsistenciasPorEtapa(
+  // --- INICIO DE MODIFICACIÓN ---
+  range: Range = 'month',
+  valor?: string // 1. AÑADIR PARÁMETRO 'valor'
+  // --- FIN DE MODIFICACIÓN ---
+): Promise<
   Array<{ etapa: Etapa; confirmados: number; noAsistieron: number; total: number }>
 > {
   noStore();
   const supabase = getClient();
-  const r = getRangeUTC(range);
+  // --- INICIO DE MODIFICACIÓN ---
+  const r = getRangeUTC(range, valor); // 2. PASAR 'valor'
+  // --- FIN DE MODIFICACIÓN ---
 
   // ✅ **CORRECCIÓN:** Se realiza un JOIN para obtener 'etapa' de la tabla 'progreso'.
   let query = supabase.from('asistencia').select(`
@@ -212,6 +269,7 @@ export async function getAsistenciasPorEtapa(range: Range = 'month'): Promise<
 export async function getContactosPorEtapaDia(): Promise<
   Array<{ key: string; value: number; color: string }>
 > {
+  // (Esta función no usa rango, no se modifica)
   noStore();
   const supabase = getClient();
   const { data, error } = await supabase.from('progreso').select('etapa, modulo, dia').eq('activo', true);
@@ -231,6 +289,7 @@ export async function getContactosPorEtapaDia(): Promise<
 export async function getServidoresPorRolEtapaDia(): Promise<
   Array<{ key: string; value: number; color: string }>
 > {
+  // (Esta función no usa rango, no se modifica)
   noStore();
   const supabase = getClient();
 

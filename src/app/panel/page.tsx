@@ -23,12 +23,19 @@ function formatNumber(n: number) {
   return new Intl.NumberFormat("es-CO").format(n);
 }
 
-export default async function Page({ searchParams }: { searchParams?: Promise<{ range?: string }> }) {
-  const sp = await searchParams;
-  const currentRange = sp?.range === 'week' ? 'week' : 'month' as Range;
+export default async function Page({ searchParams }: {
+  searchParams: {
+    range?: string;
+    valor?: string;
+  }
+}) {
 
-  // ✅ OPTIMIZACIÓN: Todas las llamadas a la base de datos se agrupan en un único Promise.all.
-  // Esto ejecuta todas las consultas en paralelo, reduciendo drásticamente el tiempo de carga.
+  const currentRange: Range = searchParams?.range === 'week' ? 'week'
+                            : searchParams?.range === 'today' ? 'today'
+                            : 'month';
+  const currentValue = searchParams?.valor;
+
+
   const [
     totalContactos,
     totalServidores,
@@ -45,13 +52,12 @@ export default async function Page({ searchParams }: { searchParams?: Promise<{ 
     getRestauracionCount(),
     getContactosPorEtapaDia(),
     getServidoresPorRolEtapaDia(),
-    getAsistenciasConfirmadosYNo(currentRange),
-    getAsistenciasPorEtapa(currentRange),
-    getAsistenciasPorModulo(currentRange),
+    getAsistenciasConfirmadosYNo(currentRange, currentValue),
+    getAsistenciasPorEtapa(currentRange, currentValue),
+    getAsistenciasPorModulo(currentRange, currentValue),
     getAgendadosPorSemana(),
   ]);
-  
-  // Esta operación se mantiene después, ya que depende de los datos que acabamos de obtener.
+
   const agendadosTotal = agendados.reduce(
     (s: number, r: { agendados_pendientes: number }) => s + r.agendados_pendientes,
     0
@@ -61,18 +67,32 @@ export default async function Page({ searchParams }: { searchParams?: Promise<{ 
     <>
       <RtDashboardWatch />
 
-      <div className="flex justify-between items-center mb-6 px-1">
+      {/* --- INICIO DE MODIFICACIÓN (Layout Responsive) --- */}
+      {/*
+        Clases aplicadas:
+        - Móvil (por defecto): flex-col (apilado), items-start (alineado izq), gap-4 (espacio)
+        - Desktop (md:): flex-row (lado a lado), items-center (centrado vert), justify-between (separado)
+      */}
+      <div className="flex flex-col items-start gap-4 md:flex-row md:items-center md:justify-between mb-6 px-1">
         <h1 className="text-2xl font-bold text-slate-800">Dashboard General</h1>
-        <RangeFilterButtons />
+        <RangeFilterButtons
+          currentRange={currentRange}
+          currentValue={currentValue}
+        />
       </div>
+      {/* --- FIN DE MODIFICACIÓN --- */}
 
       <div className="kpi-row">
         <ContactosKPI label="Contactos" initialValue={totalContactos} className="contactos" data-key="contactos" />
         <ServidoresKPI label="Servidores" initialValue={totalServidores} className="servidores" data-key="servidores" />
-        
+
         <article className="kpi-card asistencias" data-key="asistencias">
           <div className="flex items-center justify-between">
-            <span className="kpi-label">Asistencias ({currentRange === 'week' ? 'Semana' : 'Mes'})</span>
+            <span className="kpi-label">Asistencias ({
+              currentRange === 'today' ? 'Hoy'
+              : currentRange === 'week' ? 'Semana'
+              : 'Mes'
+            })</span>
           </div>
           <div className="flex items-center gap-6 mt-2">
             <div className="kpi-value">{formatNumber(asistDetalle.total)}</div>
@@ -98,7 +118,8 @@ export default async function Page({ searchParams }: { searchParams?: Promise<{ 
         contactosPorEtapaDia={contactosPorEtapaDia}
         servidoresPorRolEtapaDia={servidoresPorRolEtapaDia}
         defaultKey="asistencias"
-        range={currentRange} // <-- Pasamos el rango actual por si el componente hijo lo necesita
+        range={currentRange}
+        valor={currentValue}
       />
     </>
   );
