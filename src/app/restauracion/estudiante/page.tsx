@@ -122,6 +122,11 @@ export default function EstudiantePage() {
     setStudentGrades({});
   };
 
+  const handleGoBackToStudentList = () => {
+    setMainState('courseWelcome');
+    setSelectedStudentId(null);
+  };
+
   const handleSelectStudent = (id: string) => {
     setSelectedStudentId(id);
     setMainState('viewing');
@@ -259,6 +264,9 @@ export default function EstudiantePage() {
   }, [lastAddedTopicId]);
 
   const dynamicContentBg = selectedColor ? folderBackgrounds[selectedColor] : defaultContentBg;
+  
+  // MODIFICADO: Añadida variable para controlar la vista de detalle en móvil
+  const isDetailView = mainState === 'creating' || mainState === 'viewing';
 
   return (
     <main
@@ -294,7 +302,7 @@ export default function EstudiantePage() {
           * { 
             animation-duration: 0.01ms !important; 
             animation-iteration-count: 1 !important;
-            transition-duration: 0.01ms !important; 
+            transition-duration: 0.01ms !importa
             scroll-behavior: auto !important; 
           }
         }
@@ -304,14 +312,14 @@ export default function EstudiantePage() {
       <div className="pointer-events-none absolute inset-0 opacity-[0.06] [background:radial-gradient(circle,_#000_1px,_transparent_1px)] [background-size:22px_22px]" />
 
       <div
-        // MODIFICADO: Añadido overflow-y-auto en móvil, min-h-0, quitado h-full y overflow-hidden
+        // MODIFICADO: quitado overflow-y-auto, quitado flex-col. Añadido overflow-hidden
         className="
           relative flex w-full min-h-0
-          overflow-y-auto md:overflow-hidden /* Scroll vertical solo en móvil */
+          overflow-hidden /* Scroll manejado por paneles internos */
           rounded-none border-none bg-white/40 backdrop-blur-2xl
           ring-0 shadow-none
           bg-[linear-gradient(145deg,rgba(99,102,241,0.08),rgba(255,255,255,0.07))]
-          flex-col md:flex-row
+          md:flex-row /* flex-col quitado */
         "
       >
         {/* Sidebar */}
@@ -330,12 +338,16 @@ export default function EstudiantePage() {
 
         {/* Contenido principal */}
         <div
-          // MODIFICADO: Quitada la clase 'overflow-hidden'
+          // MODIFICADO: Quitada la lógica de 'hidden', añadido absolute, w-full, h-full, translate-x
           className={`
-            ${mainState === 'courseWelcome' ? 'hidden md:flex' : 'flex'}
+            absolute inset-0 md:relative /* <-- AÑADIDO */
+            w-full h-full md:h-auto /* <-- AÑADIDO */
+            flex /* <-- MODIFICADO: simplificado */
             flex-1 flex-col min-w-0 min-h-0 
             ${dynamicContentBg}
-            transition-[background-image] duration-1000 ease-[cubic-bezier(0.32,0.72,0,1)]
+            transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] /* <-- MODIFICADO: transition-all */
+            ${isDetailView || mainState === 'welcome' ? 'translate-x-0' : 'translate-x-full'} /* <-- MODIFICADO: Lógica de animación de entrada/salida */
+            md:translate-x-0 /* <-- AÑADIDO: Reset en desktop */
           `}
         >
           {/* Topbar CON TABS estilo glass flotantes */}
@@ -345,6 +357,24 @@ export default function EstudiantePage() {
               border-b border-white/60 bg-gradient-to-b from-white/70 to-white/40 px-6 pt-3 backdrop-blur-xl
             "
           >
+            {/* MODIFICADO: Botón de Volver para Responsive */}
+            {isDetailView && (
+              <button
+                type="button"
+                onClick={handleGoBackToStudentList}
+                className="
+                  flex md:hidden items-center justify-center gap-1.5 p-2
+                  rounded-full border border-white/70 bg-white/25 backdrop-blur-2xl
+                  text-gray-700
+                  shadow-[0_4px_12px_-4px_rgba(2,6,23,0.2)]
+                  active:scale-95 transition-transform
+                "
+                aria-label="Volver a la lista de estudiantes"
+              >
+                <ArrowLeft size={18} />
+              </button>
+            )}
+
             {(mainState === 'creating' || mainState === 'viewing') && (
               <nav
                 className="
@@ -552,20 +582,28 @@ export default function EstudiantePage() {
 
 function WelcomePanel({ onSelectCourse }: { onSelectCourse: (title: string, color: keyof typeof folderColors) => void; }) {
   return (
-    <div className="flex w-full h-full flex-col items-center justify-start pt-6 pb-10 px-12 text-center [grid-area:stack] overflow-y-auto">
-      <div className="group relative overflow-hidden rounded-3xl border border-white/70 bg-white/55 px-10 py-12 shadow-xl backdrop-blur-xl">
+    <div className="flex w-full h-full flex-col items-center justify-start pt-6 pb-10 px-4 md:px-12 text-center [grid-area:stack] overflow-y-auto">
+      <div className="group relative overflow-hidden rounded-3xl border border-white/70 bg-white/55 px-6 md:px-10 py-8 md:py-12 shadow-xl backdrop-blur-xl w-full max-w-md md:max-w-sm">
         <div className="absolute -top-24 -right-24 h-64 w-64 rounded-full bg-gradient-to-br from-indigo-500/25 to-white/25 blur-3xl" />
-        <BookMarked size={64} className="mx-auto text-indigo-500/90" />
-        <h1 className="mt-6 text-2xl font-semibold tracking-tight text-gray-900">Bienvenido al Gestor Académico</h1>
-        <p className="mt-2 max-w-sm text-base text-gray-700">Selecciona un curso para empezar a gestionar estudiantes y registrar calificaciones.</p>
+        {/* MODIFICADO: Eliminados 'size' y 'md:size', añadidas clases w/h responsivas */}
+        <BookMarked className="w-14 h-14 md:w-16 md:h-16 mx-auto text-indigo-500/90" />
+        <h1 className="mt-6 text-xl md:text-2xl font-semibold tracking-tight text-gray-900">Bienvenido al Gestor Académico</h1>
+        <p className="mt-2 max-w-sm text-sm md:text-base text-gray-700 mx-auto">Selecciona un curso para empezar a gestionar estudiantes y registrar calificaciones.</p>
       </div>
-      <h2 className="text-xl font-semibold mt-10 mb-8 text-gray-800">Cursos Disponibles</h2>
-      <div className="flex flex-wrap items-center justify-center gap-6 w-full">
-        <CourseFolder title="Restauración" color="blue" onSelect={() => onSelectCourse('Restauración', 'blue')} />
-        <CourseFolder title="Fundamentos 1" color="indigo" onSelect={() => onSelectCourse('Fundamentos 1', 'indigo')} />
-        <CourseFolder title="Fundamentos 2" color="teal" onSelect={() => onSelectCourse('Fundamentos 2', 'teal')} />
-        <CourseFolder title="Restauración 2" color="purple" onSelect={() => onSelectCourse('Restauración 2', 'purple')} />
-        <CourseFolder title="Escuela de Siervos" color="indigo" hasSpecialBadge onSelect={() => onSelectCourse('Escuela de Siervos', 'indigo')} />
+      <h2 className="text-lg md:text-xl font-semibold mt-8 md:mt-10 mb-6 md:mb-8 text-gray-800">Cursos Disponibles</h2>
+      <div className="w-full max-w-3xl">
+        {/* MODIFICADO: Reemplazado grid con scroll-x por flex-wrap y justify-center */}
+        <div className="
+          flex flex-wrap items-center justify-center gap-4 md:gap-6
+          w-full 
+          pb-4 px-1 md:pb-0 md:px-0
+        ">
+          <CourseFolder title="Restauración" color="blue" onSelect={() => onSelectCourse('Restauración', 'blue')} />
+          <CourseFolder title="Fundamentos 1" color="indigo" onSelect={() => onSelectCourse('Fundamentos 1', 'indigo')} />
+          <CourseFolder title="Fundamentos 2" color="teal" onSelect={() => onSelectCourse('Fundamentos 2', 'teal')} />
+          <CourseFolder title="Restauración 2" color="purple" onSelect={() => onSelectCourse('Restauración 2', 'purple')} />
+          <CourseFolder title="Escuela de Siervos" color="indigo" hasSpecialBadge onSelect={() => onSelectCourse('Escuela de Siervos', 'indigo')} />
+        </div>
       </div>
     </div>
   );
@@ -609,13 +647,20 @@ function StudentSidebar({
   onGoBackToWelcome: () => void;
   courseName?: string;
 }) {
+  // MODIFICADO: Añadida variable para controlar la vista de detalle en móvil
+  const isDetailView = mainState === 'creating' || mainState === 'viewing';
+
   return (
     <aside
+      // MODIFICADO: Añadido absolute, inset-0, md:relative, h-full, transition-transform y lógica de translate-x
       className={`
-        w-full h-auto md:h-full md:w-1/3 lg:w-1/4 
+        absolute inset-0 md:relative /* <-- AÑADIDO */
+        w-full h-full md:h-full md:w-1/3 lg:w-1/4 /* <-- MODIFICADO: h-auto -> h-full */
         flex-shrink-0 flex flex-col 
         border-b md:border-b-0 md:border-r border-white/60 
         bg-gradient-to-b from-white/65 to-white/40 backdrop-blur-2xl 
+        transition-transform duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] /* <-- AÑADIDO */
+        ${isDetailView ? 'translate-x-[-100%] md:translate-x-0' : 'translate-x-0'} /* <-- AÑADIDO: Animación de salida */
         ${className}
       `}
       aria-label="Barra lateral de estudiantes"
@@ -940,14 +985,14 @@ function CourseFolder({
     <button
       type="button"
       onClick={onSelect}
-      className="relative flex flex-col items-center justify-start w-44 h-44 rounded-3xl p-4 transition-all duration-200 hover:scale-[1.05] active:scale-[0.98] focus:outline-none focus:ring-4 focus:ring-indigo-400/25 group text-center"
+      className="relative flex flex-col items-center justify-start w-36 h-36 md:w-44 md:h-44 rounded-3xl p-4 transition-all duration-200 hover:scale-[1.05] active:scale-[0.98] focus:outline-none focus:ring-4 focus:ring-indigo-400/25 group text-center"
     >
       <Folder
-        size={100}
-        className={`mb-3 ${colorClasses} transition-all duration-200 drop-shadow-md group-hover:drop-shadow-lg`}
+        // MODIFICADO: Eliminados 'size' y 'md:size', añadidas clases w/h responsivas
+        className={`w-20 h-20 md:w-24 md:h-24 mb-2 md:mb-3 ${colorClasses} transition-all duration-200 drop-shadow-md group-hover:drop-shadow-lg`}
         strokeWidth={1}
       />
-      <h4 className="text-sm font-semibold text-gray-800 w-full transition-colors group-hover:text-indigo-600">{title}</h4>
+      <h4 className="text-xs md:text-sm font-semibold text-gray-800 w-full transition-colors group-hover:text-indigo-600">{title}</h4>
       
       {hasSpecialBadge && (
         <div className="absolute top-8 right-8 z-10 p-1.5 rounded-full bg-white/70 border border-yellow-300 shadow-lg backdrop-blur-md">
@@ -957,3 +1002,4 @@ function CourseFolder({
     </button>
   );
 }
+
