@@ -940,7 +940,7 @@ function CardSection({
     if (isEditing) {
       inputRef.current?.focus();
       inputRef.current?.select();
-      onAutoFocus && requestAnimationFrame(() => onAutoFocus());
+  if (onAutoFocus) { requestAnimationFrame(() => onAutoFocus()); }
     }
   }, [isEditing, onAutoFocus]);
   useEffect(() => { if (!isEditing) setCurrentTitle(title || ''); }, [title, isEditing]);
