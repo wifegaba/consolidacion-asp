@@ -9,7 +9,7 @@ import {
   getServidoresCount,
   getAsistenciasConfirmadosYNo,
   getAsistenciasPorEtapa,
-  getRestauracionCount,
+  getRestauracionCount, // <--- Esta función se importa pero ya no se usa abajo
   getAgendadosPorSemana,
   getAsistenciasPorModulo,
   getContactosPorEtapaDia,
@@ -23,23 +23,28 @@ function formatNumber(n: number) {
   return new Intl.NumberFormat("es-CO").format(n);
 }
 
-export default async function Page({ searchParams }: {
-  searchParams: {
-    range?: string;
-    valor?: string;
-  }
-}) {
 
-  const currentRange: Range = searchParams?.range === 'week' ? 'week'
-                            : searchParams?.range === 'today' ? 'today'
+
+export default async function Page({
+  params,
+  searchParams,
+}: {
+  params?: Promise<Record<string, never>>;
+  searchParams?: Promise<{ range?: string; valor?: string }>;
+}) {
+  const resolvedParams = params ? await params : {};
+  const resolvedSearchParams = searchParams ? await searchParams : {};
+
+  const currentRange: Range = resolvedSearchParams?.range === 'week' ? 'week'
+                            : resolvedSearchParams?.range === 'today' ? 'today'
                             : 'month';
-  const currentValue = searchParams?.valor;
+  const currentValue = resolvedSearchParams?.valor;
 
 
   const [
     totalContactos,
     totalServidores,
-    totalRestauracion,
+    // --- CORRECCIÓN 2: 'totalRestauracion' eliminado ---
     contactosPorEtapaDia,
     servidoresPorRolEtapaDia,
     asistDetalle,
@@ -49,7 +54,7 @@ export default async function Page({ searchParams }: {
   ] = await Promise.all([
     getContactosCount(),
     getServidoresCount(),
-    getRestauracionCount(),
+    // --- CORRECCIÓN 2: 'getRestauracionCount()' eliminado ---
     getContactosPorEtapaDia(),
     getServidoresPorRolEtapaDia(),
     getAsistenciasConfirmadosYNo(currentRange, currentValue),
