@@ -30,6 +30,14 @@ type StudentGrades = Record<number, Record<number, string>>;
 type ActiveTab = 'create' | 'grades' | 'reports';
 type MainPanelState = 'welcome' | 'courseWelcome' | 'creating' | 'viewing';
 
+// MODIFICADO: Definición del tipo Course con hasSpecialBadge opcional
+type Course = {
+  title: string;
+  color: keyof typeof folderColors;
+  hasSpecialBadge?: boolean; // <-- Propiedad opcional
+  onSelect: () => void;
+};
+
 // --- MOCK DATA ---
 const mockStudents: Student[] = [
     { id: '1', name: 'Olivia Chen', avatarUrl: 'https://placehold.co/100x100/F9F871/4A4A4A?text=OC' },
@@ -54,6 +62,9 @@ const initialCourseTopics: CourseTopic[] = [
 // --- CONSTANTES ---
 const TAB_INDICES: Record<ActiveTab, number> = { create: 0, grades: 1, reports: 2 };
 
+// Niveles para la animación de paneles
+const STATE_LEVELS: Record<MainPanelState, number> = { 'welcome': 0, 'courseWelcome': 1, 'creating': 2, 'viewing': 2 };
+
 const folderColors = {
   blue: 'text-blue-500/80 fill-blue-500/20',
   indigo: 'text-indigo-500/80 fill-indigo-500/20',
@@ -63,15 +74,8 @@ const folderColors = {
 };
 
 // --- Fondos dinámicos "Cupertino" para el panel de contenido ---
-const defaultContentBg = 'bg-[radial-gradient(1200px_800px_at_80%_-10%,rgba(99,102,241,0.15),transparent_60%),radial-gradient(900px_600px_at_0%_110%,rgba(200,200,200,0.10),transparent_60%)]';
+const fixedContentBg = 'bg-[radial-gradient(1300px_900px_at_95%_5%,rgba(59,130,246,0.35),transparent_70%)]';
 
-const folderBackgrounds: Record<keyof typeof folderColors, string> = {
-  blue:   'bg-[radial-gradient(1300px_900px_at_95%_5%,rgba(59,130,246,0.35),transparent_70%)]',
-  indigo: 'bg-[radial-gradient(1300px_900px_at_95%_5%,rgba(99,102,241,0.35),transparent_70%)]',
-  teal:   'bg-[radial-gradient(1300px_900px_at_95%_5%,rgba(20,184,166,0.35),transparent_70%)]',
-  purple: 'bg-[radial-gradient(1300px_900px_at_95%_5%,rgba(168,85,247,0.35),transparent_70%)]',
-  pink:   'bg-[radial-gradient(1300px_900px_at_95%_5%,rgba(200,200,200,0.25),transparent_70%)]',
-};
 
 function chunkArray<T>(array: T[], size: number): T[][] {
   const chunks: T[][] = [];
@@ -89,12 +93,14 @@ export default function EstudiantePage() {
   const [courseTopics, setCourseTopics] = useState<CourseTopic[]>([]);
   const [studentGrades, setStudentGrades] = useState<StudentGrades>({});
 
-  const topicsContainerRef = React.useRef<HTMLDivElement | null>(null);
+  const topicsContainerRef = useRef<HTMLDivElement | null>(null);
   const [lastAddedTopicId, setLastAddedTopicId] = useState<number | null>(null);
 
   const [mainState, setMainState] = useState<MainPanelState>('welcome');
+  const [prevMainState, setPrevMainState] = useState<MainPanelState>('welcome');
+  
   const [selectedCourse, setSelectedCourse] = useState<string | null>(null);
-  const [selectedColor, setSelectedColor] = useState<keyof typeof folderColors | null>(null);
+  
 
   const handleTabClick = (newTab: ActiveTab) => {
     if (newTab !== activeTab) {
@@ -103,9 +109,10 @@ export default function EstudiantePage() {
     }
   };
 
-  const handleSelectCourse = (courseTitle: string, courseColor: keyof typeof folderColors) => {
+  
+  const handleSelectCourse = (courseTitle: string) => {
+    setPrevMainState(mainState); 
     setSelectedCourse(courseTitle);
-    setSelectedColor(courseColor);
     setMainState('courseWelcome');
     setSelectedStudentId(null);
     const loadedTopics = JSON.parse(JSON.stringify(initialCourseTopics));
@@ -114,20 +121,22 @@ export default function EstudiantePage() {
   };
 
   const handleGoBackToWelcome = () => {
+    setPrevMainState(mainState); 
     setMainState('welcome');
     setSelectedCourse(null);
-    setSelectedColor(null);
     setSelectedStudentId(null);
     setCourseTopics([]);
     setStudentGrades({});
   };
 
   const handleGoBackToStudentList = () => {
+    setPrevMainState(mainState); 
     setMainState('courseWelcome');
     setSelectedStudentId(null);
   };
 
   const handleSelectStudent = (id: string) => {
+    setPrevMainState(mainState); 
     setSelectedStudentId(id);
     setMainState('viewing');
     setActiveTab('grades');
@@ -143,6 +152,7 @@ export default function EstudiantePage() {
   };
 
   const handleCreateNew = () => {
+    setPrevMainState(mainState); 
     setSelectedStudentId(null);
     setMainState('creating');
     setActiveTab('create');
@@ -248,6 +258,39 @@ export default function EstudiantePage() {
     return `${base} opacity-0 ${hidden} pointer-events-none`;
   };
 
+  const getContentPanelClasses = (activeStates: MainPanelState | MainPanelState[]): string => {
+    // MODIFICADO: Se usa la misma curva y duración que las tabs
+    const base = 'transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)]'; 
+    const statesArray = Array.isArray(activeStates) ? activeStates : [activeStates];
+    
+    const isActive = statesArray.includes(mainState);
+    const wasActive = statesArray.includes(prevMainState); 
+
+    const currentLevel = STATE_LEVELS[mainState];
+    const prevLevel = STATE_LEVELS[prevMainState];
+    // Asegurarse de que myLevel siempre tenga un valor válido, incluso si activeStates está vacío (aunque no debería pasar)
+    const myLevel = statesArray.length > 0 ? STATE_LEVELS[statesArray[0]] : -1; 
+
+    if (isActive) {
+      // Estado activo: entra sin translate y escala normal
+      return `${base} opacity-100 translate-x-0 scale-100 pointer-events-auto`;
+    } 
+    
+    // Estado de salida (era activo pero ya no lo es)
+    if (wasActive && mainState !== prevMainState) {
+      // Determina dirección de salida basado en si el nuevo estado es "más profundo" o "más superficial"
+      const exitDir = (currentLevel > prevLevel) ? '-translate-x-8' : 'translate-x-8';
+      // Aplica la dirección de salida y la escala reducida
+      return `${base} opacity-0 ${exitDir} scale-[0.985] pointer-events-none`;
+    }
+    
+    // Estado oculto inicial (nunca fue activo)
+    // Determina dirección inicial basado en si está "más allá" o "antes" del estado actual
+    const hiddenDir = myLevel > currentLevel ? 'translate-x-8' : '-translate-x-8';
+    // Comienza fuera de la pantalla (translate) y opaco
+    return `${base} opacity-0 ${hiddenDir} pointer-events-none`;
+};
+
   const selectedStudent = mockStudents.find(s => s.id === selectedStudentId);
 
   useEffect(() => {
@@ -263,10 +306,17 @@ export default function EstudiantePage() {
     });
   }, [lastAddedTopicId]);
 
-  const dynamicContentBg = selectedColor ? folderBackgrounds[selectedColor] : defaultContentBg;
   
-  // MODIFICADO: Añadida variable para controlar la vista de detalle en móvil
   const isDetailView = mainState === 'creating' || mainState === 'viewing';
+
+  // MODIFICADO: Lista de cursos definida fuera, con el tipo correcto
+  const courses: Course[] = [
+    { title: "Restauración", color: "blue", onSelect: () => handleSelectCourse('Restauración') },
+    { title: "Fundamentos 1", color: "indigo", onSelect: () => handleSelectCourse('Fundamentos 1') },
+    { title: "Fundamentos 2", color: "teal", onSelect: () => handleSelectCourse('Fundamentos 2') },
+    { title: "Restauración 2", color: "purple", onSelect: () => handleSelectCourse('Restauración 2') },
+    { title: "Escuela de Siervos", color: "indigo", hasSpecialBadge: true, onSelect: () => handleSelectCourse('Escuela de Siervos') },
+  ];
 
   return (
     <main
@@ -302,7 +352,7 @@ export default function EstudiantePage() {
           * { 
             animation-duration: 0.01ms !important; 
             animation-iteration-count: 1 !important;
-            transition-duration: 0.01ms !importa
+            transition-duration: 0.01ms !important; 
             scroll-behavior: auto !important; 
           }
         }
@@ -312,14 +362,13 @@ export default function EstudiantePage() {
       <div className="pointer-events-none absolute inset-0 opacity-[0.06] [background:radial-gradient(circle,_#000_1px,_transparent_1px)] [background-size:22px_22px]" />
 
       <div
-        // MODIFICADO: quitado overflow-y-auto, quitado flex-col. Añadido overflow-hidden
         className="
           relative flex w-full min-h-0
           overflow-hidden /* Scroll manejado por paneles internos */
           rounded-none border-none bg-white/40 backdrop-blur-2xl
           ring-0 shadow-none
           bg-[linear-gradient(145deg,rgba(99,102,241,0.08),rgba(255,255,255,0.07))]
-          md:flex-row /* flex-col quitado */
+          md:flex-row 
         "
       >
         {/* Sidebar */}
@@ -338,16 +387,16 @@ export default function EstudiantePage() {
 
         {/* Contenido principal */}
         <div
-          // MODIFICADO: Quitada la lógica de 'hidden', añadido absolute, w-full, h-full, translate-x
+          
           className={`
-            absolute inset-0 md:relative /* <-- AÑADIDO */
-            w-full h-full md:h-auto /* <-- AÑADIDO */
-            flex /* <-- MODIFICADO: simplificado */
+            absolute inset-0 md:relative 
+            w-full h-full md:h-auto 
+            flex 
             flex-1 flex-col min-w-0 min-h-0 
-            ${dynamicContentBg}
-            transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] /* <-- MODIFICADO: transition-all */
-            ${isDetailView || mainState === 'welcome' ? 'translate-x-0' : 'translate-x-full'} /* <-- MODIFICADO: Lógica de animación de entrada/salida */
-            md:translate-x-0 /* <-- AÑADIDO: Reset en desktop */
+            ${fixedContentBg} 
+            transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] 
+            ${isDetailView || mainState === 'welcome' ? 'translate-x-0' : 'translate-x-full'} 
+            md:translate-x-0 
           `}
         >
           {/* Topbar CON TABS estilo glass flotantes */}
@@ -357,7 +406,6 @@ export default function EstudiantePage() {
               border-b border-white/60 bg-gradient-to-b from-white/70 to-white/40 px-6 pt-3 backdrop-blur-xl
             "
           >
-            {/* MODIFICADO: Botón de Volver para Responsive */}
             {isDetailView && (
               <button
                 type="button"
@@ -414,24 +462,33 @@ export default function EstudiantePage() {
           {/* Body apilado ocupa TODO */}
           <div className="flex-1 min-h-0 grid grid-cols-1 [grid-template-areas:'stack'] overflow-hidden">
 
-            {mainState === 'welcome' && (
-              <WelcomePanel onSelectCourse={handleSelectCourse} />
-            )}
+            
+            <WelcomePanel 
+              onSelectCourse={handleSelectCourse} 
+              className={getContentPanelClasses('welcome')}
+              isActive={mainState === 'welcome'}
+              courses={courses} // MODIFICADO: Se pasa la lista de cursos
+            />
 
-            {/* Este componente solo se usa si no hay estudiante seleccionado en móvil */}
             {mainState === 'courseWelcome' && (
-              <div className="md:hidden flex items-center justify-center p-8 text-center text-gray-500">
+              <div className="md:hidden flex items-center justify-center p-8 text-center text-gray-500 [grid-area:stack]">
                 Selecciona un estudiante de la lista.
               </div>
             )}
-            {/* Este mensaje es para desktop cuando no hay estudiante sel. */}
-            {mainState === 'courseWelcome' && <CourseWelcomeMessage courseName={selectedCourse || 'Curso'} />}
+            
+            {mainState === 'courseWelcome' && (
+              <CourseWelcomeMessage 
+                courseName={selectedCourse || 'Curso'} 
+                className={getContentPanelClasses('courseWelcome')}
+              />
+            )}
 
 
             {(mainState === 'creating' || mainState === 'viewing') && (
               <form
                 onSubmit={handleSaveStudent}
-                className="[grid-area:stack] w-full h-full grid grid-cols-1 [grid-template-areas:'stack'] overflow-hidden"
+                // MODIFICADO: Se aplica getContentPanelClasses directamente al form
+                className={`[grid-area:stack] w-full h-full grid grid-cols-1 [grid-template-areas:'stack'] overflow-hidden ${getContentPanelClasses(['creating', 'viewing'])}`}
               >
                 {/* Crear estudiante */}
                 <div className={getTabPanelClasses('create')}>
@@ -451,7 +508,6 @@ export default function EstudiantePage() {
                 {/* Registrar notas — GLASSMORPHISM MAC 2025 */}
                 <div className={getTabPanelClasses('grades')}>
                   <section className="p-4 md:p-6 lg:p-8 overflow-y-auto flex-1 min-h-0">
-                    {/* CONTENEDOR GLASS del panel de Notas */}
                     <div
                       className="
                         relative rounded-[22px]
@@ -462,11 +518,9 @@ export default function EstudiantePage() {
                         p-5 md:p-7
                       "
                     >
-                      {/* Halo suave */}
                       <div className="pointer-events-none absolute -top-16 -left-16 h-44 w-44 rounded-full bg-gradient-to-br from-indigo-500/12 to-white/12 blur-3xl" />
                       <div className="pointer-events-none absolute -bottom-10 -right-10 h-40 w-40 rounded-full bg-gradient-to-tl from-indigo-400/15 to-gray-200/20 blur-3xl" />
 
-                      {/* Encabezado */}
                       <div className="flex items-center justify-between mb-6">
                         <h2 className="text-[20px] md:text-[22px] font-semibold text-gray-900 tracking-[-0.015em]">
                           Registrar Notas para:{' '}
@@ -475,7 +529,6 @@ export default function EstudiantePage() {
                           </span>
                         </h2>
 
-                        {/* Botón Añadir Tema (glass) */}
                         <button
                           type="button"
                           onClick={handleAddTopic}
@@ -494,7 +547,6 @@ export default function EstudiantePage() {
                         </button>
                       </div>
 
-                      {/* Temas */}
                       <div className="space-y-6" ref={topicsContainerRef}>
                         {courseTopics.length === 0 && (
                           <CardSection>
@@ -579,41 +631,107 @@ export default function EstudiantePage() {
 }
 
 // --- SUBCOMPONENTES ---
+function WelcomePanel({
+  onSelectCourse,
+  className = '',
+  isActive, 
+  courses 
+}: {
+  onSelectCourse: (title: string) => void; 
+  className?: string;
+  isActive: boolean; 
+  courses: readonly Course[]; 
+}) {
+  const cardDelay = 100;
+  const foldersContainerDelay = cardDelay + 100; // 200ms
+  const folderStagger = 75; 
+  const animationDuration = 500; 
+  const easing = 'cubic-bezier(0.25, 0.1, 0.25, 1)';
 
-function WelcomePanel({ onSelectCourse }: { onSelectCourse: (title: string, color: keyof typeof folderColors) => void; }) {
   return (
-    <div className="flex w-full h-full flex-col items-center justify-start pt-6 pb-10 px-4 md:px-12 text-center [grid-area:stack] overflow-y-auto">
-      <div className="group relative overflow-hidden rounded-3xl border border-white/70 bg-white/55 px-6 md:px-10 py-8 md:py-12 shadow-xl backdrop-blur-xl w-full max-w-md md:max-w-sm">
+    <div className={`flex w-full h-full flex-col items-center justify-start pt-6 pb-10 px-4 md:px-12 text-center [grid-area:stack] overflow-y-auto overflow-x-hidden ${className}`}>
+      {/* Tarjeta de Bienvenida */}
+      <div 
+        className={`
+          group relative overflow-hidden rounded-3xl border border-white/70 bg-white/55 px-6 md:px-10 py-8 md:py-12 shadow-xl backdrop-blur-xl w-full max-w-md md:max-w-sm
+          transition-all duration-${animationDuration} ease-[${easing}]
+          ${isActive ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-4 scale-95'}
+        `}
+        style={{ transitionDelay: `${isActive ? cardDelay : 0}ms` }} 
+      >
         <div className="absolute -top-24 -right-24 h-64 w-64 rounded-full bg-gradient-to-br from-indigo-500/25 to-white/25 blur-3xl" />
-        {/* MODIFICADO: Eliminados 'size' y 'md:size', añadidas clases w/h responsivas */}
         <BookMarked className="w-14 h-14 md:w-16 md:h-16 mx-auto text-indigo-500/90" />
         <h1 className="mt-6 text-xl md:text-2xl font-semibold tracking-tight text-gray-900">Bienvenido al Gestor Académico</h1>
         <p className="mt-2 max-w-sm text-sm md:text-base text-gray-700 mx-auto">Selecciona un curso para empezar a gestionar estudiantes y registrar calificaciones.</p>
       </div>
-      <h2 className="text-lg md:text-xl font-semibold mt-8 md:mt-10 mb-6 md:mb-8 text-gray-800">Cursos Disponibles</h2>
-      <div className="w-full max-w-3xl">
-        {/* MODIFICADO: Reemplazado grid con scroll-x por flex-wrap y justify-center */}
-        <div className="
-          flex flex-wrap items-center justify-center gap-4 md:gap-6
-          w-full 
-          pb-4 px-1 md:pb-0 md:px-0
-        ">
-          <CourseFolder title="Restauración" color="blue" onSelect={() => onSelectCourse('Restauración', 'blue')} />
-          <CourseFolder title="Fundamentos 1" color="indigo" onSelect={() => onSelectCourse('Fundamentos 1', 'indigo')} />
-          <CourseFolder title="Fundamentos 2" color="teal" onSelect={() => onSelectCourse('Fundamentos 2', 'teal')} />
-          <CourseFolder title="Restauración 2" color="purple" onSelect={() => onSelectCourse('Restauración 2', 'purple')} />
-          <CourseFolder title="Escuela de Siervos" color="indigo" hasSpecialBadge onSelect={() => onSelectCourse('Escuela de Siervos', 'indigo')} />
+      
+      {/* Título Cursos */}
+      <h2 
+         className={`
+          text-lg md:text-xl font-semibold mt-8 md:mt-10 mb-6 md:mb-8 text-gray-800
+          transition-all duration-${animationDuration} ease-[${easing}]
+          ${isActive ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-3'}
+        `}
+        style={{ transitionDelay: `${isActive ? foldersContainerDelay - 50 : 0}ms` }} 
+      >
+        Cursos Disponibles
+      </h2>
+
+      {/* Contenedor Carpetas */}
+      <div className="w-full max-w-full md:max-w-5xl lg:max-w-7xl px-4 md:px-0"> 
+        <div 
+          className={`
+            flex flex-wrap md:flex-nowrap items-center justify-center 
+            gap-4 md:gap-6 w-full 
+            pb-4 px-1 md:pb-4 md:px-4 
+            overflow-x-auto 
+            transition-opacity duration-${animationDuration} ease-[${easing}]
+            ${isActive ? 'opacity-100' : 'opacity-0'}
+            [scrollbar-width:thin] [scrollbar-color:rgba(0,0,0,.15)_transparent] 
+          `}
+          style={{ transitionDelay: `${isActive ? foldersContainerDelay : 0}ms` }}
+        >
+          
+          {courses.map((course, index) => (
+            <CourseFolder 
+              key={course.title}
+              title={course.title} 
+              color={course.color} 
+              hasSpecialBadge={course.hasSpecialBadge} 
+              onSelect={course.onSelect} 
+              className={`
+                transition-all duration-300 ease-out 
+                ${isActive ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'}
+              `}
+              style={{ transitionDelay: `${isActive ? foldersContainerDelay + index * folderStagger : 0}ms` }}
+            />
+          ))}
         </div>
       </div>
     </div>
   );
 }
 
-// Este componente solo se muestra en Desktop cuando no hay estudiante seleccionado
-function CourseWelcomeMessage({ courseName }: { courseName: string }) {
+function CourseWelcomeMessage({
+  courseName,
+  className = '',
+}: {
+  courseName: string;
+  className?: string;
+}) {
+  const isActive = className.includes('opacity-100');
+  const animationDuration = 500; 
+  const easing = 'cubic-bezier(0.25, 0.1, 0.25, 1)';
+
   return (
-    <div className="hidden md:flex flex-col items-center justify-center p-10 text-center [grid-area:stack] overflow-y-auto h-full">
-      <div className="group relative overflow-hidden rounded-3xl border border-white/70 bg-white/55 px-10 py-12 shadow-xl backdrop-blur-xl">
+    <div className={`hidden md:flex flex-col items-center justify-center p-10 text-center [grid-area:stack] overflow-y-auto h-full ${className}`}>
+      <div 
+        className={`
+          group relative overflow-hidden rounded-3xl border border-white/70 bg-white/55 px-10 py-12 shadow-xl backdrop-blur-xl
+          transition-all duration-${animationDuration} ease-[${easing}] delay-100 
+          ${isActive ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-4 scale-95'}
+        `}
+      >
         <div className="absolute -top-24 -right-24 h-64 w-64 rounded-full bg-gradient-to-br from-indigo-500/25 to-white/25 blur-3xl" />
         <Folder size={64} className="mx-auto text-indigo-500/90" />
         <h1 className="mt-6 text-2xl font-semibold tracking-tight text-gray-900">
@@ -628,6 +746,9 @@ function CourseWelcomeMessage({ courseName }: { courseName: string }) {
   );
 }
 
+/* =======================
+    SIDEBAR “APPLE PREMIUM”
+    ======================= */
 function StudentSidebar({
   students,
   selectedStudentId,
@@ -647,34 +768,40 @@ function StudentSidebar({
   onGoBackToWelcome: () => void;
   courseName?: string;
 }) {
-  // MODIFICADO: Añadida variable para controlar la vista de detalle en móvil
   const isDetailView = mainState === 'creating' || mainState === 'viewing';
 
   return (
     <aside
-      // MODIFICADO: Añadido absolute, inset-0, md:relative, h-full, transition-transform y lógica de translate-x
       className={`
-        absolute inset-0 md:relative /* <-- AÑADIDO */
-        w-full h-full md:h-full md:w-1/3 lg:w-1/4 /* <-- MODIFICADO: h-auto -> h-full */
+        absolute inset-0 md:relative
+        w-full h-full md:h-full md:w-1/3 lg:w-1/4
         flex-shrink-0 flex flex-col 
-        border-b md:border-b-0 md:border-r border-white/60 
-        bg-gradient-to-b from-white/65 to-white/40 backdrop-blur-2xl 
-        transition-transform duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] /* <-- AÑADIDO */
-        ${isDetailView ? 'translate-x-[-100%] md:translate-x-0' : 'translate-x-0'} /* <-- AÑADIDO: Animación de salida */
+        border-b md:border-b-0 md:border-r border-white/60
+        bg-[linear-gradient(180deg,rgba(255,255,255,0.72),rgba(255,255,255,0.56))]
+        backdrop-blur-2xl
+        [box-shadow:inset_0_1px_0_rgba(255,255,255,0.9),0_20px_60px_-30px_rgba(2,6,23,0.25)]
+        before:content-[''] before:absolute before:inset-y-0 before:-left-20 before:w-60
+        before:bg-[radial-gradient(160px_220px_at_10%_20%,rgba(99,102,241,0.18),transparent_60%)]
+        before:pointer-events-none
+        transition-transform duration-500 ease-[cubic-bezier(0.32,0.72,0,1)]
+        ${isDetailView ? 'translate-x-[-100%] md:translate-x-0' : 'translate-x-0'}
         ${className}
       `}
       aria-label="Barra lateral de estudiantes"
     >
-      <div className="flex-shrink-0 p-3 border-b border-white/60 flex items-center bg-white/40 backdrop-blur">
+      {/* Header */}
+      <div className="flex-shrink-0 p-3 border-b border-white/60 flex items-center bg-white/60 backdrop-blur-xl shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]">
         <button
           type="button"
           onClick={onGoBackToWelcome}
-          className="flex items-center gap-2 text-sm font-medium text-gray-700 hover:text-indigo-600 transition-colors duration-150 rounded-lg p-2 hover:bg-white/60 w-full"
+          className="flex items-center gap-2 text-sm font-medium text-gray-800 hover:text-indigo-600 rounded-lg p-2 hover:bg-white/70 transition-colors duration-150 w-full"
         >
           <ArrowLeft size={18} />
           <span>Volver a Cursos</span>
         </button>
       </div>
+
+      {/* Módulo */}
       {courseName && (
         <div className="px-4 py-3 border-b border-white/60">
           <p className="text-xs text-gray-600">Módulo:</p>
@@ -683,54 +810,71 @@ function StudentSidebar({
           </p>
         </div>
       )}
+
+      {/* Buscador iOS */}
       <div className="flex-shrink-0 p-4 border-b border-white/60">
         <div className="relative">
           <input
             type="text"
             placeholder="Buscar estudiante…"
-            className="w-full rounded-xl border border-white/70 bg-white/70 py-2.5 pl-10 pr-4 text-sm text-gray-900 placeholder-gray-600 shadow-inner backdrop-blur-sm focus:outline-none focus:ring-4 focus:ring-indigo-400/25 focus:border-white transition"
+            className="w-full rounded-2xl border border-white/70 bg-white/75 backdrop-blur-xl py-2.5 pl-10 pr-4 text-sm text-gray-900 placeholder-gray-600 shadow-[inset_0_2px_6px_rgba(0,0,0,0.03)] focus:outline-none focus:ring-4 focus:ring-indigo-400/25 focus:border-white transition"
             aria-label="Buscar estudiante"
           />
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={18} />
         </div>
       </div>
-      <nav className="overflow-y-auto p-3 space-y-2 max-h-80 md:flex-1 md:max-h-none">
+
+      {/* Lista */}
+      <nav className="overflow-y-auto p-3 space-y-2 max-h-80 md:flex-1 md:max-h-none [scrollbar-width:thin] [scrollbar-color:rgba(0,0,0,.15)_transparent]">
         {students.map((student) => {
           const active = selectedStudentId === student.id;
           return (
             <a
               key={student.id}
               href="#"
-              onClick={(e) => {
-                e.preventDefault();
-                onSelectStudent(student.id);
-              }}
-              className={`group flex items-center gap-3 rounded-2xl p-3 transition-all border ${active ? 'border-indigo-200/80 bg-gradient-to-r from-indigo-50/80 to-purple-50/70 text-indigo-900 shadow-sm' : 'border-white/70 bg-white/60 text-gray-700 hover:bg-white/80'}`}
+              onClick={(e) => { e.preventDefault(); onSelectStudent(student.id); }}
+              className={[
+                'group relative flex items-center gap-3 rounded-2xl p-3 transition-all border overflow-hidden',
+                'before:absolute before:inset-0 before:pointer-events-none before:opacity-0',
+                'before:bg-[radial-gradient(300px_180px_at_0%_0%,rgba(99,102,241,0.10),transparent_60%)]',
+                'hover:before:opacity-100',
+                active
+                  ? 'border-transparent text-indigo-950 bg-gradient-to-r from-white/90 to-white/70 shadow-[0_12px_28px_-18px_rgba(76,29,149,0.35)] ring-1 ring-indigo-500/30'
+                  : 'border-white/70 bg-white/55 text-gray-800 hover:bg-white/75 shadow-[0_8px_20px_-16px_rgba(2,6,23,0.25)] hover:shadow-[0_16px_28px_-18px_rgba(2,6,23,0.35)]',
+              ].join(' ')}
             >
               <img
                 src={student.avatarUrl}
                 alt={student.name}
-                className="h-10 w-10 rounded-full border-2 border-white/80 ring-1 ring-black/5 object-cover shadow-sm"
+                className="h-10 w-10 rounded-full border-2 border-white/80 ring-1 ring-black/5 object-cover shadow-[0_4px_10px_-6px_rgba(2,6,23,.35)]"
                 onError={(e) => {
-                  const t = e.target as HTMLImageElement;
+                  const t = e.currentTarget;
                   t.src = `https://placehold.co/100x100/CCC/666?text=${student.name.split(' ').map(n => n[0]).join('')}`;
                 }}
               />
               <div className="flex-1">
-                <span className="block text-sm font-medium leading-tight">{student.name}</span>
-                <span className="block text-xs text-gray-600">ID #{student.id}</span>
+                <span className="block text-[13.5px] font-semibold leading-tight tracking-[-0.01em]">
+                  {student.name}
+                </span>
+                <span className="block text-[11.5px] text-gray-600/90">ID #{student.id}</span>
               </div>
-              <span className="opacity-0 group-hover:opacity-100 text-[10px] rounded-md px-2 py-0.5 border border-white/70 bg-white/70 text-gray-600">
+              <span className="opacity-0 group-hover:opacity-100 text-[10px] rounded-md px-2 py-0.5 border border-white/70 bg-white/70 text-gray-700 transition">
                 Ver
               </span>
             </a>
           );
         })}
       </nav>
+
+      {/* Botón nuevo */}
       <div className="flex-shrink-0 p-4 border-t border-white/60">
         <button
           onClick={onCreateNew}
-          className={`flex w-full items-center justify-center gap-2 rounded-2xl border py-3 text-sm font-medium backdrop-blur-sm transition-all ${mainState === 'creating' ? 'border-transparent bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow-lg hover:shadow-[0_15px_35px_-15px_rgba(99,102,241,0.65)]' : 'border-white/70 bg-white/60 text-indigo-700 hover:bg-white/80'}`}
+          className={`flex w-full items-center justify-center gap-2 rounded-2xl border py-3 text-sm font-medium backdrop-blur-sm transition-all ${
+            mainState === 'creating'
+              ? 'border-transparent bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow-lg hover:shadow-[0_15px_35px_-15px_rgba(99,102,241,0.65)]'
+              : 'border-white/70 bg-white/70 text-indigo-700 hover:bg-white/85 shadow-[0_6px_16px_-12px_rgba(2,6,23,.25)]'
+          }`}
         >
           <Plus size={18} />
           <span>Nuevo Estudiante</span>
@@ -740,7 +884,7 @@ function StudentSidebar({
   );
 }
 
-/** TAB estilo ‘segmented’ glass */
+/** TAB style */
 function TabButton({
   icon,
   label,
@@ -776,9 +920,7 @@ function CardSection({
   actions,
   isEditable = false,
   onTitleChange,
-  /** When true the section will enter edit mode and focus the title input */
   autoFocus,
-  /** Called once the component has auto-focused so the parent can clear any transient flag */
   onAutoFocus,
 }: {
   title?: string;
@@ -792,28 +934,23 @@ function CardSection({
   const [isEditing, setIsEditing] = useState(false);
   const [currentTitle, setCurrentTitle] = useState(title || '');
   const inputRef = useRef<HTMLInputElement>(null);
-  // If parent requests autoFocus, switch to editing mode
-  useEffect(() => {
-    if (autoFocus) {
-      setIsEditing(true);
-    }
-  }, [autoFocus]);
 
-  // When editing becomes active, focus/select the input and notify parent (if provided)
+  useEffect(() => { if (autoFocus) setIsEditing(true); }, [autoFocus]);
   useEffect(() => {
     if (isEditing) {
       inputRef.current?.focus();
       inputRef.current?.select();
-      if (onAutoFocus) {
-        // ensure DOM/layout has applied; use rAF for a safe microtask
-        requestAnimationFrame(() => onAutoFocus());
-      }
+      onAutoFocus && requestAnimationFrame(() => onAutoFocus());
     }
   }, [isEditing, onAutoFocus]);
-  useEffect(() => { if (!isEditing) { setCurrentTitle(title || ''); } }, [title, isEditing]);
-  const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => { setCurrentTitle(e.target.value); };
-  const saveTitle = () => { setIsEditing(false); if (onTitleChange && currentTitle !== title) { onTitleChange(currentTitle); } };
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => { if (e.key === 'Enter') { saveTitle(); } else if (e.key === 'Escape') { setCurrentTitle(title || ''); setIsEditing(false); } };
+  useEffect(() => { if (!isEditing) setCurrentTitle(title || ''); }, [title, isEditing]);
+
+  const saveTitle = () => { setIsEditing(false); if (onTitleChange && currentTitle !== title) onTitleChange(currentTitle); };
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') saveTitle();
+    else if (e.key === 'Escape') { setCurrentTitle(title || ''); setIsEditing(false); }
+  };
+
   return (
     <section className="relative overflow-hidden rounded-3xl border border-white/70 bg-white/30 p-5 md:p-6 shadow-[0_10px_30px_-15px_rgba(2,6,23,0.2),inset_0_1px_0_0_#fff] backdrop-blur-xl">
       <div className="pointer-events-none absolute -top-16 -left-16 h-40 w-40 rounded-full bg-gradient-to-br from-indigo-500/15 to-white/15 blur-2xl" />
@@ -825,7 +962,7 @@ function CardSection({
                 ref={inputRef}
                 type="text"
                 value={currentTitle}
-                onChange={handleTitleChange}
+                onChange={(e) => setCurrentTitle(e.target.value)}
                 onBlur={saveTitle}
                 onKeyDown={handleKeyDown}
                 className="text-base md:text-[17px] font-semibold tracking-tight text-gray-900 bg-white/80 rounded-lg px-2 py-0 -ml-2"
@@ -865,17 +1002,7 @@ function StudentForm() {
   );
 }
 
-function FormInput({
-  label,
-  id,
-  type,
-  icon,
-}: {
-  label: string;
-  id: string;
-  type: string;
-  icon: React.ReactNode;
-}) {
+function FormInput({ label, id, type, icon }: { label: string; id: string; type: string; icon: React.ReactNode; }) {
   return (
     <div className="group relative">
       <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">{icon}</span>
@@ -908,7 +1035,6 @@ function GradeGrid({
         {gradePlaceholders.length === 0 && (
           <p className="text-sm text-gray-700 text-center py-4">No hay campos de nota definidos para este tema.</p>
         )}
-
         {gradeRows.map((row, rowIndex) => (
           <div key={rowIndex} className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
             {row.map((placeholder, colIndex) => {
@@ -946,9 +1072,7 @@ function GradeGrid({
                 </div>
               );
             })}
-            {Array.from({ length: Math.max(0, 5 - row.length) }).map((_, i) => (
-              <div key={`empty-${i}`} />
-            ))}
+            {Array.from({ length: Math.max(0, 5 - row.length) }).map((_, i) => <div key={`empty-${i}`} />)}
           </div>
         ))}
       </div>
@@ -969,30 +1093,87 @@ function FormActions() {
   );
 }
 
+{/* ================================================================== */}
+{/* --- COMPONENTE COURSEFOLDER MODIFICADO CON ANIMACIÓN "APPLE 2025" --- */}
+{/* ================================================================== */}
 function CourseFolder({
   title,
   color = 'blue',
   hasSpecialBadge = false,
   onSelect,
+  className = '', 
+  style = {}      
 }: {
   title: string;
   color?: keyof typeof folderColors;
   hasSpecialBadge?: boolean;
   onSelect: () => void;
+  className?: string; 
+  style?: React.CSSProperties; 
 }) {
   const colorClasses = folderColors[color] || folderColors.blue;
+  
+  // Define una curva de easing personalizada para esa sensación "Apple"
+  const appleEase = 'ease-[cubic-bezier(0.2,0.8,0.2,1)]';
+  const duration = 'duration-300'; // Un poco más lento para más fluidez
+
   return (
     <button
       type="button"
       onClick={onSelect}
-      className="relative flex flex-col items-center justify-start w-36 h-36 md:w-44 md:h-44 rounded-3xl p-4 transition-all duration-200 hover:scale-[1.05] active:scale-[0.98] focus:outline-none focus:ring-4 focus:ring-indigo-400/25 group text-center"
+      className={`
+        relative flex flex-col items-center justify-start w-36 h-36 md:w-44 md:h-44 
+        rounded-3xl p-4 
+        
+        /* --- MODIFICACIONES CLAVE --- */
+        
+        /* 1. Sombra base sutil */
+        shadow-lg shadow-black/5
+        
+        /* 2. Transición fluida para transform y sombra con easing personalizado */
+        transition-all ${duration} ${appleEase}
+        
+        /* 3. Efecto hover: levanta, escala sutilmente y expande la sombra */
+        hover:scale-[1.03] hover:-translate-y-1.5 
+        hover:shadow-xl hover:shadow-indigo-500/20
+        
+        /* 4. Efecto active: se presiona (reseteando el translate-y) */
+        active:scale-[0.98] active:translate-y-0
+        
+        /* --- FIN DE MODIFICACIONES --- */
+
+        focus:outline-none focus:ring-4 focus:ring-indigo-400/25 group text-center 
+        flex-shrink-0 
+        ${className} 
+      `}
+      style={style} 
     >
-      <Folder
-        // MODIFICADO: Eliminados 'size' y 'md:size', añadidas clases w/h responsivas
-        className={`w-20 h-20 md:w-24 md:h-24 mb-2 md:mb-3 ${colorClasses} transition-all duration-200 drop-shadow-md group-hover:drop-shadow-lg`}
-        strokeWidth={1}
+      <Folder 
+        className={`
+          w-20 h-20 md:w-24 md:h-24 mb-2 md:mb-3 ${colorClasses} 
+          
+          /* --- MODIFICACIONES ICONO --- */
+          transition-all ${duration} ${appleEase} /* Sincroniza la animación */
+          drop-shadow-md 
+          group-hover:drop-shadow-lg 
+          group-hover:-translate-y-1 /* El icono se levanta un poco (parallax) */
+          /* --- FIN DE MODIFICACIONES --- */
+        `} 
+        strokeWidth={1} 
       />
-      <h4 className="text-xs md:text-sm font-semibold text-gray-800 w-full transition-colors group-hover:text-indigo-600">{title}</h4>
+      
+      <h4 
+        className={`
+          text-xs md:text-sm font-semibold text-gray-800 w-full 
+          
+          /* --- MODIFICACIONES TEXTO --- */
+          transition-colors ${duration} ease-out /* Transición de color suave */
+          group-hover:text-indigo-600
+          /* --- FIN DE MODIFICACIONES --- */
+        `}
+      >
+        {title}
+      </h4>
       
       {hasSpecialBadge && (
         <div className="absolute top-8 right-8 z-10 p-1.5 rounded-full bg-white/70 border border-yellow-300 shadow-lg backdrop-blur-md">
@@ -1002,4 +1183,3 @@ function CourseFolder({
     </button>
   );
 }
-
