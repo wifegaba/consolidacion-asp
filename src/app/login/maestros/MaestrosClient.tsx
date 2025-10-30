@@ -6,7 +6,7 @@ import { supabase } from '@/lib/supabaseClient';
 import { getPersonaIdDesdeProgreso, getObservacionesPersona } from '@/lib/api';
 import dynamic from 'next/dynamic';
 
-const PersonaNueva = dynamic(() => import('@/app/panel/contactos/page'), { ssr: false });
+const PersonaNueva = dynamic(() => import('@/app/panel/contactos/FormularioPersonaNueva'), { ssr: false });
 const Servidores = dynamic(() => import('@/app/panel/servidores/page'), { ssr: false });
 import { motion, AnimatePresence, type Variants } from "framer-motion";
 

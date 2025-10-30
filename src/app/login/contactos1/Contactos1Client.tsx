@@ -45,7 +45,7 @@ import dynamic from 'next/dynamic';
 import { AnimatePresence, motion } from 'framer-motion';
 
 // Carga dinámica de los formularios
-const PersonaNueva = dynamic(() => import('@/app/panel/contactos/page'), { ssr: false });
+const PersonaNueva = dynamic(() => import('@/app/panel/contactos/FormularioPersonaNueva'), { ssr: false });
 const Servidores = dynamic(() => import('@/app/panel/servidores/page'), { ssr: false });
 
 /* ================= Tipos ================= */
