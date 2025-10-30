@@ -1,4 +1,4 @@
-// File: PersonaNueva.tsx
+// File: FormularioPersonaNueva.tsx
 'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
@@ -45,9 +45,7 @@ type PendienteItem = {
     creado_en?: string | null;
     created_at?: string | null;
     fecha?: string | null;
-    // --- INICIO DE LA MODIFICACIÓN 1/4 ---
     creado_por_nombre?: string | null; // Campo para el nombre del servidor
-    // --- FIN DE LA MODIFICACIÓN 1/4 ---
 };
 
 type Errores = { nombre?: string | null; telefono?: string | null; };
@@ -184,7 +182,10 @@ const extraerCultoDesdeNotas = (
 
 
 export default function PersonaNueva({ servidorId }: { servidorId: string | null }) {
-    // ...
+    
+    // --- LÓGICA DE 'localServidorId' y 'isLoadingId' ELIMINADA ---
+    // Ahora confiamos 100% en el prop 'servidorId' que nos pasa el padre
+
     const observacionesRef = useRef<HTMLTextAreaElement | null>(null);
     const inputNombreRef = useRef<HTMLInputElement | null>(null);
     const inputBusquedaModalRef = useRef<HTMLInputElement | null>(null);
@@ -233,6 +234,9 @@ export default function PersonaNueva({ servidorId }: { servidorId: string | null
     const TTL_MS = 60_000, MIN_CHARS = 3, DEBOUNCE_MS = 350;
     
     useEffect(() => { if (modalBuscarVisible) setTimeout(() => inputBusquedaModalRef.current?.focus(), 0); }, [modalBuscarVisible]);
+
+    // --- useEffect DE fetchServidorId ELIMINADO ---
+    // Ya no es necesario, el componente es "simple" y solo recibe props.
 
     const toast = (msg: string) => {
         const t = document.createElement('div'); t.className = 'toast'; t.textContent = msg;
@@ -439,10 +443,8 @@ export default function PersonaNueva({ servidorId }: { servidorId: string | null
             return;
         }
 
+        // --- INICIO DE LA MODIFICACIÓN (Lógica handleGuardar) ---
         // 🔹 Si el destino es PENDIENTES, usar la nueva función de pendientes
-        // ---------------------------
-        // ⬇️ CORRECCIÓN APLICA AQUÍ: REEMPLAZA EL BLOQUE DE "PENDIENTES" ⬇️
-        // ---------------------------
         if (form.destino.includes('PENDIENTES')) {
             // Normalizar teléfono y validar
             const telNorm = normalizaTelefono(form.telefono);
@@ -460,14 +462,16 @@ export default function PersonaNueva({ servidorId }: { servidorId: string | null
                 return;
             }
 
-            // Ahora 'servidorId' viene de los props (línea 191)
-            // Validamos que el prop 'servidorId' exista
+            // Usar el ID de servidor que vino del prop.
+            // Si es 'null', la página padre (Directores, Contactos)
+            // no lo encontró o aún está cargando.
             if (!servidorId) {
-                toast('❌ Error: No se pudo identificar al servidor. Refresca la página.');
+                toast('❌ Error: No se pudo identificar al servidor. La página padre no proporcionó un ID.');
+                console.error('[FormPersonaNueva] handleGuardar bloqueado: El prop servidorId es null.');
                 return;
             }
 
-            // Llamada RPC: enviamos el 'servidorId' recibido como prop
+            // Llamada RPC: enviamos el 'servidorId' del prop
             try {
                 const { error } = await supabase.rpc('fn_registrar_pendiente', {
                     p_nombre: form.nombre.trim(),
@@ -475,9 +479,7 @@ export default function PersonaNueva({ servidorId }: { servidorId: string | null
                     p_destino: 'Pendientes',
                     p_culto: form.cultoSeleccionado || null,
                     p_observaciones: (form.observaciones || '').trim() || null,
-                    
-                    // ¡CORRECCIÓN! Usamos el prop 'servidorId'
-                    p_creado_por: servidorId 
+                    p_creado_por: servidorId // <-- Usamos el ID del prop
                 });
 
                 if (error) throw error;
@@ -502,9 +504,7 @@ export default function PersonaNueva({ servidorId }: { servidorId: string | null
                 return;
             }
         }
-        // ---------------------------
-        // ⬆️ FIN DE LA CORRECCIÓN ⬆️
-        // ---------------------------
+        // --- FIN DE LA MODIFICACIÓN ---
 
         // 🔹 Validar duplicado para switches DOMINGO, MARTES, VIRTUAL
         if (form.destino.some(d => ['DOMINGO', 'MARTES', 'VIRTUAL'].includes(d))) {
@@ -1306,11 +1306,7 @@ export default function PersonaNueva({ servidorId }: { servidorId: string | null
                                             <div className="px-3 pb-3 pt-2">
                                                 <div className="w-full text-black">
                                                     
-                                                    {/* ================================================================= */}
-                                                    {/* ======================= INICIO DE LA CORRECCIÓN ======================= */}
-                                                    {/* ================================================================= */}
                                                     {/* Encabezado del listado (Responsivo) */}
-                                                    {/* Se añade fondo 'bg-neutral-100/70' y se centran las columnas */}
                                                     <div className="flex w-full border-b border-neutral-300/80 px-3 py-2 bg-neutral-100/70">
                                                         <div className="flex-1 text-left text-xs font-semibold text-neutral-600 uppercase tracking-wider">Nombre</div>
                                                         <div className="hidden sm:block w-32 text-center text-xs font-semibold text-neutral-600 uppercase tracking-wider">Teléfono</div>
@@ -1318,9 +1314,6 @@ export default function PersonaNueva({ servidorId }: { servidorId: string | null
                                                         <div className="hidden sm:block w-32 text-center text-xs font-semibold text-neutral-600 uppercase tracking-wider">Creado por</div>
                                                         <div className="w-[84px] sm:w-[100px] text-center text-xs font-semibold text-neutral-600 uppercase tracking-wider">Acciones</div>
                                                     </div>
-                                                    {/* ================================================================= */}
-                                                    {/* ======================== FIN DE LA CORRECCIÓN ======================= */}
-                                                    {/* ================================================================= */}
 
 
                                                     {/* Contenedor de la lista con scroll */}
@@ -1370,12 +1363,10 @@ export default function PersonaNueva({ servidorId }: { servidorId: string | null
                                                                                 {row.telefono ?? ""}
                                                                             </div>
 
-                                                                            {/* --- INICIO DE LA MODIFICACIÓN 3/4 --- */}
                                                                             {/* Fila 3: Servidor (Solo visible en móvil) */}
                                                                             <div className="sm:hidden text-xs text-indigo-600 truncate mt-0.5">
                                                                                 Servidor: {row.creado_por_nombre ?? "Sistema"}
                                                                             </div>
-                                                                            {/* --- FIN DE LA MODIFICACIÓN 3/4 --- */}
 
                                                                         </div>
                                                                         
@@ -1389,12 +1380,10 @@ export default function PersonaNueva({ servidorId }: { servidorId: string | null
                                                                             {soloFecha(row.creado_en ?? row.created_at ?? row.fecha ?? "")}
                                                                         </div>
                                                                         
-                                                                        {/* --- INICIO DE LA MODIFICACIÓN 4/4 --- */}
                                                                         {/* Columna Creado Por (Solo visible en Desktop) */}
                                                                         <div className="hidden sm:block w-32 px-3 py-3 text-sm text-neutral-700 truncate text-center" title={row.creado_por_nombre ?? ''}>
                                                                             {row.creado_por_nombre ?? "Sistema"}
                                                                         </div>
-                                                                        {/* --- FIN DE LA MODIFICACIÓN 4/4 --- */}
 
                                                                         {/* Columna Acciones (Llamar + Eliminar) (Visible en ambos) */}
                                                                         <div className="w-[84px] sm:w-[100px] px-3 py-3 text-center flex items-center justify-end gap-1">
