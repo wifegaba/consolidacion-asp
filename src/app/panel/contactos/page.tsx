@@ -45,6 +45,9 @@ type PendienteItem = {
     creado_en?: string | null;
     created_at?: string | null;
     fecha?: string | null;
+    // --- INICIO DE LA MODIFICACIÓN 1/4 ---
+    creado_por_nombre?: string | null; // Campo para el nombre del servidor
+    // --- FIN DE LA MODIFICACIÓN 1/4 ---
 };
 
 type Errores = { nombre?: string | null; telefono?: string | null; };
@@ -180,7 +183,8 @@ const extraerCultoDesdeNotas = (
 };
 
 
-export default function PersonaNueva() {
+export default function PersonaNueva({ servidorId }: { servidorId: string | null }) {
+    // ...
     const observacionesRef = useRef<HTMLTextAreaElement | null>(null);
     const inputNombreRef = useRef<HTMLInputElement | null>(null);
     const inputBusquedaModalRef = useRef<HTMLInputElement | null>(null);
@@ -436,37 +440,71 @@ export default function PersonaNueva() {
         }
 
         // 🔹 Si el destino es PENDIENTES, usar la nueva función de pendientes
+        // ---------------------------
+        // ⬇️ CORRECCIÓN APLICA AQUÍ: REEMPLAZA EL BLOQUE DE "PENDIENTES" ⬇️
+        // ---------------------------
         if (form.destino.includes('PENDIENTES')) {
-            // ...existing code...
-            // No modificar lógica de pendientes
+            // Normalizar teléfono y validar
             const telNorm = normalizaTelefono(form.telefono);
             if (telNorm.length < 7) {
                 setErrores(prev => ({ ...prev, telefono: 'Número inválido o incompleto' }));
                 toast('Número inválido o incompleto');
                 return;
             }
+
+            // Verificar duplicado en pendientes (usa la función existente)
             const dup = await existePendienteConTelefono(telNorm, form.pendienteId ?? null);
             if (dup) {
                 setErrores(prev => ({ ...prev, telefono: 'Ya existe un pendiente con este teléfono' }));
                 toast('⚠️ Ya existe un pendiente con este teléfono');
                 return;
             }
-            const { error } = await supabase.rpc('fn_registrar_pendiente', {
-                p_nombre: form.nombre.trim(),
-                p_telefono: telNorm,
-                p_destino: 'Pendientes',
-                p_culto: form.cultoSeleccionado || null,
-                p_observaciones: (form.observaciones || '').trim() || null,
-            });
-            if (error) throw error;
-            toast('Registro guardado en Pendientes');
-            if (modalPendVisible) {
-                const { data } = await supabase.rpc('fn_listar_pendientes');
-                setPendientesRows((data || []) as PendienteItem[]);
+
+            // Ahora 'servidorId' viene de los props (línea 191)
+            // Validamos que el prop 'servidorId' exista
+            if (!servidorId) {
+                toast('❌ Error: No se pudo identificar al servidor. Refresca la página.');
+                return;
             }
-            resetForm();
-            return;
+
+            // Llamada RPC: enviamos el 'servidorId' recibido como prop
+            try {
+                const { error } = await supabase.rpc('fn_registrar_pendiente', {
+                    p_nombre: form.nombre.trim(),
+                    p_telefono: telNorm,
+                    p_destino: 'Pendientes',
+                    p_culto: form.cultoSeleccionado || null,
+                    p_observaciones: (form.observaciones || '').trim() || null,
+                    
+                    // ¡CORRECCIÓN! Usamos el prop 'servidorId'
+                    p_creado_por: servidorId 
+                });
+
+                if (error) throw error;
+
+                toast('Registro guardado en Pendientes');
+
+                // Si el modal de Pendientes está abierto, recargar la lista
+                if (modalPendVisible) {
+                    try {
+                        const { data } = await supabase.rpc('fn_listar_pendientes');
+                        setPendientesRows((data || []) as PendienteItem[]);
+                    } catch (e) {
+                        console.error('[pendientes] error recargando lista tras insertar:', e);
+                    }
+                }
+
+                resetForm();
+                return;
+            } catch (e: any) {
+                console.error('[pendientes] Error al registrar pendiente:', e);
+                toast('❌ Error guardando pendiente: ' + (e?.message ?? e));
+                return;
+            }
         }
+        // ---------------------------
+        // ⬆️ FIN DE LA CORRECCIÓN ⬆️
+        // ---------------------------
 
         // 🔹 Validar duplicado para switches DOMINGO, MARTES, VIRTUAL
         if (form.destino.some(d => ['DOMINGO', 'MARTES', 'VIRTUAL'].includes(d))) {
@@ -1269,12 +1307,15 @@ export default function PersonaNueva() {
                                                 <div className="w-full text-black">
                                                     
                                                     {/* Encabezado del listado (Responsivo) */}
+                                                    {/* --- INICIO DE LA MODIFICACIÓN 2/4 --- */}
                                                     <div className="flex w-full border-b border-neutral-300/80 px-3 py-2">
                                                         <div className="flex-1 text-left text-xs font-semibold text-neutral-600 uppercase tracking-wider">Nombre</div>
                                                         <div className="hidden sm:block w-32 text-left text-xs font-semibold text-neutral-600 uppercase tracking-wider">Teléfono</div>
                                                         <div className="hidden sm:block w-28 text-left text-xs font-semibold text-neutral-600 uppercase tracking-wider">Día</div>
+                                                        <div className="hidden sm:block w-32 text-left text-xs font-semibold text-neutral-600 uppercase tracking-wider">Creado por</div>
                                                         <div className="w-[84px] sm:w-[100px] text-center text-xs font-semibold text-neutral-600 uppercase tracking-wider">Acciones</div>
                                                     </div>
+                                                    {/* --- FIN DE LA MODIFICACIÓN 2/4 --- */}
 
 
                                                     {/* Contenedor de la lista con scroll */}
@@ -1323,6 +1364,14 @@ export default function PersonaNueva() {
                                                                             <div className="sm:hidden text-sm text-neutral-700 truncate mt-0.5">
                                                                                 {row.telefono ?? ""}
                                                                             </div>
+
+                                                                            {/* --- INICIO DE LA MODIFICACIÓN 3/4 --- */}
+                                                                            {/* Fila 3: Servidor (Solo visible en móvil) */}
+                                                                            <div className="sm:hidden text-xs text-indigo-600 truncate mt-0.5">
+                                                                                Servidor: {row.creado_por_nombre ?? "Sistema"}
+                                                                            </div>
+                                                                            {/* --- FIN DE LA MODIFICACIÓN 3/4 --- */}
+
                                                                         </div>
                                                                         
                                                                         {/* Columna Teléfono (Solo visible en Desktop) */}
@@ -1335,6 +1384,13 @@ export default function PersonaNueva() {
                                                                             {soloFecha(row.creado_en ?? row.created_at ?? row.fecha ?? "")}
                                                                         </div>
                                                                         
+                                                                        {/* --- INICIO DE LA MODIFICACIÓN 4/4 --- */}
+                                                                        {/* Columna Creado Por (Solo visible en Desktop) */}
+                                                                        <div className="hidden sm:block w-32 px-3 py-3 text-sm text-neutral-700 truncate" title={row.creado_por_nombre ?? ''}>
+                                                                            {row.creado_por_nombre ?? "Sistema"}
+                                                                        </div>
+                                                                        {/* --- FIN DE LA MODIFICACIÓN 4/4 --- */}
+
                                                                         {/* Columna Acciones (Llamar + Eliminar) (Visible en ambos) */}
                                                                         <div className="w-[84px] sm:w-[100px] px-3 py-3 text-center flex items-center justify-end gap-1">
                                                                             <a
@@ -1438,6 +1494,3 @@ export default function PersonaNueva() {
         </div>
     );
 }
-
-
-

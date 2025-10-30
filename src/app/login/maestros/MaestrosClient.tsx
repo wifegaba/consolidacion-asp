@@ -1313,7 +1313,7 @@ if (!opts?.quiet) setLoadingPend(false);
                 </button>
               </div>
               <div className="max-h-[calc(96vh-48px)] overflow-y-auto px-3 md:px-6 pb-4 pt-0">
-                <PersonaNueva />
+                <PersonaNueva  servidorId={servidorId} />
               </div>
             </div>
           </div>
