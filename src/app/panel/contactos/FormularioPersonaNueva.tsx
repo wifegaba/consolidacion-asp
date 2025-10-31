@@ -42,6 +42,7 @@ type PendienteItem = {
     etapa?: string | null;
     modulo?: number | null;
     observaciones?: string | null;
+    culto_seleccionado?: string | null; // <-- CORRECCIÓN 1: Añadido
     creado_en?: string | null;
     created_at?: string | null;
     fecha?: string | null;
@@ -153,31 +154,53 @@ const claveDia = (d: string): DiaKey | null => {
     return null;
 };
 
-/** Extrae el culto de ingreso de las notas y devuelve las observaciones limpias (sin el rótulo). */
-const extraerCultoDesdeNotas = (
-    txt?: string | null
+// =================================================================
+// =================== CORRECCIÓN 2: HELPER MEJORADO ===================
+// =================================================================
+/**
+ * Extrae el culto de ingreso.
+ * Puede leer desde 'culto_seleccionado' (formato nuevo) o 'observaciones' (formato antiguo).
+ */
+const extraerCulto = (
+    cultoDirecto?: string | null,
+    txtObservaciones?: string | null
 ): { diaKey: DiaKey | null; hora: string | null; full: string | null; clean: string } => {
-    if (!txt) return { diaKey: null, hora: null, full: null, clean: '' };
-
-    const parts = txt.split('|').map(s => s.trim()).filter(Boolean);
+    
     let diaKey: DiaKey | null = null;
     let hora: string | null = null;
-    const resto: string[] = [];
+    let full: string | null = null;
+    let cleanObs: string = txtObservaciones || '';
 
-    for (const p of parts) {
-        const m = /^Culto\s+de\s+ingreso\s*:\s*([A-Za-zÁÉÍÓÚáéíóú]+)\s*-\s*([0-9:\sAPMapm\.]+)$/i.exec(p);
-        if (m && !diaKey) {
-            diaKey = claveDia(m[1]) as DiaKey | null;
-            hora = (m[2] || '').trim();
-        } else {
-            resto.push(p);
+    // Prioridad 1: Leer del campo 'culto_seleccionado' (el dato limpio)
+    if (cultoDirecto) {
+        const parts = cultoDirecto.split(' - ');
+        if (parts.length === 2) {
+            diaKey = claveDia(parts[0] || '');
+            hora = (parts[1] || '').trim();
+            full = cultoDirecto;
         }
     }
 
-    const full = diaKey && hora ? `${diaKey[0] + diaKey.slice(1).toLowerCase()} - ${hora}` : null;
+    // Prioridad 2: Si no se encontró, intentar leer de 'observaciones' (formato legado)
+    if (!full && txtObservaciones) {
+        const parts = txtObservaciones.split('|').map(s => s.trim()).filter(Boolean);
+        const resto: string[] = [];
+
+        for (const p of parts) {
+            const m = /^Culto\s+de\s+ingreso\s*:\s*([A-Za-zÁÉÍÓÚáéíóú]+)\s*-\s*([0-9:\sAPMapm\.]+)$/i.exec(p);
+            if (m && !diaKey) {
+                diaKey = claveDia(m[1]) as DiaKey | null;
+                hora = (m[2] || '').trim();
+            } else {
+                resto.push(p);
+            }
+        }
+        
+        full = diaKey && hora ? `${diaKey[0] + diaKey.slice(1).toLowerCase()} - ${hora}` : null;
+        cleanObs = resto.join(' | ');
+    }
     
-    // CORRECCIÓN: Asegurar que 'clean' siempre sea string
-    return { diaKey, hora, full, clean: resto.join(' | ') };
+    return { diaKey, hora, full, clean: cleanObs };
 };
 
 
@@ -369,9 +392,13 @@ export default function PersonaNueva({ servidorId }: { servidorId: string | null
       setModalPendVisible(false);
 
       // 👇 Aquí garantizamos que el form.pendienteId sea el UUID real de la tabla pendientes
-      selectPersona(reg, true);
+      
+      // Pasamos el 'culto_seleccionado' de la fila del pendiente
+      selectPersona(reg, true, row.culto_seleccionado); // <-- CORREGIDO
+      
       setForm(prev => ({ ...prev, pendienteId: row.id })); 
-      setBloquearCultos(false);
+      
+      // setBloquearCultos(false); // <--- Eliminar esto, selectPersona lo maneja
     };
 
 
@@ -385,12 +412,17 @@ export default function PersonaNueva({ servidorId }: { servidorId: string | null
         setErrores({}); setMostrarErrorCulto(false); setMostrarErrorDestino(false); return true;
     };
 
-    const construirNotas = () => {
+    /**
+     * Construye las notas para el guardado "normal" (no pendientes).
+     * Incluye el culto + observaciones.
+     */
+    const construirNotasNormales = () => {
         const [dia, hora] = form.cultoSeleccionado.split(' - ');
         const cultoLinea = dia && hora ? `Culto de ingreso: ${dia} - ${hora}` : null;
         const extra = (form.observaciones || '').trim();
         return [cultoLinea, extra].filter(Boolean).join(' | ') || null;
     };
+
 
     const resetForm = () => {
         setForm({ nombre: '', telefono: '', destino: [], cultoSeleccionado: '', observaciones: '', cultos: defaultCultos(), pendienteId: null });
@@ -402,174 +434,181 @@ export default function PersonaNueva({ servidorId }: { servidorId: string | null
 
     const handleGuardar = async () => {
 
-    if (!validar()) return;
+        if (!validar()) return;
+    
+        const p_estudio: AppEstudioDia = toDbEstudio(form.destino);
+        // p_notas ahora se define de forma diferente según el destino
+    
+        try {
+            // 🔹 Caso especial: si viene de Pendientes, SIEMPRE registrar como nuevo
+            if (form.pendienteId) {
+                // ...
+                // Lógica para mover de Pendiente -> Normal
+                // ...
+                const p_notas_registro_normal = construirNotasNormales();
 
-    const p_estudio: AppEstudioDia = toDbEstudio(form.destino);
-    const p_notas = construirNotas();
-
-    try {
-        // 🔹 Caso especial: si viene de Pendientes, SIEMPRE registrar como nuevo
-        if (form.pendienteId) {
-            // ...existing code...
-            // No modificar lógica de pendientes
-            const { error } = await supabase.rpc('fn_registrar_persona', {
-                p_nombre: form.nombre.trim(),
-                p_telefono: form.telefono.trim(),
-                p_culto: toDbEstudio(form.destino),
-                p_estudio: toDbEstudio(form.destino),
-                p_notas: construirNotas(),
-            });
-            if (error) throw error;
-            // ...existing code...
-            const { error: delError } = await supabase
-                .from('pendientes')
-                .delete()
-                .eq('id', form.pendienteId);
-            if (delError) {
-                console.error(delError);
-                toast('Guardado, pero no se pudo eliminar de pendientes');
-            } else {
-                toast('Persona registrada y eliminada de Pendientes');
-            }
-            setForm(prev => ({ ...prev, pendienteId: null }));
-            // ...existing code...
-            if (modalPendVisible) {
-                try {
-                    const { data } = await supabase.rpc('fn_listar_pendientes');
-                    setPendientesRows((data || []) as PendienteItem[]);
-                } catch {}
-            }
-            resetForm();
-            return;
-        }
-
-        // --- INICIO DE LA MODIFICACIÓN (Lógica handleGuardar) ---
-        // 🔹 Si el destino es PENDIENTES, usar la nueva función de pendientes
-        if (form.destino.includes('PENDIENTES')) {
-            // Normalizar teléfono y validar
-            const telNorm = normalizaTelefono(form.telefono);
-            if (telNorm.length < 7) {
-                setErrores(prev => ({ ...prev, telefono: 'Número inválido o incompleto' }));
-                toast('Número inválido o incompleto');
-                return;
-            }
-
-            // Verificar duplicado en pendientes (usa la función existente)
-            const dup = await existePendienteConTelefono(telNorm, form.pendienteId ?? null);
-            if (dup) {
-                setErrores(prev => ({ ...prev, telefono: 'Ya existe un pendiente con este teléfono' }));
-                toast('⚠️ Ya existe un pendiente con este teléfono');
-                return;
-            }
-
-            // Usar el ID de servidor que vino del prop.
-            // Si es 'null', la página padre (Directores, Contactos)
-            // no lo encontró o aún está cargando.
-            if (!servidorId) {
-                toast('❌ Error: No se pudo identificar al servidor. La página padre no proporcionó un ID.');
-                console.error('[FormPersonaNueva] handleGuardar bloqueado: El prop servidorId es null.');
-                return;
-            }
-
-            // Llamada RPC: enviamos el 'servidorId' del prop
-            try {
-                const { error } = await supabase.rpc('fn_registrar_pendiente', {
+                const { error } = await supabase.rpc('fn_registrar_persona', {
                     p_nombre: form.nombre.trim(),
-                    p_telefono: telNorm,
-                    p_destino: 'Pendientes',
-                    p_culto: form.cultoSeleccionado || null,
-                    p_observaciones: (form.observaciones || '').trim() || null,
-                    p_creado_por: servidorId // <-- Usamos el ID del prop
+                    p_telefono: form.telefono.trim(),
+                    p_culto: toDbEstudio(form.destino),
+                    p_estudio: toDbEstudio(form.destino),
+                    p_notas: p_notas_registro_normal, // Usar las notas construidas
                 });
-
                 if (error) throw error;
-
-                toast('Registro guardado en Pendientes');
-
-                // Si el modal de Pendientes está abierto, recargar la lista
+                // ...existing code...
+                const { error: delError } = await supabase
+                    .from('pendientes')
+                    .delete()
+                    .eq('id', form.pendienteId);
+                if (delError) {
+                    console.error(delError);
+                    toast('Guardado, pero no se pudo eliminar de pendientes');
+                } else {
+                    toast('Persona registrada y eliminada de Pendientes');
+                }
+                setForm(prev => ({ ...prev, pendienteId: null }));
+                // ...existing code...
                 if (modalPendVisible) {
                     try {
                         const { data } = await supabase.rpc('fn_listar_pendientes');
                         setPendientesRows((data || []) as PendienteItem[]);
-                    } catch (e) {
-                        console.error('[pendientes] error recargando lista tras insertar:', e);
-                    }
+                    } catch {}
                 }
-
                 resetForm();
                 return;
-            } catch (e: any) {
-                console.error('[pendientes] Error al registrar pendiente:', e);
-                toast('❌ Error guardando pendiente: ' + (e?.message ?? e));
-                return;
             }
-        }
-        // --- FIN DE LA MODIFICACIÓN ---
-
-        // 🔹 Validar duplicado para switches DOMINGO, MARTES, VIRTUAL
-        if (form.destino.some(d => ['DOMINGO', 'MARTES', 'VIRTUAL'].includes(d))) {
-            const telNorm = normalizaTelefono(form.telefono);
-            // Buscar duplicado en la tabla persona (no pendientes)
-            const { count, error } = await supabase
-                .from('persona')
-                .select('id', { count: 'exact' })
-                .eq('telefono', telNorm)
-                .limit(1);
-            if (error) throw error;
-            // Si está editando, excluir el mismo registro
-            let isDup = false;
-            if (count && count > 0) {
-                if (modoEdicion && indiceEdicion) {
-                    // Buscar si el duplicado es el mismo registro
-                    const { data: personaData, error: personaError } = await supabase
-                        .from('persona')
-                        .select('id')
-                        .eq('telefono', telNorm)
-                        .limit(1);
-                    if (personaError) throw personaError;
-                    if (personaData && personaData.length > 0 && personaData[0].id !== indiceEdicion) {
-                        isDup = true;
+    
+            // --- INICIO DE LA MODIFICACIÓN (Lógica handleGuardar) ---
+            // 🔹 Si el destino es PENDIENTES, usar la nueva función de pendientes
+            if (form.destino.includes('PENDIENTES')) {
+                // Normalizar teléfono y validar
+                const telNorm = normalizaTelefono(form.telefono);
+                if (telNorm.length < 7) {
+                    setErrores(prev => ({ ...prev, telefono: 'Número inválido o incompleto' }));
+                    toast('Número inválido o incompleto');
+                    return;
+                }
+    
+                // Verificar duplicado en pendientes (usa la función existente)
+                const dup = await existePendienteConTelefono(telNorm, form.pendienteId ?? null);
+                if (dup) {
+                    setErrores(prev => ({ ...prev, telefono: 'Ya existe un pendiente con este teléfono' }));
+                    toast('⚠️ Ya existe un pendiente con este teléfono');
+                    return;
+                }
+    
+                // Usar el ID de servidor que vino del prop.
+                if (!servidorId) {
+                    toast('❌ Error: No se pudo identificar al servidor. La página padre no proporcionó un ID.');
+                    console.error('[FormPersonaNueva] handleGuardar bloqueado: El prop servidorId es null.');
+                    return;
+                }
+    
+                // Llamada RPC: enviamos el 'servidorId' del prop
+                try {
+                    // Este código es CORRECTO.
+                    // Tu función SQL (fn_registrar_pendiente) SÍ los guarda.
+                    const { error } = await supabase.rpc('fn_registrar_pendiente', {
+                        p_nombre: form.nombre.trim(),
+                        p_telefono: telNorm,
+                        p_destino: 'Pendientes',
+                        p_culto: form.cultoSeleccionado || null, 
+                        p_observaciones: (form.observaciones || '').trim() || null, 
+                        p_creado_por: servidorId 
+                    });
+    
+                    if (error) throw error;
+    
+                    toast('Registro guardado en Pendientes');
+    
+                    // Si el modal de Pendientes está abierto, recargar la lista
+                    if (modalPendVisible) {
+                        try {
+                            // Tu RPC 'fn_listar_pendientes' DEBE seleccionar 'culto_seleccionado'
+                            const { data } = await supabase.rpc('fn_listar_pendientes');
+                            setPendientesRows((data || []) as PendienteItem[]);
+                        } catch (e) {
+                            console.error('[pendientes] error recargando lista tras insertar:', e);
+                        }
                     }
-                } else {
-                    isDup = true;
+    
+                    resetForm();
+                    return;
+                } catch (e: any) {
+                    console.error('[pendientes] Error al registrar pendiente:', e);
+                    toast('❌ Error guardando pendiente: ' + (e?.message ?? e));
+                    return;
                 }
             }
-            if (isDup) {
-                setErrores(prev => ({ ...prev, telefono: 'Ya existe una persona con este teléfono' }));
-                toast('⚠️ Ya existe una persona con este teléfono.');
-                return;
+            // --- FIN DE LA MODIFICACIÓN ---
+    
+            // 🔹 Validar duplicado para switches DOMINGO, MARTES, VIRTUAL
+            if (form.destino.some(d => ['DOMINGO', 'MARTES', 'VIRTUAL'].includes(d))) {
+                const telNorm = normalizaTelefono(form.telefono);
+                // Buscar duplicado en la tabla persona (no pendientes)
+                const { count, error } = await supabase
+                    .from('persona')
+                    .select('id', { count: 'exact' })
+                    .eq('telefono', telNorm)
+                    .limit(1);
+                if (error) throw error;
+                // Si está editando, excluir el mismo registro
+                let isDup = false;
+                if (count && count > 0) {
+                    if (modoEdicion && indiceEdicion) {
+                        // Buscar si el duplicado es el mismo registro
+                        const { data: personaData, error: personaError } = await supabase
+                            .from('persona')
+                            .select('id')
+                            .eq('telefono', telNorm)
+                            .limit(1);
+                        if (personaError) throw personaError;
+                        if (personaData && personaData.length > 0 && personaData[0].id !== indiceEdicion) {
+                            isDup = true;
+                        }
+                    } else {
+                        isDup = true;
+                    }
+                }
+                if (isDup) {
+                    setErrores(prev => ({ ...prev, telefono: 'Ya existe una persona con este teléfono' }));
+                    toast('⚠️ Ya existe una persona con este teléfono.');
+                    return;
+                }
             }
-        }
+            
+            // Definir p_notas SÓLO para guardado normal
+            const p_notas_normal = construirNotasNormales();
 
-        // 🔹 Actualización normal
-        if (modoEdicion && indiceEdicion) {
-            const { error } = await supabase.rpc('fn_actualizar_persona', {
-                p_id: indiceEdicion,
-                p_nombre: form.nombre.trim(),
-                p_telefono: form.telefono.trim(),
-                p_estudio,
-                p_notas,
-            });
-            if (error) throw error;
-            toast('✅ Registro actualizado');
-        } else {
-            const { error } = await supabase.rpc('fn_registrar_persona', {
-                p_nombre: form.nombre.trim(),
-                p_telefono: form.telefono.trim(),
-                p_culto: p_estudio, // si tu RPC lo usa
-                p_estudio,
-                p_notas,
-            });
-            if (error) throw error;
-            toast('✅ Guardado. Enviado a Semillas 1 • Semana 1');
+            // 🔹 Actualización normal
+            if (modoEdicion && indiceEdicion) {
+                const { error } = await supabase.rpc('fn_actualizar_persona', {
+                    p_id: indiceEdicion,
+                    p_nombre: form.nombre.trim(),
+                    p_telefono: form.telefono.trim(),
+                    p_estudio,
+                    p_notas: p_notas_normal,
+                });
+                if (error) throw error;
+                toast('✅ Registro actualizado');
+            } else {
+                const { error } = await supabase.rpc('fn_registrar_persona', {
+                    p_nombre: form.nombre.trim(),
+                    p_telefono: form.telefono.trim(),
+                    p_culto: p_estudio, // si tu RPC lo usa
+                    p_estudio,
+                    p_notas: p_notas_normal,
+                });
+                if (error) throw error;
+                toast('✅ Guardado. Enviado a Semillas 1 • Semana 1');
+            }
+    
+            resetForm();
+        } catch (e) {
+            console.error(e);
+            toast('❌ Error al guardar/actualizar');
         }
-
-        resetForm();
-    } catch (e) {
-        console.error(e);
-        toast('❌ Error al guardar/actualizar');
-    }
-};
+    };
 
 
     /* ===== ELIMINAR ===== */
@@ -612,7 +651,7 @@ export default function PersonaNueva({ servidorId }: { servidorId: string | null
                 // Rellenar campos para mantener consistencia con el tipo Registro
                 fecha: '',
                 preferencias: null,
-                cultosSeleccionados: null,
+                cultosSeleccionados: null, // Este campo es de la tabla `persona_registro`, no `persona`
             }));
 
             setListadoPersonas(arr);
@@ -704,16 +743,21 @@ export default function PersonaNueva({ servidorId }: { servidorId: string | null
     }, [busqueda, modoSoloPendientes]);
 
     /* ===== Inyectar datos al formulario desde búsqueda ===== */
-    const selectPersona = (p: Registro, fromPendientes: boolean = false) => {
-        const culto = extraerCultoDesdeNotas(p.observaciones);
+    const selectPersona = (p: Registro, fromPendientes: boolean = false, cultoDirecto?: string | null) => {
+        
+        // Usa el helper nuevo
+        const culto = extraerCulto(cultoDirecto, p.observaciones);
+        
         let cultosMap: CultosMap = defaultCultos();
         let cultoSeleccionado = '';
+        let cultoFueCargado = false; // Flag para bloquear la UI
 
         if (culto.diaKey && culto.hora) {
             const key = culto.diaKey as DiaKey;
             const diaBonito = key[0] + key.slice(1).toLowerCase();
-            cultosMap = { ...defaultCultos(), [key]: culto.hora! } as CultosMap; // Asegurarse que es una hora no nula
+            cultosMap = { ...defaultCultos(), [key]: culto.hora! };
             cultoSeleccionado = `${diaBonito} - ${culto.hora}`;
+            cultoFueCargado = true;
         }
 
         const destino = p.estudioDia ? [p.estudioDia.toUpperCase()] : [];
@@ -722,33 +766,43 @@ export default function PersonaNueva({ servidorId }: { servidorId: string | null
             ...f,
             nombre: p.nombre || '',
             telefono: p.telefono || '',
-            observaciones: culto.clean || '',
+            observaciones: culto.clean || '', // Poner solo las observaciones limpias
             destino,
             cultos: cultosMap,
             cultoSeleccionado,
             pendienteId: fromPendientes ? (p.id || null) : null,
         }));
 
-        setModoEdicion(true);
-        setIndiceEdicion(p.id);
-        setBloquearCultos(true);
+        setModoEdicion(!fromPendientes); // Solo modo edición si NO viene de pendientes
+        setIndiceEdicion(fromPendientes ? null : p.id); // Solo índice si NO viene de pendientes
+        
+        setBloquearCultos(cultoFueCargado); // <<<<----- LÓGICA CLAVE
 
         setBusqueda(''); setSugs([]); setOpenSugs(false); setModoSoloPendientes(false); setModalBuscarVisible(false);
         setTimeout(() => observacionesRef.current?.focus(), 0);
     };
 
+
+    // =================================================================
+    // ================== CORRECCIÓN 3: FUNCIÓN CLAVE ==================
+    // =================================================================
     // Cargar un registro del modal de Pendientes como NUEVO
-    const selectPendiente = (p: any) => {
-        const culto = extraerCultoDesdeNotas(p.observaciones);
+    const selectPendiente = (p: PendienteItem) => {
+        
+        // Usa el helper nuevo, pasando las DOS columnas
+        const culto = extraerCulto(p.culto_seleccionado, p.observaciones);
+        
         let cultosMap: CultosMap = defaultCultos();
         let cultoSeleccionado = '';
+        let cultoFueCargado = false; 
 
         // Si el pendiente tiene un culto asociado, establecerlo en el formulario
         if (culto.diaKey && culto.hora) {
             const key = culto.diaKey as DiaKey;
             const diaBonito = key[0] + key.slice(1).toLowerCase();
-            cultosMap = { ...defaultCultos(), [key]: culto.hora! } as CultosMap; // Asegurarse que es una hora no nula
+            cultosMap = { ...defaultCultos(), [key]: culto.hora! };
             cultoSeleccionado = `${diaBonito} - ${culto.hora}`;
+            cultoFueCargado = true; 
         }
 
         setForm(f => ({
@@ -756,14 +810,20 @@ export default function PersonaNueva({ servidorId }: { servidorId: string | null
             nombre: p?.nombre || '',
             telefono: p?.telefono || '',
             observaciones: culto.clean || '', // Usar las observaciones limpias
-            destino: [],
+            destino: [], // Al cargar de pendientes, el destino NUNCA está pre-seleccionado
             cultos: cultosMap, // Establecer el culto mapeado
             cultoSeleccionado, // Establecer el string de culto seleccionado
+            // El ID de pendiente se usa para la lógica de "Guardar"
             pendienteId: (p?.id ?? p?.progreso_id ?? p?.persona_id ?? null) || null,
         }));
-        setModoEdicion(false);
+        
+        // Al cargar de pendientes, NUNCA estamos en modo edición
+        setModoEdicion(false); 
         setIndiceEdicion(null);
-        setBloquearCultos(false);
+
+        // Bloquear la UI del culto SÓLO SI cargamos un culto
+        setBloquearCultos(cultoFueCargado); // <-- ESTA ES LA LÍNEA CORREGIDA
+
         setModalPendVisible(false);
         setModalBuscarVisible(false);
         setModoSoloPendientes(false);
@@ -832,6 +892,8 @@ export default function PersonaNueva({ servidorId }: { servidorId: string | null
         setModalPendVisible(true);
         setPendLoading(true);
         try {
+            // NOTA: Tu RPC 'fn_listar_pendientes' DEBE seleccionar la columna 'culto_seleccionado'
+            // Si no lo hace, debes modificarla en Supabase.
             const { data, error } = await supabase.rpc('fn_listar_pendientes');
             if (error) throw error;
             setPendientesRows((data || []) as PendienteItem[]);
@@ -883,7 +945,8 @@ export default function PersonaNueva({ servidorId }: { servidorId: string | null
 
         const headers = [["Nombre", "Teléfono", "Fecha", "Culto de Ingreso"]];
         const body = pendientesRows.map(row => {
-            const culto = extraerCultoDesdeNotas(row.observaciones);
+            // Usar la función helper actualizada
+            const culto = extraerCulto(row.culto_seleccionado, row.observaciones);
             return [
                 row.nombre || '',
                 row.telefono || '',
@@ -892,9 +955,6 @@ export default function PersonaNueva({ servidorId }: { servidorId: string | null
             ];
         });
 
-        // =================================================================
-        // ======================= INICIO DE LA CORRECCIÓN =======================
-        // =================================================================
         try {
             // Llamar a autoTable como una función, pasando el 'doc'
             autoTable(doc, {
@@ -931,7 +991,8 @@ export default function PersonaNueva({ servidorId }: { servidorId: string | null
         
         // Filas de Datos
         const data = pendientesRows.map(row => {
-            const culto = extraerCultoDesdeNotas(row.observaciones);
+            // Usar la función helper actualizada
+            const culto = extraerCulto(row.culto_seleccionado, row.observaciones);
             return [
                 row.nombre || '',
                 row.telefono || '',
