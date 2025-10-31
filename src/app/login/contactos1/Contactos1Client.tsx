@@ -938,7 +938,7 @@ export default function Contactos1Client(
       </AnimatePresence>
         
         {/* Tarjeta de semanas y botones (igual que Maestros) */}
-  <div className="flex flex-wrap items-center gap-3 rounded-2xl bg-white/55 supports-[backdrop-filter]:bg-white/35 backdrop-blur-xl px-3 py-3 shadow-[0_10px_40px_-20px_rgba(0,0,0,.35)] ring-1 ring-white/60 mb-4">
+  <div className="flex flex-wrap md:flex-nowrap items-center gap-3 rounded-2xl bg-white/55 supports-[backdrop-filter]:bg-white/35 backdrop-blur-xl px-3 py-3 shadow-[0_10px_40px_-20px_rgba(0,0,0,.35)] ring-1 ring-white/60 mb-4">
           <div className="inline-flex items-center gap-2">
             <span className="text-sm text-neutral-600">Semana:</span>
             {[1, 2, 3].map((n) => {
@@ -983,30 +983,19 @@ export default function Contactos1Client(
             })}
           </div>
 
-          <div className="w-full">
-            <div className="relative rounded-3xl bg-white/20 backdrop-blur-xl ring-1 ring-white/60 shadow-[0_24px_80px_-32px_rgba(2,6,23,.45)] overflow-hidden">
-              {/* auroras de fondo */}
-              <div className="pointer-events-none absolute inset-0 -z-10 [mask-image:radial-gradient(70%_60%_at_50%_10%,#000_30%,transparent_85%)]">
-                <div className="absolute -top-16 left-10 h-48 w-48 rounded-full bg-[radial-gradient(circle,rgba(79,70,229,.35),transparent_60%)] blur-2xl" />
-                <div className="absolute -bottom-24 right-12 h-64 w-64 rounded-full bg-[radial-gradient(circle,rgba(14,165,233,.28),transparent_65%)] blur-2xl" />
-              </div>
-
-              {/* fila: una sola línea alineada a la derecha */}
-              <div className="flex items-center justify-end gap-3 md:gap-4 px-3 py-2 flex-nowrap overflow-x-auto whitespace-nowrap">
-                {/* Botón Persona Nueva */}
-                <button
-                  type="button"
-                  onClick={() => setNuevaAlmaOpen(true)}
-                  className="relative inline-flex items-center gap-2 rounded-2xl h-10 md:h-11 px-4 md:px-5 text-sm font-semibold text-slate-800 bg-white/60 ring-1 ring-white/60 backdrop-blur-md transition-all duration-300 shadow-[inset_0_1px_0_rgba(255,255,255,.9),0_12px_32px_-12px_rgba(2,6,23,.35)] hover:bg-gradient-to-r hover:from-indigo-400/80 hover:via-sky-400/80 hover:to-white hover:text-white hover:shadow-[0_0_0_4px_rgba(56,189,248,.18),0_0_32px_0_rgba(79,70,229,.18)] active:scale-[.99] focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300/60 before:absolute before:inset-0 before:-z-10 before:rounded-2xl before:blur-xl before:opacity-80 hover:before:opacity-100 before:bg-[radial-gradient(120%_120%_at_0%_0%,rgba(79,70,229,.35),transparent_55%),radial-gradient(120%_120%_at_100%_100%,rgba(56,189,248,.28),transparent_55%)] shrink-0"
-                  title="Registrar persona nueva"
-                >
-                  <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
-                    <path d="M12 5a1 1 0 0 1 1 1v5h5a1 1 0 1 1 0 2h-5v5a1 1 0 1 1-2 0v-5H6a1 1 0 1 1 0-2h5V6a1 1 0 0 1 1-1Z" fill="currentColor"/>
-                  </svg>
-                  Persona Nueva
-                </button>
-              </div>
-            </div>
+          <div className="w-full md:w-auto md:ml-auto mt-2 md:mt-0">
+            {/* Botón Persona Nueva */}
+            <button
+              type="button"
+              onClick={() => setNuevaAlmaOpen(true)}
+              className="relative w-full md:w-auto inline-flex items-center justify-center gap-2 rounded-2xl h-10 md:h-11 px-4 md:px-5 text-sm font-semibold text-white bg-gradient-to-r from-indigo-500 to-sky-500 shadow-lg shadow-indigo-500/30 transition-all duration-300 hover:from-indigo-600 hover:to-sky-600 hover:shadow-xl hover:-translate-y-0.5 active:scale-[.98] focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-indigo-400"
+              title="Registrar persona nueva"
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor">
+                <path d="M12 5a1 1 0 0 1 1 1v5h5a1 1 0 1 1 0 2h-5v5a1 1 0 1 1-2 0v-5H6a1 1 0 1 1 0-2h5V6a1 1 0 0 1 1-1Z"/>
+              </svg>
+              Persona Nueva
+            </button>
           </div>
         </div>
 
@@ -1028,7 +1017,7 @@ export default function Contactos1Client(
                   title="Descargar PDF de pendientes"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ fontSize: '0.85em' }}>
-                    <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
+                    <path d="M12 5v14M5 12l7 7 7-7" />
                   </svg>
                   PDF
                 </button>
@@ -1038,8 +1027,7 @@ export default function Contactos1Client(
                   title="Descargar Excel de pendientes"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ fontSize: '0.85em' }}>
-                    <path d="M4 6h16v12H4z"/>
-                    <path d="M15 10l-4 4 4 4"/>
+                    <path d="M12 5v14M5 12l7 7 7-7" />
                   </svg>
                   Excel
                 </button>

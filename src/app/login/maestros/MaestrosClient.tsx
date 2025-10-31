@@ -1004,8 +1004,8 @@ if (!opts?.quiet) setLoadingPend(false);
   className="inline-flex items-center gap-1 rounded-xl bg-gradient-to-r from-red-400 via-red-500 to-red-600 text-white ring-1 ring-white/50 shadow-[0_6px_20px_rgba(220,38,38,0.35)] px-2 py-1 text-xs font-medium hover:scale-[1.02] active:scale-95 transition"
       title="Descargar PDF de pendientes"
     >
-  <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ fontSize: '0.85em' }}>
-        <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
+      <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ fontSize: '0.85em' }}>
+        <path d="M12 5v14M5 12l7 7 7-7" />
       </svg>
       PDF
     </button>
@@ -1014,9 +1014,8 @@ if (!opts?.quiet) setLoadingPend(false);
   className="inline-flex items-center gap-1 rounded-xl bg-gradient-to-r from-green-400 via-green-500 to-green-600 text-white ring-1 ring-white/50 shadow-[0_6px_20px_rgba(34,197,94,0.35)] px-2 py-1 text-xs font-medium hover:scale-[1.02] active:scale-95 transition"
       title="Descargar Excel de pendientes"
     >
-      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M4 6h16v12H4z"/>
-        <path d="M15 10l-4 4 4 4"/>
+      <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ fontSize: '0.85em' }}>
+        <path d="M12 5v14M5 12l7 7 7-7" />
       </svg>
       Excel
     </button>
