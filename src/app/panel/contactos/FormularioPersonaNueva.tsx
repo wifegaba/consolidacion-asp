@@ -80,9 +80,9 @@ const defaultCultos = (): CultosMap => ({
 });
 
 const cultosOpciones: Record<DiaKey, string[]> = {
-    DOMINGO: ['7:00 AM', '9:00 AM', '11:00 PM', '5:30 PM'],
+    DOMINGO: ['7:00 AM', '9:00 AM', '11:00 AM', '5:30 PM'],
     MIÉRCOLES: ['7:00 AM', '9:00 AM', '11:00 AM', '1:00 PM', '3:00 PM', '6:30 PM'],
-    VIERNES: ['9:AM', '5:30 PM'],
+    VIERNES: ['9:AM', '6:30 PM'],
     SÁBADO: ['Ayuno Familiar', 'Jovenes'],
 };
 
@@ -1029,7 +1029,7 @@ export default function PersonaNueva({ servidorId }: { servidorId: string | null
     return (
         <div className="pn-root">
             <div className="formulario-box" id="formulario1">
-                <div className="form-title">Registro Persona Nueva</div>
+                <div className="form-title" style={{ marginBottom: '6px', fontSize: '1.08rem' }}>Registro Persona Nueva</div>
 
                 {/* Modal BUSCAR */}
                 {modalBuscarVisible && (
@@ -1205,7 +1205,7 @@ export default function PersonaNueva({ servidorId }: { servidorId: string | null
 
 
                 {/* Fila: nombre / teléfono */}
-                <div className="form-row first-row">
+                <div className="form-row first-row" style={{ marginBottom: '4px' }}>
                     <div>
                         <input
                             ref={inputNombreRef}
@@ -1239,7 +1239,7 @@ export default function PersonaNueva({ servidorId }: { servidorId: string | null
                 </div>
 
                 {/* Culto de ingreso (bloqueado tras selección) */}
-                <div className="cultos-row">
+                <div className="cultos-row" style={{ marginBottom: '4px' }}>
                     <label className="Label-Culto">Culto:</label>
                     {Object.entries(form.cultos).map(([dia, valorActual]) => (
                         <div key={dia} className={`culto-box ${bloquearCultos && !valorActual.includes(dia) ? 'disabled' : ''}`}>
@@ -1267,6 +1267,12 @@ export default function PersonaNueva({ servidorId }: { servidorId: string | null
                         </div>
                     ))}
                 </div>
+                {/* Etiqueta Proceso Transformacional */}
+                <div style={{ textAlign: 'left', margin: '18px 0 18px 0' }}>
+                    <label className="Label-Culto" style={{ fontSize: '1.1rem', display: 'block', marginBottom: '14px' }}>
+                        Proceso Transformacional:
+                    </label>
+                </div>
 
                 {mostrarErrorCulto && (
                     <div className="error-msg" style={{ textAlign: 'center', marginBottom: '1rem', color: 'white' }}>
@@ -1275,8 +1281,8 @@ export default function PersonaNueva({ servidorId }: { servidorId: string | null
                 )}
 
                 {/* Switches (día de estudio) + Observaciones */}
-                <div className="form-group destinos-row">
-                    <div className="switch-group">
+                <div className="form-group destinos-row" style={{ marginBottom: '4px', marginTop: '12px' }}>
+                    <div className="switch-group" style={{ marginBottom: '24px' }}>
                         {['DOMINGO', 'MARTES', 'VIRTUAL', 'PENDIENTES'].map((d) => (
                             <label key={d} className="switch-label">
                                 <input
@@ -1303,6 +1309,7 @@ export default function PersonaNueva({ servidorId }: { servidorId: string | null
                 placeholder="Escribe aquí las observaciones..."
                 value={form.observaciones}
                 onChange={(e) => setForm({ ...form, observaciones: e.target.value })}
+                style={{ minHeight: '48px', maxHeight: '72px', height: '48px', resize: 'vertical', fontSize: '1rem', padding: '4px 8px', marginBottom: '10px' }}
             />
                     </div>
                 </div>
@@ -1509,7 +1516,7 @@ export default function PersonaNueva({ servidorId }: { servidorId: string | null
 
 
                 {/* Botones */}
-                <div className="btn-container" style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                <div className="btn-container" style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: '4px' }}>
                     <button className="btn-minimal" onClick={handleGuardar} style={{ backgroundColor: (modoEdicion) ? 'orange' : '' }}>
                         {modoEdicion ? 'Actualizar' : 'Guardar'}
                     </button>
