@@ -2,6 +2,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import ClickToComponentClient from "./ClickToComponentClient";
+import { ToastProvider } from "@/components/ToastProvider";
 
 export const metadata: Metadata = {
   title: "Consolidación ASP",
@@ -14,7 +15,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         {/* ✅ Activado solo en desarrollo */}
         <ClickToComponentClient />
-        {children}
+        <ToastProvider>{children}</ToastProvider>
       </body>
     </html>
   );

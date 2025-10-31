@@ -43,6 +43,10 @@ import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
 import dynamic from 'next/dynamic';
 import { AnimatePresence, motion } from 'framer-motion';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import * as XLSX from 'xlsx';
+import { useToast } from '@/components/ToastProvider';
 
 // Carga dinámica de los formularios
 const PersonaNueva = dynamic(() => import('@/app/panel/contactos/FormularioPersonaNueva'), { ssr: false });
@@ -372,6 +376,68 @@ export default function Contactos1Client(
 
   /** Para marcar “Nuevo” cuando viene de reactivación */
   const rtNewRef = useRef<Set<string>>(new Set());
+
+  const toast = useToast();
+
+  const downloadPDF = () => {
+    const doc = new jsPDF();
+    
+    doc.setFontSize(20);
+    doc.setTextColor(40, 58, 90);
+    doc.text(`Contactos Pendientes por llamar Semana ${semana}`, 14, 22);
+
+    autoTable(doc, {
+      startY: 30,
+      head: [['Nombre', 'Teléfono', 'Observaciones']],
+      body: pendientes.map(p => [
+        p.nombre ?? '', 
+        p.telefono ?? '-', 
+        [p.llamada1, p.llamada2, p.llamada3].filter(Boolean).map((r, i) => `Llamada ${i+1}: ${resultadoLabels[r as Resultado]}`).join('\n') || '-'
+      ]),
+      headStyles: { fillColor: [41, 128, 185] },
+    });
+
+  doc.save(`contactos_pendientes_semana_${semana}.pdf`);
+  toast.success('Archivo descargado exitosamente');
+  };
+
+  const downloadExcel = () => {
+    const ws_name = "Contactos Pendientes";
+    const wb = XLSX.utils.book_new();
+    
+    const header = ["Nombre", "Teléfono", "Observaciones"];
+    const data = pendientes.map((p: PendRowUI) => [
+      p.nombre,
+      p.telefono ?? '-',
+      [p.llamada1, p.llamada2, p.llamada3].filter(Boolean).map((r, i) => `Llamada ${i+1}: ${resultadoLabels[r as Resultado]}`).join('\n') || '-'
+    ]);
+
+    // ...código para crear y guardar el Excel...
+    // Suponiendo que guardas el archivo aquí:
+    toast.success('Archivo descargado exitosamente');
+
+    const finalData = [
+      [`Contactos Pendientes por llamar Semana ${semana}`],
+      [],
+      header,
+      ...data
+    ];
+
+    const ws = XLSX.utils.aoa_to_sheet(finalData);
+
+    ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 2 } }];
+
+    if(ws['A1']) {
+      ws['A1'].s = {
+        font: { name: 'Arial', sz: 16, bold: true, color: { rgb: "FFFFFF" } },
+        fill: { fgColor: { rgb: "2980b9" } },
+        alignment: { horizontal: "center" }
+      };
+    }
+
+    XLSX.utils.book_append_sheet(wb, ws, ws_name);
+    XLSX.writeFile(wb, `contactos_pendientes_semana_${semana}.xlsx`);
+  };
 
   // Cargar asignación del contacto (y servidorId para reactivar)
   useEffect(() => {
@@ -948,11 +1014,36 @@ export default function Contactos1Client(
         <div className="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-5 md:gap-6">
           {/* Lista */}
           <section className={`rounded-[20px] bg-white/55 supports-[backdrop-filter]:bg-white/35 backdrop-blur-xl shadow-[0_18px_44px_-18px_rgba(0,0,0,.35)] ring-1 ring-white/60 overflow-hidden ${selectedId ? 'hidden lg:block' : ''}`}>
-            <header className="px-4 md:px-5 py-3 bg-[linear-gradient(180deg,rgba(255,255,255,.88),rgba(255,255,255,.62)),radial-gradient(900px_220px_at_0%_-40%,rgba(56,189,248,.08),transparent),radial-gradient(900px_240px_at_110%_-50%,rgba(79,70,229,.06),transparent)] backdrop-blur-xl border-b border-white/60">
-              <h3 className="text-base md:text-lg font-semibold text-neutral-900">Llamadas pendientes</h3>
-              <p className="text-neutral-600 text-xs md:text-sm">
-                {loadingPend ? 'Cargando…' : 'Selecciona un contacto para registrar la llamada.'}
-              </p>
+            <header className="px-4 md:px-5 py-3 bg-[linear-gradient(180deg,rgba(255,255,255,.88),rgba(255,255,255,.62)),radial-gradient(900px_220px_at_0%_-40%,rgba(56,189,248,.08),transparent),radial-gradient(900px_240px_at_110%_-50%,rgba(79,70,229,.06),transparent)] backdrop-blur-xl border-b border-white/60 flex justify-between items-center">
+              <div>
+                <h3 className="text-base md:text-lg font-semibold text-neutral-900">Llamadas pendientes</h3>
+                <p className="text-neutral-600 text-xs md:text-sm">
+                  {loadingPend ? 'Cargando…' : 'Selecciona un contacto para registrar la llamada.'}
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={downloadPDF}
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-red-400 via-red-500 to-red-600 text-white ring-1 ring-white/50 shadow-[0_6px_20px_rgba(220,38,38,0.35)] px-3 py-1.5 text-sm font-semibold hover:scale-[1.02] active:scale-95 transition"
+                  title="Descargar PDF de pendientes"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
+                  </svg>
+                  PDF
+                </button>
+                <button
+                  onClick={downloadExcel}
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-green-400 via-green-500 to-green-600 text-white ring-1 ring-white/50 shadow-[0_6px_20px_rgba(34,197,94,0.35)] px-3 py-1.5 text-sm font-semibold hover:scale-[1.02] active:scale-95 transition"
+                  title="Descargar Excel de pendientes"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M4 6h16v12H4z"/>
+                    <path d="M15 10l-4 4 4 4"/>
+                  </svg>
+                  Excel
+                </button>
+              </div>
             </header>
 
             <div className="relative overflow-hidden grid">
