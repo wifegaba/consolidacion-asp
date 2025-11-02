@@ -265,13 +265,6 @@ const norm = (t: string) =>
     .toLowerCase()
     .trim();
 
-function estaInhabilitado(h?: string | null) {
-  if (!h) return false;
-  // Compara contra HOY en UTC para no "castigar" por huso horario.
-  const todayUTC = new Date().toISOString().slice(0, 10); // 'YYYY-MM-DD' en UTC
-  return h > todayUTC; // solo bloquea si la fecha es después de HOY (UTC)
-}
-
 /** "Semilla 3" | "Devocionales 2" | "Restauracion 1" -> etapaBase + módulo */
 function mapEtapaDetToBase(etapaDet: string): {
   etapaBase: 'Semillas' | 'Devocionales' | 'Restauracion';
@@ -340,6 +333,13 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
 
   // Modal para registros inhabilitados
   const [showNextWeekModal, setShowNextWeekModal] = useState(false);
+  // === INICIO DE LA MODIFICACIÓN 1: Nuevo estado para el modal ===
+  // Este estado guarda el ID del registro que el modal está mostrando
+  const [modalTargetId, setModalTargetId] = useState<string | null>(null);
+  // === INICIO DE LA MODIFICACIÓN: Nuevo estado para la POSICIÓN del modal ===
+  const [modalPosition, setModalPosition] = useState<{ top: number; left: number } | null>(null);
+  // === FIN DE LA MODIFICACIÓN ===
+  // === FIN DE LA MODIFICACIÓN 1 ===
 
   /** ======== Banco Archivo (estado) ======== */
   const [bancoOpen, setBancoOpen] = useState(false);
@@ -350,6 +350,48 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
   // Modales adicionales
   const [nuevaAlmaOpen, setNuevaAlmaOpen] = useState(false);
   const [servidoresOpen, setServidoresOpen] = useState(false);
+
+  // Estado para desbloqueo temporal
+  const [tempUnlocked, setTempUnlocked] = useState<Record<string, number>>({});
+
+  /**
+   * Comprueba si un registro está inhabilitado.
+   * Ahora comprueba primero el desbloqueo temporal.
+   */
+  const estaInhabilitado = useCallback((id: string, h?: string | null) => {
+    // 1. Revisar si hay un desbloqueo temporal activo
+    const unlockExpiresAt = tempUnlocked[id];
+    if (unlockExpiresAt) {
+      if (Date.now() < unlockExpiresAt) {
+        return false; // ¡Está desbloqueado temporalmente!
+      } else {
+        // El desbloqueo expiró, limpiamos el estado
+        setTempUnlocked(prev => {
+          const newState = { ...prev };
+          delete newState[id];
+          return newState;
+        });
+        // Dejamos que continúe la lógica normal...
+      }
+    }
+
+    // 2. Lógica original (si no hay desbloqueo temporal)
+    if (!h) {
+      // Si no hay fecha de habilitación (ej: un registro nuevo), se asume que está habilitado.
+      return false;
+    }
+    try {
+      // 'h' ahora es un string ISO 8601 completo (ej: '2025-11-09T10:00:00-05:00')
+      const habilitadoDesde = new Date(h);
+      // Obtenemos la fecha y hora actuales
+      const ahora = new Date();
+      // Si la hora actual es ANTERIOR a la hora de habilitación, está inhabilitado.
+      return ahora < habilitadoDesde;
+    } catch (e) {
+      console.error("Error al parsear la fecha habilitado_desde:", h, e);
+      return false;
+    }
+  }, [tempUnlocked]); // Añadimos la dependencia
 
   // refs para estado “vivo” dentro de handlers realtime
   const semanaRef = useRef(semana);
@@ -630,6 +672,45 @@ if (!opts?.quiet) setLoadingPend(false);
   useEffect(() => { void fetchAgendados({ quiet: false }); }, [fetchAgendados]);
 
   /* ====== Acciones ====== */
+
+  // === INICIO DE LA MODIFICACIÓN 2: Nuevas funciones para el Modal ===
+  /**
+   * Cierra el modal de inhabilitado y limpia el estado de `modalTargetId`.
+   */
+  const handleCloseModal = () => {
+    setShowNextWeekModal(false);
+    setModalTargetId(null);
+    setModalPosition(null); // Limpiar la posición al cerrar
+  };
+
+  /**
+   * Maneja el clic en "Desbloquear Temporalmente".
+   * Usa `modalTargetId` para saber a quién desbloquear.
+   */
+  const handleTempUnlock = () => {
+    // 1. Usar el ID del estado del modal, NO el selectedId principal
+    if (!modalTargetId) return;
+
+    // 2. Calcular 1 hora (60 min * 60 seg * 1000 ms)
+    const expirationTime = Date.now() + (60 * 60 * 1000); 
+
+    // 3. Añadir el registro al estado de desbloqueados
+    setTempUnlocked(prev => ({
+      ...prev,
+      [modalTargetId]: expirationTime
+    }));
+
+    // 4. Cerrar el modal y limpiar el target
+    handleCloseModal();
+    
+    // 5. ¡AHORA SÍ! Establecer el selectedId principal para mostrar el panel
+    setSelectedId(modalTargetId);
+    
+    // 6. Mostramos una notificación
+    toast.success('Registro desbloqueado por 1 hora.');
+  };
+  // === FIN DE LA MODIFICACIÓN 2 ===
+
   const enviarResultado = async (payload: { resultado: Resultado; notas?: string }) => {
     const row = pendRef.current.find((p) => p.progreso_id === selectedId);
     if (!row || !semana || !dia) return;
@@ -677,24 +758,76 @@ if (!opts?.quiet) setLoadingPend(false);
   const toggleMark = (id: string, tipo: 'A' | 'N') =>
     setMarks((m) => ({ ...m, [id]: m[id] === tipo ? undefined : tipo }));
 
+  // ==================================================================
+  // === LÓGICA DE RESTAURACIÓN (SIN CAMBIOS) ===
+  // ==================================================================
+
+  const handleRestauracionAsistencia = async (student: AgendadoRow) => {
+    if (!student?.nombre) return;
+    const placeholderCedula = `TEMP_${crypto.randomUUID()}`;
+    const payload = {
+      nombre: student.nombre,
+      telefono: student.telefono ?? null,
+      cedula: placeholderCedula,
+      created_by: servidorId, 
+      notas: `Registro automático creado desde "Asistencia" (Restauración) el ${new Date().toISOString()}. Cédula pendiente de actualizar.`
+    };
+    try {
+      const { error } = await supabase.from('entrevistas').insert(payload);
+      if (error) {
+        console.error("Error al crear entrevista desde Restauración:", error);
+        toast.error(`Error al enviar a ${student.nombre} a Entrevistas.`);
+        return false;
+      }
+      toast.success(`${student.nombre} enviado(a) al panel de Entrevistas.`);
+      return true;
+    } catch (e: any) {
+      console.error(e?.message ?? 'Error inesperado en handleRestauracionAsistencia');
+      toast.error('Error inesperado al guardar la entrevista.');
+      return false;
+    }
+  };
+
   const enviarAsistencias = async () => {
     const entradas = Object.entries(marks).filter(([, v]) => v);
     if (entradas.length === 0) return;
     setSavingAg(true);
+    
     try {
       for (const [progId, v] of entradas) {
-        const { error } = await supabase.rpc(RPC_ASIST, {
-          p_progreso: progId,
-          p_asistio: v === 'A',
-        });
-        if (error) throw error;
+        if (asig?.etapaBase === 'Restauracion' && v === 'A') {
+          const student = agendados.find(a => a.progreso_id === progId);
+          if (!student) continue;
+          const exito = await handleRestauracionAsistencia(student);
+          if (exito) {
+            const { error: rpcError } = await supabase.rpc(RPC_ASIST, {
+              p_progreso: progId,
+              p_asistio: true,
+            });
+            if (rpcError) throw rpcError;
+          }
+        } else {
+          const { error } = await supabase.rpc(RPC_ASIST, {
+            p_progreso: progId,
+            p_asistio: v === 'A',
+          });
+          if (error) throw error;
+        }
       }
       setMarks({});
       await fetchAgendados({ quiet: true });
+    } catch (e: any) {
+      console.error("Error en enviarAsistencias:", e?.message);
+      toast.error(`Error al procesar asistencias: ${e?.message}`);
     } finally {
       setSavingAg(false);
     }
   };
+
+  // ==================================================================
+  // === FIN LÓGICA DE RESTAURACIÓN ===
+  // ==================================================================
+
 
   /* ====== Realtime ====== */
   useEffect(() => {
@@ -1045,7 +1178,7 @@ if (!opts?.quiet) setLoadingPend(false);
             className="divide-y divide-white/50"
           >
            {pendientes.map((c) => {
-  const disabled = estaInhabilitado(c.habilitado_desde);
+  const disabled = estaInhabilitado(c.progreso_id, c.habilitado_desde);
 
   return (
     <motion.li
@@ -1058,11 +1191,32 @@ if (!opts?.quiet) setLoadingPend(false);
         ${c._ui === 'changed' ? 'animate-flashBg' : ''}
         ${disabled ? 'opacity-55 cursor-not-allowed' : 'hover:bg-white/40 cursor-pointer'}
         transition-[box-shadow] duration-500`}
-      onClick={() =>
-        disabled
-          ? setShowNextWeekModal(true)
-          : setSelectedId(c.progreso_id)
-      }
+      // === INICIO DE LA MODIFICACIÓN 3: Lógica de onClick CORREGIDA ===
+      onClick={(e: React.MouseEvent<HTMLLIElement>) => { // 1. Capturar el evento
+        if (disabled) {
+          // Si está deshabilitado:
+          // 1. Poner el ID en el target del modal
+          setModalTargetId(c.progreso_id);
+          
+          // 2. Calcular y guardar la posición
+          const rect = e.currentTarget.getBoundingClientRect();
+          setModalPosition({
+            top: rect.bottom + window.scrollY + 8, // 8px de espacio
+            left: rect.left + window.scrollX,
+          });
+
+          // 3. Mostrar el modal
+          setShowNextWeekModal(true);
+        } else {
+          // Si está habilitado:
+          // 1. Poner el ID en el selectedId principal para mostrar el panel
+          setSelectedId(c.progreso_id);
+          // 2. Asegurarse que el target y la posición del modal estén limpios
+          setModalTargetId(null);
+          setModalPosition(null);
+        }
+      }}
+      // === FIN DE LA MODIFICACIÓN 3 ===
     >
       <div className="flex items-start justify-between gap-4">
         <div className="flex items-start gap-3 min-w-0">
@@ -1322,30 +1476,39 @@ if (!opts?.quiet) setLoadingPend(false);
       <AnimatePresence>
         {showNextWeekModal && (
           <>
-            {/* Backdrop */}
+            {/* === INICIO DE LA MODIFICACIÓN 4: onClick del Backdrop === */}
             <motion.div
               key="backdrop"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm"
-              onClick={() => setShowNextWeekModal(false)}
+              className="fixed inset-0 z-[60] bg-black/50"
+              onClick={handleCloseModal} // Usar el nuevo handler
             />
-
+            {/* === FIN DE LA MODIFICACIÓN 4 === */}
+            
             {/* Card */}
+            {/* === INICIO DE LA MODIFICACIÓN: Contenedor del Modal como Popover === */}
             <motion.div
               key="card"
               role="dialog"
               aria-modal="true"
-              initial={{ opacity: 0, y: 24, scale: 0.98 }}
+              initial={{ opacity: 0, y: 0, scale: 0.95 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 24, scale: 0.98 }}
-              transition={{ type: "spring", stiffness: 240, damping: 22 }}
-              className="fixed z-[61] inset-0 flex items-center justify-center p-4"
+              exit={{ opacity: 0, y: 0, scale: 0.95 }}
+              transition={{ type: "spring", stiffness: 300, damping: 20 }}
+              className="absolute z-[61]" // MODIFICADO: De 'fixed' a 'absolute'
+              style={{
+                // MODIFICADO: Posicionamiento dinámico
+                top: modalPosition ? `${modalPosition.top}px` : 0,
+                left: modalPosition ? `${modalPosition.left}px` : 0,
+                visibility: modalPosition ? 'visible' : 'hidden',
+              }}
             >
-
-
-              <div className="w-full max-w-md rounded-2xl bg-white/80 backdrop-blur-xl shadow-2xl ring-1 ring-white/40">
+              {/* El div interno define el tamaño y estilo del popover */}
+              <div className="w-full max-w-md rounded-2xl bg-white/80 shadow-2xl ring-1 ring-white/40">
+            {/* === FIN DE LA MODIFICACIÓN: Contenedor del Modal como Popover === */}
+            
                 <div className="p-6 md:p-7">
                   {/* Header */}
                   <div className="flex items-start gap-3">
@@ -1358,36 +1521,48 @@ if (!opts?.quiet) setLoadingPend(false);
                       <h3 className="text-base md:text-lg font-semibold text-neutral-900">
                         Registro inhabilitado
                       </h3>
+                      {/* === INICIO DE LA MODIFICACIÓN 5: Texto del modal actualizado === */}
                       <p className="mt-1 text-sm text-neutral-700">
                          Este registro fue gestionado por el servidor de la semana anterior.
-  Por ese motivo estará disponible nuevamente el próximo lunes
+  Por ese motivo estará disponible nuevamente el próximo domingo a las 10:00 AM.
                       </p>
                       {/* Mostrar fecha exacta si existe en el registro seleccionado */}
                       {(() => {
-                        const selected = selectedId && pendientes.find(p => p.progreso_id === selectedId);
+                        // Usar modalTargetId para encontrar los datos
+                        const selected = modalTargetId && pendientes.find(p => p.progreso_id === modalTargetId);
                         if (selected && selected.habilitado_desde) {
                           return (
                             <p className="mt-2 text-xs text-neutral-600">
-                              Disponible desde: {selected.habilitado_desde}
+                              Disponible desde: {new Date(selected.habilitado_desde).toLocaleString('es-CO', { dateStyle: 'full', timeStyle: 'short' })}
                             </p>
                           );
                         }
                         return null;
                       })()}
+                      {/* === FIN DE LA MODIFICACIÓN 5 === */}
                     </div>
                   </div>
 
 
-                  {/* Footer */}
+                  {/* === INICIO DE LA MODIFICACIÓN 6: Footer del modal actualizado === */}
                   <div className="mt-6 flex justify-end gap-3">
                     <button
                       type="button"
-                      onClick={() => setShowNextWeekModal(false)}
+                      onClick={handleTempUnlock}
+                      className="inline-flex items-center justify-center rounded-xl px-4 py-2 text-sm font-semibold text-sky-700 bg-sky-100 ring-1 ring-sky-200 hover:bg-sky-200 active:bg-sky-300 transition"
+                    >
+                      Desbloquear Temporalmente
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleCloseModal} // Usar el nuevo handler
                       className="inline-flex items-center justify-center rounded-xl px-4 py-2 text-sm font-semibold text-white bg-gradient-to-r from-amber-500 to-orange-500 shadow hover:brightness-105 active:brightness-95 transition"
                     >
                       Entendido
                     </button>
                   </div>
+                  {/* === FIN DE LA MODIFICACIÓN 6 === */}
                 </div>
               </div>
             </motion.div>

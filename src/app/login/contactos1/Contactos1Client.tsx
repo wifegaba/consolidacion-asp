@@ -92,13 +92,6 @@ type PendienteRow = {
   llamada3?: Resultado | null;
   habilitado_desde?: string | null;
 };
-// Helper para inhabilitación semanal
-function estaInhabilitado(h?: string | null) {
-  if (!h) return false;
-  // Compara contra HOY en UTC para no "castigar" por huso horario.
-  const todayUTC = new Date().toISOString().slice(0, 10); // 'YYYY-MM-DD' en UTC
-  return h > todayUTC; // solo bloquea si la fecha es después de HOY (UTC)
-}
 
 type PendRowUI = PendienteRow & { _ui?: 'new' | 'changed' };
 
@@ -283,6 +276,15 @@ export default function Contactos1Client(
   const [servidoresOpen, setServidoresOpen] = useState(false);
   // Modal premium para inhabilitados
   const [showNextWeekModal, setShowNextWeekModal] = useState(false);
+  
+  // === INICIO DE LA MODIFICACIÓN 1: Nuevos estados ===
+  // Este estado guarda el ID del registro que el modal está mostrando
+  const [modalTargetId, setModalTargetId] = useState<string | null>(null);
+  // Este estado guardará el ID del progreso y la hora (timestamp) en que expira su desbloqueo
+  const [tempUnlocked, setTempUnlocked] = useState<Record<string, number>>({});
+  // Este estado guarda la posición del clic para el modal responsivo
+  const [modalPosition, setModalPosition] = useState<{ top: number, left: number } | null>(null);
+  // === FIN DE LA MODIFICACIÓN 1 ===
 
   const router = useRouter();
   const cedula = normalizeCedula(cedulaProp ?? '');
@@ -316,6 +318,47 @@ export default function Contactos1Client(
   const [reactivating, setReactivating] = useState<Record<string, boolean>>({});
   const [servidorId, setServidorId] = useState<string | null>(null);
 
+  // === INICIO DE LA MODIFICACIÓN 2: Lógica de `estaInhabilitado` (movida y actualizada) ===
+  /**
+   * Comprueba si un registro está inhabilitado.
+   * Ahora comprueba primero el desbloqueo temporal.
+   */
+  const estaInhabilitado = useCallback((id: string, h?: string | null) => {
+    // 1. Revisar si hay un desbloqueo temporal activo
+    const unlockExpiresAt = tempUnlocked[id];
+    if (unlockExpiresAt) {
+      if (Date.now() < unlockExpiresAt) {
+        return false; // ¡Está desbloqueado temporalmente!
+      } else {
+        // El desbloqueo expiró, limpiamos el estado
+        setTempUnlocked(prev => {
+          const newState = { ...prev };
+          delete newState[id];
+          return newState;
+        });
+        // Dejamos que continúe la lógica normal...
+      }
+    }
+
+    // 2. Lógica original (si no hay desbloqueo temporal)
+    if (!h) {
+      // Si no hay fecha de habilitación (ej: un registro nuevo), se asume que está habilitado.
+      return false;
+    }
+    try {
+      // 'h' ahora es un string ISO 8601 completo (ej: '2025-11-09T10:00:00-05:00')
+      const habilitadoDesde = new Date(h);
+      // Obtenemos la fecha y hora actuales
+      const ahora = new Date();
+      // Si la hora actual es ANTERIOR a la hora de habilitación, está inhabilitado.
+      return ahora < habilitadoDesde;
+    } catch (e) {
+      console.error("Error al parsear la fecha habilitado_desde:", h, e);
+      return false;
+    }
+  }, [tempUnlocked]); // Añadimos la dependencia
+  // === FIN DE LA MODIFICACIÓN 2 ===
+  
   // refs para estado “vivo” dentro de handlers realtime
   const semanaRef = useRef(semana);
   const diaRef = useRef<Dia | null>(dia);
@@ -581,6 +624,44 @@ export default function Contactos1Client(
   useEffect(() => { void fetchAgendados({ quiet: false }); }, [fetchAgendados]);
 
   /* ====== Acciones ====== */
+
+  // === INICIO DE LA MODIFICACIÓN 3: Nuevas funciones para el Modal ===
+  /**
+   * Cierra el modal de inhabilitado y limpia los estados relacionados.
+   */
+  const handleCloseModal = () => {
+    setShowNextWeekModal(false);
+    setModalTargetId(null);
+    setModalPosition(null); // Limpiar posición
+  };
+
+  /**
+   * Maneja el clic en "Desbloquear Temporalmente".
+   */
+  const handleTempUnlock = () => {
+    // 1. Usar el ID del estado del modal
+    if (!modalTargetId) return;
+
+    // 2. Calcular 1 hora
+    const expirationTime = Date.now() + (60 * 60 * 1000); 
+
+    // 3. Añadir el registro al estado de desbloqueados
+    setTempUnlocked(prev => ({
+      ...prev,
+      [modalTargetId]: expirationTime
+    }));
+    
+    // 4. Cerrar el modal
+    handleCloseModal();
+    
+    // 5. Establecer el selectedId principal para mostrar el panel
+    setSelectedId(modalTargetId);
+    
+    // 6. Mostramos una notificación
+    toast.success('Registro desbloqueado por 1 hora.');
+  };
+  // === FIN DE LA MODIFICACIÓN 3 ===
+
   const enviarResultado = async (payload: { resultado: Resultado; notas?: string }) => {
     const row = pendRef.current.find((p) => p.progreso_id === selectedId);
     if (!row || !semana || !dia) return;
@@ -1055,14 +1136,40 @@ export default function Contactos1Client(
                         className="divide-y divide-black/5"
                       >
                         {pendientes.map((c) => {
-                          const disabled = estaInhabilitado(c.habilitado_desde);
+                          const disabled = estaInhabilitado(c.progreso_id, c.habilitado_desde);
                           return (
                             <motion.li
                               key={c.progreso_id}
                               variants={LIST_ITEM_VARIANTS}
                               layout
                               className={`px-4 md:px-5 py-3 transition ${selectedId === c.progreso_id ? 'bg-neutral-50' : ''} ${c._ui === 'new' ? 'animate-fadeInScale ring-2 ring-emerald-300/60' : c._ui === 'changed' ? 'animate-flashBg' : ''} ${disabled ? 'opacity-55 cursor-not-allowed' : 'hover:bg-neutral-50 cursor-pointer'}`}
-                              onClick={() => disabled ? setShowNextWeekModal(true) : setSelectedId(c.progreso_id)}
+                              
+                              // === INICIO DE LA MODIFICACIÓN: Lógica de onClick IDÉNTICA a MaestrosClient ===
+                              onClick={(e: React.MouseEvent<HTMLLIElement>) => {
+                                if (disabled) {
+                                  // Si está deshabilitado:
+                                  // 1. Poner el ID en el target del modal
+                                  setModalTargetId(c.progreso_id);
+                                  
+                                  // 2. Calcular y guardar la posición
+                                  const rect = e.currentTarget.getBoundingClientRect();
+                                  setModalPosition({
+                                    top: rect.bottom + window.scrollY + 8, // 8px de espacio
+                                    left: rect.left + window.scrollX,
+                                  });
+
+                                  // 3. Mostrar el modal
+                                  setShowNextWeekModal(true);
+                                } else {
+                                  // Si está habilitado:
+                                  // 1. Poner el ID en el selectedId principal para mostrar el panel
+                                  setSelectedId(c.progreso_id);
+                                  // 2. Asegurarse que el target y la posición del modal estén limpios
+                                  setModalTargetId(null);
+                                  setModalPosition(null);
+                                }
+                              }}
+                              // === FIN DE LA MODIFICACIÓN ===
                             >
                               <div className="flex items-start justify-between gap-4">
                                 <div className="flex items-start gap-3 min-w-0">
@@ -1309,32 +1416,36 @@ export default function Contactos1Client(
         </div>
       )}
 
-    {/* Modal premium para registros inhabilitados */}
+      {/* === INICIO DE LA MODIFICACIÓN: Modal de MaestrosClient PEGADO AQUÍ === */}
       <AnimatePresence>
         {showNextWeekModal && (
           <>
-            {/* Backdrop */}
             <motion.div
               key="backdrop"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm"
-              onClick={() => setShowNextWeekModal(false)}
+              className="fixed inset-0 z-[60] bg-black/50"
+              onClick={handleCloseModal} // Usar el nuevo handler
             />
-
-            {/* Card */}
+            
             <motion.div
               key="card"
               role="dialog"
               aria-modal="true"
-              initial={{ opacity: 0, y: 24, scale: 0.98 }}
+              initial={{ opacity: 0, y: 0, scale: 0.95 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 24, scale: 0.98 }}
-              transition={{ type: "spring", stiffness: 240, damping: 22 }}
-              className="fixed z-[61] inset-0 flex items-center justify-center p-4"
+              exit={{ opacity: 0, y: 0, scale: 0.95 }}
+              transition={{ type: "spring", stiffness: 300, damping: 20 }}
+              className="absolute z-[61]" // <-- CLAVE: 'absolute'
+              style={{
+                // CLAVE: Posicionamiento dinámico simple
+                top: modalPosition ? `${modalPosition.top}px` : 0,
+                left: modalPosition ? `${modalPosition.left}px` : 0,
+                visibility: modalPosition ? 'visible' : 'hidden',
+              }}
             >
-              <div className="w-full max-w-md rounded-2xl bg-white/80 backdrop-blur-xl shadow-2xl ring-1 ring-white/40">
+              <div className="w-full max-w-md rounded-2xl bg-white/80 shadow-2xl ring-1 ring-white/40">
                 <div className="p-6 md:p-7">
                   {/* Header */}
                   <div className="flex items-start gap-3">
@@ -1347,17 +1458,18 @@ export default function Contactos1Client(
                       <h3 className="text-base md:text-lg font-semibold text-neutral-900">
                         Registro inhabilitado
                       </h3>
+                      {/* Texto idéntico al de Maestros */}
                       <p className="mt-1 text-sm text-neutral-700">
                          Este registro fue gestionado por el servidor de la semana anterior.
-  Por ese motivo estará disponible nuevamente el próximo lunes
+  Por ese motivo estará disponible nuevamente el próximo domingo a las 10:00 AM.
                       </p>
-                      {/* Mostrar fecha exacta si existe en el registro seleccionado */}
+                      {/* Lógica de fecha idéntica a la de Maestros */}
                       {(() => {
-                        const selected = selectedId && pendientes.find(p => p.progreso_id === selectedId);
+                        const selected = modalTargetId && pendientes.find(p => p.progreso_id === modalTargetId);
                         if (selected && selected.habilitado_desde) {
                           return (
                             <p className="mt-2 text-xs text-neutral-600">
-                              Disponible desde: {selected.habilitado_desde}
+                              Disponible desde: {new Date(selected.habilitado_desde).toLocaleString('es-CO', { dateStyle: 'full', timeStyle: 'short' })}
                             </p>
                           );
                         }
@@ -1366,11 +1478,19 @@ export default function Contactos1Client(
                     </div>
                   </div>
 
-                  {/* Footer */}
+                  {/* Botones idénticos a los de Maestros */}
                   <div className="mt-6 flex justify-end gap-3">
                     <button
                       type="button"
-                      onClick={() => setShowNextWeekModal(false)}
+                      onClick={handleTempUnlock}
+                      className="inline-flex items-center justify-center rounded-xl px-4 py-2 text-sm font-semibold text-sky-700 bg-sky-100 ring-1 ring-sky-200 hover:bg-sky-200 active:bg-sky-300 transition"
+                    >
+                      Desbloquear Temporalmente
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleCloseModal} 
                       className="inline-flex items-center justify-center rounded-xl px-4 py-2 text-sm font-semibold text-white bg-gradient-to-r from-amber-500 to-orange-500 shadow hover:brightness-105 active:brightness-95 transition"
                     >
                       Entendido
@@ -1382,6 +1502,8 @@ export default function Contactos1Client(
           </>
         )}
       </AnimatePresence>
+      {/* === FIN DE LA MODIFICACIÓN === */}
+
 
       {/* Animaciones / estilos */}
       <style jsx global>{`

@@ -31,6 +31,7 @@ type FormValues = {
   estadoCivil?: EstadoCivil;
   ocupacion?: string;
   escolaridad?: string;  // Primaria, Bachiller, Técnico, etc.
+  laboraActualmente?: "si" | "no"; // NUEVO
 
   // Información general de iglesia
   seCongrega: "si" | "no";
@@ -38,6 +39,8 @@ type FormValues = {
   tiempoIglesia?: string;
   invito?: string;
   pastor?: string;
+  vieneOtraIglesia?: "si" | "no"; // NUEVO
+  otraIglesiaNombre?: string;   // NUEVO
 
   // Datos espirituales
   nacimientoEspiritu?: "si" | "no" | "no_sabe";
@@ -45,6 +48,19 @@ type FormValues = {
   bautismoEspiritu?: "si" | "no";
   tieneBiblia: boolean;
   ayuna?: "si" | "no";
+  tiempoOracion?: string;         // NUEVO
+  frecuenciaLecturaBiblia?: string; // NUEVO
+  motivoAyuno?: string;           // NUEVO
+
+  // NUEVA: Información personal/salud (de la lista 'Información General')
+  metaPersonal?: string;
+  enfermedad?: string;
+  tratamientoClinico?: "si" | "no";
+  motivoTratamiento?: string;
+  retirosAsistidos?: string; // PTIMD
+  convivencia?: "solo" | "pareja" | "hijos" | "padres" | "otro";
+  recibeConsejeria?: "si" | "no";
+  motivoConsejeria?: string;
 
   // Evaluación/Observaciones
   aspectoFeliz: boolean;
@@ -52,6 +68,9 @@ type FormValues = {
   interviene: boolean;
   cambiosFisicos?: string; // "normal" u observaciones
   notas?: string;
+  cambiosEmocionales?: string; // NUEVO
+  desempenoClase?: string;    // NUEVO
+  maestroEncargado?: string; // NUEVO
 
   // Decisión
   promovido?: "si" | "no";
@@ -71,6 +90,11 @@ const ESCOLARIDAD = [
   "Universitario",
   "Postgrado",
 ];
+// NUEVAS CONSTANTES
+const TIEMPO_ORACION = ["Menos de 15 min", "15-30 min", "30-60 min", "Más de 1 hora", "No oro"];
+const LECTURA_BIBLIA = ["Diariamente", "Varias veces por semana", "Semanalmente", "Ocasionalmente", "Casi nunca"];
+const CONVIVENCIA = ["solo", "pareja", "hijos", "padres", "otro"];
+
 
 const INITIAL: FormValues = {
   nombre: "",
@@ -83,24 +107,43 @@ const INITIAL: FormValues = {
   estadoCivil: undefined,
   ocupacion: "",
   escolaridad: "",
+  laboraActualmente: undefined, // NUEVO
 
   seCongrega: "no",
   diaCongrega: "",
   tiempoIglesia: "",
   invito: "",
   pastor: "",
+  vieneOtraIglesia: undefined, // NUEVO
+  otraIglesiaNombre: "",     // NUEVO
 
   nacimientoEspiritu: undefined,
   bautizoAgua: undefined,
   bautismoEspiritu: undefined,
   tieneBiblia: false,
   ayuna: undefined,
+  tiempoOracion: "",         // NUEVO
+  frecuenciaLecturaBiblia: "", // NUEVO
+  motivoAyuno: "",           // NUEVO
+
+  // NUEVOS
+  metaPersonal: "",
+  enfermedad: "",
+  tratamientoClinico: undefined,
+  motivoTratamiento: "",
+  retirosAsistidos: "",
+  convivencia: undefined,
+  recibeConsejeria: undefined,
+  motivoConsejeria: "",
 
   aspectoFeliz: false,
   muyInteresado: false,
   interviene: false,
   cambiosFisicos: "",
   notas: "",
+  cambiosEmocionales: "", // NUEVO
+  desempenoClase: "",    // NUEVO
+  maestroEncargado: "", // NUEVO
 
   promovido: undefined,
   foto: null,
@@ -202,10 +245,12 @@ export default function EntrevistaPage() {
         !!values.direccion &&
         !!values.estadoCivil &&
         !!values.ocupacion &&
-        !!values.escolaridad
+        !!values.escolaridad &&
+        !!values.laboraActualmente // NUEVO (Añadido para completitud)
       );
     }
     if (seccion === 'generales') {
+      // (Los nuevos campos de salud/metas son opcionales para el check)
       if (values.seCongrega === 'si') {
         return (
           !!values.diaCongrega &&
@@ -226,7 +271,9 @@ export default function EntrevistaPage() {
         !!values.bautizoAgua &&
         !!values.bautismoEspiritu &&
         typeof values.tieneBiblia === 'boolean' &&
-        !!values.ayuna
+        !!values.ayuna &&
+        !!values.tiempoOracion && // NUEVO (Añadido para completitud)
+        !!values.frecuenciaLecturaBiblia // NUEVO (Añadido para completitud)
       );
     }
     if (seccion === 'evaluacion') {
@@ -238,7 +285,14 @@ export default function EntrevistaPage() {
         values.promovido !== undefined &&
         values.notas !== undefined &&
         values.cambiosFisicos !== '' &&
-        values.notas !== ''
+        values.notas !== '' &&
+        // NUEVOS (Añadidos para completitud, consistentes con 'notas' y 'cambiosFisicos')
+        values.cambiosEmocionales !== undefined &&
+        values.desempenoClase !== undefined &&
+        values.maestroEncargado !== undefined &&
+        values.cambiosEmocionales !== '' &&
+        values.desempenoClase !== '' &&
+        values.maestroEncargado !== ''
       );
     }
     return false;
@@ -960,6 +1014,26 @@ export default function EntrevistaPage() {
                               ))}
                             </select>
                           </Field>
+                          
+                          {/* --- CAMPO NUEVO --- */}
+                          <div className="flex flex-col gap-1.5 md:col-span-2">
+                            <label className="label-premium">¿Labora actualmente?</label>
+                            <div className="flex gap-3 flex-wrap">
+                              <Chip 
+                                checked={values.laboraActualmente === "si"} 
+                                onClick={() => onChange("laboraActualmente", "si")}
+                              >
+                                Sí
+                              </Chip>
+                              <Chip 
+                                checked={values.laboraActualmente === "no"} 
+                                onClick={() => onChange("laboraActualmente", "no")}
+                              >
+                                No
+                              </Chip>
+                            </div>
+                          </div>
+                          
                         </div>
                       </div>
                     </section>
@@ -992,6 +1066,7 @@ export default function EntrevistaPage() {
                         </div>
                         <Field label="Tiempo en la iglesia" icon="time">
                           <input
+                            ref={el => { fieldRefs.current["tiempoIglesia"] = el; }}
                             className="input-premium"
                             placeholder="Ej: 6 meses, 2 años"
                             value={values.tiempoIglesia ?? ""}
@@ -1000,6 +1075,7 @@ export default function EntrevistaPage() {
                         </Field>
                         <Field label="¿Quién lo invitó?" icon="user2">
                           <input
+                            ref={el => { fieldRefs.current["invito"] = el; }}
                             className="input-premium"
                             placeholder="Nombre del servidor que invitó"
                             value={values.invito ?? ""}
@@ -1008,12 +1084,131 @@ export default function EntrevistaPage() {
                         </Field>
                         <Field label="Pastor" icon="pastor">
                           <input
+                            ref={el => { fieldRefs.current["pastor"] = el; }}
                             className="input-premium"
                             placeholder="Nombre del pastor"
                             value={values.pastor ?? ""}
                             onChange={(e) => onChange("pastor", e.target.value)}
                           />
                         </Field>
+                        
+                        {/* --- CAMPO NUEVO (Sí/No) --- */}
+                        <div className="flex flex-col gap-1.5">
+                          <label className="label-premium">¿Viene de otra iglesia?</label>
+                          <div className="flex gap-3 flex-wrap">
+                            <Chip 
+                              checked={values.vieneOtraIglesia === "si"} 
+                              onClick={() => onChange("vieneOtraIglesia", "si")}
+                            >
+                              Sí
+                            </Chip>
+                            <Chip 
+                              checked={values.vieneOtraIglesia === "no"} 
+                              onClick={() => onChange("vieneOtraIglesia", "no")}
+                            >
+                              No
+                            </Chip>
+                          </div>
+                        </div>
+
+                        {/* --- CAMPO NUEVO (Condicional) --- */}
+                        <Field label="¿Cuál iglesia?" icon="pin">
+                          <input
+                            ref={el => { fieldRefs.current["otraIglesiaNombre"] = el; }}
+                            className="input-premium disabled:opacity-60"
+                            placeholder="Nombre de la iglesia anterior"
+                            value={values.otraIglesiaNombre ?? ""}
+                            onChange={(e) => onChange("otraIglesiaNombre", e.target.value)}
+                            disabled={values.vieneOtraIglesia !== "si"}
+                          />
+                        </Field>
+                      </div>
+
+                      {/* --- NUEVA SUB-SECCIÓN --- */}
+                      <h3 className="h2-premium mt-6">Información Adicional (Salud y Personal)</h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <Field label="¿Qué meta le gustaría alcanzar?" icon="note" full>
+                          <input
+                            ref={el => { fieldRefs.current["metaPersonal"] = el; }}
+                            className="input-premium"
+                            placeholder="Describa su meta personal"
+                            value={values.metaPersonal ?? ""}
+                            onChange={(e) => onChange("metaPersonal", e.target.value)}
+                          />
+                        </Field>
+                        
+                        <Field label="¿Padece alguna enfermedad?" icon="note">
+                          <input
+                            ref={el => { fieldRefs.current["enfermedad"] = el; }}
+                            className="input-premium"
+                            placeholder="Indicar cuál o 'Ninguna'"
+                            value={values.enfermedad ?? ""}
+                            onChange={(e) => onChange("enfermedad", e.target.value)}
+                          />
+                        </Field>
+
+                        <div className="flex flex-col gap-1.5">
+                          <label className="label-premium">¿En tratamiento clínico?</label>
+                          <div className="flex gap-3 flex-wrap">
+                            <Chip checked={values.tratamientoClinico === "si"} onClick={() => onChange("tratamientoClinico", "si")}>Sí</Chip>
+                            <Chip checked={values.tratamientoClinico === "no"} onClick={() => onChange("tratamientoClinico", "no")}>No</Chip>
+                          </div>
+                        </div>
+
+                        <Field label="Motivo del tratamiento" icon="note" full>
+                          <input
+                            ref={el => { fieldRefs.current["motivoTratamiento"] = el; }}
+                            className="input-premium disabled:opacity-60"
+                            placeholder="Motivo (si aplica)"
+                            value={values.motivoTratamiento ?? ""}
+                            onChange={(e) => onChange("motivoTratamiento", e.target.value)}
+                            disabled={values.tratamientoClinico !== "si"}
+                          />
+                        </Field>
+                        
+                        <Field label="¿Con quién convive?" icon="home">
+                           <select
+                              ref={el => { fieldRefs.current["convivencia"] = el; }}
+                              className="input-premium"
+                              value={values.convivencia ?? ""}
+                              onChange={(e) => onChange("convivencia", (e.target.value || undefined) as any)}
+                            >
+                              <option value="">Seleccione</option>
+                              {CONVIVENCIA.map((op) => (
+                                <option key={op} value={op}>{op.charAt(0).toUpperCase() + op.slice(1)}</option>
+                              ))}
+                            </select>
+                        </Field>
+
+                        <Field label="Retiros PTIMD asistidos" icon="cap">
+                          <input
+                            ref={el => { fieldRefs.current["retirosAsistidos"] = el; }}
+                            className="input-premium"
+                            placeholder="Ej: 0, 1, 2..."
+                            value={values.retirosAsistidos ?? ""}
+                            onChange={(e) => onChange("retirosAsistidos", e.target.value)}
+                          />
+                        </Field>
+
+                        <div className="flex flex-col gap-1.5">
+                          <label className="label-premium">¿Recibe consejería?</label>
+                          <div className="flex gap-3 flex-wrap">
+                            <Chip checked={values.recibeConsejeria === "si"} onClick={() => onChange("recibeConsejeria", "si")}>Sí</Chip>
+                            <Chip checked={values.recibeConsejeria === "no"} onClick={() => onChange("recibeConsejeria", "no")}>No</Chip>
+                          </div>
+                        </div>
+
+                        <Field label="Motivo de la consejería" icon="note">
+                          <input
+                            ref={el => { fieldRefs.current["motivoConsejeria"] = el; }}
+                            className="input-premium disabled:opacity-60"
+                            placeholder="Motivo (si aplica)"
+                            value={values.motivoConsejeria ?? ""}
+                            onChange={(e) => onChange("motivoConsejeria", e.target.value)}
+                            disabled={values.recibeConsejeria !== "si"}
+                          />
+                        </Field>
+
                       </div>
                     </section>
                   )}
@@ -1051,16 +1246,7 @@ export default function EntrevistaPage() {
                             ))}
                           </div>
                         </div>
-                        <label className="flex items-center gap-2 md:col-span-1">
-                          <input
-                            id="tieneBiblia"
-                            type="checkbox"
-                            checked={values.tieneBiblia}
-                            onChange={(e) => onChange("tieneBiblia", e.target.checked)}
-                            className="h-4 w-4 rounded border-slate-300"
-                          />
-                          <span className="text-sm text-slate-700">Tiene Biblia</span>
-                        </label>
+                        
                         <div className="flex flex-col gap-1.5">
                           <label className="label-premium">¿Ayuna?</label>
                           <div className="flex gap-3">
@@ -1071,6 +1257,60 @@ export default function EntrevistaPage() {
                             ))}
                           </div>
                         </div>
+
+                        {/* --- CAMPO NUEVO --- */}
+                        <Field label="¿Por qué ayuna?" icon="note">
+                          <input
+                            ref={el => { fieldRefs.current["motivoAyuno"] = el; }}
+                            className="input-premium disabled:opacity-60"
+                            placeholder="Motivo (si aplica)"
+                            value={values.motivoAyuno ?? ""}
+                            onChange={(e) => onChange("motivoAyuno", e.target.value)}
+                            disabled={values.ayuna !== "si"}
+                          />
+                        </Field>
+
+                        <label className="flex items-center gap-2 md:col-span-1">
+                          <input
+                            id="tieneBiblia"
+                            type="checkbox"
+                            checked={values.tieneBiblia}
+                            onChange={(e) => onChange("tieneBiblia", e.target.checked)}
+                            className="h-4 w-4 rounded border-slate-300"
+                          />
+                          <span className="text-sm text-slate-700">Tiene Biblia</span>
+                        </label>
+                        
+                        {/* --- CAMPO NUEVO --- */}
+                        <Field label="Tiempo de oración diaria" icon="time">
+                           <select
+                              ref={el => { fieldRefs.current["tiempoOracion"] = el; }}
+                              className="input-premium"
+                              value={values.tiempoOracion ?? ""}
+                              onChange={(e) => onChange("tiempoOracion", e.target.value)}
+                            >
+                              <option value="">Seleccione</option>
+                              {TIEMPO_ORACION.map((op) => (
+                                <option key={op} value={op}>{op}</option>
+                              ))}
+                            </select>
+                        </Field>
+                        
+                        {/* --- CAMPO NUEVO --- */}
+                        <Field label="¿Cada cuánto lee la Biblia?" icon="note">
+                           <select
+                              ref={el => { fieldRefs.current["frecuenciaLecturaBiblia"] = el; }}
+                              className="input-premium"
+                              value={values.frecuenciaLecturaBiblia ?? ""}
+                              onChange={(e) => onChange("frecuenciaLecturaBiblia", e.target.value)}
+                            >
+                              <option value="">Seleccione</option>
+                              {LECTURA_BIBLIA.map((op) => (
+                                <option key={op} value={op}>{op}</option>
+                              ))}
+                            </select>
+                        </Field>
+
                       </div>
                     </section>
                   )}
@@ -1092,6 +1332,40 @@ export default function EntrevistaPage() {
                             onChange={(e) => onChange("cambiosFisicos", e.target.value)}
                           />
                         </Field>
+                        
+                        {/* --- CAMPO NUEVO --- */}
+                        <Field label="Cambios emocionales" icon="note">
+                          <input
+                            ref={el => { fieldRefs.current["cambiosEmocionales"] = el; }}
+                            className="input-premium"
+                            placeholder="Observaciones emocionales"
+                            value={values.cambiosEmocionales ?? ""}
+                            onChange={(e) => onChange("cambiosEmocionales", e.target.value)}
+                          />
+                        </Field>
+
+                        {/* --- CAMPO NUEVO --- */}
+                        <Field label="Desempeño en clase" icon="cap">
+                          <input
+                            ref={el => { fieldRefs.current["desempenoClase"] = el; }}
+                            className="input-premium"
+                            placeholder="Notas sobre su desempeño"
+                            value={values.desempenoClase ?? ""}
+                            onChange={(e) => onChange("desempenoClase", e.target.value)}
+                          />
+                        </Field>
+
+                        {/* --- CAMPO NUEVO --- */}
+                        <Field label="Maestro encargado" icon="pastor">
+                          <input
+                            ref={el => { fieldRefs.current["maestroEncargado"] = el; }}
+                            className="input-premium"
+                            placeholder="Nombre del maestro"
+                            value={values.maestroEncargado ?? ""}
+                            onChange={(e) => onChange("maestroEncargado", e.target.value)}
+                          />
+                        </Field>
+                        
                         <div className="flex flex-col gap-1.5">
                           <label className="label-premium">Promovido</label>
                           <div className="flex gap-3">
