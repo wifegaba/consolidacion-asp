@@ -841,24 +841,81 @@ export default function Contactos1Client(
   const toggleMark = (id: string, tipo: 'A' | 'N') =>
     setMarks((m) => ({ ...m, [id]: m[id] === tipo ? undefined : tipo }));
 
+  // ==================================================================
+  // === INICIO DE LA MODIFICACIÓN (Lógica de Restauración) ===
+  // ==================================================================
+
+  const handleRestauracionAsistencia = async (student: AgendadoRow) => {
+    if (!student?.nombre) return;
+    const placeholderCedula = `TEMP_${crypto.randomUUID()}`;
+    const payload = {
+      nombre: student.nombre,
+      telefono: student.telefono ?? null,
+      cedula: placeholderCedula,
+      created_by: servidorId, 
+      notas: `Registro automático creado desde "Asistencia" (Restauración) el ${new Date().toISOString()}. Cédula pendiente de actualizar.`
+    };
+    try {
+      const { error } = await supabase.from('entrevistas').insert(payload);
+      if (error) {
+        console.error("Error al crear entrevista desde Restauración:", error);
+        toast.error(`Error al enviar a ${student.nombre} a Entrevistas.`);
+        return false;
+      }
+      toast.success(`${student.nombre} enviado(a) al panel de Entrevistas.`);
+      return true;
+    } catch (e: any) {
+      console.error(e?.message ?? 'Error inesperado en handleRestauracionAsistencia');
+      toast.error('Error inesperado al guardar la entrevista.');
+      return false;
+    }
+  };
+
   const enviarAsistencias = async () => {
     const entradas = Object.entries(marks).filter(([, v]) => v);
     if (entradas.length === 0) return;
     setSavingAg(true);
+    
     try {
       for (const [progId, v] of entradas) {
-        const { error } = await supabase.rpc(RPC_ASIST, {
-          p_progreso: progId,
-          p_asistio: v === 'A',
-        });
-        if (error) throw error;
+        // --- INICIO DE LA LÓGICA CONDICIONAL ---
+        if (asig?.etapaBase === 'Restauracion' && v === 'A') {
+          const student = agendados.find(a => a.progreso_id === progId);
+          if (!student) continue;
+          
+          // 1. Intentar guardar en 'entrevistas'
+          const exito = await handleRestauracionAsistencia(student);
+          
+          // 2. Solo si tuvo éxito, marcar asistencia
+          if (exito) {
+            const { error: rpcError } = await supabase.rpc(RPC_ASIST, {
+              p_progreso: progId,
+              p_asistio: true,
+            });
+            if (rpcError) throw rpcError;
+          }
+        } else {
+          // --- LÓGICA ORIGINAL ---
+          const { error } = await supabase.rpc(RPC_ASIST, {
+            p_progreso: progId,
+            p_asistio: v === 'A',
+          });
+          if (error) throw error;
+        }
+        // --- FIN DE LA LÓGICA CONDICIONAL ---
       }
       setMarks({});
       await fetchAgendados({ quiet: true });
+    } catch (e: any) {
+       console.error("Error en enviarAsistencias:", e?.message);
+       toast.error(`Error al procesar asistencias: ${e?.message}`);
     } finally {
       setSavingAg(false);
     }
   };       
+  // ==================================================================
+  // === FIN DE LA MODIFICACIÓN ===
+  // ==================================================================
 
   /* ====== Realtime ====== */
   useEffect(() => {
@@ -1083,7 +1140,7 @@ export default function Contactos1Client(
             title="Ver estudiantes archivados y reactivar"
             >
               <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M3 6.5A2.5 2.5 0 0 1 5.5 4h13A2.5 2.5 0 0 1 21 6.5V18a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2ZM5 8h14v10H5Zm2-3h10v2H7z" fill="currentColor"/>
+                <path d="M3 6.5A2.5 2.5 0 0 1 5.5 4h13A2.5 2.5 0 0 1 21 6.5V18a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6Zm5 1h8v10H8Z" fill="currentColor"/>
               </svg>
               <span style={{display: 'flex', flexDirection: 'column', lineHeight: '1.1', alignItems: 'center'}}>
                 Banco<br />Archivo
@@ -2127,7 +2184,3 @@ const openObsModal = async () => {
     </div>
   );
 }
-
-
-
-

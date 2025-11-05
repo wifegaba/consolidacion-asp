@@ -14,7 +14,7 @@
     "aos": "^2.3.4",
     "bcryptjs": "^3.0.2",
     "d3": "^7.9.0",
-    "framer-motion": "^12.23.16",
+    "framer-motion": "^12.23.24",
     "jose": "^6.1.0",
     "jsonwebtoken": "^9.0.2",
     "jspdf": "^3.0.3",

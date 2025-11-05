@@ -131,8 +131,6 @@ body {
   }
 }
 
-
-
 @keyframes enterFromRight { from {opacity:0; transform:translateX(24px);} to {opacity:1; transform:translateX(0);} }
 @keyframes enterFromLeft  { from {opacity:0; transform:translateX(-24px);} to {opacity:1; transform:translateX(0);} }
 @keyframes leaveToLeft  { from {opacity:1; transform:translateX(0);} to {opacity:0; transform:translateX(-24px);} }

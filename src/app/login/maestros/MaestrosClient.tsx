@@ -856,8 +856,16 @@ if (!opts?.quiet) setLoadingPend(false);
   // === LÓGICA DE RESTAURACIÓN (SIN CAMBIOS) ===
   // ==================================================================
 
-  const handleRestauracionAsistencia = async (student: AgendadoRow) => {
-    if (!student?.nombre) return;
+  
+const handleRestauracionAsistencia = async (student: AgendadoRow) => {
+    // === INICIO DE LA CORRECCIÓN ===
+    if (!student?.nombre) {
+      console.error("Error: Se intentó registrar asistencia sin nombre de estudiante.", student);
+      toast.error('Error: El estudiante no tiene nombre, no se puede procesar.');
+      return false; // <-- Devuelve 'false' explícitamente
+    }
+    // === FIN DE LA CORRECCIÓN ===
+
     const placeholderCedula = `TEMP_${crypto.randomUUID()}`;
     const payload = {
       nombre: student.nombre,
