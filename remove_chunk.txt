@@ -7,7 +7,7 @@
                             <button className="modal-buscar__close" aria-label="Cerrar"
                                     onClick={() => setModalArchivoVisible(false)}>×</button>
 
-                            <h3 className="modal-buscar__heading">Banco Archivo (Archivados)</h3>
+                            <h3 className="modal-buscar__heading">Banco Archivo</h3>
 
                             <div className="tabla-archivo-wrap" style={{ maxHeight: 420, overflow: 'auto' }}>
                                 <table className="tabla-archivo" style={{ width: '100%', borderCollapse: 'collapse' }}>

@@ -124,7 +124,7 @@ export default function ContactosModal({ onClose }: ContactosModalProps) {
                 }
                 .mac-modal .mac-head,
                 .mac-modal .mac-content {
-                    width: min(1080px, 92vw);
+                    width: min(1280px, 92vw);
                 }
                 .mac-head {
                     margin: 0 auto 14px auto;
@@ -150,7 +150,7 @@ export default function ContactosModal({ onClose }: ContactosModalProps) {
                 }
                 .mac-search-wrap { display: grid; place-items: center; margin-bottom: 14px; }
                 .mac-search {
-                    width: min(720px, 92vw);
+                    width: min(920px, 92vw);
                     height: 44px;
                     padding: 0 14px;
                     border-radius: 12px;

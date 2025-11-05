@@ -1326,7 +1326,7 @@ export default function PersonaNueva({ servidorId }: { servidorId: string | null
                                     >
                                         <div
                                             tabIndex={-1}
-                                            className="w-[min(600px,92vw)] rounded-[20px] overflow-hidden border border-neutral-200/50 shadow-2xl bg-white/90 backdrop-blur-xl"
+                                            className="w-auto max-w-[90vw] lg:max-w-5xl rounded-[20px] overflow-hidden border border-neutral-200/50 shadow-2xl bg-white/90 backdrop-blur-xl"
                                         >
                                             
                                             {/* Header sticky con Iconos de Exportación */}
@@ -1377,10 +1377,10 @@ export default function PersonaNueva({ servidorId }: { servidorId: string | null
                                                     {/* Encabezado del listado (Responsivo) */}
                                                     <div className="flex w-full border-b border-neutral-300/80 px-3 py-2 bg-neutral-100/70">
                                                         <div className="flex-1 text-left text-xs font-semibold text-neutral-600 uppercase tracking-wider">Nombre</div>
-                                                        <div className="hidden sm:block w-32 text-center text-xs font-semibold text-neutral-600 uppercase tracking-wider">Teléfono</div>
-                                                        <div className="hidden sm:block w-28 text-center text-xs font-semibold text-neutral-600 uppercase tracking-wider">Día</div>
-                                                        <div className="hidden sm:block w-32 text-center text-xs font-semibold text-neutral-600 uppercase tracking-wider">Creado por</div>
-                                                        <div className="w-[84px] sm:w-[100px] text-center text-xs font-semibold text-neutral-600 uppercase tracking-wider">Acciones</div>
+                                                        <div className="hidden sm:block px-4 text-center text-xs font-semibold text-neutral-600 uppercase tracking-wider">Teléfono</div>
+                                                        <div className="hidden sm:block px-4 text-center text-xs font-semibold text-neutral-600 uppercase tracking-wider">Día</div>
+                                                        <div className="hidden sm:block px-4 text-center text-xs font-semibold text-neutral-600 uppercase tracking-wider">Creado por</div>
+                                                        <div className="px-4 text-center text-xs font-semibold text-neutral-600 uppercase tracking-wider">Acciones</div>
                                                     </div>
 
 
@@ -1407,17 +1407,17 @@ export default function PersonaNueva({ servidorId }: { servidorId: string | null
                                                                         className="flex items-center w-full cursor-pointer transition-colors hover:bg-neutral-600/5 border-b border-neutral-200/70"
                                                                     >
                                                                         {/* Columna Principal (Contiene Nombre, Fecha y Teléfono en móvil) */}
-                                                                        <div className="flex-1 px-3 py-3 truncate">
+                                                                        <div className="flex-1 px-3 py-3">
                                                                             {/* Fila 1: Nombre (Desktop) */}
                                                                             <div className="hidden sm:flex items-center justify-between">
-                                                                                <span className="text-sm font-medium text-neutral-800 truncate">
+                                                                                <span className="text-sm font-medium text-neutral-800">
                                                                                     {row.nombre ?? ""}
                                                                                 </span>
                                                                             </div>
 
                                                                             {/* Fila 1: Nombre + Fecha (Móvil) */}
                                                                             <div className="flex sm:hidden items-center justify-between">
-                                                                                <span className="text-sm font-medium text-neutral-800 truncate">
+                                                                                <span className="text-sm font-medium text-neutral-800">
                                                                                     {row.nombre ?? ""}
                                                                                 </span>
                                                                                 {/* Fecha (Solo visible en móvil, al lado del nombre) */}
@@ -1427,34 +1427,34 @@ export default function PersonaNueva({ servidorId }: { servidorId: string | null
                                                                             </div>
                                                                             
                                                                             {/* Fila 2: Teléfono (Solo visible en móvil) */}
-                                                                            <div className="sm:hidden text-sm text-neutral-700 truncate mt-0.5">
+                                                                            <div className="sm:hidden text-sm text-neutral-700 mt-0.5">
                                                                                 {row.telefono ?? ""}
                                                                             </div>
 
                                                                             {/* Fila 3: Servidor (Solo visible en móvil) */}
-                                                                            <div className="sm:hidden text-xs text-indigo-600 truncate mt-0.5">
+                                                                            <div className="sm:hidden text-xs text-indigo-600 mt-0.5">
                                                                                 Servidor: {row.creado_por_nombre ?? "Sistema"}
                                                                             </div>
 
                                                                         </div>
                                                                         
                                                                         {/* Columna Teléfono (Solo visible en Desktop) */}
-                                                                        <div className="hidden sm:block w-32 px-3 py-3 text-sm text-neutral-700 truncate text-center">
+                                                                        <div className="hidden sm:block px-4 py-3 text-sm text-neutral-700 text-center">
                                                                             {row.telefono ?? ""}
                                                                         </div>
 
                                                                         {/* Columna Día (Solo visible en Desktop) */}
-                                                                        <div className="hidden sm:block w-28 px-3 py-3 text-sm text-neutral-600 truncate text-center">
+                                                                        <div className="hidden sm:block px-4 py-3 text-sm text-neutral-600 text-center">
                                                                             {soloFecha(row.creado_en ?? row.created_at ?? row.fecha ?? "")}
                                                                         </div>
                                                                         
                                                                         {/* Columna Creado Por (Solo visible en Desktop) */}
-                                                                        <div className="hidden sm:block w-32 px-3 py-3 text-sm text-neutral-700 truncate text-center" title={row.creado_por_nombre ?? ''}>
+                                                                        <div className="hidden sm:block px-4 py-3 text-sm text-neutral-700 text-center" title={row.creado_por_nombre ?? ''}>
                                                                             {row.creado_por_nombre ?? "Sistema"}
                                                                         </div>
 
                                                                         {/* Columna Acciones (Llamar + Eliminar) (Visible en ambos) */}
-                                                                        <div className="w-[84px] sm:w-[100px] px-3 py-3 text-center flex items-center justify-end gap-1">
+                                                                        <div className="px-4 py-3 text-center flex items-center justify-end gap-1">
                                                                             <a
                                                                                 href={`tel:${normalizaTelefono(row.telefono ?? '')}`}
                                                                                 onClick={(e) => {

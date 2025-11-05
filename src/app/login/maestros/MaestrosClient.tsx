@@ -346,7 +346,14 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
   const [bancoLoading, setBancoLoading] = useState(false);
   const [bancoRows, setBancoRows] = useState<BancoRow[]>([]);
   const [reactivating, setReactivating] = useState<Record<string, boolean>>({});
+  const [deleting, setDeleting] = useState<Record<string, boolean>>({});
   const [servidorId, setServidorId] = useState<string | null>(null);
+  const [showReactivationConfirm, setShowReactivationConfirm] = useState(false);
+  const [reactivationCandidate, setReactivationCandidate] = useState<BancoRow | null>(null);
+  // === INICIO DE LA MODIFICACIÓN: Estado de paginación para Banco Archivo ===
+  const [bancoPagina, setBancoPagina] = useState(0);
+  const REGS_POR_PAGINA = 8;
+  // === FIN DE LA MODIFICACIÓN ===
   // Modales adicionales
   const [nuevaAlmaOpen, setNuevaAlmaOpen] = useState(false);
   const [servidoresOpen, setServidoresOpen] = useState(false);
@@ -514,6 +521,93 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
     XLSX.utils.book_append_sheet(wb, ws, ws_name);
     XLSX.writeFile(wb, `contactos_pendientes_semana_${semana}.xlsx`);
   };
+
+  const downloadBancoPDF = () => {
+    if (!asig) return;
+    const doc = new jsPDF();
+    doc.setFontSize(20);
+    doc.setTextColor(40, 58, 90);
+    doc.text(`Banco Archivo - ${asig.etapaDet}`, 14, 22);
+
+    autoTable(doc, {
+      startY: 30,
+      head: [['Nombre', 'Teléfono', 'Módulo', 'Semana', 'Día', 'Archivado']],
+      body: bancoRows.map(r => [
+        r.nombre,
+        r.telefono ?? '-',
+        r.modulo?.toString() ?? '-',
+        r.semana?.toString() ?? '-',
+        r.dia,
+        new Date(r.creado_en).toLocaleString('es-CO', { dateStyle: 'short', timeStyle: 'short' })
+      ]),
+      headStyles: { fillColor: [41, 128, 185] },
+    });
+
+    doc.save(`banco_archivo_${asig.etapaBase}_${asig.dia}.pdf`);
+    toast.success('Archivo PDF del Banco Archivo descargado exitosamente');
+  };
+
+  const downloadBancoExcel = () => {
+    if (!asig) return;
+    const ws_name = "Banco Archivo";
+    const wb = XLSX.utils.book_new();
+    
+    const header = ["Nombre", "Teléfono", "Módulo", "Semana", "Día", "Archivado"];
+    const data = bancoRows.map(r => [
+        r.nombre,
+        r.telefono ?? '-',
+        r.modulo?.toString() ?? '-',
+        r.semana?.toString() ?? '-',
+        r.dia,
+        new Date(r.creado_en).toLocaleString('es-CO', { dateStyle: 'short', timeStyle: 'short' })
+    ]);
+
+    const finalData = [
+      [`Banco Archivo - ${asig.etapaDet}`],
+      [],
+      header,
+      ...data
+    ];
+
+    const ws = XLSX.utils.aoa_to_sheet(finalData);
+    ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 5 } }];
+
+    if(ws['A1']) {
+      ws['A1'].s = {
+        font: { name: 'Arial', sz: 16, bold: true, color: { rgb: "FFFFFF" } },
+        fill: { fgColor: { rgb: "2980b9" } },
+        alignment: { horizontal: "center" }
+      };
+    }
+
+    XLSX.utils.book_append_sheet(wb, ws, ws_name);
+    XLSX.writeFile(wb, `banco_archivo_${asig.etapaBase}_${asig.dia}.xlsx`);
+    toast.success('Archivo Excel del Banco Archivo descargado exitosamente');
+  };
+
+  const downloadAsistenciasPDF = () => {
+    if (!asig) return;
+    const doc = new jsPDF();
+    doc.setFontSize(20);
+    doc.setTextColor(40, 58, 90);
+    doc.text(`Listado de Asistencias - ${asig.etapaDet}`, 14, 22);
+
+    autoTable(doc, {
+      startY: 30,
+      head: [['Nombre', 'Teléfono', 'Semana']],
+      body: agendados.map(a => [
+        a.nombre,
+        a.telefono ?? '-',
+        a.semana.toString()
+      ]),
+      headStyles: { fillColor: [41, 128, 185] },
+    });
+
+    doc.save(`asistencias_${asig.etapaBase}_${asig.dia}.pdf`);
+    toast.success('Archivo PDF de Asistencias descargado exitosamente');
+  };
+
+
 
   // Cargar asignación del maestro (y servidorId para reactivar)
   useEffect(() => {
@@ -1339,12 +1433,24 @@ if (!opts?.quiet) setLoadingPend(false);
           <div className="flex items-center justify-between px-4 md:px-6 py-3 backdrop-blur-xl bg-[radial-gradient(900px_200px_at_0%_-30%,rgba(56,189,248,0.16),transparent),radial-gradient(900px_240px_at_110%_-40%,rgba(99,102,241,0.14),transparent),linear-gradient(135deg,rgba(255,255,255,.70),rgba(255,255,255,.45))] supports-[backdrop-filter]:bg-[radial-gradient(900px_200px_at_0%_-30%,rgba(56,189,248,0.16),transparent),radial-gradient(900px_240px_at_110%_-40%,rgba(99,102,241,0.14),transparent),linear-gradient(135deg,rgba(255,255,255,.62),rgba(255,255,255,.38))]">
             <div>
               <h3 className="text-[15px] md:text-base font-semibold text-neutral-900">
-                Listado Estudiantes Día {asig.dia} — {asig.etapaBase === 'Semillas' ? 'Semillas' : asig.etapaBase} {asig.modulo}
+                Día {asig.dia} — {asig.etapaBase === 'Semillas' ? 'Semillas' : asig.etapaBase} {asig.modulo}
               </h3>
               <p className="text-neutral-700 text-xs">Agendados que confirmaron asistencia.</p>
             </div>
-            <div className="text-sm font-semibold rounded-full bg-white/80 px-3 py-1.5 ring-1 ring-white/60 shadow-sm text-neutral-900">
-              {asig.dia}
+            <div className="flex items-center gap-2">
+                <button
+                  onClick={downloadAsistenciasPDF}
+                  disabled={agendados.length === 0}
+                  className="inline-flex items-center gap-1 rounded-xl bg-gradient-to-r from-red-400 via-red-500 to-red-600 text-white ring-1 ring-white/50 shadow-[0_6px_20px_rgba(220,38,38,0.35)] px-2 py-1 text-xs font-medium hover:scale-[1.02] active:scale-95 transition disabled:opacity-60 disabled:cursor-not-allowed"
+                  title="Descargar PDF de asistencias"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ fontSize: '0.85em' }}>
+                    <path d="M12 5v14M5 12l7 7 7-7" />
+                  </svg>
+                  PDF
+                </button>
+
+               
             </div>
           </div>
 
@@ -1400,77 +1506,235 @@ if (!opts?.quiet) setLoadingPend(false);
       </div>
 
       {/* ===== Modal Banco Archivo (Mac 2025 / glass) ===== */}
-      {bancoOpen && (
-        <div className="fixed inset-0 z-[60] flex justify-center items-start pt-8 md:pt-12">
-          <div
-        className="absolute inset-0 bg-black/30 backdrop-blur-sm"
-        onClick={() => setBancoOpen(false)}
-          />
-          <div className="relative w-full max-w-md sm:max-w-lg md:max-w-4xl max-h-[90vh] md:max-h-[96vh] overflow-auto rounded-3xl shadow-[0_20px_60px_-20px_rgba(0,0,0,35)] ring-1 ring-white/60 bg-[linear-gradient(180deg,rgba(255,255,255,.70),rgba(255,255,255,.45))] backdrop-blur-xl">
-        {/* Header */}
-        <div className="px-5 md:px-7 py-4 flex items-center justify-between border-b border-white/50">
-          <div>
-            <div className="text-xl md:text-2xl font-semibold text-neutral-900">Banco Archivo (Archivados)</div>
-            <div className="text-[12px] text-neutral-700">
-          {asig.etapaBase} {asig.etapaBase !== 'Restauracion' ? asig.modulo : ''} • Día {asig.dia}
-            </div>
-          </div>
-          <button
+      <AnimatePresence>
+        {bancoOpen && (
+          <motion.div
+            key="banco-backdrop"
+            variants={MODAL_BACKDROP_VARIANTS}
+            initial="initial"
+            animate="animate"
+            exit="exit"
+            className="fixed inset-0 z-[60] flex justify-center items-start pt-8 md:pt-12"
             onClick={() => setBancoOpen(false)}
-            className="rounded-full bg-white/85 hover:bg-white/95 px-4 py-2 text-sm font-semibold ring-1 ring-white/60 text-neutral-900"
           >
-            Atrás
-          </button>
-        </div>
+            <motion.div
+              key="banco-panel"
+              variants={MODAL_PANEL_VARIANTS}
+              role="dialog"
+              aria-modal="true"
+              onClick={(e) => e.stopPropagation()}
+              className="relative w-full max-w-md sm:max-w-lg md:max-w-4xl max-h-[90vh] md:max-h-[96vh] flex flex-col overflow-hidden rounded-3xl shadow-[0_20px_60px_-20px_rgba(0,0,0,35)] ring-1 ring-white/60 bg-[linear-gradient(180deg,rgba(255,255,255,.70),rgba(255,255,255,.45))] backdrop-blur-xl"
+            >
+              {/* Header */}
+              <div className="px-5 md:px-7 py-4 flex items-center justify-between border-b border-white/50 shrink-0">
+                <div>
+                  <div className="text-xl md:text-2xl font-semibold text-neutral-900">Banco Archivo</div>
+                  <div className="text-[12px] text-neutral-700">
+                    {asig.etapaBase} {asig.etapaBase !== 'Restauracion' ? asig.modulo : ''} • Día {asig.dia}
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={downloadBancoPDF}
+                    className="inline-flex items-center gap-1 rounded-xl bg-gradient-to-r from-red-400 via-red-500 to-red-600 text-white ring-1 ring-white/50 shadow-[0_6px_20px_rgba(220,38,38,0.35)] px-2 py-1 text-xs font-medium hover:scale-[1.02] active:scale-95 transition"
+                    title="Descargar PDF de Banco Archivo"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ fontSize: '0.85em' }}>
+                      <path d="M12 5v14M5 12l7 7 7-7" />
+                    </svg>
+                    PDF
+                  </button>
+                  <button
+                    onClick={downloadBancoExcel}
+                    className="inline-flex items-center gap-1 rounded-xl bg-gradient-to-r from-green-400 via-green-500 to-green-600 text-white ring-1 ring-white/50 shadow-[0_6px_20px_rgba(34,197,94,0.35)] px-2 py-1 text-xs font-medium hover:scale-[1.02] active:scale-95 transition"
+                    title="Descargar Excel de Banco Archivo"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ fontSize: '0.85em' }}>
+                      <path d="M12 5v14M5 12l7 7 7-7" />
+                    </svg>
+                    Excel
+                  </button>
+                  <button
+                    onClick={() => setBancoOpen(false)}
+                    className="rounded-full bg-white/85 hover:bg-white/95 px-4 py-2 text-sm font-semibold ring-1 ring-white/60 text-neutral-900"
+                  >
+                    Atrás
+                  </button>
+                </div>
+              </div>                                 
 
-        {/* Tabla */}
-        <div className="px-4 md:px-6 py-3">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-          <thead>
-            <tr className="text-left text-neutral-800">
-              <th className="py-2 pr-3">Nombre</th>
-              <th className="py-2 pr-3">Teléfono</th>
-              <th className="py-2 pr-3">Módulo</th>
-              <th className="py-2 pr-3">Semana</th>
-              <th className="py-2 pr-3">Día</th>
-              <th className="py-2 pr-3">Archivado</th>
-              <th className="py-2 pr-0 text-right">Acción</th>
-            </tr>
-          </thead>
-          <tbody className="align-top">
-            {bancoLoading ? (
-              <tr><td colSpan={7} className="py-6 text-center text-neutral-700">Cargando…</td></tr>
-            ) : bancoRows.length === 0 ? (
-              <tr><td colSpan={7} className="py-6 text-center text-neutral-700">Sin registros archivados.</td></tr>
-            ) : bancoRows.map((r) => (
-              <tr key={r.progreso_id} className="border-t border-white/50">
-            <td className="py-2 pr-3 font-medium text-neutral-900">{r.nombre}</td>
-            <td className="py-2 pr-3 text-neutral-800">{r.telefono ?? '—'}</td>
-            <td className="py-2 pr-3">{r.modulo ?? '—'}</td>
-            <td className="py-2 pr-3">{r.semana ?? '—'}</td>
-            <td className="py-2 pr-3">{r.dia}</td>
-            <td className="py-2 pr-3">{new Date(r.creado_en).toLocaleString()}</td>
-            <td className="py-2 pr-0 text-right">
-              <button
-                disabled={!!reactivating[r.progreso_id]}
-                onClick={() => reactivar(r)}
-                className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-sky-300 via-indigo-300 to-cyan-300 text-slate-900 ring-1 ring-white/50 shadow-[0_6px_20px_rgba(20,150,220,0.35)] px-3 py-1.5 text-sm transition hover:scale-[1.02] active:scale-95 disabled:opacity-60"
-                title="Reactivar al panel actual"
-              >
-                {reactivating[r.progreso_id] ? 'Reactivando…' : 'Reactivar'}
-              </button>
-            </td>
-              </tr>
-            ))}
-          </tbody>
-            </table>
-          </div>
-        </div>
 
-          </div>
-        </div>
-      )}
+
+
+
+              {/* Contenido (scrollable) */}
+              <div className="flex-1 overflow-y-auto">
+                {/* Tabla */}
+                <div className="px-4 md:px-6 py-3">
+                  <div className="overflow-x-auto">
+                    {/* === INICIO: Lógica de paginación === */}
+                    {(() => {
+                      const totalPaginas = Math.ceil(bancoRows.length / REGS_POR_PAGINA);
+                      const registrosMostrados = bancoRows.slice(
+                        bancoPagina * REGS_POR_PAGINA,
+                        (bancoPagina + 1) * REGS_POR_PAGINA
+                      );
+                      
+                      return (
+                        <>
+                          <table className="w-full text-sm">
+                            <thead>
+                              <tr className="text-left text-neutral-800">
+                                {/* === MODIFICADO: Columna Nombre (sticky) === */}
+                                <th className="sticky left-0 z-10 py-2 pr-3 bg-white/90 supports-[backdrop-filter]:bg-white/70 backdrop-blur-sm">Nombre</th>
+                                <th className="py-2 pr-3">Teléfono</th>
+                                <th className="py-2 pr-3">Módulo</th>
+                                <th className="py-2 pr-3">Semana</th>
+                                <th className="py-2 pr-3">Día</th>
+                                <th className="py-2 pr-3">Archivado</th>
+                                <th className="py-2 pr-0 text-right">Acción</th>
+                              </tr>
+                            </thead>
+                            <tbody className="align-top">
+                              {bancoLoading ? (
+                                <tr><td colSpan={7} className="py-6 text-center text-neutral-700">Cargando…</td></tr>
+                              ) : bancoRows.length === 0 ? (
+                                <tr><td colSpan={7} className="py-6 text-center text-neutral-700">Sin registros archivados.</td></tr>
+                              ) : registrosMostrados.map((r) => (
+                                <tr key={r.progreso_id} className="border-t border-white/50">
+                                  {/* === MODIFICADO: Celda Nombre (sticky) === */}
+                                  <td className="sticky left-0 z-10 py-2 pr-3 font-medium text-neutral-900 bg-white/90 supports-[backdrop-filter]:bg-white/70 backdrop-blur-sm">{r.nombre}</td>
+                                  <td className="py-2 pr-3 text-neutral-800">{r.telefono ?? '—'}</td>
+                                  <td className="py-2 pr-3">{r.modulo ?? '—'}</td>
+                                  <td className="py-2 pr-3">{r.semana ?? '—'}</td>
+                                  <td className="py-2 pr-3">{r.dia}</td>
+                                  <td className="py-2 pr-3">{new Date(r.creado_en).toLocaleString()}</td>
+                                  <td className="py-2 pr-0 text-right">
+                                    <div className="flex items-center justify-end gap-2">
+                                      <button
+                                        disabled={!!reactivating[r.progreso_id] || !!deleting[r.progreso_id]}
+                                        onClick={() => {
+                                          setReactivationCandidate(r);
+                                          setShowReactivationConfirm(true);
+                                        }}
+                                        className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-sky-300 via-indigo-300 to-cyan-300 text-slate-900 ring-1 ring-white/50 shadow-[0_6px_20px_rgba(20,150,220,0.35)] px-3 py-1.5 text-sm transition hover:scale-[1.02] active:scale-95 disabled:opacity-60"
+                                        title="Reactivar al panel actual"
+                                      >
+                                        {reactivating[r.progreso_id] ? 'Reactivando…' : 'Reactivar'}
+                                      </button>
+                                      <button
+                                        disabled={!!deleting[r.progreso_id] || !!reactivating[r.progreso_id]}
+                                        onClick={() => eliminarDeBanco(r)}
+                                        className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-r from-red-400 to-red-500 text-white ring-1 ring-white/50 shadow-[0_4px_12px_rgba(239,68,68,0.35)] transition hover:scale-[1.05] active:scale-95 disabled:opacity-60"
+                                        title="Eliminar permanentemente"
+                                      >
+                                        {deleting[r.progreso_id] ? (
+                                          <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                          </svg>
+                                        ) : (
+                                          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6h14zM5 4a1 1 0 0 1 1-1h12a1 1 0 1 1 0 2H6a1 1 0 0 1-1-1zM9 4V3a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v1H9z"></path>
+                                          </svg>
+                                        )}
+                                      </button>
+                                    </div>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                          
+                          {/* ====== INICIO: Paginación Banco Archivo ====== */}
+                          {totalPaginas > 1 && (
+                            <div className="sticky bottom-0 px-1 py-3 flex items-center justify-between border-t border-white/50 bg-white/50 backdrop-blur-sm mt-2">
+                              <button
+                                onClick={() => setBancoPagina(p => Math.max(0, p - 1))}
+                                disabled={bancoPagina === 0}
+                                className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-semibold ring-1 ring-white/60 bg-white/80 text-neutral-800 shadow-sm backdrop-blur-sm transition-all duration-200 hover:bg-white hover:ring-white/80 hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+                              >
+                                <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor">
+                                  <path d="M15.7 5.3a1 1 0 0 1 0 1.4L11.4 11l4.3 4.3a1 1 0 1 1-1.4 1.4l-5-5a1 1 0 0 1 0-1.4l5-5a1 1 0 0 1 1.4 0Z"/>
+                                </svg>
+                                Atrás
+                              </button>
+                              
+                              <span className="text-sm font-medium text-neutral-700">
+                                Página {bancoPagina + 1} de {totalPaginas}
+                              </span>
+                              
+                              <button
+                                onClick={() => setBancoPagina(p => Math.min(totalPaginas - 1, p + 1))}
+                                disabled={bancoPagina >= totalPaginas - 1}
+                                className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-semibold ring-1 ring-white/60 bg-white/80 text-neutral-800 shadow-sm backdrop-blur-sm transition-all duration-200 hover:bg-white hover:ring-white/80 hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+                              >
+                                Siguiente
+                                <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor">
+                                  <path d="M8.3 5.3a1 1 0 0 0 0 1.4L12.6 11l-4.3 4.3a1 1 0 1 0 1.4 1.4l5-5a1 1 0 0 0 0-1.4l-5-5a1 1 0 0 0-1.4 0Z"/>
+                                </svg>
+                              </button>
+                            </div>
+                          )}
+                          {/* ====== FIN: Paginación Banco Archivo ====== */}
+                        </>
+                      );
+                    })()}
+                    {/* === FIN: Lógica de paginación === */}
+                  </div>
+                </div>
+              </div>
+
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Modal de confirmación para reactivar */}
+      <AnimatePresence>
+        {showReactivationConfirm && reactivationCandidate && (
+          <motion.div
+            key="reactivar-backdrop"
+            variants={MODAL_BACKDROP_VARIANTS}
+            initial="initial"
+            animate="animate"
+            exit="exit"
+            className="fixed inset-0 z-[70] flex justify-center items-center"
+            onClick={() => setShowReactivationConfirm(false)}
+          >
+            <motion.div
+              key="reactivar-panel"
+              variants={MODAL_PANEL_VARIANTS}
+              role="dialog"
+              aria-modal="true"
+              onClick={(e) => e.stopPropagation()}
+              className="relative w-full max-w-sm flex flex-col overflow-hidden rounded-3xl shadow-[0_20px_60px_-20px_rgba(0,0,0,35)] ring-1 ring-white/60 bg-[linear-gradient(180deg,rgba(255,255,255,.85),rgba(255,255,255,.65))] backdrop-blur-xl p-6"
+            >
+              <h3 className="text-lg font-semibold text-neutral-900 text-center">Reactivar Registro</h3>
+              <p className="mt-2 text-center text-neutral-700">
+                ¿Deseas reactivar a <span className="font-bold">{reactivationCandidate.nombre}</span>?
+              </p>
+              <div className="mt-6 flex justify-center gap-4">
+                <button
+                  onClick={() => setShowReactivationConfirm(false)}
+                  className="px-4 py-2 text-sm font-semibold text-neutral-800 bg-white/80 rounded-lg ring-1 ring-black/10 hover:bg-white"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={() => {
+                    reactivar(reactivationCandidate);
+                    setShowReactivationConfirm(false);
+                  }}
+                  className="px-4 py-2 text-sm font-semibold text-white bg-sky-500 hover:bg-sky-600 rounded-lg shadow-sm"
+                >
+                  Aceptar
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Modal premium para registros inhabilitados */}
       <AnimatePresence>
@@ -1656,7 +1920,8 @@ async function openBanco() {
   if (!asig) return;
   setBancoOpen(true);
   setBancoLoading(true);
-
+  setBancoPagina(0); // <-- MODIFICACIÓN: Resetear paginación
+  
   try {
     let q = supabase
       .from(V_BANCO)
@@ -1708,6 +1973,27 @@ async function openBanco() {
       console.error(e?.message ?? 'No se pudo reactivar');
     } finally {
       setReactivating((m) => ({ ...m, [row.progreso_id]: false }));
+    }
+  }
+
+  async function eliminarDeBanco(row: BancoRow) {
+    if (!window.confirm(`¿Estás seguro de que quieres eliminar a ${row.nombre} permanentemente? Esta acción no se puede deshacer.`)) {
+      return;
+    }
+
+    setDeleting((m) => ({ ...m, [row.progreso_id]: true }));
+    try {
+      const { error } = await supabase.from('progreso').delete().eq('id', row.progreso_id);
+      if (error) throw error;
+
+      toast.success(`${row.nombre} ha sido eliminado(a) permanentemente.`);
+      setBancoRows((prev) => prev.filter((r) => r.progreso_id !== row.progreso_id));
+
+    } catch (e: any) {
+      console.error('Error al eliminar del banco de archivo:', e?.message);
+      toast.error(`No se pudo eliminar a ${row.nombre}.`);
+    } finally {
+      setDeleting((m) => ({ ...m, [row.progreso_id]: false }));
     }
   }
 }
