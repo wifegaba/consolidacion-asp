@@ -456,12 +456,16 @@ export default function EstudiantePage() {
   }
 
 
+  // --- INICIO OPTIMIZACIÓN: Función `loadStudents` refactorizada para carga por lotes ---
   const loadStudents = async (courseTitle: string) => {
     setLoadingStudents(true);
     setStudents([]);
     setSelectedStudentId(null);
+    setFotoUrls({}); // Limpiar caché de URLs al cambiar de curso
   
     try {
+      let loadedStudents: Entrevista[] = []; // Variable temporal
+
       if (courseTitle === 'Restauración 1') {
         console.log("Cargando estudiantes de: public.entrevistas");
         
@@ -475,18 +479,64 @@ export default function EstudiantePage() {
           throw error;
         }
   
-        setStudents((data as Entrevista[]) || []);
+        loadedStudents = (data as Entrevista[]) || [];
+        // Establecer estudiantes inmediatamente para que la UI se renderice
+        setStudents(loadedStudents); 
   
       } else {
         console.log(`Curso "${courseTitle}" seleccionado. No hay carga de datos implementada.`);
         setStudents([]);
       }
+
+      // --- OPTIMIZACIÓN: Carga por lotes de URLs firmadas ---
+      if (loadedStudents.length > 0) {
+        // 1. Obtener todos los paths de fotos únicos y válidos
+        const fotoPaths = [
+          ...new Set(loadedStudents.map((s) => s.foto_path).filter(Boolean) as string[]),
+        ];
+
+        if (fotoPaths.length > 0) {
+          // 2. Llamar a Supabase UNA SOLA VEZ para firmar todos los paths
+          const { data: signedUrlsData, error: signError } = await supabase.storage
+            .from("entrevistas-fotos")
+            .createSignedUrls(fotoPaths, 60 * 10); // 10 minutos de expiración
+
+          if (signError) {
+            console.error("Error firmando URLs por lotes:", signError);
+            // Continuar de todos modos, los avatares usarán el fallback
+          }
+
+          if (signedUrlsData) {
+            // 3. Crear un mapa de path -> signedUrl
+            const urlMap = signedUrlsData.reduce(
+              (acc, item) => {
+                if (item.error) {
+                  console.warn(`Error al firmar path individual: ${item.path}`, item.error);
+                } else if (item.signedUrl && item.path) {
+                  // El 'item.path' devuelto por Supabase es la clave que necesitamos
+                  const signedUrl = item.signedUrl ? bustUrl(item.signedUrl) : null;
+                  if (signedUrl) acc[item.path] = signedUrl;
+                }
+                return acc;
+              },
+              {} as Record<string, string>
+            );
+
+            // 4. Actualizar el estado de fotoUrls UNA SOLA VEZ
+            setFotoUrls(urlMap);
+          }
+        }
+      }
+      // --- FIN DE OPTIMIZACIÓN DE CARGA POR LOTES ---
+
     } catch (error) {
       console.error("Error en loadStudents:", error);
     } finally {
-      setLoadingStudents(false);
+      setLoadingStudents(false); // Mover esto al final
     }
   };
+  // --- FIN OPTIMIZACIÓN ---
+
 
   const handleTabClick = (newTab: ActiveTab) => {
     if (newTab !== activeTab) {
@@ -540,6 +590,11 @@ export default function EstudiantePage() {
     // Cargar Signed URL para la Hoja de Vida
     setSignedUrl(null);
     if (student.foto_path) {
+      // --- INICIO OPTIMIZACIÓN ---
+      // Esta llamada ahora será casi instantánea porque la URL
+      // ya fue cargada en el 'loadStudents' y está en 'fotoUrls'.
+      // 'getSignedUrlCached' la encontrará en el caché.
+      // --- FIN OPTIMIZACIÓN ---
       const url = await getSignedUrlCached(student.foto_path);
       if (url) setSignedUrl(url);
     }
@@ -881,7 +936,9 @@ export default function EstudiantePage() {
             onGoBackToWelcome={handleGoBackToWelcome}
             // --- REQ 2: Pasar props al Sidebar ---
             fotoUrls={fotoUrls}
-            getSignedUrlCached={getSignedUrlCached}
+            // --- INICIO OPTIMIZACIÓN: `getSignedUrlCached` ya no es necesario aquí ---
+            // getSignedUrlCached={getSignedUrlCached}
+            // --- FIN OPTIMIZACIÓN ---
           />
         )}
 
@@ -1277,6 +1334,7 @@ function CourseWelcomeMessage({
 /* =======================
     SIDEBAR “APPLE PREMIUM”
     ======================= */
+// --- INICIO OPTIMIZACIÓN: `getSignedUrlCached` eliminado de las props ---
 function StudentSidebar({
   students,
   selectedStudentId,
@@ -1289,7 +1347,7 @@ function StudentSidebar({
   loading,
   // --- REQ 2: Recibir props ---
   fotoUrls,
-  getSignedUrlCached,
+  // getSignedUrlCached, // <-- ELIMINADO
 }: {
   students: Entrevista[];
   selectedStudentId: string | null;
@@ -1302,8 +1360,9 @@ function StudentSidebar({
   loading: boolean;
   // --- REQ 2: Tipos de props ---
   fotoUrls: Record<string, string>;
-  getSignedUrlCached: (path?: string | null) => Promise<string | null>;
+  // getSignedUrlCached: (path?: string | null) => Promise<string | null>; // <-- ELIMINADO
 }) {
+// --- FIN OPTIMIZACIÓN ---
   const isDetailView = mainState === 'creating' || mainState === 'viewing';
 
   return (
@@ -1385,12 +1444,14 @@ function StudentSidebar({
                 ].join(' ')}
               >
                 {/* --- INICIO REQ 2: Usar 'StudentAvatar' --- */}
+                {/* --- INICIO OPTIMIZACIÓN: `getSignedUrlCached` eliminado de la llamada --- */}
                 <StudentAvatar
                   fotoPath={student.foto_path}
                   nombre={student.nombre}
                   fotoUrls={fotoUrls}
-                  getSignedUrlCached={getSignedUrlCached}
+                  // getSignedUrlCached={getSignedUrlCached} // <-- ELIMINADO
                 />
+                {/* --- FIN OPTIMIZACIÓN --- */}
                 {/* --- FIN REQ 2 --- */}
                 
                 <div className="flex-1">
@@ -1430,46 +1491,42 @@ function StudentSidebar({
 }
 
 // --- INICIO REQ 2: Nuevo componente 'StudentAvatar' ---
+// --- INICIO OPTIMIZACIÓN: 'StudentAvatar' simplificado (sin estado ni useEffect) ---
 function StudentAvatar({
   fotoPath,
   nombre,
-  fotoUrls,
-  getSignedUrlCached
+  fotoUrls
 }: {
   fotoPath?: string | null;
   nombre?: string | null;
   fotoUrls: Record<string, string>;
-  getSignedUrlCached: (path?: string | null) => Promise<string | null>;
 }) {
-  const [url, setUrl] = useState<string | null>(fotoPath ? fotoUrls[fotoPath] || null : null);
-
-  useEffect(() => {
-    if (fotoPath && (!url || url === 'loading')) {
-      (async () => {
-        const signed = await getSignedUrlCached(fotoPath);
-        if (signed) {
-          setUrl(signed);
-        } else {
-          setUrl(generateAvatar(nombre ?? 'NN')); // Fallback si la firma falla
-        }
-      })();
-    } else if (!fotoPath) {
-      setUrl(generateAvatar(nombre ?? 'NN'));
-    }
-  }, [fotoPath, nombre, url, getSignedUrlCached]);
+  // La URL se deriva directamente de las props.
+  // Si fotoPath existe y está en fotoUrls, úsalo.
+  // De lo contrario, genera el avatar de fallback.
+  const url = (fotoPath ? fotoUrls[fotoPath] : null) ?? generateAvatar(nombre ?? 'NN');
 
   return (
     <img
-      src={url || PLACEHOLDER_SVG} // Muestra placeholder mientras carga
+      // Usamos `key` para forzar a React a recargar la imagen si la URL cambia
+      // (aunque en este caso, el fallback es estable)
+      key={url} 
+      src={url} 
       alt={nombre ?? 'Estudiante'}
       className="h-10 w-10 rounded-full border-2 border-white/80 ring-1 ring-black/5 object-cover shadow-[0_4px_10px_-6px_rgba(2,6,23,.35)]"
       onError={(e) => {
         const t = e.currentTarget;
-        t.src = generateAvatar(nombre ?? 'NN'); // Fallback final
+        const fallbackSrc = generateAvatar(nombre ?? 'NN');
+        // Si la URL que falló no es ya el fallback,
+        // establece el fallback.
+        if (t.src !== fallbackSrc) {
+          t.src = fallbackSrc;
+        }
       }}
     />
   );
 }
+// --- FIN OPTIMIZACIÓN ---
 // --- FIN REQ 2 ---
 
 /** TAB style */
@@ -2344,7 +2401,7 @@ function HojaDeVidaPanel({
                   label="Lectura Bíblica"
                   value={form.frecuencia_lectura_biblia}
                   edit={edit}
-                  onChange={(v) => setF("frecuencia_lectura_biblia", v)}
+                  onChange={(v) => setF("frecuencia_lectvura_biblia", v)}
                   options={LECTURA_BIBLIA}
                 />
             </div>
