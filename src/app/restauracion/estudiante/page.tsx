@@ -1434,7 +1434,7 @@ function StudentSidebar({
                 href="#"
                 onClick={(e) => { e.preventDefault(); onSelectStudent(student.id); }}
                 className={[
-                  'group relative flex items-center gap-3 rounded-2xl p-3 transition-all border overflow-hidden',
+                  'group relative flex items-center gap-4 md:gap-3 rounded-2xl p-4 md:p-3 transition-all border overflow-hidden',
                   'before:absolute before:inset-0 before:pointer-events-none before:opacity-0',
                   'before:bg-[radial-gradient(300px_180px_at_0%_0%,rgba(99,102,241,0.10),transparent_60%)]',
                   'hover:before:opacity-100',
@@ -1455,11 +1455,11 @@ function StudentSidebar({
                 {/* --- FIN REQ 2 --- */}
                 
                 <div className="flex-1">
-                  <span className="block text-[13.5px] font-semibold leading-tight tracking-[-0.01em]">
+                  <span className="block text-base md:text-[13.5px] font-semibold leading-tight tracking-[-0.01em]">
                     {student.nombre ?? 'Sin Nombre'}
                   </span>
-                  <span className="block text-[11.5px] text-gray-600/90">
-                    ID #{student.cedula ? student.cedula : student.id.substring(0, 8) + '...'}
+                  <span className="block text-sm md:text-[11.5px] text-gray-600/90">
+                    C.C {student.cedula ? student.cedula : student.id.substring(0, 8) + '...'}
                   </span>
                 </div>
                 <span className="opacity-0 group-hover:opacity-100 text-[10px] rounded-md px-2 py-0.5 border border-white/70 bg-white/70 text-gray-700 transition">
@@ -1513,7 +1513,7 @@ function StudentAvatar({
       key={url} 
       src={url} 
       alt={nombre ?? 'Estudiante'}
-      className="h-10 w-10 rounded-full border-2 border-white/80 ring-1 ring-black/5 object-cover shadow-[0_4px_10px_-6px_rgba(2,6,23,.35)]"
+      className="h-12 w-12 md:h-10 md:w-10 rounded-full border-2 border-white/80 ring-1 ring-black/5 object-cover shadow-[0_4px_10px_-6px_rgba(2,6,23,.35)]"
       onError={(e) => {
         const t = e.currentTarget;
         const fallbackSrc = generateAvatar(nombre ?? 'NN');
