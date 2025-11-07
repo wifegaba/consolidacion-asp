@@ -280,15 +280,20 @@ export function EditableRow({
   value,
   edit,
   onInput,
+  icon,
 }: {
   label: string;
   value?: string | null;
   edit: boolean;
   onInput: (e: React.FormEvent<HTMLSpanElement>) => void;
+  icon?: React.ReactNode;
 }) {
   return (
     <div className="grid grid-cols-[160px_1fr] items-start gap-3 py-1.5">
-      <div className="text-sm text-zinc-500">{label}</div>
+      <div className="text-sm text-zinc-500 flex items-center">
+        {icon && <span className="mr-2">{icon}</span>}
+        {label}
+      </div>
       <div className="text-sm text-zinc-800">
         {edit ? (
           <CEField value={value ?? ""} edit={edit} onInput={onInput} />

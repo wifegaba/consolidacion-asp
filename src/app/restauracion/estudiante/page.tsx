@@ -19,6 +19,8 @@ import {
   FileText,
   UserCheck,
   Check,
+  Phone,
+  MessageCircle, // <-- ICONO AÑADIDO PARA WHATSAPP
 } from 'lucide-react';
 import { supabase } from '../../../lib/supabaseClient';
 
@@ -552,7 +554,6 @@ export default function EstudiantePage() {
           md:flex-row 
         "
       >
-        {/* --- MODIFICACIÓN DEL SIDEBAR APLICA AQUÍ --- */}
         {selectedCourse !== null && (
           <StudentSidebar
             className="md:animate-slide-in-left"
@@ -567,7 +568,6 @@ export default function EstudiantePage() {
             fotoUrls={fotoUrls}
           />
         )}
-        {/* --- FIN MODIFICACIÓN DEL SIDEBAR --- */}
 
 
         {/* Contenido principal */}
@@ -800,7 +800,7 @@ export default function EstudiantePage() {
 // --- SUBCOMPONENTES (SOLO LOS QUE QUEDAN EN ESTE ARCHIVO) ---
 
 /* =======================
-    SIDEBAR “APPLE PREMIUM” (ACTUALIZADO)
+    SIDEBAR “APPLE PREMIUM” (ACTUALIZADO CON FONDO SUTIL)
     ======================= */
 function StudentSidebar({
   students,
@@ -848,6 +848,14 @@ function StudentSidebar({
         before:content-[''] before:absolute before:inset-y-0 before:-left-20 before:w-60
         before:bg-[radial-gradient(160px_220px_at_10%_20%,rgba(99,102,241,0.18),transparent_60%)]
         before:pointer-events-none
+        
+        /* --- NUEVO FONDO SUTIL --- */
+        after:content-[''] after:absolute after:inset-0 after:-z-10
+        after:opacity-20 /* Muy sutil */
+        after:[background:radial-gradient(circle,_rgba(199,210,254,0.3)_1px,_transparent_1px)] 
+        after:[background-size:18px_18px] /* Patrón de puntos más pequeño */
+        /* --- FIN NUEVO FONDO --- */
+
         transition-transform duration-500 ease-[cubic-bezier(0.32,0.72,0,1)]
         ${isDetailView ? 'translate-x-[-100%] md:translate-x-0' : 'translate-x-0'}
         ${className}
@@ -910,7 +918,7 @@ function StudentSidebar({
                   'before:bg-[radial-gradient(300px_180px_at_0%_0%,rgba(99,102,241,0.10),transparent_60%)]',
                   'hover:before:opacity-100',
                   active
-                    ? 'border-transparent text-indigo-950 bg-gradient-to-r from-white/90 to-white/70 shadow-[0_6px_14px_-9px_rgba(76,29,149,0.35)] ring-1 ring-indigo-500/30'
+                    ? 'border-transparent text-indigo-950 bg-gradient-to-r from-white/90 to-white/70 shadow-[0_12px_28px_-18px_rgba(76,29,149,0.35)] ring-1 ring-indigo-500/30'
                     : `${gradientStyle} border-transparent text-gray-900 hover:brightness-105`,
                 ].join(' ')}
               >
@@ -931,9 +939,41 @@ function StudentSidebar({
                     C.C {student.cedula ? student.cedula : student.id.substring(0, 8) + '...'}
                   </span>
                 </div>
-                <span className="opacity-0 group-hover:opacity-100 text-[10px] rounded-md px-2 py-0.5 border border-white/70 bg-white/70 text-gray-700 transition">
-                  Ver
-                </span>
+
+                {/* --- Botones de acción Premium (SIEMPRE VISIBLES) --- */}
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    disabled={!student.telefono}
+                    onClick={(e) => {
+                      e.stopPropagation(); // Previene que se seleccione el estudiante
+                      if (student.telefono) {
+                        window.location.href = `tel:${student.telefono.replace(/\s+/g, '')}`;
+                      }
+                    }}
+                    className="p-2 rounded-full bg-white/70 hover:bg-white text-gray-600 hover:text-indigo-600 shadow-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    title={student.telefono ? "Llamar" : "No hay teléfono"}
+                  >
+                    <Phone size={18} />
+                  </button>
+                  <button
+                    type="button"
+                    disabled={!student.telefono}
+                    onClick={(e) => {
+                      e.stopPropagation(); // Previene que se seleccione el estudiante
+                      if (student.telefono) {
+                        const phone = student.telefono.replace(/\D/g, ''); // Limpia el número
+                        window.open(`https://wa.me/${phone}`, '_blank');
+                      }
+                    }}
+                    className="p-2 rounded-full bg-white/70 hover:bg-white text-gray-600 hover:text-green-600 shadow-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    title={student.telefono ? "WhatsApp" : "No hay teléfono"}
+                  >
+                    <MessageCircle size={18} />
+                  </button>
+                </div>
+                {/* --- FIN: Botones de acción Premium --- */}
+
               </a>
             );
           })
@@ -1259,8 +1299,6 @@ function PremiumAttendanceButton({
       <div className="relative h-5">
         {icon}
       </div>
-    </button>                 
+    </button>
   );
-}
-
-// (WelcomePanel, CourseWelcomeMessage, CourseFolder, HojaDeVidaPanel, etc. ya no están aquí)
+}                    

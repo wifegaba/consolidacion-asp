@@ -13,6 +13,8 @@ import {
   HeartPulse,
   ClipboardList,
   NotebookPen,
+  IdCard,
+  Phone,
 } from 'lucide-react';
 import { supabase } from '../../../../lib/supabaseClient'; // Ajusta la ruta a tu supabaseClient
 
@@ -349,16 +351,37 @@ export function HojaDeVidaPanel({
             </div>
             <div className="mt-2 flex items-center gap-4 text-sm text-zinc-700 flex-wrap">
               <span className="flex items-center gap-1">
-                Cédula:{" "}
                 {edit ? (
-                  <CEField
-                    value={form.cedula}
-                    edit={edit}
-                    onInput={onCE("cedula")}
-                    placeholder="Cédula"
-                  />
+                  <>
+                    <IdCard size={18} className="text-blue-700" />
+                    <CEField
+                      value={form.cedula}
+                      edit={edit}
+                      onInput={onCE("cedula")}
+                      placeholder="Cédula"
+                    />
+                  </>
                 ) : (
-                  form.cedula || 'N/A'
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-white text-blue-700 ring-1 ring-inset ring-blue-200">
+                    <IdCard size={14} className="mr-1" /> {form.cedula || 'N/A'}
+                  </span>
+                )}
+              </span>
+              <span className="flex items-center gap-1">
+                {edit ? (
+                  <>
+                    <Phone size={18} className="text-blue-700" />
+                    <CEField
+                      value={form.telefono}
+                      edit={edit}
+                      onInput={onCE("telefono")}
+                      placeholder="Teléfono"
+                    />
+                  </>
+                ) : (
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-white text-blue-700 ring-1 ring-inset ring-blue-200">
+                    <Phone size={14} className="mr-1" /> {form.telefono || 'N/A'}
+                  </span>
                 )}
               </span>
               {form.estado_civil && (
@@ -388,7 +411,6 @@ export function HojaDeVidaPanel({
             </div>
             <div className="p-4">
                 <EditableRow label="Email" value={form.email} edit={edit} onInput={onCE("email")} />
-                <EditableRow label="Teléfono" value={form.telefono} edit={edit} onInput={onCE("telefono")} />
                 <EditableRow label="Fecha de nacimiento" value={form.fecha_nac ?? ""} edit={edit} onInput={onCE("fecha_nac")} />
                 <EditableRow label="Lugar de nacimiento" value={form.lugar_nac} edit={edit} onInput={onCE("lugar_nac")} />
                 <EditableRow label="Dirección" value={form.direccion} edit={edit} onInput={onCE("direccion")} />
