@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+// --- CAMBIO: useMemo importado ---
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import '../../panel/panel.css';
 import {
   User,
@@ -20,9 +21,12 @@ import {
   UserCheck,
   Check,
   Phone,
-  MessageCircle, // <-- ICONO AÑADIDO PARA WHATSAPP
+  MessageCircle,
+  UserPlus, // <-- Icono para Matricular
+  Loader2,  // <-- Icono de Carga
 } from 'lucide-react';
 import { supabase } from '../../../lib/supabaseClient';
+import { useToast } from '../../../components/ToastProvider'; 
 
 // --- NUESTRAS IMPORTACIONES DE UTILS ---
 import {
@@ -49,20 +53,28 @@ import {
   CourseWelcomeMessage 
 } from './components/PanelesBienvenida';
 
+// --- TIPO ACTUALIZADO ---
+type EstudianteInscrito = Entrevista & {
+  inscripcion_id: string;
+  estado_inscripcion: string;
+};
+
 // --- MOCK DATA ---
-const mockStudents: Entrevista[] = [];
+const mockStudents: EstudianteInscrito[] = [];
+
 
 function createDefaultGradePlaceholders(count = 5): GradePlaceholder[] {
-  const base = Date.now();
-  return Array.from({ length: count }).map((_, i) => ({ id: base + i + Math.floor(Math.random() * 1000) }));
+  // --- CORRECCIÓN APLICADA (IDs ESTABLES) ---
+  return Array.from({ length: count }).map((_, i) => ({ id: i + 1 }));
 }
+
 
 const initialCourseTopics: CourseTopic[] = [
   { id: 1, title: 'Asistencia', grades: createDefaultGradePlaceholders(12) },
 ];
 
-// --- CONSTANTES ---
-const TAB_INDICES: Record<ActiveTab, number> = { create: 0, hojaDeVida: 1, grades: 2, reports: 3 };
+// --- CONSTANTES (CORREGIDO) ---
+const TAB_INDICES: Record<ActiveTab, number> = { hojaDeVida: 1, grades: 2, reports: 3 }; 
 
 const STATE_LEVELS: Record<MainPanelState, number> = { 'welcome': 0, 'courseWelcome': 1, 'creating': 2, 'viewing': 2 };
 
@@ -74,20 +86,108 @@ export default function EstudiantePage() {
   // --- Estados ---
   const [activeTab, setActiveTab] = useState<ActiveTab>('hojaDeVida');
   const [prevTab, setPrevTab] = useState<ActiveTab>('hojaDeVida');
-  const [students, setStudents] = useState<Entrevista[]>([]);
+  
+  // --- ESTADOS PRINCIPALES ACTUALIZADOS ---
+  const [courses, setCourses] = useState<Course[]>([]); 
+  const [students, setStudents] = useState<EstudianteInscrito[]>([]); 
   const [loadingStudents, setLoadingStudents] = useState(false);
-  const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
+  
+  const [selectedInscripcionId, setSelectedInscripcionId] = useState<string | null>(null);
+  const [selectedStudent, setSelectedStudent] = useState<EstudianteInscrito | null>(null);
+  
+  const [mainState, setMainState] = useState<MainPanelState>('welcome');
+  const [prevMainState, setPrevMainState] = useState<MainPanelState>('welcome');
+  const [selectedCourse, setSelectedCourse] = useState<Course | null>(null); 
+  
+  const [isMatriculaOpen, setIsMatriculaOpen] = useState(false);
+  
+  // --- Estados sin cambios ---
   const [courseTopics, setCourseTopics] = useState<CourseTopic[]>([]);
   const [studentGrades, setStudentGrades] = useState<StudentGrades>({});
   const topicsContainerRef = useRef<HTMLDivElement | null>(null);
   const [lastAddedTopicId, setLastAddedTopicId] = useState<number | null>(null);
-  const [mainState, setMainState] = useState<MainPanelState>('welcome');
-  const [prevMainState, setPrevMainState] = useState<MainPanelState>('welcome');
-  const [selectedCourse, setSelectedCourse] = useState<string | null>(null);
   const [signedUrl, setSignedUrl] = useState<string | null>(null);
   const [fotoUrls, setFotoUrls] = useState<Record<string, string>>({});
+  const [pendientesCount, setPendientesCount] = useState(0);
+  const toast = useToast(); 
 
-  // --- Lógica de Datos ---
+  // --- Ref para el temporizador de Debounce (para el autoguardado del GRID) ---
+  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // --- INICIO CAMBIO: Estados para el modo de Asistencia Rápida ---
+  const [isAttendanceModalOpen, setIsAttendanceModalOpen] = useState(false);
+  const [isAttendanceModeActive, setIsAttendanceModeActive] = useState(false);
+  const [attendanceClassId, setAttendanceClassId] = useState<number | null>(null);
+  // --- FIN CAMBIO ---
+
+  // --- INICIO CAMBIO: Contador de Pendientes para el encabezado del Grid ---
+  const asistenciasPendientes = useMemo(() => {
+    let count = 0;
+    for (const topic of courseTopics) {
+      const grades = studentGrades[topic.id] || {};
+      for (const placeholder of topic.grades) {
+        if (!grades[placeholder.id] || grades[placeholder.id] === '') {
+          count++;
+        }
+      }
+    }
+    return count;
+  }, [studentGrades, courseTopics]);
+  // --- FIN CAMBIO ---
+
+
+  // --- Lógica de Carga Inicial (NUEVA) ---
+  useEffect(() => {
+    async function loadCourses() {
+      const { data, error } = await supabase
+        .from('cursos')
+        .select('*')
+        .order('orden', { ascending: true });
+        
+      if (error) {
+        console.error("Error cargando cursos:", error);
+        return;
+      }
+      
+      const loadedCourses: Course[] = data.map(curso => ({
+        id: curso.id, 
+        title: curso.nombre,
+        color: curso.color || 'blue',
+      }));
+      setCourses(loadedCourses);
+    }
+    
+    loadCourses();
+  }, []);
+
+  async function loadPendientesCount(courseId: string | number) {
+    const { data: todos, error: todosError } = await supabase
+      .from('entrevistas')
+      .select('id');
+
+    if (todosError) {
+      console.error("Error loading all students:", todosError);
+      return;
+    }
+
+    const { data: inscritos, error: inscritosError } = await supabase
+      .from('inscripciones')
+      .select('entrevista_id')
+      .eq('curso_id', courseId);
+
+    if (inscritosError) {
+      console.error("Error loading enrolled students:", inscritosError);
+      return;
+    }
+
+    const inscritosSet = new Set(inscritos.map(i => i.entrevista_id));
+    const pendientes = todos.filter(s => !inscritosSet.has(s.id));
+
+    setPendientesCount(pendientes.length);
+  }
+
+
+  // --- Lógica de Datos (ACTUALIZADA) ---
   async function getSignedUrlCached(path?: string | null) {
     if (!path) return null;
     if (fotoUrls[path]) return fotoUrls[path];
@@ -116,14 +216,14 @@ export default function EstudiantePage() {
   }
 
   function onUpdated(r: Entrevista) {
-    setStudents((xs) => xs.map((x) => (x.id === r.id ? r : x)));
+    setStudents((xs) => xs.map((x) => (x.id === r.id ? { ...x, ...r } : x)));
+    setSelectedStudent(prev => prev ? { ...prev, ...r } : null);
     
-    if (selectedStudentId === r.id) {
+    if (selectedStudent?.id === r.id) {
       if ((r as any)._tempPreview) {
         setSignedUrl((r as any)._tempPreview);
         return;
       }
-      
       if (r.foto_path) {
         supabase.storage
           .from("entrevistas-fotos")
@@ -132,7 +232,7 @@ export default function EstudiantePage() {
             const url = bustUrl(data?.signedUrl) ?? null;
             if (url) {
               setFotoUrls((m) => ({ ...m, [r.foto_path as string]: url }));
-              if (selectedStudentId === r.id) setSignedUrl(url);
+              if (selectedStudent?.id === r.id) setSignedUrl(url);
             }
           })
           .catch(() => {});
@@ -144,39 +244,43 @@ export default function EstudiantePage() {
     setStudents((xs) => xs.filter((x) => x.id !== id));
     setPrevMainState(mainState); 
     setMainState('courseWelcome');
-    setSelectedStudentId(null);
+    setSelectedInscripcionId(null);
+    setSelectedStudent(null);
   }
 
-  const loadStudents = async (courseTitle: string) => {
+  const loadStudents = async (course: Course) => {
     setLoadingStudents(true);
     setStudents([]);
-    setSelectedStudentId(null);
+    setSelectedInscripcionId(null);
+    setSelectedStudent(null);
     setFotoUrls({});
   
     try {
-      let loadedStudents: Entrevista[] = [];
+      const { data, error } = await supabase
+        .from('inscripciones')
+        .select(`
+          id, 
+          estado,
+          entrevistas ( * ) 
+        `) 
+        .eq('curso_id', course.id)
+        .order('created_at', { ascending: true }); 
 
-      if (courseTitle === 'Restauración 1') {
-        console.log("Cargando estudiantes de: public.entrevistas");
-        
-        const { data, error } = await supabase
-          .from('entrevistas')
-          .select('*')
-          .order('nombre', { ascending: true });
-  
-        if (error) {
-          console.error("Error cargando entrevistas:", error);
-          throw error;
-        }
-  
-        loadedStudents = (data as Entrevista[]) || [];
-        setStudents(loadedStudents); 
-  
-      } else {
-        console.log(`Curso "${courseTitle}" seleccionado. No hay carga de datos implementada.`);
-        setStudents([]);
+      if (error) {
+        console.error("Error cargando estudiantes inscritos:", error);
+        throw error;
       }
 
+      const loadedStudents: EstudianteInscrito[] = data
+        .filter(item => item.entrevistas) 
+        .map(item => ({
+        ...(item.entrevistas as any as Entrevista),
+        inscripcion_id: item.id, 
+        estado_inscripcion: item.estado,
+      }));
+      
+      setStudents(loadedStudents); 
+  
       if (loadedStudents.length > 0) {
         const fotoPaths = [
           ...new Set(loadedStudents.map((s) => s.foto_path).filter(Boolean) as string[]),
@@ -187,15 +291,13 @@ export default function EstudiantePage() {
             .from("entrevistas-fotos")
             .createSignedUrls(fotoPaths, 60 * 10);
 
-          if (signError) {
-            console.error("Error firmando URLs por lotes:", signError);
-          }
+          if (signError) console.error("Error firmando URLs por lotes:", signError);
 
           if (signedUrlsData) {
             const urlMap = signedUrlsData.reduce(
               (acc, item) => {
                 if (item.error) {
-                  console.warn(`Error al firmar path individual: ${item.path}`, item.error);
+                  // console.warn(`Error al firmar path individual: ${item.path}`, item.error);
                 } else if (item.signedUrl && item.path) {
                   const signedUrl = item.signedUrl ? bustUrl(item.signedUrl) : null;
                   if (signedUrl) acc[item.path] = signedUrl;
@@ -215,7 +317,14 @@ export default function EstudiantePage() {
     }
   };
 
-  // --- Lógica de Navegación y Estado ---
+  const clearDebounceTimer = () => {
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+      debounceTimerRef.current = null;
+    }
+  };
+
+  // --- Lógica de Navegación y Estado (ACTUALIZADA) ---
   const handleTabClick = (newTab: ActiveTab) => {
     if (newTab !== activeTab) {
       setPrevTab(activeTab);
@@ -223,24 +332,30 @@ export default function EstudiantePage() {
     }
   };
 
-  const handleSelectCourse = async (courseTitle: string) => {
+  const handleSelectCourse = async (course: Course) => {
     setPrevMainState(mainState); 
-    setSelectedCourse(courseTitle);
+    setSelectedCourse(course); 
     setMainState('courseWelcome');
-    setSelectedStudentId(null);
-    
-    await loadStudents(courseTitle);
+    setSelectedInscripcionId(null);
+    setSelectedStudent(null);
     
     const loadedTopics = JSON.parse(JSON.stringify(initialCourseTopics));
     setCourseTopics(loadedTopics);
     setStudentGrades({});
+    
+    await loadStudents(course); 
+    if (course.title === 'Restauración 1') {
+      await loadPendientesCount(course.id);
+    }
   };
 
   const handleGoBackToWelcome = () => {
+    clearDebounceTimer(); 
     setPrevMainState(mainState); 
     setMainState('welcome');
     setSelectedCourse(null);
-    setSelectedStudentId(null);
+    setSelectedInscripcionId(null);
+    setSelectedStudent(null);
     setCourseTopics([]);
     setStudentGrades({});
     setStudents([]); 
@@ -248,55 +363,164 @@ export default function EstudiantePage() {
   };
 
   const handleGoBackToStudentList = () => {
+    clearDebounceTimer(); 
     setPrevMainState(mainState); 
     setMainState('courseWelcome');
-    setSelectedStudentId(null);
+    setSelectedInscripcionId(null);
+    setSelectedStudent(null);
     setSignedUrl(null); 
   };
 
-  const handleSelectStudent = async (id: string) => {
+  const handleSelectStudent = async (student: EstudianteInscrito) => { 
+    clearDebounceTimer(); 
+    // --- CAMBIO: No se puede seleccionar un estudiante si se está en modo de asistencia rápida ---
+    if (isAttendanceModeActive) {
+      toast.error("Termina de tomar la asistencia actual o cancélala para ver a otro estudiante.");
+      return;
+    }
+
     setPrevMainState(mainState); 
-    setSelectedStudentId(id);
+    setSelectedInscripcionId(student.inscripcion_id); 
+    setSelectedStudent(student); 
     setMainState('viewing');
     setActiveTab('hojaDeVida');
     setPrevTab('hojaDeVida');
     
-    const student = students.find(s => s.id === id);
-    if (!student) return;
-
     setSignedUrl(null);
     if (student.foto_path) {
       const url = await getSignedUrlCached(student.foto_path);
       if (url) setSignedUrl(url);
     }
 
+    const { data: asistenciaData, error } = await supabase
+      .from('asistencias_academia') 
+      .select('asistencias')
+      .eq('inscripcion_id', student.inscripcion_id) 
+      .single();
+
+    if (error && error.code !== 'PGRST116') {
+      console.error("Error cargando asistencias:", error);
+    }
+
+    const savedGrades = (asistenciaData?.asistencias as StudentGrades) || {};
     const initialGradesForStudent: StudentGrades = {};
+    
     courseTopics.forEach(topic => {
       initialGradesForStudent[topic.id] = {};
+      const savedTopicGrades = savedGrades[topic.id] || {};
+      
       topic.grades.forEach(gradePlaceholder => {
-        initialGradesForStudent[topic.id][gradePlaceholder.id] = '';
+        initialGradesForStudent[topic.id][gradePlaceholder.id] = 
+          savedTopicGrades[gradePlaceholder.id] || '';
       });
     });
+    
     setStudentGrades(initialGradesForStudent);
   };
 
   const handleCreateNew = () => {
-    setPrevMainState(mainState); 
-    setSelectedStudentId(null);
-    setMainState('creating');
-    setActiveTab('create');
-    setPrevTab('create');
-    setStudentGrades({});
-    setSignedUrl(null);
+    setIsMatriculaOpen(true);
   };
 
   // --- Lógica de Asistencias (Grades) ---
-  const handleGradeChange = (topicId: number, gradeId: number, value: string) => {
-    setStudentGrades(prev => ({
-      ...prev,
-      [topicId]: { ...(prev[topicId] || {}), [gradeId]: value },
-    }));
+
+  // --- Lógica de Autoguardado para el GRID ---
+  const saveGradesToDb = async (gradesToSave: StudentGrades) => {
+    if (!selectedInscripcionId) {
+      console.error("No se puede autoguardar, no hay ID de inscripción.");
+      return; 
+    }
+    
+    try {
+      const { error } = await supabase
+        .from('asistencias_academia')
+        .upsert({
+          inscripcion_id: selectedInscripcionId,
+          asistencias: gradesToSave,
+          updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'inscripcion_id'
+        });
+
+      if (error) throw error;
+      toast.success("Asistencia guardada automáticamente");
+
+    } catch (error: any) {
+      console.error("Error en autoguardado de asistencias:", error);
+      toast.error("Error de autoguardado: " + error.message);
+    }
   };
+
+  // Autoguardado con Debounce (para el GRID)
+  const handleGradeChange = (topicId: number, gradeId: number, value: string) => {
+    const newGradesForTopic = { ...(studentGrades[topicId] || {}), [gradeId]: value };
+    const newStudentGrades = { ...studentGrades, [topicId]: newGradesForTopic };
+
+    setStudentGrades(newStudentGrades);
+
+    clearDebounceTimer();
+
+    debounceTimerRef.current = setTimeout(() => {
+      saveGradesToDb(newStudentGrades);
+    }, 750); // 750ms de espera
+  };
+  
+  // --- INICIO CAMBIO: Lógica para ASISTENCIA RÁPIDA (Sidebar) ---
+  const handleMarkAttendanceDB = async (inscripcion_id: string, status: 'si' | 'no') => {
+    const topicId = 1; // ID 1 es "Asistencia"
+    const classId = attendanceClassId;
+    
+    if (!classId || !inscripcion_id) {
+      throw new Error("ID de clase o de inscripción no encontrado");
+    }
+
+    try {
+      // 1. Obtener el JSON actual
+      const { data: currentData, error: getError } = await supabase
+        .from('asistencias_academia')
+        .select('asistencias')
+        .eq('inscripcion_id', inscripcion_id)
+        .single();
+      
+      if (getError && getError.code !== 'PGRST116') throw getError;
+      const currentGrades = (currentData?.asistencias as StudentGrades) || {};
+      
+      // 2. Fusionar el nuevo valor
+      const newTopicGrades = { ...(currentGrades[topicId] || {}), [classId]: status };
+      const newStudentGrades = { ...currentGrades, [topicId]: newTopicGrades };
+
+      // 3. Actualizar (Upsert)
+      const { error: upsertError } = await supabase
+        .from('asistencias_academia')
+        .upsert({
+          inscripcion_id: inscripcion_id,
+          asistencias: newStudentGrades,
+          updated_at: new Date().toISOString()
+        }, { onConflict: 'inscripcion_id' });
+
+      if (upsertError) throw upsertError;
+      
+    } catch (error: any) {
+      toast.error(`Error al marcar: ${error.message}`);
+      // Volver a lanzar el error para que el componente hijo (sidebar)
+      // sepa que no debe avanzar al siguiente estudiante.
+      throw error;
+    }
+  };
+
+  const cancelAttendanceMode = () => {
+    setIsAttendanceModeActive(false);
+    setAttendanceClassId(null);
+  };
+
+  const completeAttendanceMode = () => {
+    toast.success("Asistencia finalizada correctamente");
+    cancelAttendanceMode();
+  };
+  // --- FIN CAMBIO ---
+  
+
+  // --- Lógica de Temas (sin cambios) ---
   const handleAddGrade = (topicId: number) => {
     const newGradeId = Date.now() + Math.random();
     setCourseTopics(prev =>
@@ -304,7 +528,7 @@ export default function EstudiantePage() {
         topic.id === topicId ? { ...topic, grades: [...topic.grades, { id: newGradeId }] } : topic
       )
     );
-    if (selectedStudentId) {
+    if (selectedInscripcionId) { 
       setStudentGrades(prev => ({
         ...prev,
         [topicId]: { ...(prev[topicId] || {}), [newGradeId]: '' },
@@ -322,7 +546,7 @@ export default function EstudiantePage() {
         return topic;
       })
     );
-    if (removed !== null && selectedStudentId) {
+    if (removed !== null && selectedInscripcionId) { 
       setStudentGrades(prev => {
         const topicGrades = { ...(prev[topicId] || {}) };
         delete topicGrades[removed!];
@@ -337,7 +561,7 @@ export default function EstudiantePage() {
       grades: createDefaultGradePlaceholders(5),
     };
     setCourseTopics(prev => [newTopic, ...prev]);
-    if (selectedStudentId) {
+    if (selectedInscripcionId) { 
       const init: Record<number, string> = {};
       newTopic.grades.forEach(g => (init[g.id] = ''));
       setStudentGrades(prev => ({ ...prev, [newTopic.id]: init }));
@@ -346,7 +570,7 @@ export default function EstudiantePage() {
   };
   const handleDeleteTopic = (topicId: number) => {
     setCourseTopics(prev => prev.filter(t => t.id !== topicId));
-    if (selectedStudentId) {
+    if (selectedInscripcionId) { 
       setStudentGrades(prev => {
         const copy = { ...prev };
         delete copy[topicId as unknown as keyof typeof copy];
@@ -357,17 +581,13 @@ export default function EstudiantePage() {
   const handleTopicTitleChange = (topicId: number, newTitle: string) => {
     setCourseTopics(prev => prev.map(t => (t.id === topicId ? { ...t, title: newTitle } : t)));
   };
-  const handleSaveStudent = (e: React.FormEvent) => {
-    e.preventDefault();
-    console.log('Guardando estudiante:', selectedStudentId);
-    console.log('Notas del estudiante:', studentGrades);
-    console.log('Estructura del curso:', courseTopics);
-  };
+  
 
-  // --- Helpers de UI ---
+  // --- Helpers de UI (ACTUALIZADOS) ---
   const getTabPanelClasses = (tabName: ActiveTab): string => {
     const base =
       'w-full h-full flex flex-col min-h-0 transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] [grid-area:1/1]';
+    
     const activeIndex = TAB_INDICES[activeTab];
     const prevIndex = TAB_INDICES[prevTab];
     const currentIndex = TAB_INDICES[tabName];
@@ -404,9 +624,7 @@ export default function EstudiantePage() {
     
     const hiddenDir = myLevel > currentLevel ? 'translate-x-8' : '-translate-x-8';
     return `${base} opacity-0 ${hiddenDir} pointer-events-none`;
-};
-
-  const selectedStudent = students.find(s => s.id === selectedStudentId);
+  };
 
   useEffect(() => {
     if (!lastAddedTopicId) return;
@@ -423,15 +641,7 @@ export default function EstudiantePage() {
 
   
   const isDetailView = mainState === 'creating' || mainState === 'viewing';
-
-  const courses: Course[] = [
-    { title: "Restauración 1", color: "blue", onSelect: () => handleSelectCourse('Restauración 1') },
-    { title: "Fundamentos 1", color: "indigo", onSelect: () => handleSelectCourse('Fundamentos 1') },
-    { title: "Fundamentos 2", color: "teal", onSelect: () => handleSelectCourse('Fundamentos 2') },
-    { title: "Restauración 2", color: "purple", onSelect: () => handleSelectCourse('Restauración 2') },
-    { title: "Escuela de Siervos", color: "indigo", hasSpecialBadge: true, onSelect: () => handleSelectCourse('Escuela de Siervos') },
-  ];
-
+  
   // --- RENDER ---
   return (
     <main
@@ -441,6 +651,7 @@ export default function EstudiantePage() {
         bg-[conic-gradient(from_210deg_at_50%_0%,#EEF2FF_0%,#FAF5FF_40%,#F9FAFB_85%)]
       "
     >
+      {/* Estilos (Sin cambios) */}
       <style>{`
         :root{
           --mac-glass: rgba(255,255,255,0.55);
@@ -482,7 +693,7 @@ export default function EstudiantePage() {
           }
         }
 
-        /* --- Estilos de Chip (Requeridos por PremiumAttendanceButton) --- */
+        /* --- Estilos de Chip (Sin cambios) --- */
         .chip {
           display: inline-flex;
           align-items: center;
@@ -554,18 +765,27 @@ export default function EstudiantePage() {
           md:flex-row 
         "
       >
+        {/* === Barra Lateral (ACTUALIZADA) === */}
         {selectedCourse !== null && (
           <StudentSidebar
             className="md:animate-slide-in-left"
             students={students} 
             loading={loadingStudents}
-            selectedStudentId={selectedStudentId}
+            selectedStudentId={selectedStudent?.id || null} 
             mainState={mainState}
-            courseName={selectedCourse} 
-            onSelectStudent={handleSelectStudent}
-            onCreateNew={handleCreateNew}
+            courseName={selectedCourse.title} 
+            onSelectStudent={handleSelectStudent} 
+            onCreateNew={handleCreateNew} 
             onGoBackToWelcome={handleGoBackToWelcome}
             fotoUrls={fotoUrls}
+            pendientesCount={pendientesCount}
+            // --- INICIO CAMBIO: Props para Asistencia Rápida ---
+            isAttendanceModeActive={isAttendanceModeActive}
+            onStartAttendance={() => setIsAttendanceModalOpen(true)}
+            onMarkAttendanceDB={handleMarkAttendanceDB}
+            onCancelAttendance={cancelAttendanceMode}
+            onCompleteAttendance={completeAttendanceMode}
+            // --- FIN CAMBIO ---
           />
         )}
 
@@ -584,7 +804,7 @@ export default function EstudiantePage() {
             md:translate-x-0 
           `}
         >
-          {/* Topbar CON TABS estilo glass flotantes */}
+          {/* Topbar (ACTUALIZADO) */}
           <div
             className="
               sticky top-0 z-10 flex items-end justify-start gap-4
@@ -608,7 +828,7 @@ export default function EstudiantePage() {
               </button>
             )}
 
-            {(mainState === 'creating' || mainState === 'viewing') && (
+            {(mainState === 'viewing') && (
               <nav
                 className="
                   flex items-center gap-1.5 p-1
@@ -616,44 +836,32 @@ export default function EstudiantePage() {
                   shadow-[0_8px_28px_-10px_rgba(2,6,23,0.28),inset_0_1px_0_rgba(255,255,255,0.65)]
                 "
               >
-                {mainState === 'creating' && (
-                  <TabButton
-                    icon={<User className="h-4 w-4" />}
-                    label="Crear Estudiante"
-                    isActive={activeTab === 'create'}
-                    onClick={() => handleTabClick('create')}
-                  />
-                )}
-                {mainState === 'viewing' && (
-                  <>
-                    <TabButton
-                      icon={<FileText className="h-4 w-4" />}
-                      label="Hoja de Vida"
-                      isActive={activeTab === 'hojaDeVida'}
-                      onClick={() => handleTabClick('hojaDeVida')}
-                    />
-                    <TabButton
-                      icon={<UserCheck className="h-4 w-4" />}
-                      label="Asistencias"
-                      isActive={activeTab === 'grades'}
-                      onClick={() => handleTabClick('grades')}
-                    />
-                    <TabButton
-                      icon={<BarChart3 className="h-4 w-4" />}
-                      label="Reportes"
-                      isActive={activeTab === 'reports'}
-                      onClick={() => handleTabClick('reports')}
-                    />
-                  </>
-                )}
+                <TabButton
+                  icon={<FileText className="h-4 w-4" />}
+                  label="Hoja de Vida"
+                  isActive={activeTab === 'hojaDeVida'}
+                  onClick={() => handleTabClick('hojaDeVida')}
+                />
+                <TabButton
+                  icon={<UserCheck className="h-4 w-4" />}
+                  label="Asistencias"
+                  isActive={activeTab === 'grades'}
+                  onClick={() => handleTabClick('grades')}
+                />
+                <TabButton
+                  icon={<BarChart3 className="h-4 w-4" />}
+                  label="Reportes"
+                  isActive={activeTab === 'reports'}
+                  onClick={() => handleTabClick('reports')}
+                />
               </nav>
             )}
           </div>
 
-          {/* Body apilado ocupa TODO */}
+          {/* Body apilado (ACTUALIZADO) */}
           <div className="flex-1 min-h-0 grid grid-cols-1 [grid-template-areas:'stack'] overflow-hidden">
 
-            {/* Paneles de Bienvenida (Importados) */}
+            {/* Paneles de Bienvenida (ACTUALIZADO) */}
             <WelcomePanel 
               onSelectCourse={handleSelectCourse} 
               className={getContentPanelClasses('welcome')}
@@ -669,48 +877,36 @@ export default function EstudiantePage() {
             
             {mainState === 'courseWelcome' && (
               <CourseWelcomeMessage 
-                courseName={selectedCourse || 'Curso'} 
+                courseName={selectedCourse?.title || 'Curso'} 
                 className={getContentPanelClasses('courseWelcome')}
               />
             )}
 
 
-            {(mainState === 'creating' || mainState === 'viewing') && (
-              <form
-                onSubmit={handleSaveStudent}
+            {(mainState === 'viewing') && (
+              // --- CAMBIO: Se eliminó el <form> y el onSubmit (Autoguardado) ---
+              <div
                 className={`[grid-area:stack] w-full h-full grid grid-cols-1 [grid-template-areas:'stack'] overflow-hidden ${getContentPanelClasses(['creating', 'viewing'])}`}
               >
-                {/* Crear estudiante */}
-                <div className={getTabPanelClasses('create')}>
-                  <section className="p-6 md:p-8 overflow-y-auto flex-1 min-h-0">
-                    <CardSection title="Información del Estudiante">
-                      <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-                        <FormInput label="Nombre Completo" id="full-name" type="text" icon={<User size={18} />} />
-                        <FormInput label="ID de Estudiante" id="student-id" type="text" icon={<BookMarked size={18} />} />
-                        <FormInput label="Email" id="email" type="email" icon={<Mail size={18} />} />
-                        <FormInput label="Fecha de Nacimiento" id="dob" type="date" icon={<Calendar size={18} />} />
-                      </div>
-                    </CardSection>
-                    <FormActions />
-                  </section>
-                </div>
 
-                {/* Registrar notas */}
+                {/* Registrar notas (Asistencias) */}
                 <div className={getTabPanelClasses('grades')}>
+                  {/* --- INICIO CAMBIO: Tarjeta exterior removida, contenido elevado --- */}
                   <section className="p-4 md:p-6 lg:p-8 overflow-y-auto flex-1 min-h-0">
                     <div
                       className="
                         relative rounded-[22px]
                         border border-white/80
                         bg-white/25 backdrop-blur-[22px]
-                        shadow-[0_30px_80px_-35px_rgba(2,6,23,0.45),inset_0_1px_0_rgba(255,255,255,0.7)]
+                        shadow-[0_30px_80px_-35px_rgba(2,6,23,0.45),inset_0_1px_0_0_#fff]
                         ring-1 ring-black/5
                         p-5 md:p-7
                       "
                     >
                       <div className="pointer-events-none absolute -top-16 -left-16 h-44 w-44 rounded-full bg-gradient-to-br from-indigo-500/12 to-white/12 blur-3xl" />
                       <div className="pointer-events-none absolute -bottom-10 -right-10 h-40 w-40 rounded-full bg-gradient-to-tl from-indigo-400/15 to-gray-200/20 blur-3xl" />
-
+                    
+                      {/* --- CAMBIO: Encabezado con contador de pendientes --- */}
                       <div className="flex items-center justify-between mb-6">
                         <h2 className="text-[20px] md:text-[22px] font-semibold text-gray-900 tracking-[-0.015em] flex flex-col md:flex-row md:items-center">
                           <span>Asistencias del Estudiante:</span>
@@ -719,44 +915,49 @@ export default function EstudiantePage() {
                           </span>
                         </h2>
 
-
+                        <div className="flex items-center gap-2 rounded-full bg-white/70 px-3 py-1.5 shadow-[0_4px_12px_rgba(0,0,0,0.05)] ring-1 ring-black/5 backdrop-blur-md">
+                          <span className="text-sm font-medium text-gray-700">Pendientes</span>
+                          <span className={classNames(
+                            "grid h-6 w-6 place-items-center rounded-full text-xs font-bold text-white ring-2 ring-white transition-all",
+                            asistenciasPendientes > 0 ? "bg-red-500" : "bg-green-500"
+                          )}>
+                            {asistenciasPendientes}
+                          </span>
+                        </div>
                       </div>
+                      {/* --- FIN DEL CAMBIO --- */}
 
+                      {/* --- CAMBIO: CardSection interior removida --- */}
                       <div className="space-y-6" ref={topicsContainerRef}>
                         {courseTopics.length === 0 && (
-                          <CardSection>
-                            <p className="text-sm text-gray-700 text-center py-4">
-                              No hay temas definidos para este curso. Haz clic en &quot;Añadir Tema&quot; para empezar.
-                            </p>
-                          </CardSection>
+                          <p className="text-sm text-gray-700 text-center py-4">
+                            No hay temas definidos para este curso.
+                          </p>
                         )}
 
                         {courseTopics.map((topic) => (
                           <div id={`topic-${topic.id}`} key={`wrap-${topic.id}`}>
-                            <CardSection
-                              key={topic.id}
-                              title={topic.title}
-                              icon={<UserCheck size={16} className="text-indigo-900/70" />}
-                              isEditable={true}
-                              onTitleChange={(newTitle) => handleTopicTitleChange(topic.id, newTitle)}
-                              autoFocus={topic.id === lastAddedTopicId}
-                              onAutoFocus={() => setLastAddedTopicId(null)}
-
-                            >
-                              <GradeGrid
-                                gradePlaceholders={topic.grades}
-                                studentGradesForTopic={studentGrades[topic.id] || {}}
-                                topicId={topic.id}
-                                onGradeChange={handleGradeChange}
-                              />
-                            </CardSection>
+                            {/* Título manual (reemplaza el de CardSection) */}
+                            <div className="flex items-center gap-2 mb-4">
+                              <UserCheck size={16} className="text-indigo-900/70" />
+                              <h3 className="text-base md:text-[17px] font-semibold tracking-tight text-indigo-900">{topic.title}</h3>
+                            </div>
+                            
+                            {/* La cuadrícula ahora está en el nivel superior */}
+                            <GradeGrid
+                              gradePlaceholders={topic.grades}
+                              studentGradesForTopic={studentGrades[topic.id] || {}}
+                              topicId={topic.id}
+                              onGradeChange={handleGradeChange}
+                            />
                           </div>
                         ))}
                       </div>
-
-                      <FormActions />
+                      {/* --- FIN DEL CAMBIO --- */}
+                      
                     </div>
                   </section>
+                   {/* --- FIN CAMBIO --- */}
                 </div>
 
                 {/* Hoja de Vida (Importada) */}
@@ -764,9 +965,9 @@ export default function EstudiantePage() {
                   {selectedStudent ? (
                     <HojaDeVidaPanel
                       key={selectedStudent.id}
-                      row={selectedStudent}
+                      row={selectedStudent} 
                       signedUrl={signedUrl}
-                      onUpdated={onUpdated}
+                      onUpdated={onUpdated} 
                       onDeleted={handleHojaDeVidaDelete}
                       className="animate-slideIn"
                     />
@@ -783,57 +984,120 @@ export default function EstudiantePage() {
                   <section className="p-6 md:p-8 overflow-y-auto flex-1 min-h-0">
                     <CardSection title="Reportes de Estudiantes">
                       <p className="text-gray-700 text-[15px]">
-                        Aquí se mostrarán gráficos y estadísticas (Recharts, etc.).
+                        Aquí se mostrarán gráficos y estadísticas.
                       </p>
                     </CardSection>
                   </section>
                 </div>
-              </form>
+              </div>
             )}
           </div>
         </div>
       </div>
+      
+      {/* === MODAL DE MATRÍCULA (NUEVO) === */}
+      {isMatriculaOpen && selectedCourse && (
+        <ModalMatricular
+          curso={selectedCourse}
+          estudiantesInscritos={students.map(s => s.id)} 
+          onClose={() => setIsMatriculaOpen(false)}
+          onMatricularExitoso={async () => {
+            setIsMatriculaOpen(false);
+            await loadStudents(selectedCourse); 
+            if (selectedCourse) {
+              await loadPendientesCount(selectedCourse.id);
+            }
+          }}
+        />
+      )}
+      
+      {/* --- INICIO CAMBIO: Modal para Tomar Asistencia --- */}
+      {isAttendanceModalOpen && (
+        <ModalTomarAsistencia
+          topics={courseTopics}
+          onClose={() => setIsAttendanceModalOpen(false)}
+          onSelectClass={(classId) => {
+            setIsAttendanceModalOpen(false);
+            setIsAttendanceModeActive(true);
+            setAttendanceClassId(classId);
+          }}
+        />
+      )}
+      {/* --- FIN CAMBIO --- */}
     </main>
   );
 }
 
-// --- SUBCOMPONENTES (SOLO LOS QUE QUEDAN EN ESTE ARCHIVO) ---
+// --- SUBCOMPONENTES (ACTUALIZADOS) ---
 
 /* =======================
-    SIDEBAR “APPLE PREMIUM” (ACTUALIZADO CON FONDO SUTIL)
+    SIDEBAR (ACTUALIZADO)
     ======================= */
 function StudentSidebar({
   students,
-  selectedStudentId,
+  selectedStudentId, 
   mainState,
-  onSelectStudent,
+  onSelectStudent, 
   onCreateNew,
   className = '',
   onGoBackToWelcome,
   courseName,
   loading,
   fotoUrls,
+  pendientesCount,
+  // --- INICIO CAMBIO: Nuevas props para asistencia rápida ---
+  isAttendanceModeActive,
+  onStartAttendance,
+  onCancelAttendance,
+  onCompleteAttendance,
+  onMarkAttendanceDB,
+  // --- FIN CAMBIO ---
 }: {
-  students: Entrevista[];
+  students: EstudianteInscrito[]; 
   selectedStudentId: string | null;
   mainState: MainPanelState;
-  onSelectStudent: (id: string) => void;
+  onSelectStudent: (student: EstudianteInscrito) => void; 
   onCreateNew: () => void;
   className?: string;
   onGoBackToWelcome: () => void;
   courseName?: string;
   loading: boolean;
   fotoUrls: Record<string, string>;
+  pendientesCount: number;
+  // --- INICIO CAMBIO: Tipos de las nuevas props ---
+  isAttendanceModeActive: boolean;
+  onStartAttendance: () => void;
+  onCancelAttendance: () => void;
+  onCompleteAttendance: () => void;
+  onMarkAttendanceDB: (inscripcion_id: string, status: 'si' | 'no') => Promise<void>;
+  // --- FIN CAMBIO ---
 }) {
   const isDetailView = mainState === 'creating' || mainState === 'viewing';
 
-  const gradientClasses = [
-    'bg-gradient-to-br from-blue-100/95 to-purple-100/95 shadow shadow-blue-200/50 hover:shadow-md hover:shadow-blue-300/60',
-    'bg-gradient-to-br from-teal-100/95 to-emerald-100/95 shadow shadow-teal-200/50 hover:shadow-md hover:shadow-teal-300/60',
-    'bg-gradient-to-br from-orange-100/95 to-amber-100/95 shadow shadow-orange-200/50 hover:shadow-md hover:shadow-orange-300/60',
-    'bg-gradient-to-br from-pink-100/95 to-rose-100/95 shadow shadow-pink-200/50 hover:shadow-md hover:shadow-pink-300/60',
-    'bg-gradient-to-br from-sky-100/95 to-cyan-100/95 shadow shadow-sky-200/50 hover:shadow-md hover:shadow-sky-300/60',
-  ];
+  // --- INICIO CAMBIO: Estados internos para el modo de asistencia ---
+  const [currentAttendanceStudentIndex, setCurrentAttendanceStudentIndex] = useState(0);
+  const [isMarkingStudentId, setIsMarkingStudentId] = useState<string | null>(null);
+  
+  // Resetea el índice si el modo de asistencia se activa
+  useEffect(() => {
+    if (isAttendanceModeActive) {
+      setCurrentAttendanceStudentIndex(0);
+      setIsMarkingStudentId(null);
+    }
+  }, [isAttendanceModeActive]);
+  // --- FIN CAMBIO ---
+  
+  const [searchQuery, setSearchQuery] = useState('');
+  
+  const filteredStudents = useMemo(() => {
+    if (!searchQuery) return students;
+    const q = searchQuery.toLowerCase();
+    return students.filter(s => 
+      s.nombre?.toLowerCase().includes(q) ||
+      s.cedula?.includes(q)
+    );
+  }, [students, searchQuery]);
+
 
   return (
     <aside
@@ -849,12 +1113,10 @@ function StudentSidebar({
         before:bg-[radial-gradient(160px_220px_at_10%_20%,rgba(99,102,241,0.18),transparent_60%)]
         before:pointer-events-none
         
-        /* --- NUEVO FONDO SUTIL --- */
         after:content-[''] after:absolute after:inset-0 after:-z-10
-        after:opacity-20 /* Muy sutil */
+        after:opacity-20
         after:[background:radial-gradient(circle,_rgba(199,210,254,0.3)_1px,_transparent_1px)] 
-        after:[background-size:18px_18px] /* Patrón de puntos más pequeño */
-        /* --- FIN NUEVO FONDO --- */
+        after:[background-size:18px_18px] 
 
         transition-transform duration-500 ease-[cubic-bezier(0.32,0.72,0,1)]
         ${isDetailView ? 'translate-x-[-100%] md:translate-x-0' : 'translate-x-0'}
@@ -862,7 +1124,7 @@ function StudentSidebar({
       `}
       aria-label="Barra lateral de estudiantes"
     >
-      {/* Header - Compacto y Premium */}
+      {/* Header */}
       <div className="flex-shrink-0 p-3 pb-2 border-b border-white/60 bg-white/60 backdrop-blur-xl shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]">
         <button
           type="button"
@@ -873,7 +1135,6 @@ function StudentSidebar({
           <span className="text-[13px]">Volver a Cursos</span>
         </button>
 
-        {/* Título centrado tipo Mac */}
         {courseName && (
           <div className="pt-2 text-center">
             <h2 className="text-xl font-bold tracking-[-0.03em] bg-gradient-to-r from-indigo-700 to-purple-600 bg-clip-text text-transparent">
@@ -883,121 +1144,579 @@ function StudentSidebar({
         )}
       </div>
 
-      {/* Buscador iOS */}
+      {/* Buscador */}
       <div className="flex-shrink-0 p-4 border-b border-white/60">
         <div className="relative">
           <input
             type="text"
             placeholder="Buscar estudiante…"
-            className="w-full rounded-2xl border border-white/70 bg-white/75 backdrop-blur-xl py-2.5 pl-10 pr-4 text-sm text-gray-900 placeholder-gray-600 shadow-[inset_0_2px_6px_rgba(0,0,0,0.03)] focus:outline-none focus:ring-4 focus:ring-indigo-400/25 focus:border-white transition"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            disabled={isAttendanceModeActive} // --- CAMBIO: Deshabilitado durante la asistencia
+            className="w-full rounded-2xl border border-white/70 bg-white/75 backdrop-blur-xl py-2.5 pl-10 pr-4 text-sm text-gray-900 placeholder-gray-600 shadow-[inset_0_2px_6px_rgba(0,0,0,0.03)] focus:outline-none focus:ring-4 focus:ring-indigo-400/25 focus:border-white transition disabled:opacity-70"
             aria-label="Buscar estudiante"
           />
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={18} />
         </div>
       </div>
 
+      {/* --- INICIO CAMBIO: Botón de Cancelar Asistencia --- */}
+      {isAttendanceModeActive && (
+        <div className="flex-shrink-0 p-3 border-b border-white/60 bg-red-50/50">
+          <button
+            onClick={onCancelAttendance}
+            className="w-full text-center text-sm font-medium text-red-600 hover:text-red-800 transition-colors"
+          >
+            Cancelar Asistencia
+          </button>
+        </div>
+      )}
+      {/* --- FIN CAMBIO --- */}
+
       {/* Lista */}
       <nav className="overflow-y-auto p-3 space-y-2 max-h-80 md:flex-1 md:max-h-none [scrollbar-width:thin] [scrollbar-color:rgba(0,0,0,.15)_transparent]">
         {loading ? (
           <div className="p-4 text-center text-gray-600">Cargando...</div>
-        ) : students.length === 0 ? (
-          <div className="p-4 text-center text-gray-600">No hay estudiantes en este curso.</div>
+        ) : filteredStudents.length === 0 ? (
+          <div className="p-4 text-center text-gray-600">
+            {students.length > 0 ? "Nadie coincide con la búsqueda." : "No hay estudiantes en este curso."}
+          </div>
         ) : (
-          students.map((student, index) => {
-            const active = selectedStudentId === student.id;
-            const gradientStyle = gradientClasses[index % gradientClasses.length];
+          // --- INICIO CAMBIO: Lógica de map refactorizada a StudentSidebarItem ---
+          filteredStudents.map((student, index) => { 
+            const isCurrent = index === currentAttendanceStudentIndex;
+            const isCompleted = index < currentAttendanceStudentIndex;
             
             return (
-              <a
-                key={student.id}
-                href="#"
-                onClick={(e) => { e.preventDefault(); onSelectStudent(student.id); }}
-                className={[
-                  'group relative flex items-center gap-4 md:gap-3 rounded-2xl p-4 md:p-3 transition-all border overflow-hidden',
-                  'before:absolute before:inset-0 before:pointer-events-none before:opacity-0',
-                  'before:bg-[radial-gradient(300px_180px_at_0%_0%,rgba(99,102,241,0.10),transparent_60%)]',
-                  'hover:before:opacity-100',
-                  active
-                    ? 'border-transparent text-indigo-950 bg-gradient-to-r from-white/90 to-white/70 shadow-[0_12px_28px_-18px_rgba(76,29,149,0.35)] ring-1 ring-indigo-500/30'
-                    : `${gradientStyle} border-transparent text-gray-900 hover:brightness-105`,
-                ].join(' ')}
-              >
-                <StudentAvatar
-                  fotoPath={student.foto_path}
-                  nombre={student.nombre}
-                  fotoUrls={fotoUrls}
-                />
-                
-                <div className="flex-1">
-                  <span className="block text-base md:text-[13.5px] font-semibold leading-tight tracking-[-0.01em]">
-                    {student.nombre ?? 'Sin Nombre'}
-                  </span>
-                  <span className={classNames(
-                      "block text-sm md:text-[11.5px]",
-                      active ? "text-gray-600/90" : "text-gray-700/80"
-                    )}>
-                    C.C {student.cedula ? student.cedula : student.id.substring(0, 8) + '...'}
-                  </span>
-                </div>
+              <StudentSidebarItem
+                key={student.inscripcion_id}
+                student={student}
+                fotoUrls={fotoUrls}
+                isActive={selectedStudentId === student.id && !isAttendanceModeActive}
+                isAttendanceModeActive={isAttendanceModeActive}
+                isCurrentAttendanceTarget={isCurrent}
+                isCompleted={isCompleted}
+                isLoading={isMarkingStudentId === student.inscripcion_id}
+                onMarkAttendance={async (status) => {
+                  setIsMarkingStudentId(student.inscripcion_id);
+                  try {
+                    // Llama a la función del padre que hace el trabajo de BD
+                    await onMarkAttendanceDB(student.inscripcion_id, status);
+                    
+                    // Si tiene éxito, avanza al siguiente
+                    const nextIndex = currentAttendanceStudentIndex + 1;
+                    setCurrentAttendanceStudentIndex(nextIndex);
 
-                {/* --- Botones de acción Premium (SIEMPRE VISIBLES) --- */}
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    disabled={!student.telefono}
-                    onClick={(e) => {
-                      e.stopPropagation(); // Previene que se seleccione el estudiante
-                      if (student.telefono) {
-                        window.location.href = `tel:${student.telefono.replace(/\s+/g, '')}`;
-                      }
-                    }}
-                    className="p-2 rounded-full bg-white/70 hover:bg-white text-gray-600 hover:text-indigo-600 shadow-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                    title={student.telefono ? "Llamar" : "No hay teléfono"}
-                  >
-                    <Phone size={18} />
-                  </button>
-                  <button
-                    type="button"
-                    disabled={!student.telefono}
-                    onClick={(e) => {
-                      e.stopPropagation(); // Previene que se seleccione el estudiante
-                      if (student.telefono) {
-                        const phone = student.telefono.replace(/\D/g, ''); // Limpia el número
-                        window.open(`https://wa.me/${phone}`, '_blank');
-                      }
-                    }}
-                    className="p-2 rounded-full bg-white/70 hover:bg-white text-gray-600 hover:text-green-600 shadow-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                    title={student.telefono ? "WhatsApp" : "No hay teléfono"}
-                  >
-                    <MessageCircle size={18} />
-                  </button>
-                </div>
-                {/* --- FIN: Botones de acción Premium --- */}
-
-              </a>
+                    // Si se completó el último, notifica al padre
+                    if (nextIndex >= filteredStudents.length) {
+                      onCompleteAttendance();
+                    }
+                  } catch (e) {
+                    console.error("Fallo al marcar, no se avanza", e);
+                    // No se avanza al siguiente si hay un error
+                  } finally {
+                    setIsMarkingStudentId(null);
+                  }
+                }}
+                onSelectStudent={onSelectStudent}
+              />
             );
           })
+          // --- FIN CAMBIO ---
         )}
       </nav>
 
 
-      {/* Botón nuevo */}
-      <div className="flex-shrink-0 p-4 border-t border-white/60">
+      {/* --- CAMBIO: Contenedor de botones de pie de página --- */}
+      <div className="flex-shrink-0 p-4 border-t border-white/60 min-h-[150px] flex flex-col items-center justify-center gap-3">
+        {/* Botón "Matricular" condicional */}
+        {courseName === 'Restauración 1' ? (
+          <button
+            onClick={onCreateNew} 
+            disabled={isAttendanceModeActive} // Deshabilitado
+            className={`relative flex w-full items-center justify-center gap-2 rounded-2xl border py-3 text-sm font-medium backdrop-blur-sm transition-all
+              border-transparent bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow-lg hover:shadow-[0_15px_35px_-15px_rgba(99,102,241,0.65)]
+              disabled:opacity-50 disabled:cursor-not-allowed
+            `}
+          >
+            <UserPlus size={18} />
+            <span>Matricular Estudiante</span>
+            <div className="absolute -top-3 -right-3 bg-gradient-to-br from-blue-200 to-pink-200 text-indigo-800 text-sm font-bold w-8 h-8 flex items-center justify-center rounded-full shadow-lg border-2 border-white">
+              {pendientesCount}
+            </div>
+          </button>
+        ) : (
+          <div
+            className={`flex w-full items-center justify-center rounded-2xl py-3 text-xs font-medium text-gray-500 text-center px-2`}
+          >
+            <span>Los estudiantes son promovidos desde un curso anterior.</span>
+          </div>
+        )}
+        
+        {/* --- CAMBIO: Nuevo Botón "+ Tomar Asistencia" --- */}
         <button
-          onClick={onCreateNew}
-          className={`flex w-full items-center justify-center gap-2 rounded-2xl border py-3 text-sm font-medium backdrop-blur-sm transition-all ${
-            mainState === 'creating'
-              ? 'border-transparent bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow-lg hover:shadow-[0_15px_35px_-15px_rgba(99,102,241,0.65)]'
-              : 'border-white/70 bg-white/70 text-indigo-700 hover:bg-white/85 shadow-[0_6px_16px_-12px_rgba(2,6,23,.25)]'
-          }`}
+          onClick={onStartAttendance}
+          disabled={isAttendanceModeActive} // Deshabilitado si ya está activo
+          className="flex w-full items-center justify-center gap-2 rounded-2xl border py-3 text-sm font-medium backdrop-blur-sm transition-all
+            border-emerald-300/50 bg-gradient-to-br from-emerald-100 via-white to-teal-100 text-emerald-900 shadow-lg hover:shadow-[0_15px_35px_-15px_rgba(16,185,129,0.5)]
+            disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          <Plus size={18} />
-          <span>Nuevo Estudiante</span>
+          <UserCheck size={18} />
+          <span>Tomar Asistencia</span>
         </button>
+        {/* --- FIN CAMBIO --- */}
       </div>
+      
     </aside>
   );
 }
+
+/* =======================
+    NUEVO: StudentSidebarItem
+    ======================= */
+function StudentSidebarItem({
+  student,
+  fotoUrls,
+  isActive,
+  isAttendanceModeActive,
+  isCurrentAttendanceTarget,
+  isCompleted,
+  isLoading,
+  onMarkAttendance,
+  onSelectStudent,
+}: {
+  student: EstudianteInscrito;
+  fotoUrls: Record<string, string>;
+  isActive: boolean;
+  isAttendanceModeActive: boolean;
+  isCurrentAttendanceTarget: boolean;
+  isCompleted: boolean;
+  isLoading: boolean;
+  onMarkAttendance: (status: 'si' | 'no') => void;
+  onSelectStudent: (student: EstudianteInscrito) => void;
+}) {
+  
+  const gradientClasses = [
+    'bg-gradient-to-br from-blue-100/95 to-purple-100/95 shadow shadow-blue-200/50 hover:shadow-md hover:shadow-blue-300/60',
+    'bg-gradient-to-br from-teal-100/95 to-emerald-100/95 shadow shadow-teal-200/50 hover:shadow-md hover:shadow-teal-300/60',
+    'bg-gradient-to-br from-orange-100/95 to-amber-100/95 shadow shadow-orange-200/50 hover:shadow-md hover:shadow-orange-300/60',
+    'bg-gradient-to-br from-pink-100/95 to-rose-100/95 shadow shadow-pink-200/50 hover:shadow-md hover:shadow-pink-300/60',
+    'bg-gradient-to-br from-sky-100/95 to-cyan-100/95 shadow shadow-sky-200/50 hover:shadow-md hover:shadow-sky-300/60',
+  ];
+  const gradientStyle = gradientClasses[Number(student.id.replace(/\D/g,'')) % gradientClasses.length]; // Usa el ID para un color consistente
+
+  let containerClasses = [
+    'group relative flex items-center gap-4 md:gap-3 rounded-2xl p-4 md:p-3 transition-all border overflow-hidden',
+  ];
+
+  if (isAttendanceModeActive) {
+    if (isCurrentAttendanceTarget) {
+      containerClasses.push('border-transparent text-indigo-950 bg-gradient-to-r from-white/90 to-white/70 shadow-[0_12px_28px_-18px_rgba(76,29,149,0.35)] ring-2 ring-indigo-500');
+    } else if (isCompleted) {
+      containerClasses.push('border-transparent bg-gray-100/60 opacity-50');
+    } else {
+      containerClasses.push(`${gradientStyle} border-transparent text-gray-900 opacity-70`);
+    }
+  } else {
+    if (isActive) {
+      containerClasses.push('border-transparent text-indigo-950 bg-gradient-to-r from-white/90 to-white/70 shadow-[0_12px_28px_-18px_rgba(76,29,149,0.35)] ring-1 ring-indigo-500/30');
+    } else {
+      containerClasses.push(`${gradientStyle} border-transparent text-gray-900 hover:brightness-105 cursor-pointer`);
+    }
+  }
+
+  return (
+    <div
+      onClick={(e) => {
+        if (!isAttendanceModeActive) {
+          e.preventDefault();
+          onSelectStudent(student);
+        }
+      }} 
+      className={classNames(...containerClasses)}
+    >
+      <StudentAvatar
+        fotoPath={student.foto_path}
+        nombre={student.nombre}
+        fotoUrls={fotoUrls}
+      />
+      
+      <div className="flex-1">
+        <span className="block text-base md:text-[13.5px] font-semibold leading-tight tracking-[-0.01em]">
+          {student.nombre ?? 'Sin Nombre'}
+        </span>
+        <span className={classNames(
+            "block text-sm md:text-[11.5px]",
+            isActive && !isAttendanceModeActive ? "text-gray-600/90" : "text-gray-700/80"
+          )}>
+          C.C {student.cedula?.startsWith('TEMP_') ? 'Cédula Pendiente' : student.cedula}
+        </span>
+      </div>
+
+      <div className="flex items-center gap-2">
+        {isAttendanceModeActive ? (
+          isCurrentAttendanceTarget ? (
+            isLoading ? (
+              <Loader2 size={24} className="text-indigo-500 animate-spin" />
+            ) : (
+              // Botones Cupertino
+              <>
+                <button
+                  type="button"
+                  onClick={() => onMarkAttendance('no')}
+                  className="flex items-center justify-center h-10 w-10 rounded-full bg-gradient-to-br from-gray-200 to-gray-300 text-gray-700 shadow-md ring-1 ring-black/5 hover:from-gray-300 active:scale-95 transition-all"
+                  title="No"
+                >
+                  <X size={20} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onMarkAttendance('si')}
+                  className="flex items-center justify-center h-10 w-10 rounded-full bg-gradient-to-br from-green-400 to-green-600 text-white shadow-lg shadow-green-500/30 hover:from-green-500 active:scale-95 transition-all"
+                  title="Sí"
+                >
+                  <Check size={20} />
+                </button>
+              </>
+            )
+          ) : isCompleted ? (
+            <Check size={24} className="text-green-600" />
+          ) : null // Estudiantes futuros en la lista no muestran nada
+        ) : (
+          // Vista normal
+          <>
+            <button
+              type="button"
+              disabled={!student.telefono}
+              onClick={(e) => {
+                e.stopPropagation(); 
+                if (student.telefono) {
+                  window.location.href = `tel:${student.telefono.replace(/\s+/g, '')}`;
+                }
+              }}
+              className="p-2 rounded-full bg-white/70 hover:bg-white text-gray-600 hover:text-indigo-600 shadow-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              title={student.telefono ? "Llamar" : "No hay teléfono"}
+            >
+              <Phone size={18} />
+            </button>
+            <button
+              type="button"
+              disabled={!student.telefono}
+              onClick={(e) => {
+                e.stopPropagation(); 
+                if (student.telefono) {
+                  const phone = student.telefono.replace(/\D/g, ''); 
+                  window.open(`httpsa://wa.me/${phone}`, '_blank');
+                }
+              }}
+              className="p-2 rounded-full bg-white/70 hover:bg-white text-gray-600 hover:text-green-600 shadow-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              title={student.telefono ? "WhatsApp" : "No hay teléfono"}
+            >
+              <MessageCircle size={18} />
+            </button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+
+/* =======================
+    NUEVO: ModalTomarAsistencia
+    ======================= */
+function ModalTomarAsistencia({
+  topics,
+  onClose,
+  onSelectClass,
+}: {
+  topics: CourseTopic[];
+  onClose: () => void;
+  onSelectClass: (classId: number) => void;
+}) {
+  // Encuentra el tema de "Asistencia" (suponiendo id=1)
+  const asistenciaTopic = topics.find(t => t.id === 1);
+  const clases = asistenciaTopic ? asistenciaTopic.grades : []; // Son {id: 1}, {id: 2}, ...
+
+  return (
+    <div
+      className="fixed inset-0 z-[100] flex items-center justify-center p-4"
+      onClick={onClose}
+    >
+      <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" />
+      <div
+        className="
+          relative w-full max-w-lg flex flex-col
+          rounded-3xl border border-white/70 bg-white/70 backdrop-blur-2xl
+          shadow-2xl overflow-hidden
+        "
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex-shrink-0 p-5 border-b border-white/60">
+          <h2 className="text-xl font-semibold text-gray-900">Tomar Asistencia</h2>
+          <p className="text-sm text-gray-700">
+            Selecciona la clase para la cual deseas tomar asistencia:
+          </p>
+        </div>
+
+        {/* Lista de Clases (Scrollable) */}
+        <div className="flex-1 overflow-y-auto max-h-[50vh] p-4">
+          <div className="grid grid-cols-4 gap-3">
+            {clases.map((clase, index) => (
+              <button
+                key={clase.id}
+                onClick={() => onSelectClass(clase.id)}
+                className="flex items-center justify-center h-16 rounded-2xl bg-white/70 text-indigo-700 font-semibold shadow-md ring-1 ring-black/5 hover:bg-white hover:ring-indigo-500/50 transition-all active:scale-95"
+              >
+                Clase #{index + 1}
+              </button>
+            ))}
+            {clases.length === 0 && (
+              <p className="col-span-4 text-center text-gray-600">No hay clases de asistencia definidas.</p>
+            )}
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="flex-shrink-0 p-4 border-t border-white/60 bg-white/40 flex justify-end">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-4 py-2 text-sm font-semibold text-gray-700 bg-white/70 rounded-lg ring-1 ring-black/10 hover:bg-white"
+          >
+            Cancelar
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+/* =======================
+    MODAL MATRICULAR (NUEVO)
+    ======================= */
+function ModalMatricular({
+  curso,
+  estudiantesInscritos, 
+  onClose,
+  onMatricularExitoso,
+}: {
+  curso: Course;
+  estudiantesInscritos: string[];
+  onClose: () => void;
+  onMatricularExitoso: () => void;
+}) {
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
+  const [todosEstudiantes, setTodosEstudiantes] = useState<Entrevista[]>([]);
+  const [selected, setSelected] = useState<Record<string, boolean>>({});
+  const [isSaving, setIsSaving] = useState(false);
+  const toast = useToast(); 
+
+  useEffect(() => {
+    async function loadAllStudents() {
+      setLoading(true);
+      setError(null);
+      try {
+        const { data, error } = await supabase
+          .from('entrevistas')
+          .select('id, nombre, cedula')
+          .order('nombre', { ascending: true });
+
+        if (error) throw error;
+        setTodosEstudiantes(data || []);
+      } catch (err: any) {
+        setError(err.message || "Error al cargar estudiantes");
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadAllStudents();
+  }, []);
+
+  const estudiantesDisponibles = useMemo(() => {
+    const inscritosSet = new Set(estudiantesInscritos);
+    const q = search.toLowerCase();
+    
+    return todosEstudiantes.filter(s => {
+      if (inscritosSet.has(s.id)) return false;
+      if (q && !s.nombre?.toLowerCase().includes(q) && !s.cedula?.includes(q)) {
+        return false;
+      }
+      return true;
+    });
+  }, [todosEstudiantes, estudiantesInscritos, search]);
+
+  const handleToggleSelect = (id: string) => {
+    setSelected(prev => ({
+      ...prev,
+      [id]: !prev[id],
+    }));
+  };
+
+  const seleccionadosIds = useMemo(() => {
+    return Object.entries(selected).filter(([, v]) => v).map(([k]) => k);
+  }, [selected]);
+
+  const handleMatricular = async () => {
+    if (seleccionadosIds.length === 0) return;
+    setIsSaving(true);
+    
+    const nuevosRegistrosInscripcion = seleccionadosIds.map(entrevista_id => ({
+      entrevista_id: entrevista_id,
+      curso_id: curso.id,
+      estado: 'activo'
+    }));
+
+    try {
+      const { data: dataInscripcion, error: errorInscripcion } = await supabase
+        .from('inscripciones')
+        .insert(nuevosRegistrosInscripcion)
+        .select('id'); 
+      
+      if (errorInscripcion) throw errorInscripcion;
+      
+      if (dataInscripcion && dataInscripcion.length > 0) {
+        const nuevosRegistrosAsistencia = dataInscripcion.map(insc => ({
+          inscripcion_id: insc.id,
+          asistencias: '{}' 
+        }));
+
+        const { error: errorAsistencia } = await supabase
+          .from('asistencias_academia')
+          .insert(nuevosRegistrosAsistencia);
+
+        if (errorAsistencia) {
+          console.warn("Error al crear registros de asistencia vacíos:", errorAsistencia);
+        }
+      }
+
+      toast.success(`¡${seleccionadosIds.length} estudiante(s) matriculado(s) con éxito!`);
+      onMatricularExitoso();
+      
+    } catch (err: any) {
+      console.error("Error al matricular:", err);
+      if (err.code === '23505') {
+        toast.error("Error: Uno o más estudiantes seleccionados ya estaban inscritos.");
+      } else {
+        toast.error("Error al matricular: " + err.message);
+      }
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+
+  return (
+    <div
+      className="fixed inset-0 z-[100] flex items-start justify-center p-4 pt-20"
+      onClick={onClose}
+    >
+      <div
+        className="
+          relative w-full max-w-2xl flex flex-col
+          rounded-3xl border border-white/70 bg-white/70 backdrop-blur-2xl
+          shadow-2xl overflow-hidden
+        "
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex-shrink-0 p-5 border-b border-white/60">
+          <h2 className="text-xl font-semibold text-gray-900">Matricular Estudiantes</h2>
+          <p className="text-sm text-gray-700">
+            Selecciona los estudiantes de la "Hoja de Vida" para añadir a: <strong>{curso.title}</strong>
+          </p>
+        </div>
+
+        {/* Búsqueda */}
+        <div className="flex-shrink-0 p-4 border-b border-white/60">
+          <div className="relative">
+            <input
+              type="text"
+              placeholder="Buscar por nombre o cédula..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full rounded-2xl border border-white/70 bg-white/75 backdrop-blur-xl py-2.5 pl-10 pr-4 text-sm text-gray-900 placeholder-gray-600 shadow-[inset_0_2px_6px_rgba(0,0,0,0.03)] focus:outline-none focus:ring-4 focus:ring-indigo-400/25 focus:border-white transition"
+            />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={18} />
+          </div>
+        </div>
+
+        {/* Lista de Estudiantes (Scrollable) */}
+        <div className="flex-1 overflow-y-auto max-h-[50vh]">
+          {loading && (
+            <div className="p-10 text-center text-gray-600">Cargando todos los estudiantes...</div>
+          )}
+          {error && (
+            <div className="p-10 text-center text-red-600">{error}</div>
+          )}
+          {!loading && estudiantesDisponibles.length === 0 && (
+            <div className="p-10 text-center text-gray-600">
+              {search ? "No se encontraron coincidencias." : "No hay estudiantes disponibles para matricular."}
+            </div>
+          )}
+          {!loading && estudiantesDisponibles.length > 0 && (
+            <ul className="divide-y divide-white/50">
+              {estudiantesDisponibles.map(s => (
+                <li 
+                  key={s.id}
+                  onClick={() => handleToggleSelect(s.id)}
+                  className={`flex items-center gap-3 p-4 cursor-pointer transition-colors ${selected[s.id] ? 'bg-blue-100/50' : 'hover:bg-white/50'}`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={!!selected[s.id]}
+                    readOnly
+                    onClick={(e) => e.stopPropagation()} 
+                    onChange={() => handleToggleSelect(s.id)}
+                    className="h-4 w-4 rounded text-blue-600 focus:ring-blue-500"
+                  />
+                  <div className="flex-1">
+                    <div className="font-medium text-gray-900">{s.nombre}</div>
+                    <div className="text-sm text-gray-600">
+                      C.C {s.cedula?.startsWith('TEMP_') ? 'Cédula Pendiente' : s.cedula}
+                    </div>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="flex-shrink-0 p-4 border-t border-white/60 bg-white/40 flex justify-between items-center">
+          <span className="text-sm font-medium text-gray-700">
+            {seleccionadosIds.length} seleccionado(s)
+          </span>
+          <div className="flex gap-3">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 text-sm font-semibold text-gray-700 bg-white/70 rounded-lg ring-1 ring-black/10 hover:bg-white"
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              onClick={handleMatricular}
+              disabled={isSaving || seleccionadosIds.length === 0}
+              className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg shadow-sm hover:bg-blue-700 disabled:opacity-50"
+            >
+              {isSaving && <Loader2 size={16} className="animate-spin" />}
+              Matricular
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+/* --- OTROS SUBCOMPONENTES (Sin cambios) --- */
 
 function StudentAvatar({
   fotoPath,
@@ -1027,7 +1746,6 @@ function StudentAvatar({
   );
 }
 
-/** TAB style */
 function TabButton({
   icon,
   label,
@@ -1136,20 +1854,6 @@ function CardSection({
   );
 }
 
-function StudentForm() {
-  return (
-    <div className="mb-8">
-      <h2 className="sr-only">Formulario de estudiante</h2>
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-        <FormInput label="Nombre Completo" id="full-name" type="text" icon={<User size={18} />} />
-        <FormInput label="ID de Estudiante" id="student-id" type="text" icon={<BookMarked size={18} />} />
-        <FormInput label="Email" id="email" type="email" icon={<Mail size={18} />} />
-        <FormInput label="Fecha de Nacimiento" id="dob" type="date" icon={<Calendar size={18} />} />
-      </div>
-    </div>
-  );
-}
-
 function FormInput({ label, id, type, icon }: { label: string; id: string; type: string; icon: React.ReactNode; }) {
   return (
     <div className="group relative">
@@ -1202,19 +1906,6 @@ function GradeGrid({
           </div>
         ))}
       </div>
-    </div>
-  );
-}
-
-function FormActions() {
-  return (
-    <div className="mt-8 pt-6 border-t border-white/60 flex justify-end">
-      <button
-        type="submit"
-        className="inline-flex items-center justify-center gap-2 rounded-full h-12 px-8 bg-gradient-to-r from-indigo-500 to-purple-600 text-sm font-semibold text-white shadow-[0_12px_30px_-12px_rgba(99,102,241,0.6)] transition-all hover:shadow-[0_18px_40px_-14px_rgba(99,102,241,0.7)] focus:outline-none focus:ring-4 focus:ring-indigo-400/25 active:scale-[0.99]"
-      >
-        Guardar
-      </button>
     </div>
   );
 }
@@ -1301,4 +1992,4 @@ function PremiumAttendanceButton({
       </div>
     </button>
   );
-}                    
+}

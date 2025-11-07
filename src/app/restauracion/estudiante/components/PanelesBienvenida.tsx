@@ -6,18 +6,22 @@ import { BookMarked, Folder, Star } from 'lucide-react';
 // Importamos los tipos y utils que necesitamos
 import { Course, folderColors } from './academia.utils';
 
+// --- TIPO DE PROPS (MODIFICADO) ---
+interface WelcomePanelProps {
+  // Ahora espera el objeto 'Course' completo, no solo el 'title'
+  onSelectCourse: (course: Course) => void; 
+  className?: string;
+  isActive: boolean; 
+  courses: readonly Course[]; // 'Course' ya viene de utils
+}
+
 // --- Componente 1: WelcomePanel ---
 export function WelcomePanel({
   onSelectCourse,
   className = '',
   isActive, 
   courses 
-}: {
-  onSelectCourse: (title: string) => void; 
-  className?: string;
-  isActive: boolean; 
-  courses: readonly Course[]; 
-}) {
+}: WelcomePanelProps) { // <-- Las props ya coinciden
   const cardDelay = 100;
   const foldersContainerDelay = cardDelay + 100; // 200ms
   const folderStagger = 75; 
@@ -70,11 +74,12 @@ export function WelcomePanel({
           
           {courses.map((course, index) => (
             <CourseFolder 
-              key={course.title}
+              key={course.id} // <-- USA course.id
               title={course.title} 
-              color={course.color}
+              color={course.color} // <-- Pasa el string 'color'
               hasSpecialBadge={course.hasSpecialBadge} 
-              onSelect={course.onSelect} 
+              // --- ONCLICK (MODIFICADO) ---
+              onSelect={() => onSelectCourse(course)} // <-- Pasa el objeto 'course' completo
               className={`
                 transition-all duration-300 ease-out 
                 ${isActive ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'}
@@ -133,13 +138,17 @@ function CourseFolder({
   style = {}      
 }: {
   title: string;
-  color?: keyof typeof folderColors;
+  color?: string; // <-- MODIFICADO: Acepta cualquier string
   hasSpecialBadge?: boolean;
   onSelect: () => void;
   className?: string; 
   style?: React.CSSProperties; 
 }) {
-  const colorClasses = folderColors[color] || folderColors.blue;
+  // --- MODIFICADO: Comprueba si el color existe en 'folderColors', si no, usa 'default'
+  const colorKey = color in folderColors ? color as keyof typeof folderColors : 'default';
+  const colorClasses = folderColors[colorKey];
+  // --- FIN MODIFICACIÓN ---
+
   const appleEase = 'ease-[cubic-bezier(0.2,0.8,0.2,1)]';
   const duration = 'duration-300'; 
 

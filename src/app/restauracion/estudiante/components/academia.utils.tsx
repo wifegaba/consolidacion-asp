@@ -71,7 +71,12 @@ export type Entrevista = {
 export type GradePlaceholder = { id: number };
 export type CourseTopic = { id: number; title: string; grades: GradePlaceholder[] };
 export type StudentGrades = Record<number, Record<number, string>>;
-export type ActiveTab = 'create' | 'grades' | 'reports' | 'hojaDeVida';
+
+// --- MODIFICADO ---
+// 'create' se elimina de las pestañas válidas
+export type ActiveTab = 'grades' | 'reports' | 'hojaDeVida';
+// --- FIN MODIFICACIÓN ---
+
 export type MainPanelState = 'welcome' | 'courseWelcome' | 'creating' | 'viewing';
 
 // (Definición de folderColors necesaria para el tipo Course)
@@ -81,14 +86,21 @@ export const folderColors = {
   teal: 'text-teal-500/80 fill-teal-500/20',
   purple: 'text-purple-500/80 fill-purple-500/20',
   pink: 'text-pink-500/80 fill-pink-500/20',
+  // Añadimos 'default' o un color de fallback si es necesario
+  default: 'text-gray-500/80 fill-gray-500/20',
 };
 
+// --- MODIFICADO ---
+// Este tipo ahora coincide con la tabla 'cursos' de la BD
 export type Course = {
+  id: number; // <-- AÑADIDO: Coincide con la BD
   title: string;
-  color: keyof typeof folderColors;
+  color: string; // <-- Cambiado a string genérico para aceptar 'blue', 'indigo', etc.
   hasSpecialBadge?: boolean; 
-  onSelect: () => void;
+  // 'onSelect' se elimina de aquí. Es una prop del componente, no parte del modelo.
 };
+// --- FIN MODIFICACIÓN ---
+
 
 // --- 2. CONSTANTES ---
 export const DIAS: ("Domingo" | "Lunes" | "Martes" | "Miércoles" | "Jueves" | "Viernes" | "Sábado")[] = ["Domingo","Lunes","Martes","Miércoles","Jueves","Viernes","Sábado"];
