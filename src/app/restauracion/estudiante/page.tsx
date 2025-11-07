@@ -828,11 +828,11 @@ function StudentSidebar({
   const isDetailView = mainState === 'creating' || mainState === 'viewing';
 
   const gradientClasses = [
-    'bg-gradient-to-br from-blue-100/95 to-purple-100/95 shadow-lg shadow-blue-200/50 hover:shadow-xl hover:shadow-blue-300/60',
-    'bg-gradient-to-br from-teal-100/95 to-emerald-100/95 shadow-lg shadow-teal-200/50 hover:shadow-xl hover:shadow-teal-300/60',
-    'bg-gradient-to-br from-orange-100/95 to-amber-100/95 shadow-lg shadow-orange-200/50 hover:shadow-xl hover:shadow-orange-300/60',
-    'bg-gradient-to-br from-pink-100/95 to-rose-100/95 shadow-lg shadow-pink-200/50 hover:shadow-xl hover:shadow-pink-300/60',
-    'bg-gradient-to-br from-sky-100/95 to-cyan-100/95 shadow-lg shadow-sky-200/50 hover:shadow-xl hover:shadow-sky-300/60',
+    'bg-gradient-to-br from-blue-100/95 to-purple-100/95 shadow shadow-blue-200/50 hover:shadow-md hover:shadow-blue-300/60',
+    'bg-gradient-to-br from-teal-100/95 to-emerald-100/95 shadow shadow-teal-200/50 hover:shadow-md hover:shadow-teal-300/60',
+    'bg-gradient-to-br from-orange-100/95 to-amber-100/95 shadow shadow-orange-200/50 hover:shadow-md hover:shadow-orange-300/60',
+    'bg-gradient-to-br from-pink-100/95 to-rose-100/95 shadow shadow-pink-200/50 hover:shadow-md hover:shadow-pink-300/60',
+    'bg-gradient-to-br from-sky-100/95 to-cyan-100/95 shadow shadow-sky-200/50 hover:shadow-md hover:shadow-sky-300/60',
   ];
 
   return (
@@ -910,7 +910,7 @@ function StudentSidebar({
                   'before:bg-[radial-gradient(300px_180px_at_0%_0%,rgba(99,102,241,0.10),transparent_60%)]',
                   'hover:before:opacity-100',
                   active
-                    ? 'border-transparent text-indigo-950 bg-gradient-to-r from-white/90 to-white/70 shadow-[0_12px_28px_-18px_rgba(76,29,149,0.35)] ring-1 ring-indigo-500/30'
+                    ? 'border-transparent text-indigo-950 bg-gradient-to-r from-white/90 to-white/70 shadow-[0_6px_14px_-9px_rgba(76,29,149,0.35)] ring-1 ring-indigo-500/30'
                     : `${gradientStyle} border-transparent text-gray-900 hover:brightness-105`,
                 ].join(' ')}
               >
