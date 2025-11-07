@@ -1128,7 +1128,7 @@ const handleRestauracionAsistencia = async (student: AgendadoRow) => {
         </section>
 
         {/* ===== Encabezado ===== */}
-        <header className="mb-3 md:mb-4 flex items-baseline gap-3 rounded-2xl px-4 py-3 shadow-[0_10px_40px_-20px_rgba(0,0,0,.35)] ring-1 ring-white/60 backdrop-blur-xl bg-[radial-gradient(900px_220px_at_0%_-20%,rgba(56,189,248,0.18),transparent),radial-gradient(900px_240px_at_120%_-30%,rgba(99,102,241,0.16),transparent),linear-gradient(135deg,rgba(255,255,255,.78),rgba(255,255,255,.48))] supports-[backdrop-filter]:bg-[radial-gradient(900px_220px_at_0%_-20%,rgba(56,189,248,0.18),transparent),radial-gradient(900px_240px_at_120%_-30%,rgba(99,102,241,0.16),transparent),linear-gradient(135deg,rgba(255,255,255,.68),rgba(255,255,255,.40))]">
+        <header className="mb-3 md:mb-4 flex items-baseline gap-3 rounded-2xl px-4 py-3 shadow-[0_10px_40px_-20px_rgba(0,0,0,.35)] ring-1 ring-white/60 backdrop-blur-xl bg-[radial-gradient(900px_220px_at_0%_-20%,rgba(125,211,252,0.12),transparent),radial-gradient(900px_240px_at_120%_-30%,rgba(165,180,252,0.1),transparent),linear-gradient(135deg,rgba(255,255,255,.90),rgba(255,255,255,.70))] supports-[backdrop-filter]:bg-[radial-gradient(900px_220px_at_0%_-20%,rgba(125,211,252,0.12),transparent),radial-gradient(900px_240px_at_120%_-30%,rgba(165,180,252,0.1),transparent),linear-gradient(135deg,rgba(255,255,255,.80),rgba(255,255,255,.60))]">
           <h1 className="text-[22px] md:text-[28px] font-semibold text-neutral-900">
             {nombre || 'Servidor'}
           </h1>
@@ -1226,7 +1226,7 @@ const handleRestauracionAsistencia = async (student: AgendadoRow) => {
         <div className="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-5 md:gap-6">
           {/* Lista */}
 <section className={`rounded-[20px] bg-white/55 supports-[backdrop-filter]:bg-white/35 backdrop-blur-xl shadow-[0_18px_44px_-18px_rgba(0,0,0,.35)] ring-1 ring-white/60 overflow-hidden ${selectedId ? 'hidden lg:block' : ''}`}>
-  <header className="px-4 md:px-5 py-3 border-b border-white/50 backdrop-blur-xl bg-[radial-gradient(900px_200px_at_0%_-30%,rgba(56,189,248,0.16),transparent),radial-gradient(900px_240px_at_110%_-40%,rgba(99,102,241,0.14),transparent),linear-gradient(135deg,rgba(255,255,255,.70),rgba(255,255,255,.45))] supports-[backdrop-filter]:bg-[radial-gradient(900px_200px_at_0%_-30%,rgba(56,189,248,0.16),transparent),radial-gradient(900px_240px_at_110%_-40%,rgba(99,102,241,0.14),transparent),linear-gradient(135deg,rgba(255,255,255,.62),rgba(255,255,255,.38))] flex justify-between items-center">
+  <header className="px-4 md:px-5 py-3 border-b border-white/50 backdrop-blur-xl bg-[radial-gradient(900px_200px_at_0%_-30%,rgba(125,211,252,0.1),transparent),radial-gradient(900px_240px_at_110%_-40%,rgba(165,180,252,0.1),transparent),linear-gradient(135deg,rgba(255,255,255,.85),rgba(255,255,255,.65))] supports-[backdrop-filter]:bg-[radial-gradient(900px_200px_at_0%_-30%,rgba(125,211,252,0.1),transparent),radial-gradient(900px_240px_at_110%_-40%,rgba(165,180,252,0.1),transparent),linear-gradient(135deg,rgba(255,255,255,.80),rgba(255,255,255,.55))] flex justify-between items-center">
     <div>
       <h3 className="text-base md:text-lg font-semibold text-neutral-900">Llamadas pendientes</h3>
       <p className="text-neutral-700 text-xs md:text-sm">
@@ -1327,7 +1327,7 @@ const handleRestauracionAsistencia = async (student: AgendadoRow) => {
               ? 'bg-emerald-500 shadow-[0_0_0_4px_rgba(16,185,129,.25)] animate-newUiFade-5s'
               : (disabled
                   ? 'bg-neutral-300 shadow-[0_0_0_3px_rgba(156,163,175,.25)]'
-                  : 'bg-amber-400 shadow-[0_0_0_3px_rgba(251,191,36,.25)]')
+                  : 'bg-gradient-to-r from-green-400 to-green-600 shadow-[0_0_0_3px_rgba(34,197,94,.25)]')
           }`} />
           <div className="min-w-0">
             <div className={`font-semibold leading-tight truncate ${
@@ -1438,7 +1438,7 @@ const handleRestauracionAsistencia = async (student: AgendadoRow) => {
 
         {/* ===== Asistencias ===== */}
         <section className="mt-6 animate-cardIn rounded-[20px] ring-1 ring-white/60 shadow-[0_18px_44px_-18px_rgba(0,0,0,.35)] overflow-hidden bg-white/55 supports-[backdrop-filter]:bg-white/35 backdrop-blur-xl">
-          <div className="flex items-center justify-between px-4 md:px-6 py-3 backdrop-blur-xl bg-[radial-gradient(900px_200px_at_0%_-30%,rgba(56,189,248,0.16),transparent),radial-gradient(900px_240px_at_110%_-40%,rgba(99,102,241,0.14),transparent),linear-gradient(135deg,rgba(255,255,255,.70),rgba(255,255,255,.45))] supports-[backdrop-filter]:bg-[radial-gradient(900px_200px_at_0%_-30%,rgba(56,189,248,0.16),transparent),radial-gradient(900px_240px_at_110%_-40%,rgba(99,102,241,0.14),transparent),linear-gradient(135deg,rgba(255,255,255,.62),rgba(255,255,255,.38))]">
+          <div className="flex items-center justify-between px-4 md:px-6 py-3 backdrop-blur-xl bg-[radial-gradient(900px_200px_at_0%_-30%,rgba(125,211,252,0.1),transparent),radial-gradient(900px_240px_at_110%_-40%,rgba(165,180,252,0.1),transparent),linear-gradient(135deg,rgba(255,255,255,.85),rgba(255,255,255,.65))] supports-[backdrop-filter]:bg-[radial-gradient(900px_200px_at_0%_-30%,rgba(125,211,252,0.1),transparent),radial-gradient(900px_240px_at_110%_-40%,rgba(165,180,252,0.1),transparent),linear-gradient(135deg,rgba(255,255,255,.80),rgba(255,255,255,.55))] ">
             <div>
               <h3 className="text-[15px] md:text-base font-semibold text-neutral-900">
                 Día {asig.dia} — {asig.etapaBase === 'Semillas' ? 'Semillas' : asig.etapaBase} {asig.modulo}

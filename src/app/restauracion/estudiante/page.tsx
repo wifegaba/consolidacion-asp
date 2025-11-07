@@ -21,6 +21,13 @@ import {
   // --- INICIO MODIFICACIÓN APPLE SENIOR DEV ---
   SquarePen, // Icono de edición estilo macOS
   Check, // Icono de guardado
+  Trash2, // Icono de papelera
+  Landmark, // Icono para congregación
+  BookOpen, // Icono para datos espirituales
+  HeartPulse, // Icono para salud
+  ClipboardList, // Icono para evaluación
+  NotebookPen, // Icono para notas
+  UserCheck, // Icono para asistencias
   // --- FIN MODIFICACIÓN APPLE SENIOR DEV ---
 } from 'lucide-react';
 // --- REQ 3: Añadidas importaciones de Supabase y removeBackground ---
@@ -326,7 +333,7 @@ function createDefaultGradePlaceholders(count = 5): GradePlaceholder[] {
 }
 
 const initialCourseTopics: CourseTopic[] = [
-  { id: 1, title: 'Actividades Generales', grades: createDefaultGradePlaceholders(5) },
+  { id: 1, title: 'Asistencia', grades: createDefaultGradePlaceholders(12) },
 ];
 
 // --- CONSTANTES ---
@@ -909,6 +916,10 @@ export default function EstudiantePage() {
           filter: grayscale(0.5);
         }
         /* --- FIN REQ 4 --- */
+
+        /* --- INICIO MODIFICACIÓN: Estilos del switch de asistencia ELIMINADOS --- */
+        /* Los estilos .attendance-switch han sido removidos */
+        /* --- FIN MODIFICACIÓN --- */
       `}</style>
       <div className="pointer-events-none absolute inset-0 opacity-[0.06] [background:radial-gradient(circle,_#000_1px,_transparent_1px)] [background-size:22px_22px]" />
 
@@ -1007,8 +1018,8 @@ export default function EstudiantePage() {
                     />
                     {/* --- FIN REQ 1 --- */}
                     <TabButton
-                      icon={<BookMarked className="h-4 w-4" />}
-                      label="Registrar Notas"
+                      icon={<UserCheck className="h-4 w-4" />}
+                      label="Asistencias"
                       isActive={activeTab === 'grades'}
                       onClick={() => handleTabClick('grades')}
                     />
@@ -1086,29 +1097,14 @@ export default function EstudiantePage() {
                       <div className="pointer-events-none absolute -bottom-10 -right-10 h-40 w-40 rounded-full bg-gradient-to-tl from-indigo-400/15 to-gray-200/20 blur-3xl" />
 
                       <div className="flex items-center justify-between mb-6">
-                        <h2 className="text-[20px] md:text-[22px] font-semibold text-gray-900 tracking-[-0.015em]">
-                          Registrar Notas para:{' '}
-                          <span className="bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+                        <h2 className="text-[20px] md:text-[22px] font-semibold text-gray-900 tracking-[-0.015em] flex flex-col md:flex-row md:items-center">
+                          <span>Asistencias del Estudiante:</span>
+                          <span className="bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent md:ml-2">
                             {selectedStudent?.nombre ?? 'N/A'}
                           </span>
                         </h2>
 
-                        <button
-                          type="button"
-                          onClick={handleAddTopic}
-                          className="
-                            flex items-center justify-center gap-2 rounded-[14px]
-                            border border-white/70 bg-white/55 backdrop-blur-xl
-                            px-3.5 py-2 text-sm font-medium text-gray-800
-                            shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_8px_24px_-10px_rgba(2,6,23,0.25)]
-                            hover:bg-white/80 hover:shadow-[inset_0_1px_0_rgba(255,255,255,1),0_12px_30px_-12px_rgba(2,6,23,0.32)]
-                            active:scale-[0.99] transition-all
-                          "
-                          aria-label="Añadir nuevo tema"
-                        >
-                          <Plus size={16} />
-                          <span>Añadir Tema</span>
-                        </button>
+
                       </div>
 
                       <div className="space-y-6" ref={topicsContainerRef}>
@@ -1125,39 +1121,12 @@ export default function EstudiantePage() {
                             <CardSection
                               key={topic.id}
                               title={topic.title}
+                              icon={<UserCheck size={16} className="text-indigo-900/70" />}
                               isEditable={true}
                               onTitleChange={(newTitle) => handleTopicTitleChange(topic.id, newTitle)}
                               autoFocus={topic.id === lastAddedTopicId}
                               onAutoFocus={() => setLastAddedTopicId(null)}
-                              actions={
-                                <div className="flex gap-2">
-                                  <button
-                                    type="button"
-                                    onClick={() => handleDeleteTopic(topic.id)}
-                                    className="flex items-center justify-center p-1.5 rounded-full border border-white/70 bg-white/60 text-gray-600 transition-all shadow-sm hover:bg-white/80 hover:text-red-500"
-                                    aria-label={`Eliminar tema ${topic.title}`}
-                                  >
-                                    <X size={16} />
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => handleDeleteLastGrade(topic.id)}
-                                    disabled={topic.grades.length === 0}
-                                    className="flex items-center justify-center p-1.5 rounded-full border border-white/70 bg-white/60 text-gray-600 transition-all shadow-sm hover:bg-white/80 hover:text-red-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                                    aria-label={`Eliminar última nota de ${topic.title}`}
-                                  >
-                                    <Minus size={16} />
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => handleAddGrade(topic.id)}
-                                    className="flex items-center justify-center p-1.5 rounded-full border border-white/70 bg-white/60 text-gray-600 transition-all shadow-sm hover:bg-white/80 hover:text-indigo-600"
-                                    aria-label={`Añadir nota a ${topic.title}`}
-                                  >
-                                    <Plus size={16} />
-                                  </button>
-                                </div>
-                              }
+
                             >
                               <GradeGrid
                                 gradePlaceholders={topic.grades}
@@ -1365,6 +1334,21 @@ function StudentSidebar({
 // --- FIN OPTIMIZACIÓN ---
   const isDetailView = mainState === 'creating' || mainState === 'viewing';
 
+  // --- INICIO MODIFICACIÓN: Estilos Gradiente "Frescos y Suaves" ---
+  const gradientClasses = [
+    // Paleta 1: Azul/Púrpura Suave (como en la foto)
+    'bg-gradient-to-br from-blue-100/95 to-purple-100/95 shadow-lg shadow-blue-200/50 hover:shadow-xl hover:shadow-blue-300/60',
+    // Paleta 2: Turquesa/Verde Suave (como en la foto)
+    'bg-gradient-to-br from-teal-100/95 to-emerald-100/95 shadow-lg shadow-teal-200/50 hover:shadow-xl hover:shadow-teal-300/60',
+    // Paleta 3: Naranja/Durazno Suave (como en la foto)
+    'bg-gradient-to-br from-orange-100/95 to-amber-100/95 shadow-lg shadow-orange-200/50 hover:shadow-xl hover:shadow-orange-300/60',
+    // Paleta 4: Rosa/Rosado Suave
+    'bg-gradient-to-br from-pink-100/95 to-rose-100/95 shadow-lg shadow-pink-200/50 hover:shadow-xl hover:shadow-pink-300/60',
+    // Paleta 5: Cielo/Cian Suave (Tono "fresco")
+    'bg-gradient-to-br from-sky-100/95 to-cyan-100/95 shadow-lg shadow-sky-200/50 hover:shadow-xl hover:shadow-sky-300/60',
+  ];
+  // --- FIN MODIFICACIÓN ---
+
   return (
     <aside
       className={`
@@ -1426,8 +1410,13 @@ function StudentSidebar({
         ) : students.length === 0 ? (
           <div className="p-4 text-center text-gray-600">No hay estudiantes en este curso.</div>
         ) : (
-          students.map((student) => {
+          students.map((student, index) => { // <-- 'index' añadido
             const active = selectedStudentId === student.id;
+            
+            // --- INICIO MODIFICACIÓN: Estilos Gradiente Cupertino 2025 ---
+            const gradientStyle = gradientClasses[index % gradientClasses.length];
+            // --- FIN MODIFICACIÓN ---
+            
             return (
               <a
                 key={student.id}
@@ -1440,7 +1429,9 @@ function StudentSidebar({
                   'hover:before:opacity-100',
                   active
                     ? 'border-transparent text-indigo-950 bg-gradient-to-r from-white/90 to-white/70 shadow-[0_12px_28px_-18px_rgba(76,29,149,0.35)] ring-1 ring-indigo-500/30'
-                    : 'border-white/70 bg-white/55 text-gray-800 hover:bg-white/75 shadow-[0_8px_20px_-16px_rgba(2,6,23,0.25)] hover:shadow-[0_16px_28px_-18px_rgba(2,6,23,0.35)]',
+                    // --- INICIO MODIFICACIÓN: Aplicar gradiente suave y texto oscuro ---
+                    : `${gradientStyle} border-transparent text-gray-900 hover:brightness-105`,
+                  // --- FIN MODIFICACIÓN ---
                 ].join(' ')}
               >
                 {/* --- INICIO REQ 2: Usar 'StudentAvatar' --- */}
@@ -1458,7 +1449,12 @@ function StudentSidebar({
                   <span className="block text-base md:text-[13.5px] font-semibold leading-tight tracking-[-0.01em]">
                     {student.nombre ?? 'Sin Nombre'}
                   </span>
-                  <span className="block text-sm md:text-[11.5px] text-gray-600/90">
+                  {/* --- INICIO MODIFICACIÓN: Color de texto condicional (oscuro) --- */}
+                  <span className={classNames(
+                      "block text-sm md:text-[11.5px]",
+                      active ? "text-gray-600/90" : "text-gray-700/80"
+                    )}>
+                  {/* --- FIN MODIFICACIÓN --- */}
                     C.C {student.cedula ? student.cedula : student.id.substring(0, 8) + '...'}
                   </span>
                 </div>
@@ -1546,7 +1542,7 @@ function TabButton({
       type="button"
       onClick={onClick}
       className={[
-        'inline-flex items-center justify-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-all duration-200 focus:outline-none',
+        'inline-flex items-center justify-center rounded-full p-2 md:px-4 md:py-2 md:gap-2 text-sm font-medium transition-all duration-200 focus:outline-none',
         isActive
           ? 'bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.5),0_8px_24px_-10px_rgba(76,29,149,0.45)]'
           : 'text-gray-700 bg-white/28 hover:bg-white/40 backdrop-blur-xl border border-white/70 shadow-[inset_0_1px_0_rgba(255,255,255,0.6)]',
@@ -1554,7 +1550,7 @@ function TabButton({
       aria-current={isActive ? 'page' : undefined}
     >
       {icon}
-      <span>{label}</span>
+      <span className="hidden md:inline">{label}</span>
     </button>
   );
 }
@@ -1563,6 +1559,7 @@ function CardSection({
   title,
   children,
   actions,
+  icon,
   isEditable = false,
   onTitleChange,
   autoFocus,
@@ -1571,6 +1568,7 @@ function CardSection({
   title?: string;
   children: React.ReactNode;
   actions?: React.ReactNode;
+  icon?: React.ReactNode;
   isEditable?: boolean;
   onTitleChange?: (newTitle: string) => void;
   autoFocus?: boolean;
@@ -1600,31 +1598,34 @@ function CardSection({
     <section className="relative overflow-hidden rounded-3xl border border-white/70 bg-white/30 p-5 md:p-6 shadow-[0_10px_30px_-15px_rgba(2,6,23,0.2),inset_0_1px_0_0_#fff] backdrop-blur-xl">
       <div className="pointer-events-none absolute -top-16 -left-16 h-40 w-40 rounded-full bg-gradient-to-br from-indigo-500/15 to-white/15 blur-2xl" />
       {(title || actions) && (
-        <div className="flex justify-between items-center mb-4 -mx-5 -mt-5 md:-mx-6 md:-mt-6 p-4 rounded-t-3xl bg-gradient-to-r from-blue-800 to-indigo-600">
-          {title && isEditable ? (
-            isEditing ? (
-              <input
-                ref={inputRef}
-                type="text"
-                value={currentTitle}
-                onChange={(e) => setCurrentTitle(e.target.value)}
-                onBlur={saveTitle}
-                onKeyDown={handleKeyDown}
-                className="text-base md:text-[17px] font-semibold tracking-tight text-gray-900 bg-white/80 rounded-lg px-2 py-0 -ml-2"
-              />
-            ) : (
-              <button
-                type="button"
-                onClick={() => setIsEditing(true)}
-                className="group flex items-center gap-2 cursor-text rounded-lg px-2 py-0 -ml-2 hover:bg-white/50"
-              >
-                <h3 className="text-base md:text-[17px] font-semibold tracking-tight text-white">{currentTitle}</h3>
-                <Edit2 size={14} className="text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity" />
-              </button>
-            )
-          ) : title ? (
-            <h3 className="text-base md:text-[17px] font-semibold tracking-tight text-white">{title}</h3>
-          ) : null}
+        <div className="flex justify-between items-center mb-4 -mx-5 -mt-5 md:-mx-6 md:-mt-6 p-3 bg-gradient-to-r from-blue-100 to-indigo-100">
+          <div className="flex items-center gap-2">
+            {icon}
+            {title && isEditable ? (
+              isEditing ? (
+                <input
+                  ref={inputRef}
+                  type="text"
+                  value={currentTitle}
+                  onChange={(e) => setCurrentTitle(e.target.value)}
+                  onBlur={saveTitle}
+                  onKeyDown={handleKeyDown}
+                  className="text-base md:text-[17px] font-semibold tracking-tight text-indigo-900 bg-white/80 rounded-lg px-2 py-0"
+                />
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setIsEditing(true)}
+                  className="group flex items-center gap-2 cursor-text rounded-lg px-2 py-0"
+                >
+                  <h3 className="text-base md:text-[17px] font-semibold tracking-tight text-indigo-900">{currentTitle}</h3>
+                  <Edit2 size={14} className="text-indigo-400/70 opacity-0 group-hover:opacity-100 transition-opacity" />
+                </button>
+              )
+            ) : title ? (
+              <h3 className="text-base md:text-[17px] font-semibold tracking-tight text-indigo-900">{title}</h3>
+            ) : null}
+          </div>
           {actions && <div className="flex-shrink-0">{actions}</div>}
         </div>
       )}
@@ -1685,37 +1686,17 @@ function GradeGrid({
             {row.map((placeholder, colIndex) => {
               const noteNumber = rowIndex * 5 + colIndex + 1;
               const gradeValue = studentGradesForTopic[placeholder.id] ?? '';
-              const hasValue = (gradeValue ?? '') !== '';
-              const boxClasses = `
-                relative group flex flex-col items-center justify-center h-14
-                rounded-[18px] border border-white/60 bg-white/40 backdrop-blur-xl
-                ring-1 ring-black/5
-                shadow-[0_12px_30px_-18px_rgba(2,6,23,0.35),inset_0_1px_0_0_rgba(255,255,255,0.65)]
-                transition-all duration-300 hover:-translate-y-[1px]
-                hover:bg-white/55 hover:shadow-[0_20px_40px_-18px_rgba(2,6,23,0.45)]
-                ${hasValue ? 'ring-2 ring-indigo-500/35 shadow-[0_22px_45px_-18px_rgba(99,102,241,0.35)]' : ''}
-                p-1 overflow-hidden
-                bg-[linear-gradient(145deg,rgba(99,102,241,0.06),rgba(255,255,255,0.05))]
-              `;
+              
+              // --- INICIO MODIFICACIÓN: Usar el nuevo PremiumAttendanceButton ---
               return (
-                <div key={placeholder.id} className={boxClasses}>
-                  <div className="pointer-events-none absolute inset-0 rounded-[18px] opacity-70 bg-[radial-gradient(140px_90px_at_8%_-8%,rgba(99,102,241,0.18),transparent),radial-gradient(140px_90px_at_110%_120%,rgba(200,200,200,0.08),transparent)]" />
-                  <span className="relative text-[11px] uppercase tracking-wide text-gray-600/90 mb-1 select-none">
-                    Nota {noteNumber}
-                  </span>
-                  <input
-                    id={`grade-${topicId}-${placeholder.id}`}
-                    type="number"
-                    min="0"
-                    max="100"
-                    value={gradeValue}
-                    onChange={(e) => onGradeChange(topicId, placeholder.id, e.target.value)}
-                    className="relative w-10 text-sm md:text-base font-semibold text-center tabular-nums bg-transparent text-gray-900 placeholder-gray-500 rounded-md outline-none focus:ring-4 focus:ring-indigo-500/40 focus:bg-white/70 transition-transform duration-200 focus:scale-[1.02]"
-                    placeholder="--"
-                    inputMode="numeric"
-                  />
-                </div>
+                <PremiumAttendanceButton
+                  key={placeholder.id}
+                  noteNumber={noteNumber}
+                  value={gradeValue}
+                  onChange={(newValue) => onGradeChange(topicId, placeholder.id, newValue)}
+                />
               );
+              // --- FIN MODIFICACIÓN ---
             })}
             {Array.from({ length: Math.max(0, 5 - row.length) }).map((_, i) => <div key={`empty-${i}`} />)}
           </div>
@@ -1820,7 +1801,103 @@ function Chip({ checked, onClick, children, disabled, variant = 'pill' }: { chec
     </button>
   );
 }
-// --- FIN REQ 3 ---
+
+// --- INICIO MODIFICACIÓN: Switch de Asistencia Premium "Cupertino 2025" ---
+/**
+ * Reemplaza el 'AttendanceSwitch' por un botón de estado premium.
+ * Estados: '' (vacío) -> 'si' (presente) -> 'no' (ausente) -> '' (vacío)
+ */
+function PremiumAttendanceButton({ 
+  noteNumber, 
+  value, 
+  onChange 
+}: {
+  noteNumber: number;
+  value: string;
+  onChange: (newValue: string) => void;
+}) {
+  const handleClick = () => {
+    if (value === 'si') {
+      onChange('no');
+    } else if (value === 'no') {
+      onChange(''); // Volver a vacío
+    } else {
+      onChange('si');
+    }
+  };
+
+  // Clases base para el botón
+  const baseClasses = `
+    relative group flex flex-col items-center justify-center h-16
+    rounded-[18px] border 
+    ring-1 ring-black/5
+    shadow-[0_12px_30px_-18px_rgba(2,6,23,0.35),inset_0_1px_0_0_rgba(255,255,255,0.65)]
+    transition-all duration-300 ease-[cubic-bezier(0.25,0.1,0.25,1)] 
+    hover:-translate-y-[2px]
+    hover:shadow-[0_20px_40px_-18px_rgba(2,6,23,0.45)]
+    active:scale-[0.97] active:translate-y-0
+    p-2 overflow-hidden cursor-pointer
+  `;
+
+  // Clases y contenido dinámico según el estado
+  let stateClasses, icon, labelColor;
+
+  if (value === 'si') {
+    // --- Estado "Presente" (Activo) ---
+    stateClasses = `
+      border-blue-300/50
+      bg-gradient-to-br from-blue-100 via-white to-indigo-100
+      text-indigo-900
+      shadow-[0_20px_40px_-18px_rgba(59,130,246,0.3)]
+      hover:shadow-[0_22px_45px_-18px_rgba(59,130,246,0.4)]
+    `;
+    icon = <Check size={20} className="mb-0.5" />;
+    labelColor = "text-indigo-900/70";
+  } else if (value === 'no') {
+    // --- Estado "Ausente" (Inactivo/Gris) ---
+    stateClasses = `
+      border-white/60 
+      bg-gradient-to-br from-gray-500 to-gray-600
+      text-white
+      shadow-[0_15px_35px_-18px_rgba(107,114,128,0.6)]
+      hover:shadow-[0_18px_40px_-18px_rgba(107,114,128,0.7)]
+    `;
+    icon = <X size={20} className="mb-0.5" />;
+    labelColor = "text-white/80";
+  } else {
+    // --- Estado "Vacío" (Glass) ---
+    stateClasses = `
+      border-white/60 
+      bg-white/40 
+      backdrop-blur-xl
+      hover:bg-white/55
+      bg-[linear-gradient(145deg,rgba(99,102,241,0.06),rgba(255,255,255,0.05))]
+    `;
+    icon = null;
+    labelColor = "text-gray-600/90";
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={handleClick}
+      className={`${baseClasses} ${stateClasses}`}
+      aria-label={`Marcar asistencia para Clase #${noteNumber}. Estado actual: ${value || 'vacío'}`}
+    >
+      {/* Gradiente radial sutil (del diseño original) */}
+      <div className="pointer-events-none absolute inset-0 rounded-[18px] opacity-70 bg-[radial-gradient(140px_90px_at_8%_-8%,rgba(99,102,241,0.18),transparent),radial-gradient(140px_90px_at_110%_120%,rgba(200,200,200,0.08),transparent)]" />
+      
+      {/* Contenido */}
+      <span className={`relative text-[11px] uppercase tracking-wide select-none ${labelColor}`}>
+        Clase # {noteNumber}
+      </span>
+      <div className="relative h-5"> {/* Contenedor para el icono, mantiene la altura */}
+        {icon}
+      </div>
+    </button>
+  );
+}
+// --- FIN MODIFICACIÓN ---
 
 // --- INICIO REQ 3: Nuevos componentes Editables ---
 function EditableRowSelect({
@@ -2207,7 +2284,17 @@ function HojaDeVidaPanel({
           <div className="flex-1">
             <div className="flex items-start justify-between">
               <h3 className="text-lg font-semibold text-zinc-800">
-                {form.nombre ?? "Consulta de entrevista"}
+                {edit ? (
+                  <CEField
+                    value={form.nombre}
+                    edit={edit}
+                    onInput={onCE("nombre")}
+                    placeholder="Nombre completo"
+                    className="text-lg font-semibold"
+                  />
+                ) : (
+                  form.nombre ?? "Consulta de entrevista"
+                )}
               </h3>
               
               {/* --- INICIO MODIFICACIÓN APPLE SENIOR DEV --- */}
@@ -2215,10 +2302,10 @@ function HojaDeVidaPanel({
                 <button
                   onClick={handleDelete}
                   disabled={saving}
-                  className="px-3 py-1.5 text-sm font-medium rounded-full transition text-white bg-gradient-to-r from-rose-500 to-rose-600 hover:brightness-105 active:scale-[.98] shadow-[0_10px_30px_-10px_rgba(225,29,72,.6)] disabled:opacity-60"
+                  className="flex items-center justify-center h-9 w-9 rounded-full transition-all disabled:opacity-60 active:scale-[.98] bg-gradient-to-br from-red-400 to-rose-400 text-white shadow-md hover:shadow-lg hover:shadow-red-200/50"
                   title="Eliminar"
                 >
-                  Eliminar
+                  <Trash2 size={16} />
                 </button>
                 
                 {/* Botón Premium "Editar" / "Guardar" */}
@@ -2248,7 +2335,17 @@ function HojaDeVidaPanel({
             {/* Información adicional horizontal */}
             <div className="mt-2 flex items-center gap-4 text-sm text-zinc-700 flex-wrap">
               <span className="flex items-center gap-1">
-                Cédula: {form.cedula || 'N/A'}
+                Cédula:{" "}
+                {edit ? (
+                  <CEField
+                    value={form.cedula}
+                    edit={edit}
+                    onInput={onCE("cedula")}
+                    placeholder="Cédula"
+                  />
+                ) : (
+                  form.cedula || 'N/A'
+                )}
               </span>
               {form.estado_civil && (
                 <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 ring-1 ring-inset ring-blue-200">
@@ -2270,9 +2367,12 @@ function HojaDeVidaPanel({
         
           <section className="rounded-2xl ring-1 ring-black/5 bg-zinc-50 overflow-hidden">
             {/* --- INICIO MODIFICACIÓN APPLE SENIOR DEV --- */}
-            <div className="flex items-center justify-between bg-gradient-to-r from-indigo-500 to-purple-500 p-3">
-                <h4 className="text-sm font-semibold text-white">Información personal</h4>
-                {edit && <Edit2 size={14} className="text-white/70" />}
+            <div className="flex items-center justify-between bg-gradient-to-r from-blue-100 to-indigo-100 p-3">
+                <div className="flex items-center gap-2">
+                    <User size={16} className="text-indigo-900/70" />
+                    <h4 className="text-sm font-semibold text-indigo-900">Información personal</h4>
+                </div>
+                {edit && <Edit2 size={14} className="text-indigo-400/70" />}
             </div>
             {/* --- FIN MODIFICACIÓN APPLE SENIOR DEV --- */}
             <div className="p-4">
@@ -2301,9 +2401,12 @@ function HojaDeVidaPanel({
 
           <section className="rounded-2xl ring-1 ring-black/5 bg-zinc-50 overflow-hidden">
             {/* --- INICIO MODIFICACIÓN APPLE SENIOR DEV --- */}
-            <div className="flex items-center justify-between bg-gradient-to-r from-indigo-500 to-purple-500 p-3">
-                <h4 className="text-sm font-semibold text-white">Información general</h4>
-                {edit && <Edit2 size={14} className="text-white/70" />}
+            <div className="flex items-center justify-between bg-gradient-to-r from-blue-100 to-indigo-100 p-3">
+                <div className="flex items-center gap-2">
+                    <Landmark size={16} className="text-indigo-900/70" />
+                    <h4 className="text-sm font-semibold text-indigo-900">Informacion Congregacional</h4>
+                </div>
+                {edit && <Edit2 size={14} className="text-indigo-400/70" />}
             </div>
             {/* --- FIN MODIFICACIÓN APPLE SENIOR DEV --- */}
             <div className="p-4">
@@ -2348,9 +2451,12 @@ function HojaDeVidaPanel({
 
           <section className="rounded-2xl ring-1 ring-black/5 bg-zinc-50 overflow-hidden">
             {/* --- INICIO MODIFICACIÓN APPLE SENIOR DEV --- */}
-            <div className="flex items-center justify-between bg-gradient-to-r from-indigo-500 to-purple-500 p-3">
-                <h4 className="text-sm font-semibold text-white">Datos espirituales</h4>
-                {edit && <Edit2 size={14} className="text-white/70" />}
+            <div className="flex items-center justify-between bg-gradient-to-r from-blue-100 to-indigo-100 p-3">
+                <div className="flex items-center gap-2">
+                    <BookOpen size={16} className="text-indigo-900/70" />
+                    <h4 className="text-sm font-semibold text-indigo-900">Datos espirituales</h4>
+                </div>
+                {edit && <Edit2 size={14} className="text-indigo-400/70" />}
             </div>
             {/* --- FIN MODIFICACIÓN APPLE SENIOR DEV --- */}
             <div className="p-4">
@@ -2409,9 +2515,12 @@ function HojaDeVidaPanel({
 
           <section className="rounded-2xl ring-1 ring-black/5 bg-zinc-50 overflow-hidden">
             {/* --- INICIO MODIFICACIÓN APPLE SENIOR DEV --- */}
-            <div className="flex items-center justify-between bg-gradient-to-r from-indigo-500 to-purple-500 p-3">
-                <h4 className="text-sm font-semibold text-white">Salud y Consejería</h4>
-                {edit && <Edit2 size={14} className="text-white/70" />}
+            <div className="flex items-center justify-between bg-gradient-to-r from-blue-100 to-indigo-100 p-3">
+                <div className="flex items-center gap-2">
+                    <HeartPulse size={16} className="text-indigo-900/70" />
+                    <h4 className="text-sm font-semibold text-indigo-900">Salud y Consejería</h4>
+                </div>
+                {edit && <Edit2 size={14} className="text-indigo-400/70" />}
             </div>
             {/* --- FIN MODIFICACIÓN APPLE SENIOR DEV --- */}
             <div className="p-4">
@@ -2447,9 +2556,12 @@ function HojaDeVidaPanel({
 
           <section className="rounded-2xl ring-1 ring-black/5 bg-zinc-50 overflow-hidden">
             {/* --- INICIO MODIFICACIÓN APPLE SENIOR DEV --- */}
-            <div className="flex items-center justify-between bg-gradient-to-r from-indigo-500 to-purple-500 p-3">
-                <h4 className="text-sm font-semibold text-white">Evaluación y observaciones</h4>
-                {edit && <Edit2 size={14} className="text-white/70" />}
+            <div className="flex items-center justify-between bg-gradient-to-r from-blue-100 to-indigo-100 p-3">
+                <div className="flex items-center gap-2">
+                    <ClipboardList size={16} className="text-indigo-900/70" />
+                    <h4 className="text-sm font-semibold text-indigo-900">Evaluación y observaciones</h4>
+                </div>
+                {edit && <Edit2 size={14} className="text-indigo-400/70" />}
             </div>
             {/* --- FIN MODIFICACIÓN APPLE SENIOR DEV --- */}
             <div className="p-4">
@@ -2488,9 +2600,12 @@ function HojaDeVidaPanel({
 
           <section className="rounded-2xl ring-1 ring-black/5 bg-zinc-50 overflow-hidden">
             {/* --- INICIO MODIFICACIÓN APPLE SENIOR DEV --- */}
-            <div className="flex items-center justify-between bg-gradient-to-r from-indigo-500 to-purple-500 p-3">
-                <h4 className="text-sm font-semibold text-white">Notas Adicionales</h4>
-                {edit && <Edit2 size={14} className="text-white/70" />}
+            <div className="flex items-center justify-between bg-gradient-to-r from-blue-100 to-indigo-100 p-3">
+                <div className="flex items-center gap-2">
+                    <NotebookPen size={16} className="text-indigo-900/70" />
+                    <h4 className="text-sm font-semibold text-indigo-900">Notas Adicionales</h4>
+                </div>
+                {edit && <Edit2 size={14} className="text-indigo-400/70" />}
             </div>
             {/* --- FIN MODIFICACIÓN APPLE SENIOR DEV --- */}
             <div className="p-4">
@@ -2507,5 +2622,5 @@ function HojaDeVidaPanel({
       </div>
     </div>
   );
-}                     
+}                                          
 // --- FIN MODIFICACIÓN ---
