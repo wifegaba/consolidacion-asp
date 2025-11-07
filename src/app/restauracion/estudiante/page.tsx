@@ -4,19 +4,11 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import '../../panel/panel.css';
 import {
-  User,
-  BookMarked,
   BarChart3,
   Search,
-  Plus,
-  Folder,
-  Mail,
-  Calendar,
   ArrowLeft,
-  Minus,
   X,
   Edit2,
-  Star,
   FileText,
   UserCheck,
   Check,
@@ -38,12 +30,9 @@ import {
   MainPanelState,
   Course,
   classNames,
-  formatDateTime,
   bustUrl,
   generateAvatar,
   chunkArray,
-  Chip,
-  folderColors
 } from './components/academia.utils';
 
 // --- NUESTRAS IMPORTACIONES DE PANELES ---
@@ -59,8 +48,7 @@ type EstudianteInscrito = Entrevista & {
   estado_inscripcion: string;
 };
 
-// --- MOCK DATA ---
-const mockStudents: EstudianteInscrito[] = [];
+
 
 
 function createDefaultGradePlaceholders(count = 5): GradePlaceholder[] {
@@ -105,9 +93,9 @@ export default function EstudiantePage() {
   const [courseTopics, setCourseTopics] = useState<CourseTopic[]>([]);
   const [studentGrades, setStudentGrades] = useState<StudentGrades>({});
   const topicsContainerRef = useRef<HTMLDivElement | null>(null);
-  const [lastAddedTopicId, setLastAddedTopicId] = useState<number | null>(null);
+  const [lastAddedTopicId] = useState<number | null>(null);
   const [signedUrl, setSignedUrl] = useState<string | null>(null);
-  const [fotoUrls, setFotoUrls] = useState<Record<string, string>>({});
+  const [fotoUrls, setFotoUrls] = useState<Record<string, string | 'loading'>>({});
   const [pendientesCount, setPendientesCount] = useState(0);
   const toast = useToast(); 
 
@@ -192,12 +180,12 @@ export default function EstudiantePage() {
     if (!path) return null;
     if (fotoUrls[path]) return fotoUrls[path];
     
-    if ((fotoUrls as any)[path] === 'loading') {
+    if (fotoUrls[path] === 'loading') {
       await new Promise(r => setTimeout(r, 300));
       return getSignedUrlCached(path);
     }
     
-    setFotoUrls((m) => ({ ...m, [path]: 'loading' as any }));
+    setFotoUrls((m) => ({ ...m, [path]: 'loading' }));
     
     try {
       const { data } = await supabase.storage
@@ -215,13 +203,13 @@ export default function EstudiantePage() {
     }
   }
 
-  function onUpdated(r: Entrevista) {
+  function onUpdated(r: Entrevista & { _tempPreview?: string | null }) {
     setStudents((xs) => xs.map((x) => (x.id === r.id ? { ...x, ...r } : x)));
     setSelectedStudent(prev => prev ? { ...prev, ...r } : null);
     
     if (selectedStudent?.id === r.id) {
-      if ((r as any)._tempPreview) {
-        setSignedUrl((r as any)._tempPreview);
+      if (r._tempPreview) {
+        setSignedUrl(r._tempPreview);
         return;
       }
       if (r.foto_path) {
@@ -274,7 +262,7 @@ export default function EstudiantePage() {
       const loadedStudents: EstudianteInscrito[] = data
         .filter(item => item.entrevistas) 
         .map(item => ({
-        ...(item.entrevistas as any as Entrevista),
+        ...(item.entrevistas as unknown as Entrevista),
         inscripcion_id: item.id, 
         estado_inscripcion: item.estado,
       }));
@@ -445,9 +433,10 @@ export default function EstudiantePage() {
       if (error) throw error;
       toast.success("Asistencia guardada automáticamente");
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error en autoguardado de asistencias:", error);
-      toast.error("Error de autoguardado: " + error.message);
+      const message = error instanceof Error ? error.message : "Error desconocido";
+      toast.error("Error de autoguardado: " + message);
     }
   };
 
@@ -500,8 +489,9 @@ export default function EstudiantePage() {
 
       if (upsertError) throw upsertError;
       
-    } catch (error: any) {
-      toast.error(`Error al marcar: ${error.message}`);
+    } catch (error: unknown) {
+      const e = error as { message?: string };
+      toast.error(`Error al marcar: ${e.message ?? 'Error desconocido'}`);
       // Volver a lanzar el error para que el componente hijo (sidebar)
       // sepa que no debe avanzar al siguiente estudiante.
       throw error;
@@ -521,66 +511,7 @@ export default function EstudiantePage() {
   
 
   // --- Lógica de Temas (sin cambios) ---
-  const handleAddGrade = (topicId: number) => {
-    const newGradeId = Date.now() + Math.random();
-    setCourseTopics(prev =>
-      prev.map(topic =>
-        topic.id === topicId ? { ...topic, grades: [...topic.grades, { id: newGradeId }] } : topic
-      )
-    );
-    if (selectedInscripcionId) { 
-      setStudentGrades(prev => ({
-        ...prev,
-        [topicId]: { ...(prev[topicId] || {}), [newGradeId]: '' },
-      }));
-    }
-  };
-  const handleDeleteLastGrade = (topicId: number) => {
-    let removed: number | null = null;
-    setCourseTopics(prev =>
-      prev.map(topic => {
-        if (topic.id === topicId && topic.grades.length > 0) {
-          removed = topic.grades[topic.grades.length - 1].id;
-          return { ...topic, grades: topic.grades.slice(0, -1) };
-        }
-        return topic;
-      })
-    );
-    if (removed !== null && selectedInscripcionId) { 
-      setStudentGrades(prev => {
-        const topicGrades = { ...(prev[topicId] || {}) };
-        delete topicGrades[removed!];
-        return { ...prev, [topicId]: topicGrades };
-      });
-    }
-  };
-  const handleAddTopic = () => {
-    const newTopic: CourseTopic = {
-      id: Date.now(),
-      title: 'Nuevo Tema',
-      grades: createDefaultGradePlaceholders(5),
-    };
-    setCourseTopics(prev => [newTopic, ...prev]);
-    if (selectedInscripcionId) { 
-      const init: Record<number, string> = {};
-      newTopic.grades.forEach(g => (init[g.id] = ''));
-      setStudentGrades(prev => ({ ...prev, [newTopic.id]: init }));
-    }
-    setLastAddedTopicId(newTopic.id);
-  };
-  const handleDeleteTopic = (topicId: number) => {
-    setCourseTopics(prev => prev.filter(t => t.id !== topicId));
-    if (selectedInscripcionId) { 
-      setStudentGrades(prev => {
-        const copy = { ...prev };
-        delete copy[topicId as unknown as keyof typeof copy];
-        return copy;
-      });
-    }
-  };
-  const handleTopicTitleChange = (topicId: number, newTitle: string) => {
-    setCourseTopics(prev => prev.map(t => (t.id === topicId ? { ...t, title: newTitle } : t)));
-  };
+  
   
 
   // --- Helpers de UI (ACTUALIZADOS) ---
@@ -1305,7 +1236,7 @@ function StudentSidebarItem({
   ];
   const gradientStyle = gradientClasses[Number(student.id.replace(/\D/g,'')) % gradientClasses.length]; // Usa el ID para un color consistente
 
-  let containerClasses = [
+  const containerClasses = [
     'group relative flex items-center gap-4 md:gap-3 rounded-2xl p-4 md:p-3 transition-all border overflow-hidden',
   ];
 
@@ -1528,8 +1459,9 @@ function ModalMatricular({
 
         if (error) throw error;
         setTodosEstudiantes(data || []);
-      } catch (err: any) {
-        setError(err.message || "Error al cargar estudiantes");
+      } catch (err: unknown) {
+        const e = err as { message?: string };
+        setError(e.message ?? "Error al cargar estudiantes");
       } finally {
         setLoading(false);
       }
@@ -1597,12 +1529,13 @@ function ModalMatricular({
       toast.success(`¡${seleccionadosIds.length} estudiante(s) matriculado(s) con éxito!`);
       onMatricularExitoso();
       
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error al matricular:", err);
-      if (err.code === '23505') {
+      const e = err as { code?: string; message?: string };
+      if (e.code === '23505') {
         toast.error("Error: Uno o más estudiantes seleccionados ya estaban inscritos.");
       } else {
-        toast.error("Error al matricular: " + err.message);
+        toast.error("Error al matricular: " + (e.message ?? 'Error desconocido'));
       }
     } finally {
       setIsSaving(false);
@@ -1627,7 +1560,7 @@ function ModalMatricular({
         <div className="flex-shrink-0 p-5 border-b border-white/60">
           <h2 className="text-xl font-semibold text-gray-900">Matricular Estudiantes</h2>
           <p className="text-sm text-gray-700">
-            Selecciona los estudiantes de la "Hoja de Vida" para añadir a: <strong>{curso.title}</strong>
+            Selecciona los estudiantes de la &quot;Hoja de Vida&quot; para añadir a: <strong>{curso.title}</strong>
           </p>
         </div>
 

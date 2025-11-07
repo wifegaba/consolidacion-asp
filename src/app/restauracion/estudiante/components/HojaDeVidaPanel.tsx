@@ -52,7 +52,7 @@ export function HojaDeVidaPanel({
 }: {
   row: Entrevista;
   signedUrl: string | null;
-  onUpdated: (r: Entrevista) => void;
+  onUpdated: (r: Entrevista & { _tempPreview?: string | null }) => void;
   onDeleted: (id: string) => void;
   className?: string;
 }) {

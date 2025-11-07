@@ -64,8 +64,7 @@ export type Entrevista = {
   desempeno_clase?: string | null;
   maestro_encargado?: string | null;
   _tempPreview?: string | null;
-  [k: string]: any;
-};
+  };
 
 // --- Tipos que faltaban por exportar (CORREGIDO) ---
 export type GradePlaceholder = { id: number };
