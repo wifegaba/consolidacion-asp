@@ -24,7 +24,7 @@ export async function POST(req: Request) {
 
     const supabase = getServerSupabase();
 
-    // PASO 1: Autenticación básica (esta es la única consulta que debe ser secuencial)
+    // PASO 1: Autenticación básica
     const { data: servidor, error: errServ } = await supabase
       .from('servidores')
       .select('id, activo')
@@ -39,11 +39,12 @@ export async function POST(req: Request) {
 
     // --- OPTIMIZACIÓN: EJECUTAR TODAS LAS CONSULTAS DE ROLES EN PARALELO ---
     const [
-      rolAdminResult,
+      rolDirectorResult,    // Renombrado para claridad (INTACTO)
+      rolAdministradorResult, // --- NUEVO --- (Para el rol Administrador)
       contactoResult,
       maestroResult
     ] = await Promise.all([
-      // Consulta para el rol de Director
+      // Consulta para el rol de Director (INTACTA)
       supabase
         .from('servidores_roles')
         .select('rol')
@@ -51,14 +52,26 @@ export async function POST(req: Request) {
         .eq('vigente', true)
         .eq('rol', 'Director')
         .maybeSingle(),
-      // Consulta para la asignación de Contacto
+
+      // --- NUEVO ---
+      // Consulta para el nuevo rol 'Administrador'
+      supabase
+        .from('servidores_roles')
+        .select('rol')
+        .eq('servidor_id', servidorId)
+        .eq('vigente', true)
+        .eq('rol', 'Administrador') // Busca el nuevo rol
+        .maybeSingle(),
+      // --- FIN NUEVO ---
+
+      // Consulta para la asignación de Contacto (INTACTA)
       supabase
         .from('asignaciones_contacto')
         .select('etapa, dia, semana')
         .eq('servidor_id', servidorId)
         .eq('vigente', true)
         .maybeSingle(),
-      // Consulta para la asignación de Maestro
+      // Consulta para la asignación de Maestro (INTACTA)
       supabase
         .from('asignaciones_maestro')
         .select('etapa, dia')
@@ -68,26 +81,37 @@ export async function POST(req: Request) {
     ]);
 
     // Verificar si alguna de las consultas en paralelo falló
-    if (rolAdminResult.error || contactoResult.error || maestroResult.error) {
-      console.error("Error en consultas paralelas:", rolAdminResult.error || contactoResult.error || maestroResult.error);
+    if (rolDirectorResult.error || rolAdministradorResult.error || contactoResult.error || maestroResult.error) {
+      console.error("Error en consultas paralelas:", rolDirectorResult.error || rolAdministradorResult.error || contactoResult.error || maestroResult.error);
       throw new Error('Error al verificar los roles del usuario.');
     }
 
-    const rolAdmin = rolAdminResult.data;
+    const rolDirector = rolDirectorResult.data; // Renombrado
+    const rolAdministrador = rolAdministradorResult.data; // --- NUEVO ---
     const contacto = contactoResult.data;
     const maestro = maestroResult.data;
     
     // --- LÓGICA DE DECISIÓN (Ahora con los datos ya cargados) ---
 
-    // Prioridad 1: ¿Es Director?
-    if (rolAdmin) {
+    // Prioridad 1: ¿Es Director? (INTACTO)
+    if (rolDirector) {
       const token = jwt.sign({ cedula, rol: 'Director', servidorId }, secret, { expiresIn: '8h' });
       const res = NextResponse.json({ redirect: '/panel' });
       res.cookies.set(isProd ? '__Host-session' : 'session', token, { httpOnly: true, secure: isProd, sameSite: 'lax', path: '/', maxAge: 60 * 60 * 8 });
       return res;
     }
 
-    // Prioridad 2: ¿Es Contacto o Maestro?
+    // --- NUEVO ---
+    // Prioridad 2: ¿Es Administrador?
+    if (rolAdministrador) {
+      const token = jwt.sign({ cedula, rol: 'Administrador', servidorId }, secret, { expiresIn: '8h' });
+      const res = NextResponse.json({ redirect: '/admin' }); // Redirige a /admin
+      res.cookies.set(isProd ? '__Host-session' : 'session', token, { httpOnly: true, secure: isProd, sameSite: 'lax', path: '/', maxAge: 60 * 60 * 8 });
+      return res;
+    }
+    // --- FIN NUEVO ---
+
+    // Prioridad 3: ¿Es Contacto o Maestro? (INTACTO)
     if (contacto || maestro) {
       const rolOperativo: 'contacto' | 'maestro' = contacto ? 'contacto' : 'maestro';
       const asignacion = contacto || maestro;
