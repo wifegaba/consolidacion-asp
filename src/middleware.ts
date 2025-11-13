@@ -43,12 +43,17 @@ export async function middleware(req: NextRequest) {
       new TextEncoder().encode(JWT_SECRET)
     );
 
-    // 4. Comprobar si el rol es 'Director'
-    if (payload.rol === 'Director') {
+    // --- CAMBIO AQUÍ ---
+    // 4. Comprobar si el rol es 'Director', 'Administrador' O 'Maestro Ptm'
+    if (
+      payload.rol === 'Director' || 
+      payload.rol === 'Administrador' ||
+      payload.rol === 'Maestro Ptm' // <-- AÑADIDO
+    ) {
       // Si el token es válido y el rol es correcto, permite que la solicitud continúe.
       return NextResponse.next();
     } else {
-      // Si el rol no es 'Director', no tiene permiso para estar en /panel.
+      // Si el rol no es ninguno de los permitidos, no tiene permiso.
       throw new Error('Acceso denegado: rol no autorizado');
     }
   } catch (err) {
@@ -65,7 +70,15 @@ export async function middleware(req: NextRequest) {
   }
 }
 
-// La configuración del matcher sigue siendo la misma y es correcta.
+// --- CAMBIO AQUÍ ---
+// Añadimos la nueva ruta a proteger.
 export const config = {
-  matcher: ['/panel/:path*', '/panel'],
+  matcher: [
+    '/panel/:path*', 
+    '/panel',
+    '/admin/:path*',
+    '/admin',
+    '/restauracion/estudiante/:path*', // <-- AÑADIDO
+    '/restauracion/estudiante'         // <-- AÑADIDO
+  ],
 };

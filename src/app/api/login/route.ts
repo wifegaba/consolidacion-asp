@@ -39,12 +39,13 @@ export async function POST(req: Request) {
 
     // --- OPTIMIZACIÓN: EJECUTAR TODAS LAS CONSULTAS DE ROLES EN PARALELO ---
     const [
-      rolDirectorResult,    // Renombrado para claridad (INTACTO)
-      rolAdministradorResult, // --- NUEVO --- (Para el rol Administrador)
+      rolDirectorResult,
+      rolAdministradorResult,
+      rolMaestroPtmResult, // <-- AÑADIDO
       contactoResult,
       maestroResult
     ] = await Promise.all([
-      // Consulta para el rol de Director (INTACTA)
+      // Consulta para el rol de Director
       supabase
         .from('servidores_roles')
         .select('rol')
@@ -53,25 +54,34 @@ export async function POST(req: Request) {
         .eq('rol', 'Director')
         .maybeSingle(),
 
-      // --- NUEVO ---
-      // Consulta para el nuevo rol 'Administrador'
+      // Consulta para el rol 'Administrador'
       supabase
         .from('servidores_roles')
         .select('rol')
         .eq('servidor_id', servidorId)
         .eq('vigente', true)
-        .eq('rol', 'Administrador') // Busca el nuevo rol
+        .eq('rol', 'Administrador')
         .maybeSingle(),
-      // --- FIN NUEVO ---
 
-      // Consulta para la asignación de Contacto (INTACTA)
+      // --- AÑADIDO ---
+      // Consulta para el rol 'Maestro Ptm'
+      supabase
+        .from('servidores_roles')
+        .select('rol')
+        .eq('servidor_id', servidorId)
+        .eq('vigente', true)
+        .eq('rol', 'Maestro Ptm') 
+        .maybeSingle(),
+      // --- FIN AÑADIDO ---
+
+      // Consulta para la asignación de Contacto
       supabase
         .from('asignaciones_contacto')
         .select('etapa, dia, semana')
         .eq('servidor_id', servidorId)
         .eq('vigente', true)
         .maybeSingle(),
-      // Consulta para la asignación de Maestro (INTACTA)
+      // Consulta para la asignación de Maestro
       supabase
         .from('asignaciones_maestro')
         .select('etapa, dia')
@@ -81,19 +91,20 @@ export async function POST(req: Request) {
     ]);
 
     // Verificar si alguna de las consultas en paralelo falló
-    if (rolDirectorResult.error || rolAdministradorResult.error || contactoResult.error || maestroResult.error) {
-      console.error("Error en consultas paralelas:", rolDirectorResult.error || rolAdministradorResult.error || contactoResult.error || maestroResult.error);
+    if (rolDirectorResult.error || rolAdministradorResult.error || rolMaestroPtmResult.error || contactoResult.error || maestroResult.error) {
+      console.error("Error en consultas paralelas:", rolDirectorResult.error || rolAdministradorResult.error || rolMaestroPtmResult.error || contactoResult.error || maestroResult.error);
       throw new Error('Error al verificar los roles del usuario.');
     }
 
-    const rolDirector = rolDirectorResult.data; // Renombrado
-    const rolAdministrador = rolAdministradorResult.data; // --- NUEVO ---
+    const rolDirector = rolDirectorResult.data;
+    const rolAdministrador = rolAdministradorResult.data;
+    const rolMaestroPtm = rolMaestroPtmResult.data; // <-- AÑADIDO
     const contacto = contactoResult.data;
     const maestro = maestroResult.data;
     
     // --- LÓGICA DE DECISIÓN (Ahora con los datos ya cargados) ---
 
-    // Prioridad 1: ¿Es Director? (INTACTO)
+    // Prioridad 1: ¿Es Director?
     if (rolDirector) {
       const token = jwt.sign({ cedula, rol: 'Director', servidorId }, secret, { expiresIn: '8h' });
       const res = NextResponse.json({ redirect: '/panel' });
@@ -101,7 +112,6 @@ export async function POST(req: Request) {
       return res;
     }
 
-    // --- NUEVO ---
     // Prioridad 2: ¿Es Administrador?
     if (rolAdministrador) {
       const token = jwt.sign({ cedula, rol: 'Administrador', servidorId }, secret, { expiresIn: '8h' });
@@ -109,9 +119,19 @@ export async function POST(req: Request) {
       res.cookies.set(isProd ? '__Host-session' : 'session', token, { httpOnly: true, secure: isProd, sameSite: 'lax', path: '/', maxAge: 60 * 60 * 8 });
       return res;
     }
-    // --- FIN NUEVO ---
 
-    // Prioridad 3: ¿Es Contacto o Maestro? (INTACTO)
+    // --- AÑADIDO ---
+    // Prioridad 3: ¿Es Maestro Ptm?
+    if (rolMaestroPtm) {
+      const token = jwt.sign({ cedula, rol: 'Maestro Ptm', servidorId }, secret, { expiresIn: '8h' });
+      // Redirige al formulario de estudiante
+      const res = NextResponse.json({ redirect: '/restauracion/estudiante' }); 
+      res.cookies.set(isProd ? '__Host-session' : 'session', token, { httpOnly: true, secure: isProd, sameSite: 'lax', path: '/', maxAge: 60 * 60 * 8 });
+      return res;
+    }
+    // --- FIN AÑADIDO ---
+
+    // Prioridad 4: ¿Es Contacto o Maestro (regular)?
     if (contacto || maestro) {
       const rolOperativo: 'contacto' | 'maestro' = contacto ? 'contacto' : 'maestro';
       const asignacion = contacto || maestro;

@@ -1,6 +1,6 @@
 'use client';
 
-// --- CAMBIO: useMemo importado ---
+// --- CAMBIO: Imports actualizados ---
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import '../../panel/panel.css';
 import {
@@ -8,19 +8,22 @@ import {
   Search,
   ArrowLeft,
   X,
-  Edit2,
+  Edit2, // <-- CAMBIO: Importado
   FileText,
   UserCheck,
   Check,
   Phone,
   MessageCircle,
-  UserPlus, // <-- Icono para Matricular
-  Loader2,  // <-- Icono de Carga
-} from 'lucide-react';
+  Loader2,
+  Lock, 
+} from 'lucide-react'; // <-- Se eliminó UserPlus
 import { supabase } from '../../../lib/supabaseClient';
 import { useToast } from '../../../components/ToastProvider'; 
 
-// --- NUESTRAS IMPORTACIONES DE UTILS ---
+// --- CAMBIO: Importar el hook de autenticación ---
+import { useAuth } from '../../../hooks/useAuth';
+
+// --- Importaciones de Utils (sin cambios) ---
 import {
   Entrevista,
   GradePlaceholder,
@@ -35,7 +38,7 @@ import {
   chunkArray,
 } from './components/academia.utils';
 
-// --- NUESTRAS IMPORTACIONES DE PANELES ---
+// --- Importaciones de Paneles (sin cambios) ---
 import { HojaDeVidaPanel } from './components/HojaDeVidaPanel';
 import { 
   WelcomePanel, 
@@ -48,37 +51,31 @@ type EstudianteInscrito = Entrevista & {
   estado_inscripcion: string;
 };
 
-
-
-
+// ... (Funciones de utilidad iniciales sin cambios) ...
 function createDefaultGradePlaceholders(count = 5): GradePlaceholder[] {
-  // --- CORRECCIÓN APLICADA (IDs ESTABLES) ---
   return Array.from({ length: count }).map((_, i) => ({ id: i + 1 }));
 }
-
-
 const initialCourseTopics: CourseTopic[] = [
   { id: 1, title: 'Asistencia', grades: createDefaultGradePlaceholders(12) },
 ];
-
-// --- CONSTANTES (CORREGIDO) ---
 const TAB_INDICES: Record<ActiveTab, number> = { hojaDeVida: 1, grades: 2, reports: 3 }; 
-
 const STATE_LEVELS: Record<MainPanelState, number> = { 'welcome': 0, 'courseWelcome': 1, 'creating': 2, 'viewing': 2 };
-
 const fixedContentBg = 'bg-[radial-gradient(1300px_900px_at_95%_5%,rgba(59,130,246,0.35),transparent_70%)]';
 
 
-/** Página — Fullscreen + Mac 2025 */
+/** Página — Panel del Maestro Ptm */
 export default function EstudiantePage() {
+  // --- CAMBIO: Usar hook de autenticación ---
+  const { user, loading: authLoading, error: authError } = useAuth();
+  
   // --- Estados ---
   const [activeTab, setActiveTab] = useState<ActiveTab>('hojaDeVida');
   const [prevTab, setPrevTab] = useState<ActiveTab>('hojaDeVida');
   
-  // --- ESTADOS PRINCIPALES ACTUALIZADOS ---
   const [courses, setCourses] = useState<Course[]>([]); 
   const [students, setStudents] = useState<EstudianteInscrito[]>([]); 
   const [loadingStudents, setLoadingStudents] = useState(false);
+  const [loadingCourses, setLoadingCourses] = useState(true);
   
   const [selectedInscripcionId, setSelectedInscripcionId] = useState<string | null>(null);
   const [selectedStudent, setSelectedStudent] = useState<EstudianteInscrito | null>(null);
@@ -87,28 +84,24 @@ export default function EstudiantePage() {
   const [prevMainState, setPrevMainState] = useState<MainPanelState>('welcome');
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null); 
   
-  const [isMatriculaOpen, setIsMatriculaOpen] = useState(false);
+  // --- CAMBIO: Se eliminó 'isMatriculaOpen' ---
   
-  // --- Estados sin cambios ---
+  // ... (Estados de notas, refs, etc. sin cambios) ...
   const [courseTopics, setCourseTopics] = useState<CourseTopic[]>([]);
   const [studentGrades, setStudentGrades] = useState<StudentGrades>({});
   const topicsContainerRef = useRef<HTMLDivElement | null>(null);
   const [lastAddedTopicId] = useState<number | null>(null);
   const [signedUrl, setSignedUrl] = useState<string | null>(null);
   const [fotoUrls, setFotoUrls] = useState<Record<string, string | 'loading'>>({});
-  const [pendientesCount, setPendientesCount] = useState(0);
+  // --- CAMBIO: Se eliminó 'pendientesCount' ---
   const toast = useToast(); 
-
-  // --- Ref para el temporizador de Debounce (para el autoguardado del GRID) ---
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
-
-  // --- INICIO CAMBIO: Estados para el modo de Asistencia Rápida ---
   const [isAttendanceModalOpen, setIsAttendanceModalOpen] = useState(false);
   const [isAttendanceModeActive, setIsAttendanceModeActive] = useState(false);
   const [attendanceClassId, setAttendanceClassId] = useState<number | null>(null);
-  // --- FIN CAMBIO ---
+  // ...
 
-  // --- INICIO CAMBIO: Contador de Pendientes para el encabezado del Grid ---
+  // ... (useMemo de asistenciasPendientes sin cambios) ...
   const asistenciasPendientes = useMemo(() => {
     let count = 0;
     for (const topic of courseTopics) {
@@ -121,61 +114,64 @@ export default function EstudiantePage() {
     }
     return count;
   }, [studentGrades, courseTopics]);
-  // --- FIN CAMBIO ---
 
 
-  // --- Lógica de Carga Inicial (NUEVA) ---
+  // --- CAMBIO: Lógica de Carga Inicial (FILTRADA POR MAESTRO) ---
   useEffect(() => {
+    // --- CAMBIO: Guard check para 'user' y 'authLoading' ---
+    // No hacer nada si el usuario (maestro) no se ha cargado
+    if (authLoading || !user) return; 
+
     async function loadCourses() {
+      setLoadingCourses(true);
+      
+      // --- CAMBIO: Usar alias singular 'curso:cursos' ---
+      const servidorId = user!.servidorId;
+
       const { data, error } = await supabase
-        .from('cursos')
-        .select('*')
-        .order('orden', { ascending: true });
+        .from('asignaciones_academia')
+        .select(`
+          curso_id,
+          curso:cursos ( id, nombre, color, orden )
+        `)
+        .eq('servidor_id', servidorId)
+        .eq('vigente', true);
         
       if (error) {
-        console.error("Error cargando cursos:", error);
+        console.error("Error cargando cursos asignados:", error);
+        toast.error("Error al cargar tus cursos.");
+        setLoadingCourses(false);
         return;
       }
       
-      const loadedCourses: Course[] = data.map(curso => ({
-        id: curso.id, 
-        title: curso.nombre,
-        color: curso.color || 'blue',
-      }));
+      // --- CAMBIO: Lógica de mapeo corregida para usar 'asig.curso' ---
+      // Esto corrige todos los errores 'Property ... does not exist'
+      // data can be any[] from Supabase; normalize safely
+      const asignaciones = (data as any[]) || [];
+      const cursosRaw = asignaciones.map(a => a?.curso).filter(Boolean) as Array<{
+        id: number;
+        nombre: string;
+        color?: string | null;
+        orden?: number | null;
+      }>;
+
+      const loadedCourses: Course[] = cursosRaw
+        .slice()
+        .sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
+        .map(curso => ({ id: curso.id, title: curso.nombre, color: curso.color || 'blue' }));
+      // --- FIN CAMBIO ---
+        
       setCourses(loadedCourses);
+      setLoadingCourses(false);
     }
     
     loadCourses();
-  }, []);
-
-  async function loadPendientesCount(courseId: string | number) {
-    const { data: todos, error: todosError } = await supabase
-      .from('entrevistas')
-      .select('id');
-
-    if (todosError) {
-      console.error("Error loading all students:", todosError);
-      return;
-    }
-
-    const { data: inscritos, error: inscritosError } = await supabase
-      .from('inscripciones')
-      .select('entrevista_id')
-      .eq('curso_id', courseId);
-
-    if (inscritosError) {
-      console.error("Error loading enrolled students:", inscritosError);
-      return;
-    }
-
-    const inscritosSet = new Set(inscritos.map(i => i.entrevista_id));
-    const pendientes = todos.filter(s => !inscritosSet.has(s.id));
-
-    setPendientesCount(pendientes.length);
-  }
+  }, [user, authLoading, toast]); // Depende del usuario
 
 
-  // --- Lógica de Datos (ACTUALIZADA) ---
+  // --- CAMBIO: Se eliminó 'loadPendientesCount' ---
+
+  // ... (getSignedUrlCached, onUpdated, handleHojaDeVidaDelete sin cambios) ...
   async function getSignedUrlCached(path?: string | null) {
     if (!path) return null;
     if (fotoUrls[path]) return fotoUrls[path];
@@ -236,7 +232,17 @@ export default function EstudiantePage() {
     setSelectedStudent(null);
   }
 
+
+  // --- CAMBIO: loadStudents AHORA FILTRA POR MAESTRO ---
   const loadStudents = async (course: Course) => {
+    // --- CAMBIO: Guard check para 'user' ---
+    if (!user) {
+      toast.error("No se pudo identificar al maestro. Refresca la página.");
+      return;
+    }
+
+    const servidorId = user!.servidorId;
+
     setLoadingStudents(true);
     setStudents([]);
     setSelectedInscripcionId(null);
@@ -252,13 +258,14 @@ export default function EstudiantePage() {
           entrevistas ( * ) 
         `) 
         .eq('curso_id', course.id)
+        .eq('servidor_id', servidorId) // <-- EL FILTRO CLAVE
         .order('created_at', { ascending: true }); 
 
       if (error) {
         console.error("Error cargando estudiantes inscritos:", error);
         throw error;
       }
-
+      
       const loadedStudents: EstudianteInscrito[] = data
         .filter(item => item.entrevistas) 
         .map(item => ({
@@ -312,7 +319,7 @@ export default function EstudiantePage() {
     }
   };
 
-  // --- Lógica de Navegación y Estado (ACTUALIZADA) ---
+  // --- Lógica de Navegación y Estado (sin cambios) ---
   const handleTabClick = (newTab: ActiveTab) => {
     if (newTab !== activeTab) {
       setPrevTab(activeTab);
@@ -332,9 +339,6 @@ export default function EstudiantePage() {
     setStudentGrades({});
     
     await loadStudents(course); 
-    if (course.title === 'Restauración 1') {
-      await loadPendientesCount(course.id);
-    }
   };
 
   const handleGoBackToWelcome = () => {
@@ -361,7 +365,6 @@ export default function EstudiantePage() {
 
   const handleSelectStudent = async (student: EstudianteInscrito) => { 
     clearDebounceTimer(); 
-    // --- CAMBIO: No se puede seleccionar un estudiante si se está en modo de asistencia rápida ---
     if (isAttendanceModeActive) {
       toast.error("Termina de tomar la asistencia actual o cancélala para ver a otro estudiante.");
       return;
@@ -406,13 +409,7 @@ export default function EstudiantePage() {
     setStudentGrades(initialGradesForStudent);
   };
 
-  const handleCreateNew = () => {
-    setIsMatriculaOpen(true);
-  };
-
-  // --- Lógica de Asistencias (Grades) ---
-
-  // --- Lógica de Autoguardado para el GRID ---
+  // --- Lógica de Asistencias (Grades) (sin cambios) ---
   const saveGradesToDb = async (gradesToSave: StudentGrades) => {
     if (!selectedInscripcionId) {
       console.error("No se puede autoguardar, no hay ID de inscripción.");
@@ -440,7 +437,6 @@ export default function EstudiantePage() {
     }
   };
 
-  // Autoguardado con Debounce (para el GRID)
   const handleGradeChange = (topicId: number, gradeId: number, value: string) => {
     const newGradesForTopic = { ...(studentGrades[topicId] || {}), [gradeId]: value };
     const newStudentGrades = { ...studentGrades, [topicId]: newGradesForTopic };
@@ -454,7 +450,6 @@ export default function EstudiantePage() {
     }, 750); // 750ms de espera
   };
   
-  // --- INICIO CAMBIO: Lógica para ASISTENCIA RÁPIDA (Sidebar) ---
   const handleMarkAttendanceDB = async (inscripcion_id: string, status: 'si' | 'no') => {
     const topicId = 1; // ID 1 es "Asistencia"
     const classId = attendanceClassId;
@@ -464,7 +459,6 @@ export default function EstudiantePage() {
     }
 
     try {
-      // 1. Obtener el JSON actual
       const { data: currentData, error: getError } = await supabase
         .from('asistencias_academia')
         .select('asistencias')
@@ -474,11 +468,9 @@ export default function EstudiantePage() {
       if (getError && getError.code !== 'PGRST116') throw getError;
       const currentGrades = (currentData?.asistencias as StudentGrades) || {};
       
-      // 2. Fusionar el nuevo valor
       const newTopicGrades = { ...(currentGrades[topicId] || {}), [classId]: status };
       const newStudentGrades = { ...currentGrades, [topicId]: newTopicGrades };
 
-      // 3. Actualizar (Upsert)
       const { error: upsertError } = await supabase
         .from('asistencias_academia')
         .upsert({
@@ -492,8 +484,6 @@ export default function EstudiantePage() {
     } catch (error: unknown) {
       const e = error as { message?: string };
       toast.error(`Error al marcar: ${e.message ?? 'Error desconocido'}`);
-      // Volver a lanzar el error para que el componente hijo (sidebar)
-      // sepa que no debe avanzar al siguiente estudiante.
       throw error;
     }
   };
@@ -507,18 +497,15 @@ export default function EstudiantePage() {
     toast.success("Asistencia finalizada correctamente");
     cancelAttendanceMode();
   };
-  // --- FIN CAMBIO ---
   
-
-  // --- Lógica de Temas (sin cambios) ---
-  
-  
-
-  // --- Helpers de UI (ACTUALIZADOS) ---
+  // --- Helpers de UI (sin cambios) ---
   const getTabPanelClasses = (tabName: ActiveTab): string => {
     const base =
       'w-full h-full flex flex-col min-h-0 transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] [grid-area:1/1]';
     
+    // activeIndex must reflect the currently active tab (from state),
+    // not the tabName of the panel being rendered. Using the wrong
+    // value made every panel think it was active.
     const activeIndex = TAB_INDICES[activeTab];
     const prevIndex = TAB_INDICES[prevTab];
     const currentIndex = TAB_INDICES[tabName];
@@ -574,6 +561,37 @@ export default function EstudiantePage() {
   const isDetailView = mainState === 'creating' || mainState === 'viewing';
   
   // --- RENDER ---
+
+  // --- CAMBIO: Estado de Carga Global por Autenticación ---
+  if (authLoading) {
+    return (
+      <main className="flex h-screen w-full items-center justify-center bg-gray-100">
+        <Loader2 size={32} className="animate-spin text-indigo-600" />
+        <span className="ml-3 text-lg font-medium text-gray-700">Verificando sesión...</span>
+      </main>
+    );
+  }
+  
+  // --- CAMBIO: Estado de Error Global por Autenticación ---
+  if (authError || !user) {
+     return (
+      <main className="flex h-screen w-full items-center justify-center bg-gray-100">
+        <div className="flex flex-col items-center gap-4 p-8 bg-white rounded-lg shadow-xl">
+          <Lock size={32} className="text-red-500" />
+          <h1 className="text-lg font-semibold text-gray-800">Acceso Denegado</h1>
+          <p className="text-gray-600">{authError || "No estás autenticado."}</p>
+          <a
+            href="/login"
+            className="px-4 py-2 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700"
+          >
+            Ir al Login
+          </a>
+        </div>
+      </main>
+    );
+  }
+
+  // Si todo está bien, renderiza la página del maestro
   return (
     <main
       className="
@@ -582,7 +600,7 @@ export default function EstudiantePage() {
         bg-[conic-gradient(from_210deg_at_50%_0%,#EEF2FF_0%,#FAF5FF_40%,#F9FAFB_85%)]
       "
     >
-      {/* Estilos (Sin cambios) */}
+      {/* ... (Estilos, gradientes, etc. sin cambios) ... */}
       <style>{`
         :root{
           --mac-glass: rgba(255,255,255,0.55);
@@ -624,7 +642,6 @@ export default function EstudiantePage() {
           }
         }
 
-        /* --- Estilos de Chip (Sin cambios) --- */
         .chip {
           display: inline-flex;
           align-items: center;
@@ -706,17 +723,13 @@ export default function EstudiantePage() {
             mainState={mainState}
             courseName={selectedCourse.title} 
             onSelectStudent={handleSelectStudent} 
-            onCreateNew={handleCreateNew} 
             onGoBackToWelcome={handleGoBackToWelcome}
             fotoUrls={fotoUrls}
-            pendientesCount={pendientesCount}
-            // --- INICIO CAMBIO: Props para Asistencia Rápida ---
             isAttendanceModeActive={isAttendanceModeActive}
             onStartAttendance={() => setIsAttendanceModalOpen(true)}
             onMarkAttendanceDB={handleMarkAttendanceDB}
             onCancelAttendance={cancelAttendanceMode}
             onCompleteAttendance={completeAttendanceMode}
-            // --- FIN CAMBIO ---
           />
         )}
 
@@ -735,7 +748,7 @@ export default function EstudiantePage() {
             md:translate-x-0 
           `}
         >
-          {/* Topbar (ACTUALIZADO) */}
+          {/* Topbar (sin cambios) */}
           <div
             className="
               sticky top-0 z-10 flex items-end justify-start gap-4
@@ -789,17 +802,19 @@ export default function EstudiantePage() {
             )}
           </div>
 
-          {/* Body apilado (ACTUALIZADO) */}
+          {/* Body apilado */}
           <div className="flex-1 min-h-0 grid grid-cols-1 [grid-template-areas:'stack'] overflow-hidden">
 
-            {/* Paneles de Bienvenida (ACTUALIZADO) */}
+            {/* Paneles de Bienvenida (ACTUALIZADO CON LOADING) */}
             <WelcomePanel 
               onSelectCourse={handleSelectCourse} 
               className={getContentPanelClasses('welcome')}
               isActive={mainState === 'welcome'}
               courses={courses}
+              loading={loadingCourses || authLoading} // <-- CAMBIO: Pasar prop
             />
 
+            {/* ... (Resto de los paneles sin cambios) ... */}
             {mainState === 'courseWelcome' && (
               <div className="md:hidden flex items-center justify-center p-8 text-center text-gray-500 [grid-area:stack]">
                 Selecciona un estudiante de la lista.
@@ -815,14 +830,12 @@ export default function EstudiantePage() {
 
 
             {(mainState === 'viewing') && (
-              // --- CAMBIO: Se eliminó el <form> y el onSubmit (Autoguardado) ---
               <div
                 className={`[grid-area:stack] w-full h-full grid grid-cols-1 [grid-template-areas:'stack'] overflow-hidden ${getContentPanelClasses(['creating', 'viewing'])}`}
               >
 
                 {/* Registrar notas (Asistencias) */}
                 <div className={getTabPanelClasses('grades')}>
-                  {/* --- INICIO CAMBIO: Tarjeta exterior removida, contenido elevado --- */}
                   <section className="p-4 md:p-6 lg:p-8 overflow-y-auto flex-1 min-h-0">
                     <div
                       className="
@@ -837,7 +850,6 @@ export default function EstudiantePage() {
                       <div className="pointer-events-none absolute -top-16 -left-16 h-44 w-44 rounded-full bg-gradient-to-br from-indigo-500/12 to-white/12 blur-3xl" />
                       <div className="pointer-events-none absolute -bottom-10 -right-10 h-40 w-40 rounded-full bg-gradient-to-tl from-indigo-400/15 to-gray-200/20 blur-3xl" />
                     
-                      {/* --- CAMBIO: Encabezado con contador de pendientes --- */}
                       <div className="flex items-center justify-between mb-6">
                         <h2 className="text-[20px] md:text-[22px] font-semibold text-gray-900 tracking-[-0.015em] flex flex-col md:flex-row md:items-center">
                           <span>Asistencias del Estudiante:</span>
@@ -856,9 +868,7 @@ export default function EstudiantePage() {
                           </span>
                         </div>
                       </div>
-                      {/* --- FIN DEL CAMBIO --- */}
 
-                      {/* --- CAMBIO: CardSection interior removida --- */}
                       <div className="space-y-6" ref={topicsContainerRef}>
                         {courseTopics.length === 0 && (
                           <p className="text-sm text-gray-700 text-center py-4">
@@ -868,13 +878,11 @@ export default function EstudiantePage() {
 
                         {courseTopics.map((topic) => (
                           <div id={`topic-${topic.id}`} key={`wrap-${topic.id}`}>
-                            {/* Título manual (reemplaza el de CardSection) */}
                             <div className="flex items-center gap-2 mb-4">
                               <UserCheck size={16} className="text-indigo-900/70" />
                               <h3 className="text-base md:text-[17px] font-semibold tracking-tight text-indigo-900">{topic.title}</h3>
                             </div>
                             
-                            {/* La cuadrícula ahora está en el nivel superior */}
                             <GradeGrid
                               gradePlaceholders={topic.grades}
                               studentGradesForTopic={studentGrades[topic.id] || {}}
@@ -884,11 +892,9 @@ export default function EstudiantePage() {
                           </div>
                         ))}
                       </div>
-                      {/* --- FIN DEL CAMBIO --- */}
                       
                     </div>
                   </section>
-                   {/* --- FIN CAMBIO --- */}
                 </div>
 
                 {/* Hoja de Vida (Importada) */}
@@ -926,23 +932,9 @@ export default function EstudiantePage() {
         </div>
       </div>
       
-      {/* === MODAL DE MATRÍCULA (NUEVO) === */}
-      {isMatriculaOpen && selectedCourse && (
-        <ModalMatricular
-          curso={selectedCourse}
-          estudiantesInscritos={students.map(s => s.id)} 
-          onClose={() => setIsMatriculaOpen(false)}
-          onMatricularExitoso={async () => {
-            setIsMatriculaOpen(false);
-            await loadStudents(selectedCourse); 
-            if (selectedCourse) {
-              await loadPendientesCount(selectedCourse.id);
-            }
-          }}
-        />
-      )}
+      {/* === CAMBIO: ELIMINADO ModalMatricular === */}
       
-      {/* --- INICIO CAMBIO: Modal para Tomar Asistencia --- */}
+      {/* Modal de Asistencia (sin cambios) */}
       {isAttendanceModalOpen && (
         <ModalTomarAsistencia
           topics={courseTopics}
@@ -954,7 +946,6 @@ export default function EstudiantePage() {
           }}
         />
       )}
-      {/* --- FIN CAMBIO --- */}
     </main>
   );
 }
@@ -963,60 +954,50 @@ export default function EstudiantePage() {
 
 /* =======================
     SIDEBAR (ACTUALIZADO)
-    ======================= */
+   ======================= */
 function StudentSidebar({
   students,
   selectedStudentId, 
   mainState,
   onSelectStudent, 
-  onCreateNew,
+  // --- CAMBIO: Se eliminó 'onCreateNew' y 'pendientesCount' ---
   className = '',
   onGoBackToWelcome,
   courseName,
   loading,
   fotoUrls,
-  pendientesCount,
-  // --- INICIO CAMBIO: Nuevas props para asistencia rápida ---
   isAttendanceModeActive,
   onStartAttendance,
   onCancelAttendance,
   onCompleteAttendance,
   onMarkAttendanceDB,
-  // --- FIN CAMBIO ---
 }: {
   students: EstudianteInscrito[]; 
   selectedStudentId: string | null;
   mainState: MainPanelState;
   onSelectStudent: (student: EstudianteInscrito) => void; 
-  onCreateNew: () => void;
   className?: string;
   onGoBackToWelcome: () => void;
   courseName?: string;
   loading: boolean;
-  fotoUrls: Record<string, string>;
-  pendientesCount: number;
-  // --- INICIO CAMBIO: Tipos de las nuevas props ---
+  fotoUrls: Record<string, string | 'loading'>;
   isAttendanceModeActive: boolean;
   onStartAttendance: () => void;
   onCancelAttendance: () => void;
   onCompleteAttendance: () => void;
   onMarkAttendanceDB: (inscripcion_id: string, status: 'si' | 'no') => Promise<void>;
-  // --- FIN CAMBIO ---
 }) {
   const isDetailView = mainState === 'creating' || mainState === 'viewing';
 
-  // --- INICIO CAMBIO: Estados internos para el modo de asistencia ---
   const [currentAttendanceStudentIndex, setCurrentAttendanceStudentIndex] = useState(0);
   const [isMarkingStudentId, setIsMarkingStudentId] = useState<string | null>(null);
   
-  // Resetea el índice si el modo de asistencia se activa
   useEffect(() => {
     if (isAttendanceModeActive) {
       setCurrentAttendanceStudentIndex(0);
       setIsMarkingStudentId(null);
     }
   }, [isAttendanceModeActive]);
-  // --- FIN CAMBIO ---
   
   const [searchQuery, setSearchQuery] = useState('');
   
@@ -1083,7 +1064,7 @@ function StudentSidebar({
             placeholder="Buscar estudiante…"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            disabled={isAttendanceModeActive} // --- CAMBIO: Deshabilitado durante la asistencia
+            disabled={isAttendanceModeActive}
             className="w-full rounded-2xl border border-white/70 bg-white/75 backdrop-blur-xl py-2.5 pl-10 pr-4 text-sm text-gray-900 placeholder-gray-600 shadow-[inset_0_2px_6px_rgba(0,0,0,0.03)] focus:outline-none focus:ring-4 focus:ring-indigo-400/25 focus:border-white transition disabled:opacity-70"
             aria-label="Buscar estudiante"
           />
@@ -1091,7 +1072,6 @@ function StudentSidebar({
         </div>
       </div>
 
-      {/* --- INICIO CAMBIO: Botón de Cancelar Asistencia --- */}
       {isAttendanceModeActive && (
         <div className="flex-shrink-0 p-3 border-b border-white/60 bg-red-50/50">
           <button
@@ -1102,7 +1082,6 @@ function StudentSidebar({
           </button>
         </div>
       )}
-      {/* --- FIN CAMBIO --- */}
 
       {/* Lista */}
       <nav className="overflow-y-auto p-3 space-y-2 max-h-80 md:flex-1 md:max-h-none [scrollbar-width:thin] [scrollbar-color:rgba(0,0,0,.15)_transparent]">
@@ -1110,10 +1089,9 @@ function StudentSidebar({
           <div className="p-4 text-center text-gray-600">Cargando...</div>
         ) : filteredStudents.length === 0 ? (
           <div className="p-4 text-center text-gray-600">
-            {students.length > 0 ? "Nadie coincide con la búsqueda." : "No hay estudiantes en este curso."}
+            {students.length > 0 ? "Nadie coincide con la búsqueda." : "No hay estudiantes asignados a ti en este curso."}
           </div>
         ) : (
-          // --- INICIO CAMBIO: Lógica de map refactorizada a StudentSidebarItem ---
           filteredStudents.map((student, index) => { 
             const isCurrent = index === currentAttendanceStudentIndex;
             const isCompleted = index < currentAttendanceStudentIndex;
@@ -1131,20 +1109,16 @@ function StudentSidebar({
                 onMarkAttendance={async (status) => {
                   setIsMarkingStudentId(student.inscripcion_id);
                   try {
-                    // Llama a la función del padre que hace el trabajo de BD
                     await onMarkAttendanceDB(student.inscripcion_id, status);
                     
-                    // Si tiene éxito, avanza al siguiente
                     const nextIndex = currentAttendanceStudentIndex + 1;
                     setCurrentAttendanceStudentIndex(nextIndex);
 
-                    // Si se completó el último, notifica al padre
                     if (nextIndex >= filteredStudents.length) {
                       onCompleteAttendance();
                     }
                   } catch (e) {
                     console.error("Fallo al marcar, no se avanza", e);
-                    // No se avanza al siguiente si hay un error
                   } finally {
                     setIsMarkingStudentId(null);
                   }
@@ -1153,41 +1127,16 @@ function StudentSidebar({
               />
             );
           })
-          // --- FIN CAMBIO ---
         )}
       </nav>
 
 
-      {/* --- CAMBIO: Contenedor de botones de pie de página --- */}
-      <div className="flex-shrink-0 p-4 border-t border-white/60 min-h-[150px] flex flex-col items-center justify-center gap-3">
-        {/* Botón "Matricular" condicional */}
-        {courseName === 'Restauración 1' ? (
-          <button
-            onClick={onCreateNew} 
-            disabled={isAttendanceModeActive} // Deshabilitado
-            className={`relative flex w-full items-center justify-center gap-2 rounded-2xl border py-3 text-sm font-medium backdrop-blur-sm transition-all
-              border-transparent bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow-lg hover:shadow-[0_15px_35px_-15px_rgba(99,102,241,0.65)]
-              disabled:opacity-50 disabled:cursor-not-allowed
-            `}
-          >
-            <UserPlus size={18} />
-            <span>Matricular Estudiante</span>
-            <div className="absolute -top-3 -right-3 bg-gradient-to-br from-blue-200 to-pink-200 text-indigo-800 text-sm font-bold w-8 h-8 flex items-center justify-center rounded-full shadow-lg border-2 border-white">
-              {pendientesCount}
-            </div>
-          </button>
-        ) : (
-          <div
-            className={`flex w-full items-center justify-center rounded-2xl py-3 text-xs font-medium text-gray-500 text-center px-2`}
-          >
-            <span>Los estudiantes son promovidos desde un curso anterior.</span>
-          </div>
-        )}
-        
-        {/* --- CAMBIO: Nuevo Botón "+ Tomar Asistencia" --- */}
+      {/* --- CAMBIO: Footer (Botones) simplificado --- */}
+      <div className="flex-shrink-0 p-4 border-t border-white/60 min-h-[90px] flex flex-col items-center justify-center gap-3">
+        {/* Se eliminó el botón de Matricular */}
         <button
           onClick={onStartAttendance}
-          disabled={isAttendanceModeActive} // Deshabilitado si ya está activo
+          disabled={isAttendanceModeActive}
           className="flex w-full items-center justify-center gap-2 rounded-2xl border py-3 text-sm font-medium backdrop-blur-sm transition-all
             border-emerald-300/50 bg-gradient-to-br from-emerald-100 via-white to-teal-100 text-emerald-900 shadow-lg hover:shadow-[0_15px_35px_-15px_rgba(16,185,129,0.5)]
             disabled:opacity-50 disabled:cursor-not-allowed"
@@ -1195,7 +1144,6 @@ function StudentSidebar({
           <UserCheck size={18} />
           <span>Tomar Asistencia</span>
         </button>
-        {/* --- FIN CAMBIO --- */}
       </div>
       
     </aside>
@@ -1203,8 +1151,8 @@ function StudentSidebar({
 }
 
 /* =======================
-    NUEVO: StudentSidebarItem
-    ======================= */
+    StudentSidebarItem (sin cambios)
+   ======================= */
 function StudentSidebarItem({
   student,
   fotoUrls,
@@ -1217,7 +1165,7 @@ function StudentSidebarItem({
   onSelectStudent,
 }: {
   student: EstudianteInscrito;
-  fotoUrls: Record<string, string>;
+  fotoUrls: Record<string, string | 'loading'>;
   isActive: boolean;
   isAttendanceModeActive: boolean;
   isCurrentAttendanceTarget: boolean;
@@ -1228,7 +1176,6 @@ function StudentSidebarItem({
 }) {
   
   const gradientClasses = [
-    'bg-gradient-to-br from-blue-100/95 to-purple-100/95 shadow shadow-blue-200/50 hover:shadow-md hover:shadow-blue-300/60',
     'bg-gradient-to-br from-teal-100/95 to-emerald-100/95 shadow shadow-teal-200/50 hover:shadow-md hover:shadow-teal-300/60',
     'bg-gradient-to-br from-orange-100/95 to-amber-100/95 shadow shadow-orange-200/50 hover:shadow-md hover:shadow-orange-300/60',
     'bg-gradient-to-br from-pink-100/95 to-rose-100/95 shadow shadow-pink-200/50 hover:shadow-md hover:shadow-pink-300/60',
@@ -1354,8 +1301,8 @@ function StudentSidebarItem({
 
 
 /* =======================
-    NUEVO: ModalTomarAsistencia
-    ======================= */
+    ModalTomarAsistencia (sin cambios)
+   ======================= */
 function ModalTomarAsistencia({
   topics,
   onClose,
@@ -1365,9 +1312,8 @@ function ModalTomarAsistencia({
   onClose: () => void;
   onSelectClass: (classId: number) => void;
 }) {
-  // Encuentra el tema de "Asistencia" (suponiendo id=1)
   const asistenciaTopic = topics.find(t => t.id === 1);
-  const clases = asistenciaTopic ? asistenciaTopic.grades : []; // Son {id: 1}, {id: 2}, ...
+  const clases = asistenciaTopic ? asistenciaTopic.grades : [];
 
   return (
     <div
@@ -1426,227 +1372,9 @@ function ModalTomarAsistencia({
 
 
 /* =======================
-    MODAL MATRICULAR (NUEVO)
-    ======================= */
-function ModalMatricular({
-  curso,
-  estudiantesInscritos, 
-  onClose,
-  onMatricularExitoso,
-}: {
-  curso: Course;
-  estudiantesInscritos: string[];
-  onClose: () => void;
-  onMatricularExitoso: () => void;
-}) {
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [search, setSearch] = useState('');
-  const [todosEstudiantes, setTodosEstudiantes] = useState<Entrevista[]>([]);
-  const [selected, setSelected] = useState<Record<string, boolean>>({});
-  const [isSaving, setIsSaving] = useState(false);
-  const toast = useToast(); 
-
-  useEffect(() => {
-    async function loadAllStudents() {
-      setLoading(true);
-      setError(null);
-      try {
-        const { data, error } = await supabase
-          .from('entrevistas')
-          .select('id, nombre, cedula')
-          .order('nombre', { ascending: true });
-
-        if (error) throw error;
-        setTodosEstudiantes(data || []);
-      } catch (err: unknown) {
-        const e = err as { message?: string };
-        setError(e.message ?? "Error al cargar estudiantes");
-      } finally {
-        setLoading(false);
-      }
-    }
-    loadAllStudents();
-  }, []);
-
-  const estudiantesDisponibles = useMemo(() => {
-    const inscritosSet = new Set(estudiantesInscritos);
-    const q = search.toLowerCase();
-    
-    return todosEstudiantes.filter(s => {
-      if (inscritosSet.has(s.id)) return false;
-      if (q && !s.nombre?.toLowerCase().includes(q) && !s.cedula?.includes(q)) {
-        return false;
-      }
-      return true;
-    });
-  }, [todosEstudiantes, estudiantesInscritos, search]);
-
-  const handleToggleSelect = (id: string) => {
-    setSelected(prev => ({
-      ...prev,
-      [id]: !prev[id],
-    }));
-  };
-
-  const seleccionadosIds = useMemo(() => {
-    return Object.entries(selected).filter(([, v]) => v).map(([k]) => k);
-  }, [selected]);
-
-  const handleMatricular = async () => {
-    if (seleccionadosIds.length === 0) return;
-    setIsSaving(true);
-    
-    const nuevosRegistrosInscripcion = seleccionadosIds.map(entrevista_id => ({
-      entrevista_id: entrevista_id,
-      curso_id: curso.id,
-      estado: 'activo'
-    }));
-
-    try {
-      const { data: dataInscripcion, error: errorInscripcion } = await supabase
-        .from('inscripciones')
-        .insert(nuevosRegistrosInscripcion)
-        .select('id'); 
-      
-      if (errorInscripcion) throw errorInscripcion;
-      
-      if (dataInscripcion && dataInscripcion.length > 0) {
-        const nuevosRegistrosAsistencia = dataInscripcion.map(insc => ({
-          inscripcion_id: insc.id,
-          asistencias: '{}' 
-        }));
-
-        const { error: errorAsistencia } = await supabase
-          .from('asistencias_academia')
-          .insert(nuevosRegistrosAsistencia);
-
-        if (errorAsistencia) {
-          console.warn("Error al crear registros de asistencia vacíos:", errorAsistencia);
-        }
-      }
-
-      toast.success(`¡${seleccionadosIds.length} estudiante(s) matriculado(s) con éxito!`);
-      onMatricularExitoso();
-      
-    } catch (err: unknown) {
-      console.error("Error al matricular:", err);
-      const e = err as { code?: string; message?: string };
-      if (e.code === '23505') {
-        toast.error("Error: Uno o más estudiantes seleccionados ya estaban inscritos.");
-      } else {
-        toast.error("Error al matricular: " + (e.message ?? 'Error desconocido'));
-      }
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-
-  return (
-    <div
-      className="fixed inset-0 z-[100] flex items-start justify-center p-4 pt-20"
-      onClick={onClose}
-    >
-      <div
-        className="
-          relative w-full max-w-2xl flex flex-col
-          rounded-3xl border border-white/70 bg-white/70 backdrop-blur-2xl
-          shadow-2xl overflow-hidden
-        "
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div className="flex-shrink-0 p-5 border-b border-white/60">
-          <h2 className="text-xl font-semibold text-gray-900">Matricular Estudiantes</h2>
-          <p className="text-sm text-gray-700">
-            Selecciona los estudiantes de la &quot;Hoja de Vida&quot; para añadir a: <strong>{curso.title}</strong>
-          </p>
-        </div>
-
-        {/* Búsqueda */}
-        <div className="flex-shrink-0 p-4 border-b border-white/60">
-          <div className="relative">
-            <input
-              type="text"
-              placeholder="Buscar por nombre o cédula..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full rounded-2xl border border-white/70 bg-white/75 backdrop-blur-xl py-2.5 pl-10 pr-4 text-sm text-gray-900 placeholder-gray-600 shadow-[inset_0_2px_6px_rgba(0,0,0,0.03)] focus:outline-none focus:ring-4 focus:ring-indigo-400/25 focus:border-white transition"
-            />
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={18} />
-          </div>
-        </div>
-
-        {/* Lista de Estudiantes (Scrollable) */}
-        <div className="flex-1 overflow-y-auto max-h-[50vh]">
-          {loading && (
-            <div className="p-10 text-center text-gray-600">Cargando todos los estudiantes...</div>
-          )}
-          {error && (
-            <div className="p-10 text-center text-red-600">{error}</div>
-          )}
-          {!loading && estudiantesDisponibles.length === 0 && (
-            <div className="p-10 text-center text-gray-600">
-              {search ? "No se encontraron coincidencias." : "No hay estudiantes disponibles para matricular."}
-            </div>
-          )}
-          {!loading && estudiantesDisponibles.length > 0 && (
-            <ul className="divide-y divide-white/50">
-              {estudiantesDisponibles.map(s => (
-                <li 
-                  key={s.id}
-                  onClick={() => handleToggleSelect(s.id)}
-                  className={`flex items-center gap-3 p-4 cursor-pointer transition-colors ${selected[s.id] ? 'bg-blue-100/50' : 'hover:bg-white/50'}`}
-                >
-                  <input
-                    type="checkbox"
-                    checked={!!selected[s.id]}
-                    readOnly
-                    onClick={(e) => e.stopPropagation()} 
-                    onChange={() => handleToggleSelect(s.id)}
-                    className="h-4 w-4 rounded text-blue-600 focus:ring-blue-500"
-                  />
-                  <div className="flex-1">
-                    <div className="font-medium text-gray-900">{s.nombre}</div>
-                    <div className="text-sm text-gray-600">
-                      C.C {s.cedula?.startsWith('TEMP_') ? 'Cédula Pendiente' : s.cedula}
-                    </div>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-
-        {/* Footer */}
-        <div className="flex-shrink-0 p-4 border-t border-white/60 bg-white/40 flex justify-between items-center">
-          <span className="text-sm font-medium text-gray-700">
-            {seleccionadosIds.length} seleccionado(s)
-          </span>
-          <div className="flex gap-3">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 text-sm font-semibold text-gray-700 bg-white/70 rounded-lg ring-1 ring-black/10 hover:bg-white"
-            >
-              Cancelar
-            </button>
-            <button
-              type="button"
-              onClick={handleMatricular}
-              disabled={isSaving || seleccionadosIds.length === 0}
-              className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg shadow-sm hover:bg-blue-700 disabled:opacity-50"
-            >
-              {isSaving && <Loader2 size={16} className="animate-spin" />}
-              Matricular
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
+    MODAL MATRICULAR (ELIMINADO)
+   ======================= */
+// --- CAMBIO: Se eliminó el componente 'ModalMatricular'. ---
 
 
 /* --- OTROS SUBCOMPONENTES (Sin cambios) --- */
@@ -1658,7 +1386,7 @@ function StudentAvatar({
 }: {
   fotoPath?: string | null;
   nombre?: string | null;
-  fotoUrls: Record<string, string>;
+  fotoUrls: Record<string, string | 'loading'>;
 }) {
   const url = (fotoPath ? fotoUrls[fotoPath] : null) ?? generateAvatar(nombre ?? 'NN');
 

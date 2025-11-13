@@ -1,18 +1,19 @@
 'use client';
 
 import React from 'react';
-import { BookMarked, Folder, Star } from 'lucide-react';
+// --- CAMBIO: Importar Loader2 ---
+import { BookMarked, Folder, Star, Loader2 } from 'lucide-react';
 
 // Importamos los tipos y utils que necesitamos
 import { Course, folderColors } from './academia.utils';
 
 // --- TIPO DE PROPS (MODIFICADO) ---
 interface WelcomePanelProps {
-  // Ahora espera el objeto 'Course' completo, no solo el 'title'
   onSelectCourse: (course: Course) => void; 
   className?: string;
   isActive: boolean; 
-  courses: readonly Course[]; // 'Course' ya viene de utils
+  courses: readonly Course[];
+  loading: boolean; // <-- CAMBIO: Prop 'loading' añadida
 }
 
 // --- Componente 1: WelcomePanel ---
@@ -20,8 +21,9 @@ export function WelcomePanel({
   onSelectCourse,
   className = '',
   isActive, 
-  courses 
-}: WelcomePanelProps) { // <-- Las props ya coinciden
+  courses,
+  loading // <-- CAMBIO: Prop 'loading' recibida
+}: WelcomePanelProps) {
   const cardDelay = 100;
   const foldersContainerDelay = cardDelay + 100; // 200ms
   const folderStagger = 75; 
@@ -54,7 +56,7 @@ export function WelcomePanel({
         `}
         style={{ transitionDelay: `${isActive ? foldersContainerDelay - 50 : 0}ms` }} 
       >
-        Cursos Disponibles
+        Tus Cursos Asignados
       </h2>
 
       {/* Contenedor Carpetas */}
@@ -72,28 +74,41 @@ export function WelcomePanel({
           style={{ transitionDelay: `${isActive ? foldersContainerDelay : 0}ms` }}
         >
           
-          {courses.map((course, index) => (
-            <CourseFolder 
-              key={course.id} // <-- USA course.id
-              title={course.title} 
-              color={course.color} // <-- Pasa el string 'color'
-              hasSpecialBadge={course.hasSpecialBadge} 
-              // --- ONCLICK (MODIFICADO) ---
-              onSelect={() => onSelectCourse(course)} // <-- Pasa el objeto 'course' completo
-              className={`
-                transition-all duration-300 ease-out 
-                ${isActive ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'}
-              `}
-              style={{ transitionDelay: `${isActive ? foldersContainerDelay + index * folderStagger : 0}ms` }}
-            />
-          ))}
+          {/* --- CAMBIO: Lógica de carga --- */}
+          {loading ? (
+            <div className="flex items-center justify-center w-full h-44 text-gray-600">
+              <Loader2 size={24} className="animate-spin mr-2" />
+              Cargando cursos...
+            </div>
+          ) : courses.length === 0 ? (
+            <div className="flex items-center justify-center w-full h-44 text-gray-600">
+              No tienes cursos asignados actualmente.
+            </div>
+          ) : (
+            courses.map((course, index) => (
+              <CourseFolder 
+                key={course.id}
+                title={course.title} 
+                color={course.color}
+                hasSpecialBadge={course.hasSpecialBadge} 
+                onSelect={() => onSelectCourse(course)}
+                className={`
+                  transition-all duration-300 ease-out 
+                  ${isActive ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'}
+                `}
+                style={{ transitionDelay: `${isActive ? foldersContainerDelay + index * folderStagger : 0}ms` }}
+              />
+            ))
+          )}
+          {/* --- FIN CAMBIO --- */}
+
         </div>
       </div>
     </div>
   );
 }
 
-// --- Componente 2: CourseWelcomeMessage ---
+// --- Componente 2: CourseWelcomeMessage (Sin Cambios) ---
 export function CourseWelcomeMessage({
   courseName,
   className = '',
@@ -128,7 +143,7 @@ export function CourseWelcomeMessage({
   );
 }
 
-// --- Componente 3: CourseFolder (Sub-componente de WelcomePanel) ---
+// --- Componente 3: CourseFolder (Sin Cambios) ---
 function CourseFolder({
   title,
   color = 'blue',
@@ -138,17 +153,14 @@ function CourseFolder({
   style = {}      
 }: {
   title: string;
-  color?: string; // <-- MODIFICADO: Acepta cualquier string
+  color?: string; 
   hasSpecialBadge?: boolean;
   onSelect: () => void;
   className?: string; 
   style?: React.CSSProperties; 
 }) {
-  // --- MODIFICADO: Comprueba si el color existe en 'folderColors', si no, usa 'default'
   const colorKey = color in folderColors ? color as keyof typeof folderColors : 'default';
   const colorClasses = folderColors[colorKey];
-  // --- FIN MODIFICACIÓN ---
-
   const appleEase = 'ease-[cubic-bezier(0.2,0.8,0.2,1)]';
   const duration = 'duration-300'; 
 

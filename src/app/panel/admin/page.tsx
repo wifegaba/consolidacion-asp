@@ -1,13 +1,13 @@
 /*
   ARCHIVO: app/admin/page.tsx
   ROL: Panel de Administrador (Contenedor)
-  (ACTUALIZADO con botón y modal de desactivación)
+  (ACTUALIZADO para incluir dropdown de roles y nueva lógica de guardado)
 */
 'use client';
 
 // --- Imports ---
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { supabase } from '../../lib/supabaseClient';
+import { supabase } from '../../../lib/supabaseClient';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Users, 
@@ -24,12 +24,11 @@ import {
   BookOpen,
   MessageSquarePlus, 
   type LucideIcon,
-  ChevronDown,
-  AlertTriangle // --- CAMBIO --- Importar ícono de advertencia
+  ChevronDown // --- CAMBIO --- Importar ChevronDown
 } from 'lucide-react';
 
 // Importamos 'classNames'
-import { classNames } from '../restauracion/estudiante/components/academia.utils';
+import { classNames } from '../../restauracion/estudiante/components/academia.utils';
 
 // --- 1. IMPORTAR LOS ESTILOS DEL MÓDULO DE SERVIDORES ---
 // ...
@@ -66,16 +65,17 @@ type AsignacionMaestro = {
   cursos: Pick<Curso, 'nombre' | 'color'> | null;
 };
 
+// --- CAMBIO --- Actualizado tipo RAW
 type MaestroDataRaw = Maestro & {
   asignaciones: AsignacionMaestro[];
   observaciones_count: { count: number }[];
-  servidores_roles: { rol: string }[];
+  servidores_roles: { rol: string }[]; // <-- Tipo para el rol
 };
-
+// --- CAMBIO --- Actualizado tipo procesado
 type MaestroConCursos = Maestro & {
   asignaciones: AsignacionMaestro[];
   obs_count: number;
-  rol: string | null;
+  rol: string | null; // <-- Añadir rol
 };
 
 type Estudiante = {
@@ -88,7 +88,8 @@ type Inscripcion = {
   curso_id: number;
 };
 
-type AdminTab = 'matricular' | 'maestros' | 'servidores';
+// --- MODIFICAR EL TIPO DE TAB ---
+type AdminTab = 'matricular' | 'maestros' | 'servidores'; // <-- Añadir 'servidores'
 
 // --- Animaciones de Framer Motion ---
 const backdropVariants = {
@@ -103,8 +104,10 @@ const modalVariants = {
 
 // --- Componente Principal: Panel de Administrador ---
 export default function AdminPage() {
+  // --- CAMBIAR EL ESTADO INICIAL ---
   const [activeTab, setActiveTab] = useState<AdminTab>('servidores');
 
+  // --- Estados de Datos (Solo para 'Maestros' y 'Matricular') ---
   const [maestros, setMaestros] = useState<MaestroConCursos[]>([]);
   const [cursos, setCursos] = useState<Curso[]>([]);
   const [estudiantes, setEstudiantes] = useState<Estudiante[]>([]);
@@ -114,19 +117,18 @@ export default function AdminPage() {
   const [loadingCursos, setLoadingCursos] = useState(true);
   const [loadingEstudiantes, setLoadingEstudiantes] = useState(true);
 
-  // --- Estados de Modales ---
+  // --- Estados de Modales (Solo para 'Maestros') ---
   const [modalMaestro, setModalMaestro] = useState<MaestroConCursos | 'new' | null>(null);
   const [modalAsignar, setModalAsignar] = useState<MaestroConCursos | null>(null);
   const [modalObservacion, setModalObservacion] = useState<MaestroConCursos | null>(null); 
-  // --- CAMBIO --- Nuevo estado para el modal de desactivar
-  const [modalDesactivar, setModalDesactivar] = useState<MaestroConCursos | null>(null);
 
-  // --- Carga de Datos ---
+  // --- Carga de Datos (Solo para 'Maestros' y 'Matricular') ---
   const loadData = useCallback(async () => {
     setLoadingMaestros(true);
     setLoadingCursos(true);
     setLoadingEstudiantes(true);
 
+    // --- CAMBIO --- Modificada la consulta de 'servidores'
     const { data: maestrosData, error: maestrosError } = await supabase
       .from('servidores')
       .select(`
@@ -139,17 +141,18 @@ export default function AdminPage() {
         ),
         observaciones_count:servidores_observaciones!servidor_id(count),
         servidores_roles ( rol )
-      `)
+      `) // <-- Añadido "servidores_roles ( rol )"
       .order('nombre', { ascending: true });
 
     if (maestrosError) {
       console.error("Error cargando maestros:", maestrosError);
     }
     
+    // --- CAMBIO --- Procesar los datos con el nuevo rol
     const processedMaestros = (maestrosData as unknown as MaestroDataRaw[] || []).map(m => ({
       ...m,
       obs_count: m.observaciones_count.length > 0 ? m.observaciones_count[0].count : 0,
-      rol: m.servidores_roles.length > 0 ? m.servidores_roles[0].rol : null,
+      rol: m.servidores_roles.length > 0 ? m.servidores_roles[0].rol : null, // <-- Extraer el rol
     }));
     
     setMaestros(processedMaestros);
@@ -186,6 +189,7 @@ export default function AdminPage() {
   }, []);
 
   useEffect(() => {
+    // Solo carga estos datos si la pestaña activa lo requiere
     if (activeTab === 'maestros' || activeTab === 'matricular') {
       loadData();
     }
@@ -213,7 +217,7 @@ export default function AdminPage() {
 
   return (
     <main className="relative min-h-screen w-full bg-gray-50 p-4 md:p-6 lg:p-8">
-      {/* Fondo, Header y Tabs (Sin cambios) */}
+      {/* --- Fondo Degradado Premium --- */}
       <div 
         className="absolute inset-0 -z-10 overflow-hidden"
         aria-hidden="true"
@@ -221,6 +225,7 @@ export default function AdminPage() {
         <div className="absolute left-[50%] top-[-10rem] h-[50rem] w-[80rem] -translate-x-1/2 rounded-full bg-gradient-to-tr from-indigo-100/70 via-sky-100/70 to-purple-100/70 opacity-60 blur-3xl" />
       </div>
 
+      {/* --- Header --- */}
       <header className="mb-6 flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-gray-900">
@@ -232,6 +237,7 @@ export default function AdminPage() {
         </div>
       </header>
       
+      {/* --- AÑADIR EL NUEVO BOTÓN DE TAB --- */}
       <nav className="flex flex-wrap items-center gap-2 mb-6">
         <TabButton
           IconComponent={Server}
@@ -254,7 +260,7 @@ export default function AdminPage() {
         />
       </nav>
 
-      {/* Contenido de los Paneles (Sin cambios) */}
+      {/* --- AÑADIR EL NUEVO PANEL --- */}
       <div className="relative overflow-hidden">
         <AnimatePresence mode="wait">
           <motion.div
@@ -263,12 +269,16 @@ export default function AdminPage() {
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: 20 }}
             transition={{ duration: 0.25, ease: "easeInOut" }}
+            
+            // Hacemos que el panel ocupe todo el ancho
             className="w-full" 
           >
+            {/* Este es el nuevo panel. Carga tu componente de servidores */}
             {activeTab === 'servidores' && (
               <GestionServidores />
             )}
 
+            {/* Este es el panel original de Matricular */}
             {activeTab === 'matricular' && (
               <PanelMatricular
                 maestros={maestros}
@@ -280,15 +290,15 @@ export default function AdminPage() {
               />
             )}
             
+            {/* Este es el panel original de Maestros */}
             {activeTab === 'maestros' && (
               <PanelGestionarMaestros
-                maestros={maestros.filter(m => m.activo)} // --- CAMBIO --- Solo mostrar maestros activos
+                maestros={maestros}
                 loading={loadingMaestros}
                 onCrearMaestro={() => setModalMaestro('new')}
                 onEditarMaestro={(m) => setModalMaestro(m)}
                 onAsignarCursos={(m) => setModalAsignar(m)}
                 onVerObservaciones={(m) => setModalObservacion(m)}
-                onDesactivarMaestro={(m) => setModalDesactivar(m)} // --- CAMBIO --- Pasar la nueva prop
               />
             )}
           </motion.div>
@@ -296,6 +306,7 @@ export default function AdminPage() {
       </div>
 
       {/* --- Modales --- */}
+      {/* (Estos modales solo pertenecen a la pestaña 'Gestionar Maestros') */}
       <AnimatePresence>
         {(modalMaestro === 'new' || typeof modalMaestro === 'object' && modalMaestro !== null) && (
           <ModalCrearEditarMaestro
@@ -329,18 +340,6 @@ export default function AdminPage() {
             }}
           />
         )}
-
-        {/* --- CAMBIO --- Añadir el nuevo modal de confirmación --- */}
-        {modalDesactivar && (
-          <ModalConfirmarDesactivar
-            maestro={modalDesactivar}
-            onClose={() => setModalDesactivar(null)}
-            onSuccess={() => {
-              setModalDesactivar(null);
-              onDataUpdated();
-            }}
-          />
-        )}
       </AnimatePresence>
       
     </main>
@@ -355,7 +354,6 @@ export default function AdminPage() {
 
 // --- Componente: Pestaña "Matricular Estudiantes" ---
 function PanelMatricular({
-  // ... (Este componente no tiene cambios)
   maestros,
   cursos,
   estudiantes,
@@ -383,6 +381,7 @@ function PanelMatricular({
     }
   }, [cursos]);
 
+  // Maestros que pueden dictar el curso seleccionado
   const maestrosDisponibles = useMemo(() => {
     if (!selectedCursoId) return [];
     const cursoIdNum = parseInt(selectedCursoId);
@@ -391,6 +390,7 @@ function PanelMatricular({
     );
   }, [selectedCursoId, maestros]);
 
+  // Estudiantes que NO están matriculados en el curso seleccionado
   const estudiantesDisponibles = useMemo(() => {
     if (!selectedCursoId) return [];
     const cursoIdNum = parseInt(selectedCursoId);
@@ -475,7 +475,7 @@ function PanelMatricular({
         subtitle="Asigna estudiantes a un curso y un maestro."
       />
       <div className="p-6 grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* Columna 1: Cursos y Maestros */}
+        {/* --- Columna 1: Cursos y Maestros --- */}
         <div className="space-y-4">
           <FormSelect
             label="Paso 1: Seleccionar Curso"
@@ -485,6 +485,7 @@ function PanelMatricular({
               setSelectedMaestroId('');
             }}
           >
+            {/* Lógica de negocio: Solo se matricula en Restauración 1 */}
             {cursos.filter(c => c.nombre === 'Restauración 1').map(c => (
               <option key={c.id} value={c.id}>{c.nombre}</option>
             ))}
@@ -516,7 +517,7 @@ function PanelMatricular({
           </button>
         </div>
 
-        {/* Columna 2: Estudiantes */}
+        {/* --- Columna 2: Estudiantes --- */}
         <div className="md:col-span-2">
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Paso 3: Seleccionar Estudiantes
@@ -585,8 +586,7 @@ function PanelGestionarMaestros({
   onCrearMaestro,
   onEditarMaestro,
   onAsignarCursos,
-  onVerObservaciones,
-  onDesactivarMaestro // --- CAMBIO --- Añadir nueva prop
+  onVerObservaciones
 }: {
   maestros: MaestroConCursos[];
   loading: boolean;
@@ -594,7 +594,6 @@ function PanelGestionarMaestros({
   onEditarMaestro: (maestro: MaestroConCursos) => void;
   onAsignarCursos: (maestro: MaestroConCursos) => void;
   onVerObservaciones: (maestro: MaestroConCursos) => void;
-  onDesactivarMaestro: (maestro: MaestroConCursos) => void; // --- CAMBIO --- Añadir nueva prop
 }) {
   const [search, setSearch] = useState('');
 
@@ -623,6 +622,7 @@ function PanelGestionarMaestros({
         </button>
       </CardHeader>
       
+      {/* --- Barra de Búsqueda --- */}
       <div className="px-6 pt-4 pb-2">
         <div className="relative">
           <input
@@ -636,6 +636,7 @@ function PanelGestionarMaestros({
         </div>
       </div>
 
+      {/* --- Lista de Maestros --- */}
       <div className="p-6">
         {loading ? (
           <div className="flex justify-center items-center py-10">
@@ -647,6 +648,7 @@ function PanelGestionarMaestros({
             {maestrosFiltrados.map(maestro => (
               <li key={maestro.id} className="flex flex-col md:flex-row items-start md:items-center justify-between py-4 gap-4">
                 <div className="flex items-center gap-4">
+                  {/* Avatar */}
                   <div className="flex-shrink-0 h-10 w-10 flex items-center justify-center rounded-full bg-gradient-to-br from-indigo-200 to-purple-200 text-indigo-700 font-semibold">
                     {maestro.nombre.split(' ').map(n => n[0]).slice(0, 2).join('')}
                   </div>
@@ -654,6 +656,7 @@ function PanelGestionarMaestros({
                     <p className="font-semibold text-gray-900">{maestro.nombre}</p>
                     <p className="text-sm text-gray-600">
                       C.C. {maestro.cedula} 
+                      {/* --- CAMBIO --- Mostrar el ROL */}
                       {maestro.rol && (
                         <span className="ml-2 rounded-full bg-gray-200 px-2 py-0.5 text-xs font-medium text-gray-700">
                           {maestro.rol}
@@ -678,6 +681,7 @@ function PanelGestionarMaestros({
                       ))
                     )}
                   </div>
+                  {/* --- (ACTUALIZADO) Grupo de Botones CON el contador --- */}
                   <div className="flex gap-2">
                     <button
                       onClick={() => onVerObservaciones(maestro)}
@@ -685,6 +689,8 @@ function PanelGestionarMaestros({
                     >
                       <MessageSquarePlus size={14} />
                       <span>Observaciones</span>
+                      
+                      {/* --- (NUEVO) Badge Contador "Premium" --- */}
                       <AnimatePresence>
                         {maestro.obs_count > 0 && (
                           <motion.span
@@ -723,17 +729,6 @@ function PanelGestionarMaestros({
                       <BookOpen size={14} />
                       Asignar Cursos
                     </button>
-
-                    {/* --- CAMBIO --- Botón de Desactivar --- */}
-                    <button
-                      onClick={() => onDesactivarMaestro(maestro)}
-                      className="flex items-center gap-1 rounded-lg bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700 ring-1 ring-red-200 hover:bg-red-100"
-                    >
-                      <Trash2 size={14} />
-                      Desactivar
-                    </button>
-                    {/* --- FIN CAMBIO --- */}
-
                   </div>
                 </div>
               </li>
@@ -746,8 +741,8 @@ function PanelGestionarMaestros({
 }
 
 // --- Componente: Modal "Crear/Editar Maestro" ---
+// --- CAMBIO --- Este modal ha sido modificado
 function ModalCrearEditarMaestro({ 
-  // ... (Este componente no tiene cambios)
   maestroInicial,
   onClose, 
   onSuccess 
@@ -763,6 +758,7 @@ function ModalCrearEditarMaestro({
   const [telefono, setTelefono] = useState(maestroInicial?.telefono || '');
   const [email, setEmail] = useState(maestroInicial?.email || '');
   
+  // --- CAMBIO --- Lista de roles y estado para el rol
   const rolesDisponibles = [
     'Maestros',
     'Contactos',
@@ -770,17 +766,17 @@ function ModalCrearEditarMaestro({
     'Coordinador',
     'Director',
     'Timoteo',
-    'Maestro Ptm',
-    'Administrador' // Asegúrate que 'Administrador' esté aquí si quieres asignarlo
+    'Maestro Ptm' // El nuevo rol
   ];
   const [rol, setRol] = useState(maestroInicial?.rol || 'Maestros');
+  // --- FIN CAMBIO ---
 
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!nombre || !cedula || !rol) { 
+    if (!nombre || !cedula || !rol) { // --- CAMBIO --- Añadir !rol
       setError("El nombre, la cédula y el rol son obligatorios.");
       return;
     }
@@ -788,12 +784,13 @@ function ModalCrearEditarMaestro({
     setError(null);
     
     try {
+      // --- CAMBIO --- Usamos la nueva RPC 'fn_guardar_servidor_con_rol'
       const { error: rpcError } = await supabase.rpc('fn_guardar_servidor_con_rol', {
         p_cedula: cedula,
         p_nombre: nombre,
         p_telefono: telefono || null,
         p_email: email || null,
-        p_rol: rol
+        p_rol: rol // <-- Pasamos el rol seleccionado
       });
 
       if (rpcError) throw rpcError;
@@ -802,10 +799,9 @@ function ModalCrearEditarMaestro({
       
     } catch (err: any) {
       console.error("Error guardando maestro:", err);
+      // El error de cédula duplicada viene de la tabla 'servidores'
       if (err.message.includes('servidores_cedula_key')) { 
         setError("Ya existe un servidor con esa cédula.");
-      } else if (err.message.includes('404')) {
-         setError("Error: La función 'fn_guardar_servidor_con_rol' no se encontró. (404)");
       } else {
         setError(err.message || "No se pudo guardar el maestro.");
       }
@@ -862,20 +858,22 @@ function ModalCrearEditarMaestro({
               value={cedula}
               onChange={setCedula}
               required
-              disabled={isEditMode}
+              disabled={isEditMode} // La cédula no se debe editar
             />
             
+            {/* --- CAMBIO --- Dropdown de Roles --- */}
             <FormSelect
               label="Rol Asignado"
               value={rol}
               onChange={(e) => setRol(e.target.value)}
-              required
+              required // Añadido
             >
               <option value="" disabled={rol !== ""}>Selecciona un rol...</option>
               {rolesDisponibles.map(r => (
                 <option key={r} value={r}>{r}</option>
               ))}
             </FormSelect>
+            {/* --- FIN CAMBIO --- */}
 
             <FormInput
               id="telefono"
@@ -894,7 +892,7 @@ function ModalCrearEditarMaestro({
           </div>
           
           <div className="flex items-center justify-end gap-3 px-6 py-4 bg-gray-50 border-t border-gray-200">
-            {error && <span className="text-sm text-red-600 mr-auto max-w-xs">{error}</span>}
+            {error && <span className="text-sm text-red-600 mr-auto">{error}</span>}
             <button
               type="button"
               onClick={onClose}
@@ -923,7 +921,6 @@ function ModalCrearEditarMaestro({
 
 // --- Componente: Modal "Asignar Cursos" ---
 function ModalAsignarCursos({
-  // ... (Este componente no tiene cambios)
   maestro,
   cursosDisponibles,
   onClose,
@@ -1069,7 +1066,6 @@ function ModalAsignarCursos({
 
 // --- Componente: Modal "Observaciones del Maestro" ---
 function ModalObservaciones({
-  // ... (Este componente no tiene cambios)
   maestro,
   onClose
 }: {
@@ -1081,9 +1077,11 @@ function ModalObservaciones({
   const [nuevaObs, setNuevaObs] = useState('');
   const [isSaving, setIsSaving] = useState(false);
 
+  // Cargar historial de observaciones
   const loadObservaciones = useCallback(async () => {
     setLoading(true);
     
+    // (CORREGIDO) Apunta a 'servidores_observaciones'
     const { data, error } = await supabase
       .from('servidores_observaciones') 
       .select(`
@@ -1108,23 +1106,26 @@ function ModalObservaciones({
     loadObservaciones();
   }, [loadObservaciones]);
 
+  // Guardar nueva observación
   const handleSaveObservacion = async () => {
     if (nuevaObs.trim().length === 0) return;
     
     setIsSaving(true);
     
+    // (CORREGIDO) Apunta a 'servidores_observaciones'
     const { error } = await supabase
       .from('servidores_observaciones') 
       .insert({
         servidor_id: maestro.id,
         observacion: nuevaObs, 
+        // creado_por: adminServidorId // (Opcional: ID del admin logueado)
       });
 
     if (error) {
       alert("Error al guardar: " + error.message);
     } else {
       setNuevaObs('');
-      await loadObservaciones();
+      await loadObservaciones(); // Recargar la lista interna
     }
     setIsSaving(false);
   };
@@ -1158,6 +1159,7 @@ function ModalObservaciones({
           </p>
         </div>
         
+        {/* Historial (Scrollable) */}
         <div className="flex-1 overflow-y-auto p-6 space-y-4">
           {loading ? (
             <div className="text-center text-gray-500">Cargando historial...</div>
@@ -1178,6 +1180,7 @@ function ModalObservaciones({
           )}
         </div>
         
+        {/* Formulario para nueva observación */}
         <div className="p-6 bg-gray-50 border-t border-gray-200">
           <label htmlFor="nuevaObs" className="block text-sm font-medium text-gray-700">
             Añadir Nueva Observación
@@ -1205,105 +1208,6 @@ function ModalObservaciones({
               {isSaving ? "Guardando..." : "Guardar Observación"}
             </button>
           </div>
-        </div>
-      </motion.div>
-    </motion.div>
-  );
-}
-
-
-{/* --- CAMBIO --- Componente de UI: Modal de Confirmación para Desactivar --- */}
-function ModalConfirmarDesactivar({
-  maestro,
-  onClose,
-  onSuccess
-}: {
-  maestro: MaestroConCursos;
-  onClose: () => void;
-  onSuccess: () => void;
-}) {
-  const [isSaving, setIsSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const handleConfirmar = async () => {
-    setIsSaving(true);
-    setError(null);
-    
-    try {
-      // 1. Llamar a la nueva RPC
-      const { error: rpcError } = await supabase.rpc('fn_desactivar_servidor', {
-        p_servidor_id: maestro.id
-      });
-
-      if (rpcError) throw rpcError;
-      
-      // 2. Si todo sale bien, cerrar modal y refrescar
-      onSuccess();
-
-    } catch (err: any) {
-      console.error("Error al desactivar maestro:", err);
-      setError(err.message || "No se pudo desactivar el servidor.");
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  return (
-    <motion.div
-      variants={backdropVariants}
-      initial="hidden"
-      animate="visible"
-      exit="hidden"
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/40 backdrop-blur-md"
-      onClick={onClose}
-    >
-      <motion.div
-        variants={modalVariants}
-        className="relative w-full max-w-md rounded-2xl bg-white shadow-2xl overflow-hidden"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="p-6">
-          <div className="flex items-start gap-4">
-            <div className="flex-shrink-0 h-12 w-12 flex items-center justify-center rounded-full bg-red-100">
-              <AlertTriangle size={24} className="text-red-600" />
-            </div>
-            <div>
-              <h2 className="text-xl font-semibold text-gray-900">
-                Desactivar Servidor
-              </h2>
-              <p className="mt-1 text-sm text-gray-600">
-                ¿Estás seguro de que quieres desactivar a <strong className="text-gray-900">{maestro.nombre}</strong>?
-              </p>
-              <p className="mt-2 text-sm text-red-700">
-                Esta acción lo marcará como inactivo y removerá todas sus asignaciones vigentes. No podrá iniciar sesión.
-              </p>
-            </div>
-          </div>
-        </div>
-        
-        <div className="flex items-center justify-end gap-3 px-6 py-4 bg-gray-50 border-t border-gray-200">
-          {error && <span className="text-sm text-red-600 mr-auto">{error}</span>}
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={isSaving}
-            className="rounded-lg bg-white px-4 py-2 text-sm font-semibold text-gray-700 ring-1 ring-gray-300 hover:bg-gray-50 disabled:opacity-50"
-          >
-            Cancelar
-          </button>
-          <button
-            type="button"
-            onClick={handleConfirmar}
-            disabled={isSaving}
-            className="flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-all hover:bg-red-700 active:scale-[0.98] disabled:opacity-60"
-          >
-            {isSaving ? (
-              <Loader2 size={16} className="animate-spin" />
-            ) : (
-              <Trash2 size={16} />
-            )}
-            {isSaving ? "Desactivando..." : "Sí, Desactivar"}
-          </button>
         </div>
       </motion.div>
     </motion.div>
@@ -1347,19 +1251,20 @@ function FormInput({
   );
 }
 
+// --- CAMBIO --- Modificado FormSelect para que sea un Dropdown visual
 function FormSelect({ 
   label, 
   value, 
   onChange, 
   disabled = false,
-  required = false,
+  required = false, // Añadido
   children 
 }: {
   label: string;
   value: string;
   onChange: (e: React.ChangeEvent<HTMLSelectElement>) => void;
   disabled?: boolean;
-  required?: boolean;
+  required?: boolean; // Añadido
   children: React.ReactNode;
 }) {
   return (
@@ -1372,7 +1277,7 @@ function FormSelect({
           value={value}
           onChange={onChange}
           disabled={disabled}
-          required={required}
+          required={required} // Añadido
           className="appearance-none mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm disabled:opacity-60 py-3 pl-3 pr-10"
         >
           {children}
@@ -1412,6 +1317,8 @@ function TabButton({
     >
       <IconComponent size={18} />
       {label}
+
+      {/* --- Badge "Premium" con Animación --- */}
       <AnimatePresence>
         {badgeCount && badgeCount > 0 && (
           <motion.span
