@@ -454,23 +454,36 @@ export default function EstudiantePage() {
     const topicId = 1; // ID 1 es "Asistencia"
     const classId = attendanceClassId;
     
+    console.log('handleMarkAttendanceDB called with:', { inscripcion_id, status, topicId, classId });
+
     if (!classId || !inscripcion_id) {
-      throw new Error("ID de clase o de inscripción no encontrado");
+      const errorMsg = `ID de clase o de inscripción no encontrado. classId: ${classId}, inscripcion_id: ${inscripcion_id}`;
+      console.error(errorMsg);
+      toast.error(errorMsg);
+      throw new Error(errorMsg);
     }
 
     try {
+      console.log('Fetching current grades for inscripcion_id:', inscripcion_id);
       const { data: currentData, error: getError } = await supabase
         .from('asistencias_academia')
         .select('asistencias')
         .eq('inscripcion_id', inscripcion_id)
         .single();
       
-      if (getError && getError.code !== 'PGRST116') throw getError;
+      if (getError && getError.code !== 'PGRST116') {
+        console.error('Error fetching current grades:', getError);
+        throw getError;
+      }
+      
       const currentGrades = (currentData?.asistencias as StudentGrades) || {};
+      console.log('Current grades:', currentGrades);
       
       const newTopicGrades = { ...(currentGrades[topicId] || {}), [classId]: status };
       const newStudentGrades = { ...currentGrades, [topicId]: newTopicGrades };
+      console.log('New grades to be saved:', newStudentGrades);
 
+      console.log('Upserting new grades...');
       const { error: upsertError } = await supabase
         .from('asistencias_academia')
         .upsert({
@@ -479,10 +492,16 @@ export default function EstudiantePage() {
           updated_at: new Date().toISOString()
         }, { onConflict: 'inscripcion_id' });
 
-      if (upsertError) throw upsertError;
+      if (upsertError) {
+        console.error('Error upserting grades:', upsertError);
+        throw upsertError;
+      }
+      
+      console.log('Successfully saved attendance for inscripcion_id:', inscripcion_id);
       
     } catch (error: unknown) {
       const e = error as { message?: string };
+      console.error('Full error in handleMarkAttendanceDB:', e);
       toast.error(`Error al marcar: ${e.message ?? 'Error desconocido'}`);
       throw error;
     }
