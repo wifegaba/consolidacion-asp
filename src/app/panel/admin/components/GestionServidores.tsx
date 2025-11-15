@@ -1,7 +1,17 @@
 /*
-  ARCHIVO: app/admin/components/GestionServidores.tsx
+  ARCHIVO: app/panel/admin/components/GestionServidores.tsx
   ROL: Módulo de Gestión de Servidores (Refactorizado)
-  (ACTUALIZADO con modal "Listado" premium y fluido)
+  (ACTUALIZADO con diseño LIQUID GLASS PREMIUM y efectos visuales modernos)
+  
+  ESTILO VISUAL 2025:
+  - Efecto Liquid Glass con backdrop-filter blur(20px)
+  - Gradientes suaves 135deg con rgba transparentes
+  - Sombras internas (inset) para profundidad premium
+  - Bordes translúcidos rgba(255,255,255,0.6-0.7)
+  - Transiciones smooth con cubic-bezier(0.4, 0, 0.2, 1)
+  - Colores modernos: Slate-900 (#0f172a), Slate-600 (#475569)
+  - Animaciones suaves: slideIn, spin, glassBlur
+  - Compatibilidad webkit para navegadores Safari/Chrome
 */
 'use client';
 

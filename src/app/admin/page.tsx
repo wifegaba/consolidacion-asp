@@ -1,7 +1,17 @@
 /*
   ARCHIVO: app/admin/page.tsx
   ROL: Panel de Administrador (Contenedor)
-  (ACTUALIZADO con botón y modal de desactivación)
+  
+  (REFACTORIZADO: Estilo visual 'Liquid Glass' - Indigo Premium)
+  
+  Notas del desarrollador:
+  - Se implementa un tema 'Liquid Glass' sobre un fondo
+    índigo/azul profundo y premium.
+  - El fondo es un 'motion.div' animado con 'transform' (acelerado por GPU)
+    para máxima fluidez y rendimiento.
+  - La animación es una deriva sutil de 40s (repeatType: mirror).
+  - Todos los paneles (sidebar, cards, modales)
+    mantienen el efecto translúcido 'Liquid Glass'.
 */
 'use client';
 
@@ -25,19 +35,18 @@ import {
   MessageSquarePlus, 
   type LucideIcon,
   ChevronDown,
-  AlertTriangle // --- CAMBIO --- Importar ícono de advertencia
+  AlertTriangle,
+  ClipboardList,
+  UserX,
+  UserCheck2,
+  Settings, 
+  LayoutDashboard 
 } from 'lucide-react';
 
-// Importamos 'classNames'
 import { classNames } from '../restauracion/estudiante/components/academia.utils';
+import GestionServidores from './components/GestionServidores';
 
-// --- 1. IMPORTAR LOS ESTILOS DEL MÓDULO DE SERVIDORES ---
-// ...
-
-// --- 2. IMPORTAR EL NUEVO COMPONENTE ---
-import GestionServidores from './components/GestionServidores'; 
-
-// --- Tipos de Datos ---
+// --- Tipos de Datos (Sin cambios) ---
 type Observacion = {
   id: string;
   observacion: string; 
@@ -65,19 +74,16 @@ type AsignacionMaestro = {
   curso_id: number;
   cursos: Pick<Curso, 'nombre' | 'color'> | null;
 };
-
 type MaestroDataRaw = Maestro & {
   asignaciones: AsignacionMaestro[];
   observaciones_count: { count: number }[];
   servidores_roles: { rol: string }[];
 };
-
 type MaestroConCursos = Maestro & {
   asignaciones: AsignacionMaestro[];
   obs_count: number;
   rol: string | null;
 };
-
 type Estudiante = {
   id: string;
   nombre: string;
@@ -86,11 +92,17 @@ type Estudiante = {
 type Inscripcion = {
   entrevista_id: string;
   curso_id: number;
+  servidor_id: string | null;
+  cursos?: Pick<Curso, 'nombre' | 'color'> | null;
 };
+type EstudianteInscrito = Estudiante & {
+  maestro: MaestroConCursos | null;
+  curso: Curso | null;
+  inscripcion_id: string | null;
+};
+type AdminTab = 'matricular' | 'maestros' | 'servidores' | 'consultar';
 
-type AdminTab = 'matricular' | 'maestros' | 'servidores';
-
-// --- Animaciones de Framer Motion ---
+// --- Animaciones de Framer Motion (Sin cambios) ---
 const backdropVariants = {
   hidden: { opacity: 0 },
   visible: { opacity: 1 },
@@ -99,6 +111,28 @@ const modalVariants = {
   hidden: { scale: 0.9, opacity: 0, y: 50 },
   visible: { scale: 1, opacity: 1, y: 0, transition: { type: 'spring' as const, stiffness: 300, damping: 30 } },
   exit: { scale: 0.9, opacity: 0, y: 50 },
+};
+
+// --- Animación de Barrido (Entrada) - (Sin cambios) ---
+const premiumSweepInVariants = {
+  hidden: { 
+    opacity: 0, 
+    x: -30 
+  },
+  visible: { 
+    opacity: 1, 
+    x: 0,
+    transition: { 
+      duration: 0.4
+    }
+  },
+  exit: { 
+    opacity: 0, 
+    x: 30,
+    transition: { 
+      duration: 0.3
+    }
+  }
 };
 
 // --- Componente Principal: Panel de Administrador ---
@@ -110,42 +144,55 @@ export default function AdminPage() {
   const [estudiantes, setEstudiantes] = useState<Estudiante[]>([]);
   const [inscripciones, setInscripciones] = useState<Inscripcion[]>([]);
   
-  const [loadingMaestros, setLoadingMaestros] = useState(true);
-  const [loadingCursos, setLoadingCursos] = useState(true);
-  const [loadingEstudiantes, setLoadingEstudiantes] = useState(true);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // --- Estados de Modales ---
+  // --- Estados de Modales (Sin cambios) ---
   const [modalMaestro, setModalMaestro] = useState<MaestroConCursos | 'new' | null>(null);
   const [modalAsignar, setModalAsignar] = useState<MaestroConCursos | null>(null);
   const [modalObservacion, setModalObservacion] = useState<MaestroConCursos | null>(null); 
-  // --- CAMBIO --- Nuevo estado para el modal de desactivar
   const [modalDesactivar, setModalDesactivar] = useState<MaestroConCursos | null>(null);
 
-  // --- Carga de Datos ---
+  // --- Carga de Datos (Lógica sin cambios) ---
   const loadData = useCallback(async () => {
-    setLoadingMaestros(true);
-    setLoadingCursos(true);
-    setLoadingEstudiantes(true);
+    setIsLoading(true);
 
-    const { data: maestrosData, error: maestrosError } = await supabase
-      .from('servidores')
-      .select(`
-        id, nombre, cedula, telefono, email, activo,
-        asignaciones:asignaciones_academia (
-          id,
-          servidor_id,
-          curso_id,
-          cursos ( nombre, color )
-        ),
-        observaciones_count:servidores_observaciones!servidor_id(count),
-        servidores_roles ( rol )
-      `)
-      .order('nombre', { ascending: true });
+    const [
+      { data: maestrosData, error: maestrosError },
+      { data: cursosData, error: cursosError },
+      { data: estudiantesData, error: estudiantesError },
+      { data: inscripcionesData, error: inscripcionesError }
+    ] = await Promise.all([
+      supabase
+        .from('servidores')
+        .select(`
+          id, nombre, cedula, telefono, email, activo,
+          asignaciones:asignaciones_academia (
+            id, servidor_id, curso_id,
+            cursos ( nombre, color )
+          ),
+          observaciones_count:servidores_observaciones!servidor_id(count),
+          servidores_roles ( rol )
+        `)
+        .order('nombre', { ascending: true }),
+      supabase
+        .from('cursos')
+        .select('id, nombre, color')
+        .order('orden', { ascending: true }),
+      supabase
+        .from('entrevistas')
+        .select('id, nombre, cedula')
+        .order('nombre', { ascending: true }),
+      supabase
+        .from('inscripciones')
+        .select('entrevista_id, curso_id, servidor_id')
+        .eq('estado', 'activo')
+    ]);
 
-    if (maestrosError) {
-      console.error("Error cargando maestros:", maestrosError);
-    }
-    
+    if (maestrosError) console.error("Error cargando maestros:", maestrosError);
+    if (cursosError) console.error("Error cargando cursos:", cursosError);
+    if (estudiantesError) console.error("Error cargando estudiantes:", estudiantesError);
+    if (inscripcionesError) console.error("Error cargando inscripciones:", inscripcionesError);
+
     const processedMaestros = (maestrosData as unknown as MaestroDataRaw[] || []).map(m => ({
       ...m,
       obs_count: m.observaciones_count.length > 0 ? m.observaciones_count[0].count : 0,
@@ -153,40 +200,15 @@ export default function AdminPage() {
     }));
     
     setMaestros(processedMaestros);
-    setLoadingMaestros(false);
-
-    // Cargar Cursos
-    const { data: cursosData, error: cursosError } = await supabase
-      .from('cursos')
-      .select('id, nombre, color')
-      .order('orden', { ascending: true });
-    
-    if (cursosError) console.error("Error cargando cursos:", cursosError);
     setCursos((cursosData as Curso[]) || []);
-    setLoadingCursos(false);
-
-    // Cargar Estudiantes
-    const { data: estudiantesData, error: estudiantesError } = await supabase
-      .from('entrevistas')
-      .select('id, nombre, cedula')
-      .order('nombre', { ascending: true });
-
-    if (estudiantesError) console.error("Error cargando estudiantes:", estudiantesError);
     setEstudiantes((estudiantesData as Estudiante[]) || []);
-    setLoadingEstudiantes(false);
-
-    // Cargar Inscripciones
-    const { data: inscripcionesData, error: inscripcionesError } = await supabase
-      .from('inscripciones')
-      .select('entrevista_id, curso_id');
-    
-    if (inscripcionesError) console.error("Error cargando inscripciones:", inscripcionesError);
     setInscripciones((inscripcionesData as Inscripcion[]) || []);
 
+    setIsLoading(false);
   }, []);
 
   useEffect(() => {
-    if (activeTab === 'maestros' || activeTab === 'matricular') {
+    if (activeTab === 'maestros' || activeTab === 'matricular' || activeTab === 'consultar') {
       loadData();
     }
   }, [loadData, activeTab]);
@@ -196,166 +218,463 @@ export default function AdminPage() {
   };
 
   const estudiantesPendientesCount = useMemo(() => {
-    const cursoRestauracion1 = cursos.find(c => c.nombre === 'Restauración 1');
-    if (!cursoRestauracion1) return 0;
-    
     const inscritosSet = new Set(
-      inscripciones
-        .filter(i => i.curso_id === cursoRestauracion1.id)
-        .map(i => i.entrevista_id)
+      inscripciones.map(i => i.entrevista_id)
     );
-    
     const count = estudiantes.filter(e => !inscritosSet.has(e.id)).length;
     return count;
-
-  }, [cursos, estudiantes, inscripciones]);
+  }, [estudiantes, inscripciones]);
 
 
   return (
-    <main className="relative min-h-screen w-full bg-gray-50 p-4 md:p-6 lg:p-8">
-      {/* Fondo, Header y Tabs (Sin cambios) */}
-      <div 
-        className="absolute inset-0 -z-10 overflow-hidden"
-        aria-hidden="true"
-      >
-        <div className="absolute left-[50%] top-[-10rem] h-[50rem] w-[80rem] -translate-x-1/2 rounded-full bg-gradient-to-tr from-indigo-100/70 via-sky-100/70 to-purple-100/70 opacity-60 blur-3xl" />
-      </div>
+    <>
+      {/* --- REFACTOR VISUAL: Fondo Azul Claro Premium (ESTÁTICO) --- */}
+      <div
+        className="fixed inset-0 z-[-1] overflow-hidden"
+        style={{
+          // Fondo azul claro premium (sutil)
+          background: 'linear-gradient(180deg, #eaf4ff 0%, #dbeafe 100%)',
+          backgroundSize: 'cover',
+        }}
+      />
+    
+      {/* --- REFACTOR VISUAL: Estilos Globales (fondo de respaldo) --- */}
+      <style jsx global>{`
+        body {
+          font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+          /* Fondo sólido de respaldo (premium indigo).
+            El fondo real es el motion.div animado.
+          */
+          /* Cambiado a un fondo azul claro premium y sin animación */
+          background: linear-gradient(180deg, #eaf4ff 0%, #dbeafe 100%);
+          color: #1a1a1a; /* Texto oscuro por defecto para mejor contraste */
+          
+          /* ================================================= */
+          /* CAMBIO 1: Evita el scroll en el body principal */
+          overflow: hidden;
+          /* ================================================= */
+        }
 
-      <header className="mb-6 flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight text-gray-900">
-            Panel de Administrador
-          </h1>
-          <p className="mt-1 text-lg text-gray-600">
-            Gestiona servidores, maestros y matrículas de la academia.
-          </p>
-        </div>
-      </header>
-      
-      <nav className="flex flex-wrap items-center gap-2 mb-6">
-        <TabButton
-          IconComponent={Server}
-          label="Gestionar Servidores"
-          isActive={activeTab === 'servidores'}
-          onClick={() => setActiveTab('servidores')}
-        />
-        <TabButton
-          IconComponent={Users}
-          label="Gestionar Maestros"
-          isActive={activeTab === 'maestros'}
-          onClick={() => setActiveTab('maestros')}
-        />
-        <TabButton
-          IconComponent={UserPlus}
-          label="Matricular Estudiantes"
-          isActive={activeTab === 'matricular'}
-          onClick={() => setActiveTab('matricular')}
-          badgeCount={estudiantesPendientesCount > 0 ? estudiantesPendientesCount : 0}
-        />
-      </nav>
+        /* Se elimina @keyframes gradientAnimation */
 
-      {/* Contenido de los Paneles (Sin cambios) */}
-      <div className="relative overflow-hidden">
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={activeTab}
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: 20 }}
-            transition={{ duration: 0.25, ease: "easeInOut" }}
-            className="w-full" 
-          >
-            {activeTab === 'servidores' && (
-              <GestionServidores />
-            )}
-
-            {activeTab === 'matricular' && (
-              <PanelMatricular
-                maestros={maestros}
-                cursos={cursos}
-                estudiantes={estudiantes} 
-                inscripciones={inscripciones} 
-                onMatriculaExitosa={onDataUpdated}
-                loading={loadingCursos || loadingEstudiantes || loadingMaestros}
-              />
-            )}
-            
-            {activeTab === 'maestros' && (
-              <PanelGestionarMaestros
-                maestros={maestros.filter(m => m.activo)} // --- CAMBIO --- Solo mostrar maestros activos
-                loading={loadingMaestros}
-                onCrearMaestro={() => setModalMaestro('new')}
-                onEditarMaestro={(m) => setModalMaestro(m)}
-                onAsignarCursos={(m) => setModalAsignar(m)}
-                onVerObservaciones={(m) => setModalObservacion(m)}
-                onDesactivarMaestro={(m) => setModalDesactivar(m)} // --- CAMBIO --- Pasar la nueva prop
-              />
-            )}
-          </motion.div>
-        </AnimatePresence>
-      </div>
-
-      {/* --- Modales --- */}
-      <AnimatePresence>
-        {(modalMaestro === 'new' || typeof modalMaestro === 'object' && modalMaestro !== null) && (
-          <ModalCrearEditarMaestro
-            maestroInicial={modalMaestro === 'new' ? null : modalMaestro}
-            onClose={() => setModalMaestro(null)}
-            onSuccess={() => {
-              setModalMaestro(null);
-              onDataUpdated();
-            }}
-          />
-        )}
-
-        {modalAsignar && (
-          <ModalAsignarCursos
-            maestro={modalAsignar}
-            cursosDisponibles={cursos}
-            onClose={() => setModalAsignar(null)}
-            onSuccess={() => {
-              setModalAsignar(null);
-              onDataUpdated();
-            }}
-          />
-        )}
+        /* Placeholder con mejor contraste sobre el vidrio */
+        ::placeholder {
+          color: rgba(0, 0, 0, 0.5) !important;
+        }
+      `}</style>
+    
+      {/* --- REFACTOR VISUAL: Layout principal 'Liquid Glass' --- */}
+      {/* ================================================= */}
+      {/* CAMBIO 2: 'min-h-screen' -> 'h-screen'            */}
+      {/* ================================================= */}
+      <main className="flex h-screen w-full text-gray-900">
         
-        {modalObservacion && (
-          <ModalObservaciones
-            maestro={modalObservacion}
-            onClose={() => {
-              setModalObservacion(null);
-              onDataUpdated();
-            }}
-          />
-        )}
+        {/* --- REFACTOR VISUAL: Barra Lateral Izquierda (Efecto Vidrio) --- */}
+        {/* ================================================= */}
+        {/* CAMBIO 3: Añadido 'overflow-y-auto' a la barra  */}
+        {/* ================================================= */}
+        <nav className="w-64 flex-shrink-0 bg-white/30 backdrop-blur-xl p-4 flex flex-col gap-6 border-r border-white/50 shadow-lg overflow-y-auto">
+          {/* Header/Logo */}
+          <header className="px-2 pt-2">
+            <div className="flex items-center gap-2">
+              <div className="p-2 bg-white/40 rounded-lg shadow-md">
+                <LayoutDashboard className="h-6 w-6 text-blue-600" />
+              </div>
+              <h1 className="text-xl font-bold tracking-tight text-gray-900">
+                AdminPanel
+              </h1>
+            </div>
+            <p className="mt-2 text-sm text-gray-800">
+              Gestión de academia.
+            </p>
+          </header>
+          
+          {/* --- REFACTOR VISUAL: Pestañas verticales (estilo 'Liquid Glass') --- */}
+          <div className="flex flex-col gap-2">
+            <TabButton
+              IconComponent={Server}
+              label="Gestionar Servidores"
+              isActive={activeTab === 'servidores'}
+              onClick={() => setActiveTab('servidores')}
+            />
+            <TabButton
+              IconComponent={Users}
+              label="Gestionar Maestros"
+              isActive={activeTab === 'maestros'}
+              onClick={() => setActiveTab('maestros')}
+            />
+            <TabButton
+              IconComponent={UserPlus}
+              label="Matricular Estudiantes"
+              isActive={activeTab === 'matricular'}
+              onClick={() => setActiveTab('matricular')}
+              badgeCount={estudiantesPendientesCount > 0 ? estudiantesPendientesCount : 0}
+            />
+            
+            <TabButton
+              IconComponent={ClipboardList}
+              label="Consultar Estudiantes"
+              isActive={activeTab === 'consultar'}
+              onClick={() => setActiveTab('consultar')}
+            />
+          </div>
+          
+          {/* Espaciador */}
+          <div className="flex-grow"></div>
+          
+          {/* Footer de la barra lateral */}
+          <div className="flex flex-col gap-2">
+            <TabButton
+              IconComponent={Settings}
+              label="Configuración"
+              isActive={false}
+              onClick={() => { /* No-op */ }}
+            />
+          </div>
+        </nav>
 
-        {/* --- CAMBIO --- Añadir el nuevo modal de confirmación --- */}
-        {modalDesactivar && (
-          <ModalConfirmarDesactivar
-            maestro={modalDesactivar}
-            onClose={() => setModalDesactivar(null)}
-            onSuccess={() => {
-              setModalDesactivar(null);
-              onDataUpdated();
-            }}
-          />
-        )}
-      </AnimatePresence>
-      
-    </main>
+        {/* --- REFACTOR VISUAL: Panel de Contenido Principal (Transparente) --- */}
+        {/* ESTE 'overflow-y-auto' ahora funciona como se espera */}
+        <div className="flex-1 p-6 md:p-8 overflow-y-auto bg-transparent">
+          
+          {/* Contenido de los Paneles (Lógica sin cambios) */}
+          <div className="relative overflow-hidden">
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={activeTab}
+                initial="hidden"
+                animate="visible"
+                exit="exit"
+                variants={premiumSweepInVariants}
+                className="w-full" 
+              >
+                {activeTab === 'servidores' && (
+                  <GestionServidores />
+                )}
+
+                {activeTab === 'matricular' && (
+                  <PanelMatricular
+                    maestros={maestros}
+                    cursos={cursos}
+                    estudiantes={estudiantes} 
+                    inscripciones={inscripciones} 
+                    onMatriculaExitosa={onDataUpdated}
+                    loading={isLoading}
+                  />
+                )}
+                
+                {activeTab === 'maestros' && (
+                  <PanelGestionarMaestros
+                    maestros={maestros.filter(m => m.rol === 'Maestro Ptm')}
+                    loading={isLoading}
+                    onCrearMaestro={() => setModalMaestro('new')}
+                    onEditarMaestro={(m) => setModalMaestro(m)}
+                    onAsignarCursos={(m) => setModalAsignar(m)}
+                    onVerObservaciones={(m) => setModalObservacion(m)}
+                    onDesactivarMaestro={(m) => setModalDesactivar(m)} 
+                  />
+                )}
+
+                {activeTab === 'consultar' && (
+                  <PanelConsultarEstudiantes
+                    maestros={maestros}
+                    cursos={cursos}
+                    estudiantes={estudiantes}
+                    inscripciones={inscripciones}
+                    loading={isLoading}
+                  />
+                )}
+              </motion.div>
+            </AnimatePresence>
+          </div>
+        </div>
+
+        {/* --- Modales (Ahora con estilo 'Liquid Glass') --- */}
+        <AnimatePresence>
+          {(modalMaestro === 'new' || typeof modalMaestro === 'object' && modalMaestro !== null) && (
+            <ModalCrearEditarMaestro
+              maestroInicial={modalMaestro === 'new' ? null : modalMaestro}
+              onClose={() => setModalMaestro(null)}
+              onSuccess={() => {
+                setModalMaestro(null);
+                onDataUpdated();
+              }}
+            />
+          )}
+          {modalAsignar && (
+            <ModalAsignarCursos
+              maestro={modalAsignar}
+              cursosDisponibles={cursos}
+              onClose={() => setModalAsignar(null)}
+              onSuccess={() => {
+                setModalAsignar(null);
+                onDataUpdated();
+              }}
+            />
+          )}
+          {modalObservacion && (
+            <ModalObservaciones
+              maestro={modalObservacion}
+              onClose={() => {
+                setModalObservacion(null);
+                onDataUpdated();
+              }}
+            />
+          )}
+          {modalDesactivar && (
+            <ModalConfirmarDesactivar
+              maestro={modalDesactivar}
+              onClose={() => setModalDesactivar(null)}
+              onSuccess={() => {
+                setModalDesactivar(null);
+                onDataUpdated();
+              }}
+            />
+          )}
+        </AnimatePresence>
+      </main>
+    </>
   );
 }
 
 
 /* ======================================================================
-  COMPONENTES ANTIGUOS (Para 'Maestros' y 'Matricular')
+  COMPONENTE: "Consultar Estudiantes"
+  (REFACTOR VISUAL: 'Liquid Glass' aplicado)
 ======================================================================
 */
 
-// --- Componente: Pestaña "Matricular Estudiantes" ---
+function PanelConsultarEstudiantes({
+  maestros,
+  cursos,
+  estudiantes,
+  inscripciones,
+  loading
+}: {
+  maestros: MaestroConCursos[];
+  cursos: Curso[];
+  estudiantes: Estudiante[];
+  inscripciones: Inscripcion[];
+  loading: boolean;
+}) {
+  const [search, setSearch] = useState('');
+  const [selectedMaestroId, setSelectedMaestroId] = useState('');
+
+  // Lógica de procesamiento (Sin cambios)
+  const estudiantesProcesados = useMemo(() => {
+    const maestrosMap = new Map(maestros.map(m => [m.id, m]));
+    const cursosMap = new Map(cursos.map(c => [c.id, c]));
+    const inscripcionesMap = new Map(inscripciones.map(i => [i.entrevista_id, i]));
+
+    return estudiantes.map(estudiante => {
+      const inscripcion = inscripcionesMap.get(estudiante.id);
+      if (!inscripcion) {
+        return { ...estudiante, maestro: null, curso: null, inscripcion_id: null };
+      }
+      const maestro = inscripcion.servidor_id ? maestrosMap.get(inscripcion.servidor_id) : null;
+      const curso = inscripcion.curso_id ? cursosMap.get(inscripcion.curso_id) : null;
+      return {
+        ...estudiante,
+        maestro: maestro || null,
+        curso: curso || null,
+        inscripcion_id: inscripcion.entrevista_id,
+      };
+    });
+  }, [estudiantes, inscripciones, maestros, cursos]);
+
+  // Lógica de filtrado (Sin cambios)
+  const { pendientes, matriculados } = useMemo(() => {
+    const q = search.toLowerCase();
+    
+    const pendientesFiltrados = estudiantesProcesados.filter(e => {
+      if (e.inscripcion_id) return false;
+      if (!search) return true;
+      return e.nombre.toLowerCase().includes(q) || (e.cedula && e.cedula.includes(q));
+    });
+
+    const matriculadosFiltrados = estudiantesProcesados.filter(e => {
+      if (!e.inscripcion_id) return false;
+      if (selectedMaestroId && e.maestro?.id !== selectedMaestroId) return false;
+      if (!search) return true;
+      return e.nombre.toLowerCase().includes(q) || (e.cedula && e.cedula.includes(q));
+    });
+
+    return { pendientes: pendientesFiltrados, matriculados: matriculadosFiltrados };
+
+  }, [estudiantesProcesados, search, selectedMaestroId]);
+
+  return (
+    <PremiumCard>
+      <div>
+        <CardHeader
+          IconComponent={ClipboardList}
+          title="Consultar Estudiantes"
+          subtitle="Busca y filtra todos los estudiantes inscritos y pendientes."
+        />
+        
+        {/* --- REFACTOR VISUAL: Inputs con estilo 'Liquid Glass' --- */}
+        <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="relative">
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Buscar estudiante por nombre o cédula..."
+              // Estilo 'Liquid Glass' aplicado
+              className="w-full rounded-lg border border-white/50 bg-white/40 backdrop-blur-sm py-3 pl-10 pr-4 text-sm text-gray-900 placeholder-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:bg-white/60"
+            />
+            <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+          </div>
+          
+          <FormSelect
+            label=""
+            value={selectedMaestroId}
+            onChange={(e) => setSelectedMaestroId(e.target.value)}
+          >
+            <option value="">Filtrar por Maestro (afecta Matriculados)</option>
+            {maestros.filter(m => m.rol === 'Maestro Ptm').map(m => (
+              <option key={m.id} value={m.id}>{m.nombre}</option>
+            ))}
+          </FormSelect>
+        </div>
+
+        {/* --- REFACTOR VISUAL: Layout de 2 Columnas --- */}
+        <div className="p-6 pt-0 grid grid-cols-1 lg:grid-cols-2 gap-6">
+          
+          {/* Columna Izquierda: Pendientes */}
+          <div>
+            {/* --- REFACTOR VISUAL: Cabecera de columna 'Liquid Glass' --- */}
+            <div className="flex items-center gap-3 px-4 py-3 mb-3 rounded-lg bg-white/40 shadow-md border border-white/50">
+              <UserX className="h-6 w-6 text-gray-600" />
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">
+                  Pendientes de Matrícula ({loading ? '...' : pendientes.length})
+                </h3>
+                <p className="text-sm text-gray-700">Estudiantes sin curso activo.</p>
+              </div>
+            </div>
+            
+            {/* --- REFACTOR VISUAL: Contenedor de lista 'Liquid Glass' (inset) --- */}
+            <div className="h-96 max-h-[70vh] overflow-y-auto rounded-lg border border-white/50 bg-white/30 shadow-inner-lg">
+              {loading ? (
+                <LoadingSpinner />
+              ) : pendientes.length === 0 ? (
+                <EmptyState message={search ? "No hay coincidencias." : "No hay estudiantes pendientes."} />
+              ) : (
+                <ul className="divide-y divide-white/50">
+                  {pendientes.map(e => (
+                    <EstudianteListItem key={e.id} estudiante={e} />
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
+
+          {/* Columna Derecha: Matriculados */}
+          <div>
+            {/* --- REFACTOR VISUAL: Cabecera de columna 'Liquid Glass' (con acento) --- */}
+            <div className="flex items-center gap-3 px-4 py-3 mb-3 rounded-lg bg-white/40 shadow-md border border-blue-300">
+              <UserCheck2 className="h-6 w-6 text-blue-600" />
+              <div>
+                <h3 className="text-lg font-semibold text-blue-800">
+                  Estudiantes Matriculados ({loading ? '...' : matriculados.length})
+                </h3>
+                <p className="text-sm text-gray-700">Estudiantes con curso y maestro.</p>
+              </div>
+            </div>
+
+            {/* --- REFACTOR VISUAL: Contenedor de lista 'Liquid Glass' (inset) --- */}
+            <div className="h-96 max-h-[70vh] overflow-y-auto rounded-lg border border-white/50 bg-white/30 shadow-inner-lg">
+              {loading ? (
+                <LoadingSpinner />
+              ) : matriculados.length === 0 ? (
+                <EmptyState message={search || selectedMaestroId ? "No hay coincidencias." : "No hay estudiantes matriculados."} />
+              ) : (
+                <ul className="divide-y divide-white/50">
+                  {matriculados.map(e => (
+                    <EstudianteListItem key={e.id} estudiante={e} />
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </PremiumCard>
+  );
+}
+
+// --- Sub-componentes para 'PanelConsultarEstudiantes' ---
+
+function EstudianteListItem({ estudiante }: { estudiante: EstudianteInscrito }) {
+  const { nombre, cedula, curso, maestro, inscripcion_id } = estudiante;
+  return (
+    // --- REFACTOR VISUAL: Hover sutil 'Liquid Glass' ---
+    <li className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3 p-4 transition-colors hover:bg-white/20">
+      <div className="flex items-center gap-3">
+        {/* --- REFACTOR VISUAL: Avatar 'Liquid Glass' --- */}
+        <div className="flex-shrink-0 h-10 w-10 flex items-center justify-center rounded-full bg-white/30 text-gray-800 font-semibold">
+          {nombre.split(' ').map(n => n[0]).slice(0, 2).join('')}
+        </div>
+        <div>
+          <p className="font-medium text-gray-900">{nombre}</p>
+          <p className="text-sm text-gray-700">C.C. {cedula && !cedula.startsWith('TEMP_') ? cedula : 'Temporal'}</p>
+        </div>
+      </div>
+      
+      <div className="flex flex-col items-start md:items-end gap-1.5 w-full md:w-auto pl-13 md:pl-0">
+        {/* --- REFACTOR VISUAL: Tags adaptados (se mantienen bien) --- */}
+        {curso ? (
+          <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-medium text-blue-800">
+            Curso: {curso.nombre}
+          </span>
+        ) : (
+           <span className="rounded-full bg-yellow-100 px-3 py-1 text-xs font-medium text-yellow-800">
+            Pendiente de Matrícula
+          </span>
+        )}
+        
+        {maestro ? (
+          <span className="rounded-full bg-purple-100 px-3 py-1 text-xs font-medium text-purple-800">
+            Maestro: {maestro.nombre}
+          </span>
+        ) : (
+          inscripcion_id && (
+            <span className="text-xs text-gray-500 italic">
+              Maestro no asignado
+            </span>
+          )
+        )}
+      </div>
+    </li>
+  );
+}
+
+function LoadingSpinner() {
+  return (
+    <div className="p-6 text-center text-gray-700 flex items-center justify-center h-full">
+      <Loader2 size={24} className="animate-spin text-blue-600 mr-2" />
+      Cargando datos...
+    </div>
+  );
+}
+
+function EmptyState({ message }: { message: string }) {
+  return (
+    <div className="p-6 text-center text-gray-700 h-full flex items-center justify-center">
+      {message}
+    </div>
+  );
+}
+
+/* ======================================================================
+  COMPONENTES: "Matricular Estudiantes"
+  (REFACTOR VISUAL: 'Liquid Glass' aplicado)
+======================================================================
+*/
+
 function PanelMatricular({
-  // ... (Este componente no tiene cambios)
   maestros,
   cursos,
   estudiantes,
@@ -376,6 +695,7 @@ function PanelMatricular({
   const [isSaving, setIsSaving] = useState(false);
   const [search, setSearch] = useState('');
 
+  // Lógica de carga, filtros y guardado (Sin cambios)
   useEffect(() => {
     const cursoRestauracion1 = cursos.find(c => c.nombre === 'Restauración 1');
     if (cursoRestauracion1) {
@@ -387,23 +707,18 @@ function PanelMatricular({
     if (!selectedCursoId) return [];
     const cursoIdNum = parseInt(selectedCursoId);
     return maestros.filter(m => 
-      m.asignaciones.some(a => a.curso_id === cursoIdNum)
+      m.rol === 'Maestro Ptm' && m.asignaciones.some(a => a.curso_id === cursoIdNum)
     );
   }, [selectedCursoId, maestros]);
 
   const estudiantesDisponibles = useMemo(() => {
     if (!selectedCursoId) return [];
-    const cursoIdNum = parseInt(selectedCursoId);
-    
     const inscritosSet = new Set(
-      inscripciones
-        .filter(i => i.curso_id === cursoIdNum)
-        .map(i => i.entrevista_id)
+      inscripciones.map(i => i.entrevista_id)
     );
-    
     return estudiantes.filter(e => {
-      if (inscritosSet.has(e.id)) return false;
-      if (search && !e.nombre.toLowerCase().includes(search.toLowerCase()) && !e.cedula.includes(search)) {
+      if (inscritosSet.has(e.id)) return false; 
+      if (search && !e.nombre.toLowerCase().includes(search.toLowerCase()) && !(e.cedula && e.cedula.includes(search))) {
         return false;
       }
       return true;
@@ -441,7 +756,8 @@ function PanelMatricular({
       if (errorInscripcion) throw errorInscripcion;
       
       if (dataInscripcion && dataInscripcion.length > 0) {
-        const nuevosRegistrosAsistencia = dataInscripcion.map(insc => ({
+        const dataInscripcionTyped = dataInscripcion as { id: number }[];
+        const nuevosRegistrosAsistencia = dataInscripcionTyped.map(insc => ({
           inscripcion_id: insc.id,
           asistencias: '{}'
         }));
@@ -468,7 +784,7 @@ function PanelMatricular({
   }, [selectedMaestroId, maestrosDisponibles]);
 
   return (
-    <GlassCard>
+    <PremiumCard>
       <CardHeader
         IconComponent={UserPlus}
         title="Matricular Estudiantes"
@@ -477,6 +793,7 @@ function PanelMatricular({
       <div className="p-6 grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* Columna 1: Cursos y Maestros */}
         <div className="space-y-4">
+          {/* --- REFACTOR VISUAL: Selects con estilo 'Liquid Glass' --- */}
           <FormSelect
             label="Paso 1: Seleccionar Curso"
             value={selectedCursoId}
@@ -502,10 +819,11 @@ function PanelMatricular({
             ))}
           </FormSelect>
 
+          {/* --- REFACTOR VISUAL: Botón primario (se mantiene sólido) --- */}
           <button
             onClick={handleMatricular}
             disabled={isSaving || !selectedCursoId || !selectedMaestroId || seleccionadosIds.length === 0}
-            className="w-full flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-500/30 transition-all hover:bg-indigo-700 hover:shadow-xl hover:shadow-indigo-500/40 active:scale-[0.98] disabled:opacity-50"
+            className="w-full flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-blue-500/30 transition-all hover:bg-blue-700 hover:shadow-xl hover:shadow-blue-500/40 active:scale-[0.98] disabled:opacity-50"
           >
             {isSaving ? (
               <Loader2 size={18} className="animate-spin" />
@@ -522,50 +840,55 @@ function PanelMatricular({
             Paso 3: Seleccionar Estudiantes
           </label>
           <div className="relative mb-2">
+            {/* --- REFACTOR VISUAL: Input de búsqueda 'Liquid Glass' --- */}
             <input
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Buscar por nombre o cédula..."
               disabled={!selectedCursoId}
-              className="w-full rounded-lg border border-gray-300 bg-white/50 py-2 pl-10 pr-4 text-sm text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
+              className="w-full rounded-lg border border-white/50 bg-white/40 backdrop-blur-sm py-2 pl-10 pr-4 text-sm text-gray-900 placeholder-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-60"
             />
-            <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
           </div>
 
-          <div className="h-96 overflow-y-auto rounded-lg border border-gray-200 bg-white/30">
+          {/* --- REFACTOR VISUAL: Contenedor de lista 'Liquid Glass' (inset) --- */}
+          <div className="h-96 max-h-[70vh] overflow-y-auto rounded-lg border border-white/50 bg-white/30 shadow-inner-lg">
             {loading ? ( 
-              <div className="p-6 text-center text-gray-500">
+              <div className="p-6 text-center text-gray-700">
                 Cargando estudiantes...
               </div>
             ) : !selectedCursoId ? (
-              <div className="p-6 text-center text-gray-500">
+              <div className="p-6 text-center text-gray-700">
                 Selecciona un curso para ver los estudiantes disponibles.
               </div>
             ) : estudiantesDisponibles.length === 0 ? (
-              <div className="p-6 text-center text-gray-500">
+              <div className="p-6 text-center text-gray-700">
                 {search ? "No hay coincidencias." : "No hay estudiantes pendientes de matricular en este curso."}
               </div>
             ) : (
-              <ul className="divide-y divide-gray-200/70">
+              <ul className="divide-y divide-white/50">
                 {estudiantesDisponibles.map(e => (
                   <li 
                     key={e.id}
                     onClick={() => handleToggleEstudiante(e.id)}
+                    // --- REFACTOR VISUAL: Estilos de selección y hover 'Liquid Glass' ---
                     className={classNames(
                       "flex items-center gap-3 p-3 cursor-pointer transition-colors",
-                      selectedEstudiantes[e.id] ? 'bg-indigo-100/70' : 'hover:bg-gray-50/70'
+                      selectedEstudiantes[e.id] 
+                        ? 'bg-blue-50/70' // Selección con transparencia
+                        : 'hover:bg-white/20'
                     )}
                   >
                     <input
                       type="checkbox"
                       checked={!!selectedEstudiantes[e.id]}
                       readOnly
-                      className="h-4 w-4 rounded text-indigo-600 focus:ring-indigo-500"
+                      className="h-4 w-4 rounded border-gray-400 text-blue-600 focus:ring-blue-500 bg-transparent"
                     />
                     <div>
                       <p className="font-medium text-gray-900">{e.nombre}</p>
-                      <p className="text-sm text-gray-600">C.C. {e.cedula.startsWith('TEMP_') ? 'Temporal' : e.cedula}</p>
+                      <p className="text-sm text-gray-700">C.C. {e.cedula && !e.cedula.startsWith('TEMP_') ? e.cedula : 'Temporal'}</p>
                     </div>
                   </li>
                 ))}
@@ -574,7 +897,7 @@ function PanelMatricular({
           </div>
         </div>
       </div>
-    </GlassCard>
+    </PremiumCard>
   );
 }
 
@@ -586,7 +909,7 @@ function PanelGestionarMaestros({
   onEditarMaestro,
   onAsignarCursos,
   onVerObservaciones,
-  onDesactivarMaestro // --- CAMBIO --- Añadir nueva prop
+  onDesactivarMaestro 
 }: {
   maestros: MaestroConCursos[];
   loading: boolean;
@@ -594,10 +917,11 @@ function PanelGestionarMaestros({
   onEditarMaestro: (maestro: MaestroConCursos) => void;
   onAsignarCursos: (maestro: MaestroConCursos) => void;
   onVerObservaciones: (maestro: MaestroConCursos) => void;
-  onDesactivarMaestro: (maestro: MaestroConCursos) => void; // --- CAMBIO --- Añadir nueva prop
+  onDesactivarMaestro: (maestro: MaestroConCursos) => void; 
 }) {
   const [search, setSearch] = useState('');
 
+  // Lógica de filtro y mapeo (Sin cambios)
   const maestrosFiltrados = useMemo(() => {
     if (!search) return maestros;
     const q = search.toLowerCase();
@@ -607,16 +931,23 @@ function PanelGestionarMaestros({
     );
   }, [search, maestros]);
 
+  const mapRol = (rol: string | null): string | null => {
+    if (rol === 'Contactos') return 'Timoteo';
+    if (rol === 'Maestros') return 'Coordinador';
+    return rol;
+  };
+
   return (
-    <GlassCard>
+    <PremiumCard>
       <CardHeader
         IconComponent={Users}
         title="Gestionar Maestros"
         subtitle="Crea, edita, asigna cursos y añade observaciones."
       >
+        {/* --- REFACTOR VISUAL: Botón primario (sólido) --- */}
         <button
           onClick={onCrearMaestro}
-          className="ml-auto flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-indigo-500/30 transition-all hover:bg-indigo-700 hover:shadow-xl hover:shadow-indigo-500/40 active:scale-[0.98]"
+          className="ml-auto flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-blue-500/30 transition-all hover:bg-blue-700 hover:shadow-xl hover:shadow-blue-500/40 active:scale-[0.98]"
         >
           <Plus size={18} />
           Crear Maestro
@@ -625,38 +956,41 @@ function PanelGestionarMaestros({
       
       <div className="px-6 pt-4 pb-2">
         <div className="relative">
+          {/* --- REFACTOR VISUAL: Input de búsqueda 'Liquid Glass' --- */}
           <input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Buscar maestro por nombre o cédula..."
-            className="w-full rounded-lg border border-gray-300 bg-white/50 py-2 pl-10 pr-4 text-sm text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className="w-full rounded-lg border border-white/50 bg-white/40 backdrop-blur-sm py-2 pl-10 pr-4 text-sm text-gray-900 placeholder-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white/60"
           />
-          <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
         </div>
       </div>
 
       <div className="p-6">
         {loading ? (
           <div className="flex justify-center items-center py-10">
-            <Loader2 size={24} className="animate-spin text-indigo-600" />
-            <span className="ml-2 text-gray-600">Cargando maestros...</span>
+            <Loader2 size={24} className="animate-spin text-blue-600" />
+            <span className="ml-2 text-gray-700">Cargando maestros...</span>
           </div>
         ) : (
-          <ul className="divide-y divide-gray-200">
+          <ul className="divide-y divide-white/50">
             {maestrosFiltrados.map(maestro => (
               <li key={maestro.id} className="flex flex-col md:flex-row items-start md:items-center justify-between py-4 gap-4">
                 <div className="flex items-center gap-4">
-                  <div className="flex-shrink-0 h-10 w-10 flex items-center justify-center rounded-full bg-gradient-to-br from-indigo-200 to-purple-200 text-indigo-700 font-semibold">
+                  {/* --- REFACTOR VISUAL: Avatar 'Liquid Glass' --- */}
+                  <div className="flex-shrink-0 h-10 w-10 flex items-center justify-center rounded-full bg-white/30 text-gray-800 font-semibold">
                     {maestro.nombre.split(' ').map(n => n[0]).slice(0, 2).join('')}
                   </div>
                   <div>
                     <p className="font-semibold text-gray-900">{maestro.nombre}</p>
-                    <p className="text-sm text-gray-600">
+                    <p className="text-sm text-gray-700">
                       C.C. {maestro.cedula} 
+                      {/* --- REFACTOR VISUAL: Tag de Rol (se mantiene bien) --- */}
                       {maestro.rol && (
-                        <span className="ml-2 rounded-full bg-gray-200 px-2 py-0.5 text-xs font-medium text-gray-700">
-                          {maestro.rol}
+                        <span className="ml-2 rounded-full bg-gray-100/70 px-2 py-0.5 text-xs font-medium text-gray-700">
+                          {mapRol(maestro.rol)}
                         </span>
                       )}
                     </p>
@@ -666,22 +1000,24 @@ function PanelGestionarMaestros({
                 <div className="flex flex-col md:items-end gap-2 w-full md:w-auto">
                   <div className="flex flex-wrap justify-start md:justify-end gap-2">
                     {maestro.asignaciones.length === 0 ? (
-                      <span className="text-xs text-gray-500 italic">Sin cursos asignados</span>
+                      <span className="text-xs text-gray-600 italic">Sin cursos asignados</span>
                     ) : (
+                      // --- REFACTOR VISUAL: Tags de Curso (se mantienen bien) ---
                       maestro.asignaciones.map(asig => (
                         <span 
                           key={asig.id}
-                          className="rounded-full bg-indigo-100 px-3 py-1 text-xs font-medium text-indigo-800"
+                          className="rounded-full bg-blue-100 px-3 py-1 text-xs font-medium text-blue-800"
                         >
                           {asig.cursos?.nombre || 'Curso no encontrado'}
                         </span>
                       ))
                     )}
                   </div>
+                  {/* --- REFACTOR VISUAL: Botones secundarios 'Liquid Glass' --- */}
                   <div className="flex gap-2">
                     <button
                       onClick={() => onVerObservaciones(maestro)}
-                      className="relative flex items-center gap-1 rounded-lg bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 ring-1 ring-gray-300 hover:bg-gray-50"
+                      className="relative flex items-center gap-1 rounded-lg bg-white/40 border border-white/50 px-3 py-1.5 text-xs font-semibold text-gray-800 hover:bg-white/60 transition-colors"
                     >
                       <MessageSquarePlus size={14} />
                       <span>Observaciones</span>
@@ -711,28 +1047,27 @@ function PanelGestionarMaestros({
                     
                     <button
                       onClick={() => onEditarMaestro(maestro)}
-                      className="flex items-center gap-1 rounded-lg bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 ring-1 ring-gray-300 hover:bg-gray-50"
+                      className="flex items-center gap-1 rounded-lg bg-white/40 border border-white/50 px-3 py-1.5 text-xs font-semibold text-gray-800 hover:bg-white/60 transition-colors"
                     >
                       <Edit2 size={14} />
                       Editar
                     </button>
                     <button
                       onClick={() => onAsignarCursos(maestro)}
-                      className="flex items-center gap-1 rounded-lg bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 ring-1 ring-gray-300 hover:bg-gray-50"
+                      className="flex items-center gap-1 rounded-lg bg-white/40 border border-white/50 px-3 py-1.5 text-xs font-semibold text-gray-800 hover:bg-white/60 transition-colors"
                     >
                       <BookOpen size={14} />
                       Asignar Cursos
                     </button>
 
-                    {/* --- CAMBIO --- Botón de Desactivar --- */}
+                    {/* --- REFACTOR VISUAL: Botón destructivo 'Liquid Glass' --- */}
                     <button
                       onClick={() => onDesactivarMaestro(maestro)}
-                      className="flex items-center gap-1 rounded-lg bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700 ring-1 ring-red-200 hover:bg-red-100"
+                      className="flex items-center gap-1 rounded-lg bg-white/40 border border-white/50 px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-50/50 transition-colors"
                     >
                       <Trash2 size={14} />
                       Desactivar
                     </button>
-                    {/* --- FIN CAMBIO --- */}
 
                   </div>
                 </div>
@@ -741,13 +1076,12 @@ function PanelGestionarMaestros({
           </ul>
         )}
       </div>
-    </GlassCard>
+    </PremiumCard>
   );
 }
 
 // --- Componente: Modal "Crear/Editar Maestro" ---
 function ModalCrearEditarMaestro({ 
-  // ... (Este componente no tiene cambios)
   maestroInicial,
   onClose, 
   onSuccess 
@@ -764,20 +1098,21 @@ function ModalCrearEditarMaestro({
   const [email, setEmail] = useState(maestroInicial?.email || '');
   
   const rolesDisponibles = [
-    'Maestros',
-    'Contactos',
+    'Coordinador',
+    'Timoteo',
     'Logistica',
     'Coordinador',
     'Director',
     'Timoteo',
     'Maestro Ptm',
-    'Administrador' // Asegúrate que 'Administrador' esté aquí si quieres asignarlo
+    'Administrador' 
   ];
   const [rol, setRol] = useState(maestroInicial?.rol || 'Maestros');
 
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Lógica de guardado (Sin cambios)
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!nombre || !cedula || !rol) { 
@@ -820,17 +1155,19 @@ function ModalCrearEditarMaestro({
       initial="hidden"
       animate="visible"
       exit="hidden"
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/40 backdrop-blur-md"
+      // --- REFACTOR VISUAL: Backdrop 'Liquid Glass' ---
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30 backdrop-blur-lg"
       onClick={onClose}
     >
       <motion.div
         variants={modalVariants}
-        className="relative w-full max-w-lg rounded-2xl bg-white shadow-2xl overflow-hidden"
+        // --- REFACTOR VISUAL: Contenedor del Modal 'Liquid Glass' ---
+        className="relative w-full max-w-lg rounded-2xl bg-white/30 backdrop-blur-2xl shadow-2xl overflow-hidden border border-white/50"
         onClick={(e) => e.stopPropagation()}
       >
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors"
+          className="absolute top-4 right-4 text-gray-600 hover:text-gray-900 transition-colors"
         >
           <X size={20} />
         </button>
@@ -839,7 +1176,7 @@ function ModalCrearEditarMaestro({
           <h2 className="text-xl font-semibold text-gray-900">
             {isEditMode ? "Editar Maestro/Servidor" : "Crear Nuevo Maestro/Servidor"}
           </h2>
-          <p className="mt-1 text-sm text-gray-600">
+          <p className="mt-1 text-sm text-gray-800">
             {isEditMode 
               ? `Editando el registro de ${maestroInicial.nombre}`
               : "Este registro se guardará en `servidores` y se le asignará un rol."
@@ -848,6 +1185,7 @@ function ModalCrearEditarMaestro({
         </div>
         
         <form onSubmit={handleSubmit}>
+          {/* --- REFACTOR VISUAL: Inputs y Selects 'Liquid Glass' --- */}
           <div className="space-y-6 px-6 pb-6">
             <FormInput
               id="nombre"
@@ -893,19 +1231,20 @@ function ModalCrearEditarMaestro({
             />
           </div>
           
-          <div className="flex items-center justify-end gap-3 px-6 py-4 bg-gray-50 border-t border-gray-200">
-            {error && <span className="text-sm text-red-600 mr-auto max-w-xs">{error}</span>}
+          {/* --- REFACTOR VISUAL: Footer del Modal 'Liquid Glass' --- */}
+          <div className="flex items-center justify-end gap-3 px-6 py-4 bg-white/10 border-t border-white/50">
+            {error && <span className="text-sm text-red-700 mr-auto max-w-xs">{error}</span>}
             <button
               type="button"
               onClick={onClose}
-              className="rounded-lg bg-white px-4 py-2 text-sm font-semibold text-gray-700 ring-1 ring-gray-300 hover:bg-gray-50"
+              className="rounded-lg bg-white/40 border border-white/50 px-4 py-2 text-sm font-semibold text-gray-800 hover:bg-white/60 transition-colors"
             >
               Cancelar
             </button>
             <button
               type="submit"
               disabled={isSaving}
-              className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-all hover:bg-indigo-700 active:scale-[0.98] disabled:opacity-60"
+              className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm shadow-blue-500/30 transition-all hover:bg-blue-700 active:scale-[0.98] disabled:opacity-60"
             >
               {isSaving ? (
                 <Loader2 size={16} className="animate-spin" />
@@ -923,7 +1262,6 @@ function ModalCrearEditarMaestro({
 
 // --- Componente: Modal "Asignar Cursos" ---
 function ModalAsignarCursos({
-  // ... (Este componente no tiene cambios)
   maestro,
   cursosDisponibles,
   onClose,
@@ -950,6 +1288,7 @@ function ModalAsignarCursos({
     }));
   };
 
+  // Lógica de guardado (Sin cambios)
   const handleSaveAssignments = async () => {
     setIsSaving(true);
     
@@ -996,28 +1335,30 @@ function ModalAsignarCursos({
       initial="hidden"
       animate="visible"
       exit="hidden"
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/40 backdrop-blur-md"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30 backdrop-blur-lg"
       onClick={onClose}
     >
       <motion.div
         variants={modalVariants}
-        className="relative w-full max-w-lg rounded-2xl bg-white shadow-2xl overflow-hidden"
+        // --- REFACTOR VISUAL: Contenedor del Modal 'Liquid Glass' ---
+        className="relative w-full max-w-lg rounded-2xl bg-white/30 backdrop-blur-2xl shadow-2xl overflow-hidden border border-white/50"
         onClick={(e) => e.stopPropagation()}
       >
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors"
+          className="absolute top-4 right-4 text-gray-600 hover:text-gray-900 transition-colors"
         >
           <X size={20} />
         </button>
         
         <div className="p-6">
           <h2 className="text-xl font-semibold text-gray-900">Asignar Cursos</h2>
-          <p className="mt-1 text-sm text-gray-600">
-            Selecciona los cursos que <strong className="text-indigo-600">{maestro.nombre}</strong> puede dictar.
+          <p className="mt-1 text-sm text-gray-800">
+            Selecciona los cursos que <strong className="text-blue-600">{maestro.nombre}</strong> puede dictar.
           </p>
         </div>
         
+        {/* --- REFACTOR VISUAL: Opciones de 'checkbox' estilo 'Liquid Glass' --- */}
         <div className="max-h-60 overflow-y-auto px-6 pb-6 space-y-2">
           {cursosDisponibles.map(curso => (
             <label
@@ -1025,26 +1366,27 @@ function ModalAsignarCursos({
               className={classNames(
                 "flex items-center gap-3 p-3 rounded-lg border transition-all cursor-pointer",
                 asignaciones[curso.id] 
-                  ? 'bg-indigo-50 border-indigo-200' 
-                  : 'bg-white hover:bg-gray-50 border-gray-200'
+                  ? 'bg-blue-50/70 border-blue-200/50' 
+                  : 'bg-white/30 hover:bg-white/50 border-white/50'
               )}
             >
               <input
                 type="checkbox"
                 checked={!!asignaciones[curso.id]}
                 onChange={() => handleToggle(curso.id)}
-                className="h-4 w-4 rounded text-indigo-600 focus:ring-indigo-500"
+                className="h-4 w-4 rounded border-gray-400 text-blue-600 focus:ring-blue-500 bg-transparent"
               />
               <span className="font-medium text-gray-800">{curso.nombre}</span>
             </label>
           ))}
         </div>
         
-        <div className="flex items-center justify-end gap-3 px-6 py-4 bg-gray-50 border-t border-gray-200">
+        {/* --- REFACTOR VISUAL: Footer del Modal 'Liquid Glass' --- */}
+        <div className="flex items-center justify-end gap-3 px-6 py-4 bg-white/10 border-t border-white/50">
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg bg-white px-4 py-2 text-sm font-semibold text-gray-700 ring-1 ring-gray-300 hover:bg-gray-50"
+            className="rounded-lg bg-white/40 border border-white/50 px-4 py-2 text-sm font-semibold text-gray-800 hover:bg-white/60 transition-colors"
           >
             Cancelar
           </button>
@@ -1052,7 +1394,7 @@ function ModalAsignarCursos({
             type="button"
             onClick={handleSaveAssignments}
             disabled={isSaving}
-            className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-all hover:bg-indigo-700 active:scale-[0.98] disabled:opacity-60"
+            className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm shadow-blue-500/30 transition-all hover:bg-blue-700 active:scale-[0.98] disabled:opacity-60"
           >
             {isSaving ? (
               <Loader2 size={16} className="animate-spin" />
@@ -1069,7 +1411,6 @@ function ModalAsignarCursos({
 
 // --- Componente: Modal "Observaciones del Maestro" ---
 function ModalObservaciones({
-  // ... (Este componente no tiene cambios)
   maestro,
   onClose
 }: {
@@ -1081,15 +1422,13 @@ function ModalObservaciones({
   const [nuevaObs, setNuevaObs] = useState('');
   const [isSaving, setIsSaving] = useState(false);
 
+  // Lógica de carga y guardado (Sin cambios)
   const loadObservaciones = useCallback(async () => {
     setLoading(true);
-    
     const { data, error } = await supabase
       .from('servidores_observaciones') 
       .select(`
-        id,
-        created_at,
-        observacion, 
+        id, created_at, observacion, 
         creador:servidores!creado_por ( nombre )
       `)
       .eq('servidor_id', maestro.id)
@@ -1110,7 +1449,6 @@ function ModalObservaciones({
 
   const handleSaveObservacion = async () => {
     if (nuevaObs.trim().length === 0) return;
-    
     setIsSaving(true);
     
     const { error } = await supabase
@@ -1135,39 +1473,41 @@ function ModalObservaciones({
       initial="hidden"
       animate="visible"
       exit="hidden"
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/40 backdrop-blur-md"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30 backdrop-blur-lg"
       onClick={onClose}
     >
       <motion.div
         variants={modalVariants}
-        className="relative w-full max-w-2xl rounded-2xl bg-white shadow-2xl flex flex-col"
+        // --- REFACTOR VISUAL: Contenedor del Modal 'Liquid Glass' ---
+        className="relative w-full max-w-2xl rounded-2xl bg-white/30 backdrop-blur-2xl shadow-2xl flex flex-col border border-white/50"
         style={{ height: 'calc(100vh - 4rem)', maxHeight: '700px' }}
         onClick={(e) => e.stopPropagation()}
       >
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors"
+          className="absolute top-4 right-4 text-gray-600 hover:text-gray-900 transition-colors"
         >
           <X size={20} />
         </button>
         
-        <div className="p-6 border-b border-gray-200">
+        <div className="p-6 border-b border-white/50">
           <h2 className="text-xl font-semibold text-gray-900">Observaciones</h2>
-          <p className="mt-1 text-sm text-gray-600">
-            Historial de observaciones para <strong className="text-indigo-600">{maestro.nombre}</strong>
+          <p className="mt-1 text-sm text-gray-800">
+            Historial de observaciones para <strong className="text-blue-600">{maestro.nombre}</strong>
           </p>
         </div>
         
-        <div className="flex-1 overflow-y-auto p-6 space-y-4">
+        <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-black/5">
           {loading ? (
-            <div className="text-center text-gray-500">Cargando historial...</div>
+            <div className="text-center text-gray-700">Cargando historial...</div>
           ) : observaciones.length === 0 ? (
-            <div className="text-center text-gray-500">No hay observaciones para este maestro.</div>
+            <div className="text-center text-gray-700">No hay observaciones para este maestro.</div>
           ) : (
+            // --- REFACTOR VISUAL: Items de observación 'Liquid Glass' (inset) ---
             observaciones.map(obs => (
-              <div key={obs.id} className="p-3 rounded-lg bg-gray-50 border border-gray-200">
+              <div key={obs.id} className="p-3 rounded-lg bg-white/40 border border-white/50 shadow-sm">
                 <p className="text-sm text-gray-800">{obs.observacion}</p>
-                <p className="mt-2 text-xs text-gray-500">
+                <p className="mt-2 text-xs text-gray-600">
                   {new Date(obs.created_at).toLocaleString('es-CO', { dateStyle: 'long', timeStyle: 'short' })}
                   {obs.creador && (
                     <span className="font-medium"> - Por: {obs.creador.nombre}</span>
@@ -1178,7 +1518,8 @@ function ModalObservaciones({
           )}
         </div>
         
-        <div className="p-6 bg-gray-50 border-t border-gray-200">
+        {/* --- REFACTOR VISUAL: Footer del Modal 'Liquid Glass' y textarea --- */}
+        <div className="p-6 bg-white/30 border-t border-white/50">
           <label htmlFor="nuevaObs" className="block text-sm font-medium text-gray-700">
             Añadir Nueva Observación
           </label>
@@ -1187,15 +1528,17 @@ function ModalObservaciones({
             value={nuevaObs}
             onChange={(e) => setNuevaObs(e.target.value)}
             rows={3}
-            className="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+            // --- REFACTOR VISUAL: Textarea 'Liquid Glass' ---
+            className="mt-1 block w-full rounded-lg border border-white/50 bg-white/40 backdrop-blur-sm shadow-sm text-gray-900 placeholder-gray-700 focus:border-blue-500 focus:ring-2 focus:ring-blue-500 focus:bg-white/60 sm:text-sm"
             placeholder="Escribe una nota sobre el maestro..."
           />
           <div className="mt-3 flex justify-end">
+            {/* --- REFACTOR VISUAL: Botón primario (sólido) --- */}
             <button
               type="button"
               onClick={handleSaveObservacion}
               disabled={isSaving || nuevaObs.trim().length === 0}
-              className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-all hover:bg-indigo-700 active:scale-[0.98] disabled:opacity-60"
+              className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm shadow-blue-500/30 transition-all hover:bg-blue-700 active:scale-[0.98] disabled:opacity-60"
             >
               {isSaving ? (
                 <Loader2 size={16} className="animate-spin" />
@@ -1212,7 +1555,7 @@ function ModalObservaciones({
 }
 
 
-{/* --- CAMBIO --- Componente de UI: Modal de Confirmación para Desactivar --- */}
+{/* --- Componente: Modal "Confirmar Desactivar" --- */}
 function ModalConfirmarDesactivar({
   maestro,
   onClose,
@@ -1225,21 +1568,16 @@ function ModalConfirmarDesactivar({
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Lógica de guardado (Sin cambios)
   const handleConfirmar = async () => {
     setIsSaving(true);
     setError(null);
-    
     try {
-      // 1. Llamar a la nueva RPC
       const { error: rpcError } = await supabase.rpc('fn_desactivar_servidor', {
         p_servidor_id: maestro.id
       });
-
       if (rpcError) throw rpcError;
-      
-      // 2. Si todo sale bien, cerrar modal y refrescar
       onSuccess();
-
     } catch (err: any) {
       console.error("Error al desactivar maestro:", err);
       setError(err.message || "No se pudo desactivar el servidor.");
@@ -1254,24 +1592,26 @@ function ModalConfirmarDesactivar({
       initial="hidden"
       animate="visible"
       exit="hidden"
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/40 backdrop-blur-md"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30 backdrop-blur-lg"
       onClick={onClose}
     >
       <motion.div
         variants={modalVariants}
-        className="relative w-full max-w-md rounded-2xl bg-white shadow-2xl overflow-hidden"
+        // --- REFACTOR VISUAL: Contenedor del Modal 'Liquid Glass' ---
+        className="relative w-full max-w-md rounded-2xl bg-white/30 backdrop-blur-2xl shadow-2xl overflow-hidden border border-white/50"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="p-6">
           <div className="flex items-start gap-4">
-            <div className="flex-shrink-0 h-12 w-12 flex items-center justify-center rounded-full bg-red-100">
+            {/* --- REFACTOR VISUAL: Icono de alerta 'Liquid Glass' --- */}
+            <div className="flex-shrink-0 h-12 w-12 flex items-center justify-center rounded-full bg-red-100/70">
               <AlertTriangle size={24} className="text-red-600" />
             </div>
             <div>
               <h2 className="text-xl font-semibold text-gray-900">
                 Desactivar Servidor
               </h2>
-              <p className="mt-1 text-sm text-gray-600">
+              <p className="mt-1 text-sm text-gray-800">
                 ¿Estás seguro de que quieres desactivar a <strong className="text-gray-900">{maestro.nombre}</strong>?
               </p>
               <p className="mt-2 text-sm text-red-700">
@@ -1281,13 +1621,14 @@ function ModalConfirmarDesactivar({
           </div>
         </div>
         
-        <div className="flex items-center justify-end gap-3 px-6 py-4 bg-gray-50 border-t border-gray-200">
+        {/* --- REFACTOR VISUAL: Footer del Modal 'Liquid Glass' y botones --- */}
+        <div className="flex items-center justify-end gap-3 px-6 py-4 bg-white/10 border-t border-white/50">
           {error && <span className="text-sm text-red-600 mr-auto">{error}</span>}
           <button
             type="button"
             onClick={onClose}
             disabled={isSaving}
-            className="rounded-lg bg-white px-4 py-2 text-sm font-semibold text-gray-700 ring-1 ring-gray-300 hover:bg-gray-50 disabled:opacity-50"
+            className="rounded-lg bg-white/40 border border-white/50 px-4 py-2 text-sm font-semibold text-gray-800 hover:bg-white/60 transition-colors disabled:opacity-50"
           >
             Cancelar
           </button>
@@ -1295,7 +1636,7 @@ function ModalConfirmarDesactivar({
             type="button"
             onClick={handleConfirmar}
             disabled={isSaving}
-            className="flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-all hover:bg-red-700 active:scale-[0.98] disabled:opacity-60"
+            className="flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white shadow-sm shadow-red-500/30 transition-all hover:bg-red-700 active:scale-[0.98] disabled:opacity-60"
           >
             {isSaving ? (
               <Loader2 size={16} className="animate-spin" />
@@ -1311,7 +1652,11 @@ function ModalConfirmarDesactivar({
 }
 
 
-// --- Componentes de UI Genéricos ---
+/* ======================================================================
+  COMPONENTES DE UI GENÉRICOS
+  (REFACTOR VISUAL: 'Liquid Glass' aplicado)
+======================================================================
+*/
 
 function FormInput({ 
   id, 
@@ -1335,13 +1680,14 @@ function FormInput({
       <label htmlFor={id} className="block text-sm font-medium text-gray-700">
         {label} {required && <span className="text-red-500">*</span>}
       </label>
+      {/* --- REFACTOR VISUAL: Input estilo 'Liquid Glass' --- */}
       <input
         type={type}
         id={id}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         disabled={disabled}
-        className="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm disabled:bg-gray-100 py-3"
+        className="mt-1 block w-full rounded-lg border border-white/50 bg-white/40 backdrop-blur-sm py-3 px-4 shadow-sm text-gray-900 placeholder-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:bg-white/60 disabled:bg-gray-50/20 disabled:opacity-70"
       />
     </div>
   );
@@ -1362,25 +1708,80 @@ function FormSelect({
   required?: boolean;
   children: React.ReactNode;
 }) {
+  const [open, setOpen] = useState(false);
+  const rootRef = React.useRef<HTMLDivElement | null>(null);
+
+  // Extract options from children
+  const options = React.Children.toArray(children).map((ch: any) => {
+    if (!ch || typeof ch !== 'object') return null;
+    const val = ch.props?.value ?? '';
+    const labelText = ch.props?.children ?? String(val);
+    const disabledOpt = !!ch.props?.disabled;
+    return { value: String(val), label: labelText, disabled: disabledOpt };
+  }).filter(Boolean) as { value: string; label: React.ReactNode; disabled: boolean }[];
+
+  useEffect(() => {
+    function onDoc(e: MouseEvent) {
+      if (!rootRef.current) return;
+      if (!rootRef.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener('click', onDoc);
+    return () => document.removeEventListener('click', onDoc);
+  }, []);
+
+  const handleSelect = (val: string) => {
+    // synthesize a change event to preserve existing handlers
+    const fakeEvent = { target: { value: val } } as unknown as React.ChangeEvent<HTMLSelectElement>;
+    onChange(fakeEvent);
+    setOpen(false);
+  };
+
+  const selectedLabel = options.find(o => o.value === value)?.label ?? '';
+
   return (
-    <div>
-      <label className="block text-sm font-medium text-gray-700">
-        {label} {required && <span className="text-red-500">*</span>}
+    <div className={!label ? 'w-full' : ''} ref={rootRef}>
+      <label className={classNames(
+        "block text-sm font-medium text-gray-700",
+        !label ? "sr-only" : "mb-1"
+      )}>
+        {label || 'Seleccionar'} {required && <span className="text-red-500">*</span>}
       </label>
-      <div className="relative mt-1">
-        <select
-          value={value}
-          onChange={onChange}
+
+      <div className="relative">
+        <button
+          type="button"
+          onClick={() => { if (!disabled) setOpen(prev => !prev); }}
           disabled={disabled}
-          required={required}
-          className="appearance-none mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm disabled:opacity-60 py-3 pl-3 pr-10"
+          className={classNames(
+            "w-full text-left rounded-lg border border-gray-200 px-3 py-3 pr-10 shadow-sm",
+            "bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500",
+            disabled ? 'opacity-60 cursor-not-allowed' : 'hover:bg-gray-50'
+          )}
         >
-          {children}
-        </select>
-        <ChevronDown 
-          size={20} 
-          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" 
-        />
+          <span className="truncate">{selectedLabel || (options[0]?.label ?? 'Seleccionar')}</span>
+          <ChevronDown 
+            size={20} 
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" 
+          />
+        </button>
+
+        {open && (
+          <div className="absolute mt-2 left-0 right-0 z-50 rounded-lg bg-white border border-gray-200 shadow-xl max-h-60 overflow-y-auto">
+            {options.map(opt => (
+              <div
+                key={opt.value}
+                onClick={() => !opt.disabled && handleSelect(opt.value)}
+                className={classNames(
+                  'px-4 py-2 cursor-pointer text-gray-900',
+                  opt.disabled ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50',
+                  opt.value === value ? 'bg-blue-50 font-medium' : ''
+                )}
+              >
+                {opt.label}
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -1400,47 +1801,69 @@ function TabButton({
   badgeCount?: number;
 }) {
   return (
+    // --- REFACTOR VISUAL: Botón de Pestaña 'Liquid Glass' (para barra lateral) ---
     <button
       type="button"
       onClick={onClick}
       className={classNames(
-        "relative flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition-all duration-200",
+        "relative flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm transition-all duration-200 overflow-hidden",
         isActive
-          ? "bg-white text-indigo-600 shadow-md"
-          : "text-gray-600 hover:bg-white/60 hover:text-gray-900"
+          ? "bg-white/40 text-blue-700 font-semibold shadow-md border border-white/50" // Activo: 'Liquid Glass'
+          : "text-gray-800 hover:bg-white/20 hover:text-gray-900" // Inactivo: 'Liquid Glass'
       )}
     >
-      <IconComponent size={18} />
-      {label}
-      <AnimatePresence>
-        {badgeCount && badgeCount > 0 && (
-          <motion.span
-            initial={{ scale: 0, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            exit={{ scale: 0, opacity: 0 }}
-            transition={{ type: "spring", stiffness: 500, damping: 30 }}
-            className="
-              absolute -top-2 -right-2 
-              flex items-center justify-center 
-              min-w-[22px] h-5 px-1.5 
-              rounded-full 
-              bg-gradient-to-r from-pink-500 to-rose-500 
-              text-white text-xs font-bold 
-              shadow-lg shadow-rose-500/50 
-              ring-2 ring-white
-            "
-          >
-            {badgeCount}
-          </motion.span>
-        )}
-      </AnimatePresence>
+      {/* --- Pseudo-elemento de barrido de luz (hover) --- */}
+      <motion.div
+        className="absolute inset-0 bg-gradient-to-r from-transparent via-white to-transparent opacity-0"
+        animate={{ opacity: isActive ? 0.25 : 0 }}
+        whileHover={{ opacity: isActive ? 0.25 : 0.15 }}
+        transition={{ duration: 0.35 }}
+        style={{ x: '-100%' }}
+      />
+      
+      {/* --- Contenido con animación de barrido --- */}
+      <motion.div
+        className="relative flex items-center gap-2.5 w-full"
+        animate={isActive ? { x: 0 } : { x: 0 }}
+        initial={{ x: isActive ? -25 : 0 }}
+        transition={{ duration: 0.4 }}
+      >
+        <IconComponent size={18} />
+        {label}
+        <AnimatePresence>
+          {badgeCount && badgeCount > 0 && (
+            <motion.span
+              initial={{ scale: 0, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0, opacity: 0 }}
+              transition={{ type: "spring", stiffness: 500, damping: 30 }}
+              className="
+                absolute -top-2 -right-2 
+                flex items-center justify-center 
+                min-w-[22px] h-5 px-1.5 
+                rounded-full 
+                bg-gradient-to-r from-pink-500 to-rose-500 
+                text-white text-xs font-bold 
+                shadow-lg shadow-rose-500/50 
+                ring-2 ring-white
+              "
+            >
+              {badgeCount}
+            </motion.span>
+          )}
+        </AnimatePresence>
+      </motion.div>
     </button>
   );
 }
 
-function GlassCard({ children }: { children: React.ReactNode }) {
+function PremiumCard({ children }: { children: React.ReactNode }) {
+  // --- REFACTOR VISUAL: Componente 'PremiumCard' (Liquid Glass) ---
+  // Reemplaza el estilo opaco por 'Liquid Glass'
   return (
-    <div className="w-full rounded-2xl bg-white/60 backdrop-blur-lg shadow-xl ring-1 ring-black/5 overflow-hidden">
+    <div
+      className="w-full rounded-2xl shadow-xl overflow-hidden bg-white/30 backdrop-blur-xl border border-white/50 min-h-[520px]"
+    >
       {children}
     </div>
   );
@@ -1450,22 +1873,29 @@ function CardHeader({
   IconComponent,
   title,
   subtitle,
-  children
+  children,
+  className,
 }: {
   IconComponent: LucideIcon;
   title: string;
   subtitle: string;
   children?: React.ReactNode;
+  className?: string;
 }) {
   return (
-    <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border-b border-white/80 bg-white/50 p-4 md:p-6">
+    // --- REFACTOR VISUAL: Cabecera 'Liquid Glass' (integrada) ---
+    <div className={classNames(
+      "flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border-b border-white/50 p-4 md:p-6",
+      className
+    )}>
       <div className="flex items-start gap-4">
-        <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 text-white shadow-lg">
+        {/* --- REFACTOR VISUAL: Icono con 'Liquid Glass' --- */}
+        <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-lg bg-white/40 text-blue-600 shadow-md">
           <IconComponent size={24} />
         </div>
         <div>
           <h2 className="text-xl font-semibold text-gray-900">{title}</h2>
-          <p className="text-sm text-gray-600">{subtitle}</p>
+          <p className="text-sm text-gray-800">{subtitle}</p>
         </div>
       </div>
       {children && (

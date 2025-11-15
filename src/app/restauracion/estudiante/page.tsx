@@ -99,6 +99,9 @@ export default function EstudiantePage() {
   const [isAttendanceModalOpen, setIsAttendanceModalOpen] = useState(false);
   const [isAttendanceModeActive, setIsAttendanceModeActive] = useState(false);
   const [attendanceClassId, setAttendanceClassId] = useState<number | null>(null);
+  const [isAttendanceCompleted, setIsAttendanceCompleted] = useState(false);
+  const [showConfirmation, setShowConfirmation] = useState(false);
+  const [showAttendanceAlreadyTakenModal, setShowAttendanceAlreadyTakenModal] = useState(false);
   // ...
 
   // ... (useMemo de asistenciasPendientes sin cambios) ...
@@ -515,6 +518,7 @@ export default function EstudiantePage() {
   const completeAttendanceMode = () => {
     toast.success("Asistencia finalizada correctamente");
     cancelAttendanceMode();
+    setIsAttendanceCompleted(true);
   };
   
   // --- Helpers de UI (sin cambios) ---
@@ -745,10 +749,19 @@ export default function EstudiantePage() {
             onGoBackToWelcome={handleGoBackToWelcome}
             fotoUrls={fotoUrls}
             isAttendanceModeActive={isAttendanceModeActive}
-            onStartAttendance={() => setIsAttendanceModalOpen(true)}
+            onStartAttendance={() => {
+              if (isAttendanceCompleted) {
+                setShowAttendanceAlreadyTakenModal(true);
+              } else {
+                setIsAttendanceModalOpen(true);
+              }
+            }}
             onMarkAttendanceDB={handleMarkAttendanceDB}
             onCancelAttendance={cancelAttendanceMode}
             onCompleteAttendance={completeAttendanceMode}
+            isAttendanceCompleted={isAttendanceCompleted}
+            showConfirmation={showConfirmation}
+            setShowConfirmation={setShowConfirmation}
           />
         )}
 
@@ -965,6 +978,25 @@ export default function EstudiantePage() {
           }}
         />
       )}
+
+      {showConfirmation && (
+        <CupertinoConfirmationDialog
+          onConfirm={() => {
+            window.location.reload();
+          }}
+          onCancel={() => {
+            setShowConfirmation(false);
+          }}
+        />
+      )}
+
+      {showAttendanceAlreadyTakenModal && (
+        <CupertinoAlertDialog
+          title="Asistencia Registrada"
+          message="Ya has registrado la asistencia para esta clase. El botón se activará nuevamente para la próxima sesión. Para agregar una nueva asistencia, dirígete a la pestaña 'Asistencia'."
+          onConfirm={() => setShowAttendanceAlreadyTakenModal(false)}
+        />
+      )}
     </main>
   );
 }
@@ -990,6 +1022,9 @@ function StudentSidebar({
   onCancelAttendance,
   onCompleteAttendance,
   onMarkAttendanceDB,
+  isAttendanceCompleted,
+  showConfirmation,
+  setShowConfirmation,
 }: {
   students: EstudianteInscrito[]; 
   selectedStudentId: string | null;
@@ -1005,6 +1040,9 @@ function StudentSidebar({
   onCancelAttendance: () => void;
   onCompleteAttendance: () => void;
   onMarkAttendanceDB: (inscripcion_id: string, status: 'si' | 'no') => Promise<void>;
+  isAttendanceCompleted: boolean;
+  showConfirmation: boolean;
+  setShowConfirmation: (show: boolean) => void;
 }) {
   const isDetailView = mainState === 'creating' || mainState === 'viewing';
 
@@ -1155,13 +1193,12 @@ function StudentSidebar({
         {/* Se eliminó el botón de Matricular */}
         <button
           onClick={onStartAttendance}
-          disabled={isAttendanceModeActive}
           className="flex w-full items-center justify-center gap-2 rounded-2xl border py-3 text-sm font-medium backdrop-blur-sm transition-all
             border-emerald-300/50 bg-gradient-to-br from-emerald-100 via-white to-teal-100 text-emerald-900 shadow-lg hover:shadow-[0_15px_35px_-15px_rgba(16,185,129,0.5)]
             disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <UserCheck size={18} />
-          <span>Tomar Asistencia</span>
+          <span>{isAttendanceCompleted ? "Asistencia Tomada" : "Tomar Asistencia"}</span>
         </button>
       </div>
       
@@ -1671,5 +1708,87 @@ function PremiumAttendanceButton({
         {icon}
       </div>
     </button>
+  );
+}
+
+function CupertinoConfirmationDialog({
+  onConfirm,
+  onCancel,
+}: {
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" />
+      <div
+        className="
+          relative w-full max-w-sm flex flex-col
+          rounded-3xl border border-white/70 bg-white/70 backdrop-blur-2xl
+          shadow-2xl overflow-hidden
+        "
+      >
+        <div className="p-6 text-center">
+          <h3 className="text-lg font-semibold text-gray-900">Asistencia ya registrada</h3>
+          <p className="mt-2 text-sm text-gray-700">
+            La asistencia para esta clase ya ha sido tomada. ¿Desea tomarla de nuevo? Esto refrescará la página.
+          </p>
+        </div>
+        <div className="grid grid-cols-2 border-t border-white/60">
+          <button
+            onClick={onCancel}
+            className="p-4 text-sm font-semibold text-blue-600 transition-colors hover:bg-white/20"
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={onConfirm}
+            className="p-4 text-sm font-semibold text-blue-600 border-l border-white/60 transition-colors hover:bg-white/20"
+          >
+            Tomar de nuevo
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CupertinoAlertDialog({
+  title,
+  message,
+  onConfirm,
+  confirmText = 'Entendido',
+}: {
+  title: string;
+  message: string;
+  onConfirm: () => void;
+  confirmText?: string;
+}) {
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" />
+      <div
+        className="
+          relative w-full max-w-sm flex flex-col
+          rounded-3xl border border-white/70 bg-white/70 backdrop-blur-2xl
+          shadow-2xl overflow-hidden
+        "
+      >
+        <div className="p-6 text-center">
+          <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
+          <p className="mt-2 text-sm text-gray-700">
+            {message}
+          </p>
+        </div>
+        <div className="grid grid-cols-1 border-t border-white/60">
+          <button
+            onClick={onConfirm}
+            className="p-4 text-sm font-semibold text-blue-600 transition-colors hover:bg-white/20"
+          >
+            {confirmText}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }

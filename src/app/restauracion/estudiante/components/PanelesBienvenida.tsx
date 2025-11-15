@@ -184,7 +184,7 @@ function CourseFolder({
     >
       <Folder 
         className={`
-          w-20 h-20 md:w-24 md:h-24 mb-2 md:mb-3 ${colorClasses} 
+          w-24 h-24 md:w-28 md:h-28 mb-2 md:mb-3 ${colorClasses} 
           transition-all ${duration} ${appleEase}
           drop-shadow-md 
           group-hover:drop-shadow-lg 

@@ -359,6 +359,8 @@ export async function getMesesDisponibles(): Promise<OpcionSelector[]> {
   return options;
 }
 
+type StudentGrades = Record<number, Record<number, string>>;
+
 /**
  * NUEVA FUNCIÓN
  * Obtiene una lista de todas las semanas que tienen registros de asistencia.
@@ -398,4 +400,49 @@ export async function getSemanasDisponibles(): Promise<OpcionSelector[]> {
   });
 
   return options;
+}
+
+export async function marcarAsistencia(inscripcion_id: string, classId: number, status: 'si' | 'no'): Promise<{ success: boolean; error?: string, newGrades?: StudentGrades }> {
+  unstable_noStore();
+  const supabaseAdmin = getSupabaseAdminClient();
+  const topicId = 1; // Asistencia
+
+  try {
+    // 1. Get current attendance data
+    const { data: currentData, error: getError } = await supabaseAdmin
+      .from('asistencias_academia')
+      .select('asistencias')
+      .eq('inscripcion_id', inscripcion_id)
+      .single();
+
+    if (getError && getError.code !== 'PGRST116') {
+      // PGRST116 means no rows found, which is fine.
+      throw getError;
+    }
+
+    const currentGrades = (currentData?.asistencias as StudentGrades) || {};
+    
+    // 2. Update the specific class attendance
+    const newTopicGrades = { ...(currentGrades[topicId] || {}), [classId]: status };
+    const newStudentGrades = { ...currentGrades, [topicId]: newTopicGrades };
+
+    // 3. Upsert the new attendance data
+    const { error: upsertError } = await supabaseAdmin
+      .from('asistencias_academia')
+      .upsert({
+        inscripcion_id: inscripcion_id,
+        asistencias: newStudentGrades,
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'inscripcion_id' });
+
+    if (upsertError) {
+      throw upsertError;
+    }
+
+    return { success: true, newGrades: newStudentGrades };
+
+  } catch (error: any) {
+    console.error("Error en marcarAsistencia server action:", error);
+    return { success: false, error: error.message };
+  }
 }
