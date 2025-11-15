@@ -267,30 +267,15 @@ export default function AdminPage() {
       {/* ================================================= */}
       {/* CAMBIO 2: 'min-h-screen' -> 'h-screen'            */}
       {/* ================================================= */}
-      <main className="flex h-screen w-full text-gray-900">
+      <main className="flex flex-col-reverse h-screen w-full text-gray-900 md:flex-row">
         
         {/* --- REFACTOR VISUAL: Barra Lateral Izquierda (Efecto Vidrio) --- */}
         {/* ================================================= */}
         {/* CAMBIO 3: Añadido 'overflow-y-auto' a la barra  */}
         {/* ================================================= */}
-        <nav className="w-64 flex-shrink-0 bg-white/30 backdrop-blur-xl p-4 flex flex-col gap-6 border-r border-white/50 shadow-lg overflow-y-auto">
-          {/* Header/Logo */}
-          <header className="px-2 pt-2">
-            <div className="flex items-center gap-2">
-              <div className="p-2 bg-white/40 rounded-lg shadow-md">
-                <LayoutDashboard className="h-6 w-6 text-blue-600" />
-              </div>
-              <h1 className="text-xl font-bold tracking-tight text-gray-900">
-                AdminPanel
-              </h1>
-            </div>
-            <p className="mt-2 text-sm text-gray-800">
-              Gestión de academia.
-            </p>
-          </header>
-          
-          {/* --- REFACTOR VISUAL: Pestañas verticales (estilo 'Liquid Glass') --- */}
-          <div className="flex flex-col gap-2">
+        <nav className="fixed bottom-0 left-0 right-0 z-40 flex h-16 w-full flex-row items-center justify-around bg-white/30 backdrop-blur-xl p-2 border-t border-white/50 shadow-lg overflow-x-auto md:relative md:h-auto md:w-64 md:flex-shrink-0 md:flex-col md:items-stretch md:justify-start md:p-4 md:border-r md:border-white/50 md:shadow-lg md:overflow-y-auto">
+          {/* Contenido de la barra lateral */}
+          <div className="flex md:flex-col gap-2">
             <TabButton
               IconComponent={Server}
               label="Gestionar Servidores"
@@ -1210,8 +1195,8 @@ function ModalCrearEditarMaestro({
               required
             >
               <option value="" disabled={rol !== ""}>Selecciona un rol...</option>
-              {rolesDisponibles.map(r => (
-                <option key={r} value={r}>{r}</option>
+              {rolesDisponibles.map((r, index) => (
+                <option key={`${r}-${index}`} value={r}>{r}</option>
               ))}
             </FormSelect>
 
