@@ -260,7 +260,7 @@ function CardHeader({
   children?: React.ReactNode;
 }) {
   return (
-    <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border-b border-white/80 bg-white/50 p-4 md:p-6">
+    <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 p-4 md:p-6 rounded-t-2xl bg-gradient-to-br from-indigo-50/30 via-white/70 to-white/50 backdrop-blur-md ring-1 ring-white/30 border-b border-white/60 shadow-sm">
       <div className="flex items-start gap-4">
         <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 text-white shadow-lg">
           <IconComponent size={24} />
@@ -1117,7 +1117,9 @@ export default function GestionServidores() {
 
                     {/* Fila 2: Roles (Tarjetas Premium) */}
                     <div className="mt-8" ref={rolesCardRef}>
-                        <h3 className="text-lg font-semibold text-gray-900 mb-4">Rol del Servidor</h3>
+                        <div className="inline-block mb-4 rounded-md bg-gradient-to-br from-indigo-50/30 to-white/70 backdrop-blur-sm ring-1 ring-white/30 px-3 py-1">
+                            <h3 className="text-lg font-semibold text-gray-900">Rol del Servidor</h3>
+                        </div>
                         {guidedError?.key === 'rol' && (
                             <p className="mb-2 text-xs font-semibold text-red-600">
                                 {guidedError.msg}
@@ -1142,16 +1144,19 @@ export default function GestionServidores() {
                                                 else if (valor === 'Contactos' || valor === 'Maestros') setContactosModalVisible(true);
                                             }}
                                         />
-                                        <div className={`
-                                            flex flex-col items-center justify-center
-                                            p-4 h-24 rounded-lg border-2
-                                            transition-all duration-200
-                                            ${checked
-                                              ? 'bg-indigo-50 border-indigo-500 shadow-lg scale-[1.03]' 
-                                              : 'bg-white border-gray-200 hover:border-gray-400 hover:bg-gray-50'
-                                            }
+                                                                                <div className={`
+                                            inline-flex items-center justify-center gap-2
+                                            px-3 py-1 h-8 rounded-full border
+                                                                                        transition-all duration-200 ease-in-out transform
+                                                                                        hover:scale-105 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-indigo-300
+                                            backdrop-blur-sm
+                                                                                    whitespace-nowrap
+                                                                                        ${checked
+                                                                                              ? 'bg-gradient-to-br from-indigo-100/40 to-white/10 border-indigo-300 text-indigo-800 shadow-sm scale-105' 
+                                                                                            : 'bg-white/20 border-gray-200 hover:bg-indigo-50/20 text-gray-700'
+                                                                                        }
                                         `}>
-                                            <span className={`font-semibold text-sm ${checked ? 'text-indigo-700' : 'text-gray-700'}`}>
+                                            <span className={`font-semibold text-xs ${checked ? 'text-indigo-700' : 'text-gray-700'}`}>
                                                 {uiRoleLabel(r)}
                                             </span>
                                             {/* Icono (opcional) o descripción */}
@@ -1165,7 +1170,9 @@ export default function GestionServidores() {
                     {/* Fila 3: Opciones de Logística (Condicional) */}
                     {rolEs(form.rol, 'Logistica') && (
                         <div className="mt-8" ref={logisticaCultosRef}>
-                            <h3 className="text-lg font-semibold text-gray-900 mb-4">Asignación de Logística</h3>
+                            <div className="inline-block mb-4 rounded-md bg-gradient-to-br from-indigo-50/30 to-white/70 backdrop-blur-sm ring-1 ring-white/30 px-3 py-1">
+                                <h3 className="text-lg font-semibold text-gray-900">Asignación de Logística</h3>
+                            </div>
                             <div className={`grid grid-cols-1 md:grid-cols-4 gap-4 p-4 rounded-lg bg-white/50 border ${errores.culto ? 'border-red-300' : 'border-gray-200'}`}>
                                 {Object.entries(form.cultos).map(([dia, valorActual]) => (
                                     <div key={dia} className="relative">

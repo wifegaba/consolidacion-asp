@@ -35,12 +35,10 @@ import {
   CONVIVENCIA,
   CEField,
   EditableRow,
-  // Chip se importa desde utils, aunque no se usa aquí directamente, 
-  // sino dentro de EditableRowBool y EditableRowBool_SNNS
   EditableRowSelect,
   EditableRowBool,
-  EditableRowBool_SNNS
-} from './academia.utils'; // <-- CORRECCIÓN: Eliminada la extensión .tsx
+  EditableRowBool_SNNS,
+} from './academia.utils';
 
 // --- 2. EL COMPONENTE 'HojaDeVidaPanel' ---
 export function HojaDeVidaPanel({
@@ -75,22 +73,22 @@ export function HojaDeVidaPanel({
 
   const onCE =
     (k: keyof Entrevista) => (e: React.FormEvent<HTMLSpanElement>) => {
-      const t = (e.currentTarget.innerText || "").trim();
+      const t = (e.currentTarget.innerText || '').trim();
       setF(k, t as any);
     };
 
   const onBool =
-    (k: keyof Entrevista) => (v: "si" | "no" | null) => {
-      setF(k, v === "si" ? true : v === "no" ? false : null);
+    (k: keyof Entrevista) => (v: 'si' | 'no' | null) => {
+      setF(k, v === 'si' ? true : v === 'no' ? false : null);
     };
-    
+
   const onBoolString =
-    (k: keyof Entrevista) => (v: "si" | "no" | null) => {
+    (k: keyof Entrevista) => (v: 'si' | 'no' | null) => {
       setF(k, v);
     };
 
   const onBoolSNNS =
-    (k: keyof Entrevista) => (v: "si" | "no" | "no_sabe" | null) => {
+    (k: keyof Entrevista) => (v: 'si' | 'no' | 'no_sabe' | null) => {
       setF(k, v);
     };
 
@@ -99,7 +97,7 @@ export function HojaDeVidaPanel({
       setEdit(true);
       return;
     }
-    
+
     try {
       setSaving(true);
       const payload = {
@@ -133,73 +131,75 @@ export function HojaDeVidaPanel({
         updated_at: new Date().toISOString(),
         labora_actualmente: form.labora_actualmente ?? null,
         viene_otra_iglesia: form.viene_otra_iglesia ?? null,
-        otra_iglesia_nombre: form.viene_otra_iglesia === 'si' ? form.otra_iglesia_nombre : null,
+        otra_iglesia_nombre:
+          form.viene_otra_iglesia === 'si' ? form.otra_iglesia_nombre : null,
         tiempo_oracion: form.tiempo_oracion ?? null,
         frecuencia_lectura_biblia: form.frecuencia_lectura_biblia ?? null,
         motivo_ayuno: form.ayuna === 'si' ? form.motivo_ayuno : null,
         meta_personal: form.meta_personal ?? null,
         enfermedad: form.enfermedad ?? null,
         tratamiento_clinico: form.tratamiento_clinico ?? null,
-        motivo_tratamiento: form.tratamiento_clinico === 'si' ? form.motivo_tratamiento : null,
+        motivo_tratamiento:
+          form.tratamiento_clinico === 'si' ? form.motivo_tratamiento : null,
         retiros_asistidos: form.retiros_asistidos ?? null,
         convivencia: form.convivencia ?? null,
         recibe_consejeria: form.recibe_consejeria ?? null,
-        motivo_consejeria: form.recibe_consejeria === 'si' ? form.motivo_consejeria : null,
+        motivo_consejeria:
+          form.recibe_consejeria === 'si' ? form.motivo_consejeria : null,
         cambios_emocionales: form.cambios_emocionales ?? null,
         desempeno_clase: form.desempeno_clase ?? null,
         maestro_encargado: form.maestro_encargado ?? null,
       };
 
       const { data, error } = await supabase
-        .from("entrevistas")
+        .from('entrevistas')
         .update(payload)
-        .eq("id", form.id)
-        .select("*")
+        .eq('id', form.id)
+        .select('*')
         .single();
 
       if (error) throw error;
       onUpdated(data as Entrevista);
       setEdit(false);
     } catch (e: any) {
-      alert(e?.message ?? "Error actualizando");
+      alert(e?.message ?? 'Error actualizando');
     } finally {
       setSaving(false);
     }
   }
 
   async function handleDelete() {
-    if (!confirm("¿Eliminar definitivamente esta entrevista?")) return;
+    if (!confirm('¿Eliminar definitivamente esta entrevista?')) return;
     try {
       setSaving(true);
       if (form.foto_path) {
         await supabase.storage
-          .from("entrevistas-fotos")
+          .from('entrevistas-fotos')
           .remove([form.foto_path]);
       }
       const { error } = await supabase
-        .from("entrevistas")
+        .from('entrevistas')
         .delete()
-        .eq("id", form.id);
+        .eq('id', form.id);
       if (error) throw error;
       onDeleted(form.id);
     } catch (e: any) {
-      alert(e?.message ?? "Error eliminando");
+      alert(e?.message ?? 'Error eliminando');
     } finally {
       setSaving(false);
     }
   }
-  
+
   async function handleChangeFoto(file: File) {
-    if (!file.type.startsWith("image/")) return;
+    if (!file.type.startsWith('image/')) return;
     if (file.size > 12 * 1024 * 1024) return;
 
     setUploadingFoto(true);
     let whiteFile;
     try {
-      // toWhiteBackground ahora se importa desde utils
-      whiteFile = await toWhiteBackground(file); 
+      whiteFile = await toWhiteBackground(file);
     } catch (e) {
-      console.warn("Background removal falló, uso original:", e);
+      console.warn('Background removal falló, uso original:', e);
       whiteFile = file;
     }
 
@@ -215,35 +215,39 @@ export function HojaDeVidaPanel({
 
     try {
       const up = await supabase.storage
-        .from("entrevistas-fotos")
-        .upload(path, compact, { cacheControl: "0", upsert: true, contentType: compact.type || "image/webp" });
+        .from('entrevistas-fotos')
+        .upload(path, compact, {
+          cacheControl: '0',
+          upsert: true,
+          contentType: compact.type || 'image/webp',
+        });
       if (up.error) throw up.error;
 
       const { data: updated, error: upErr } = await supabase
-        .from("entrevistas")
+        .from('entrevistas')
         .update({ foto_path: path, updated_at: new Date().toISOString() })
-        .eq("id", row.id)
-        .select("*")
+        .eq('id', row.id)
+        .select('*')
         .single();
       if (upErr) throw upErr;
 
       const signed = await supabase.storage
-        .from("entrevistas-fotos")
+        .from('entrevistas-fotos')
         .createSignedUrl(path, 60 * 10);
       if (signed.error) throw signed.error;
 
       const signedBusted = bustUrl(signed.data?.signedUrl) ?? null;
 
       if (oldPath) {
-        await supabase.storage.from("entrevistas-fotos").remove([oldPath]);
+        await supabase.storage.from('entrevistas-fotos').remove([oldPath]);
       }
 
-      setF("foto_path", path);
+      setF('foto_path', path);
       setLocalSignedUrl(signedBusted);
       onUpdated({ ...(updated as Entrevista), _tempPreview: null });
     } catch (e: any) {
       onUpdated({ ...row, _tempPreview: null });
-      alert(e?.message ?? "No se pudo subir la foto");
+      alert(e?.message ?? 'No se pudo subir la foto');
     } finally {
       setUploadingFoto(false);
       if (tempObjUrlRef.current) {
@@ -254,28 +258,44 @@ export function HojaDeVidaPanel({
   }
 
   const btnUpdateClass = edit
-    ? "bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow-[0_12px_30px_-12px_rgba(99,102,241,0.6)] hover:shadow-[0_18px_40px_-14px_rgba(99,102,241,0.7)] active:scale-[.98]"
-    : "bg-white/50 text-gray-800 border border-white/70 backdrop-blur-xl shadow-[0_6px_16px_-12px_rgba(2,6,23,.25)] hover:bg-white/75 active:scale-[.98]";
+    ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/40 hover:bg-blue-700 active:scale-[.98]'
+    : 'bg-white text-gray-800 border border-gray-300/80 shadow-sm hover:bg-gray-100 active:scale-[.98]';
 
   return (
-    <div className={`flex-1 min-h-0 overflow-y-auto ${className || ''}`}>
-      {/* Header */}
-      <header className="px-6 pt-5 pb-3">
+    // --- NUEVO ESTILO: Contenedor principal del panel con fondo azul fresco ---
+    <div
+      className={classNames(
+        'flex-1 min-h-0 flex flex-col bg-sky-50', // <-- CAMBIO: De bg-zinc-100 a bg-sky-50
+        className || ''
+      )}
+    >
+      {/* --- ESTILO: Header "Glass" pegajoso (sin cambios, se adapta al nuevo fondo) --- */}
+      <header
+        className={classNames(
+          'px-6 pt-5 pb-4 flex-shrink-0',
+          'sticky top-0 z-10',
+          'bg-white/70 backdrop-blur-xl', // Este "glass" ahora flotará sobre el fondo azul
+          'border-b border-black/5'
+        )}
+      >
         <div className="flex items-start gap-6">
           <div className="relative">
+            {/* --- NUEVO ESTILO: Círculo de foto premium --- */}
             <img
               src={localSignedUrl ?? PLACEHOLDER_SVG}
-              alt={form.nombre ?? "avatar"}
+              alt={form.nombre ?? 'avatar'}
               width={80}
               height={80}
               className={classNames(
-                "rounded-full object-cover ring-1 ring-white/70 shadow",
-                uploadingFoto ? "opacity-60" : "opacity-100",
-                "cursor-pointer"
+                'rounded-full object-cover', // Círculo perfecto
+                'shadow-xl shadow-black/10', // Sombra suave
+                'ring-4 ring-white/90',      // Anillo material más grueso
+                uploadingFoto ? 'opacity-60' : 'opacity-100',
+                'cursor-pointer'
               )}
               onClick={() => inputFotoRef.current?.click()}
               onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === " ") {
+                if (e.key === 'Enter' || e.key === ' ') {
                   e.preventDefault();
                   inputFotoRef.current?.click();
                 }
@@ -298,44 +318,44 @@ export function HojaDeVidaPanel({
               onChange={(e) => {
                 const f = e.target.files?.[0];
                 if (f) void handleChangeFoto(f);
-                e.currentTarget.value = "";
+                e.currentTarget.value = '';
               }}
             />
           </div>
           <div className="flex-1">
             <div className="flex items-start justify-between">
-              <h3 className="text-lg font-semibold text-zinc-800">
+              <h3 className="text-xl font-semibold text-zinc-900">
                 {edit ? (
                   <CEField
                     value={form.nombre}
                     edit={edit}
-                    onInput={onCE("nombre")}
+                    onInput={onCE('nombre')}
                     placeholder="Nombre completo"
-                    className="text-lg font-semibold"
+                    className="text-xl font-semibold"
                   />
                 ) : (
-                  form.nombre ?? "Consulta de entrevista"
+                  form.nombre ?? 'Consulta de entrevista'
                 )}
               </h3>
-              
+
               <div className="flex items-center gap-2">
                 <button
                   onClick={handleDelete}
                   disabled={saving}
-                  className="flex items-center justify-center h-9 w-9 rounded-full transition-all disabled:opacity-60 active:scale-[.98] bg-gradient-to-br from-red-400 to-rose-400 text-white shadow-md hover:shadow-lg hover:shadow-red-200/50"
+                  className="flex items-center justify-center h-9 w-9 rounded-full transition-all disabled:opacity-60 active:scale-[.98] bg-red-500 text-white shadow-lg shadow-red-500/30 hover:bg-red-600"
                   title="Eliminar"
                 >
                   <Trash2 size={16} />
                 </button>
-                
+
                 <button
                   onClick={handleUpdate}
                   disabled={saving}
                   className={classNames(
-                    "flex items-center justify-center h-9 w-9 rounded-full transition-all disabled:opacity-60 active:scale-[.98]",
+                    'flex items-center justify-center h-9 w-9 rounded-full transition-all disabled:opacity-60',
                     btnUpdateClass
                   )}
-                  title={edit ? "Guardar cambios" : "Editar"}
+                  title={edit ? 'Guardar cambios' : 'Editar'}
                 >
                   {edit ? (
                     saving ? (
@@ -349,6 +369,7 @@ export function HojaDeVidaPanel({
                 </button>
               </div>
             </div>
+            {/* ESTILO: "Pills" (sin cambios, se adaptan) */}
             <div className="mt-2 flex items-center gap-4 text-sm text-zinc-700 flex-wrap">
               <span className="flex items-center gap-1">
                 {edit ? (
@@ -357,13 +378,14 @@ export function HojaDeVidaPanel({
                     <CEField
                       value={form.cedula}
                       edit={edit}
-                      onInput={onCE("cedula")}
+                      onInput={onCE('cedula')}
                       placeholder="Cédula"
                     />
                   </>
                 ) : (
-                  <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-white text-blue-700 ring-1 ring-inset ring-blue-200">
-                    <IdCard size={14} className="mr-1" /> {form.cedula || 'N/A'}
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full bg-gray-200/80 text-gray-800 font-medium">
+                    <IdCard size={14} className="mr-1.5" />{' '}
+                    {form.cedula || 'N/A'}
                   </span>
                 )}
               </span>
@@ -374,275 +396,381 @@ export function HojaDeVidaPanel({
                     <CEField
                       value={form.telefono}
                       edit={edit}
-                      onInput={onCE("telefono")}
+                      onInput={onCE('telefono')}
                       placeholder="Teléfono"
                     />
                   </>
                 ) : (
-                  <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-white text-blue-700 ring-1 ring-inset ring-blue-200">
-                    <Phone size={14} className="mr-1" /> {form.telefono || 'N/A'}
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full bg-gray-200/80 text-gray-800 font-medium">
+                    <Phone size={14} className="mr-1.5" />{' '}
+                    {form.telefono || 'N/A'}
                   </span>
                 )}
               </span>
               {form.estado_civil && (
-                <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 ring-1 ring-inset ring-blue-200">
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full bg-gray-200/80 text-gray-800 font-medium">
                   {form.estado_civil}
                 </span>
               )}
-              <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-200">
+              <span
+                className={classNames(
+                  'inline-flex items-center px-2.5 py-0.5 rounded-full font-medium',
+                  form.promovido === 'si'
+                    ? 'bg-green-100 text-green-800'
+                    : 'bg-amber-100 text-amber-800'
+                )}
+              >
                 Promovido: {form.promovido || 'No'}
               </span>
             </div>
           </div>
         </div>
       </header>
-      
-      {/* Body (scrollable) */}
+
+      {/* --- ESTILO: Contenedor del body con scroll --- */}
+      {/* Este div es transparente, por lo que revela el fondo bg-sky-50 del div raíz */}
       <div className="px-6 py-6 overflow-y-auto flex-1 min-h-0">
-        <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-4">
-        
-          <section className="rounded-2xl ring-1 ring-black/5 bg-zinc-50 overflow-hidden">
-            <div className="flex items-center justify-between bg-gradient-to-r from-blue-100 to-indigo-100 p-3">
-                <div className="flex items-center gap-2">
-                    <User size={16} className="text-indigo-900/70" />
-                    <h4 className="text-sm font-semibold text-indigo-900">Información personal</h4>
-                </div>
-                {edit && <Edit2 size={14} className="text-indigo-400/70" />}
+        <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-6">
+          
+          {/* --- ESTILO: Tarjeta "Liquid Glass" --- */}
+          {/* Esta tarjeta ahora flota sobre el fondo bg-sky-50 */}
+          <section className="rounded-2xl shadow-xl shadow-black/5 border border-white/50 bg-white/60 backdrop-blur-lg overflow-hidden">
+            <div className="flex items-center justify-between bg-white/70 backdrop-blur-sm p-4 border-b border-black/10">
+              <div className="flex items-center gap-2.5">
+                <User size={16} className="text-blue-600" />
+                <h4 className="text-base font-semibold text-zinc-900">
+                  Información personal
+                </h4>
+              </div>
+              {edit && <Edit2 size={14} className="text-blue-400/80" />}
             </div>
             <div className="p-4">
-                <EditableRow label="Email" value={form.email} edit={edit} onInput={onCE("email")} />
-                <EditableRow label="Fecha de nacimiento" value={form.fecha_nac ?? ""} edit={edit} onInput={onCE("fecha_nac")} />
-                <EditableRow label="Lugar de nacimiento" value={form.lugar_nac} edit={edit} onInput={onCE("lugar_nac")} />
-                <EditableRow label="Dirección" value={form.direccion} edit={edit} onInput={onCE("direccion")} />
-                <EditableRow label="Escolaridad" value={form.escolaridad} edit={edit} onInput={onCE("escolaridad")} />
-                <EditableRow label="Ocupación" value={form.ocupacion} edit={edit} onInput={onCE("ocupacion")} />
-                <EditableRowSelect
-                  label="Estado Civil"
-                  value={form.estado_civil}
-                  edit={edit}
-                  onChange={(v) => setF("estado_civil", v as any)}
-                  options={ESTADOS}
-                />
-                <EditableRowBool
-                  label="Labora actualmente"
-                  value={form.labora_actualmente}
-                  edit={edit}
-                  onChange={onBoolString("labora_actualmente")}
-                />
+              <EditableRow
+                label="Email"
+                value={form.email}
+                edit={edit}
+                onInput={onCE('email')}
+              />
+              <EditableRow
+                label="Fecha de nacimiento"
+                value={form.fecha_nac ?? ''}
+                edit={edit}
+                onInput={onCE('fecha_nac')}
+              />
+              <EditableRow
+                label="Lugar de nacimiento"
+                value={form.lugar_nac}
+                edit={edit}
+                onInput={onCE('lugar_nac')}
+              />
+              <EditableRow
+                label="Dirección"
+                value={form.direccion}
+                edit={edit}
+                onInput={onCE('direccion')}
+              />
+              <EditableRow
+                label="Escolaridad"
+                value={form.escolaridad}
+                edit={edit}
+                onInput={onCE('escolaridad')}
+              />
+              <EditableRow
+                label="Ocupación"
+                value={form.ocupacion}
+                edit={edit}
+                onInput={onCE('ocupacion')}
+              />
+              <EditableRowSelect
+                label="Estado Civil"
+                value={form.estado_civil}
+                edit={edit}
+                onChange={(v) => setF('estado_civil', v as any)}
+                options={ESTADOS}
+              />
+              <EditableRowBool
+                label="Labora actualmente"
+                value={form.labora_actualmente}
+                edit={edit}
+                onChange={onBoolString('labora_actualmente')}
+              />
             </div>
           </section>
 
-          <section className="rounded-2xl ring-1 ring-black/5 bg-zinc-50 overflow-hidden">
-            <div className="flex items-center justify-between bg-gradient-to-r from-blue-100 to-indigo-100 p-3">
-                <div className="flex items-center gap-2">
-                    <Landmark size={16} className="text-indigo-900/70" />
-                    <h4 className="text-sm font-semibold text-indigo-900">Informacion Congregacional</h4>
-                </div>
-                {edit && <Edit2 size={14} className="text-indigo-400/70" />}
+          {/* --- ESTILO: Tarjeta "Liquid Glass" --- */}
+          <section className="rounded-2xl shadow-xl shadow-black/5 border border-white/50 bg-white/60 backdrop-blur-lg overflow-hidden">
+            <div className="flex items-center justify-between bg-white/70 backdrop-blur-sm p-4 border-b border-black/10">
+              <div className="flex items-center gap-2.5">
+                <Landmark size={16} className="text-blue-600" />
+                <h4 className="text-base font-semibold text-zinc-900">
+                  Informacion Congregacional
+                </h4>
+              </div>
+              {edit && <Edit2 size={14} className="text-blue-400/80" />}
             </div>
             <div className="p-4">
-                <EditableRowBool
-                  label="Se congrega"
-                  value={form.se_congrega}
-                  edit={edit}
-                  onChange={onBoolString("se_congrega")}
-                />
-                <EditableRowSelect
-                  label="Día congrega"
-                  value={form.dia_congrega}
-                  edit={edit}
-                  onChange={(v) => setF("dia_congrega", v as any)}
-                  options={DIAS}
-                  disabled={form.se_congrega !== 'si'}
-                />
-                <EditableRow label="Tiempo en la iglesia" value={form.tiempo_iglesia} edit={edit} onInput={onCE("tiempo_iglesia")} />
-                <EditableRow label="Invitó" value={form.invito} edit={edit} onInput={onCE("invito")} />
-                <EditableRow label="Pastor" value={form.pastor} edit={edit} onInput={onCE("pastor")} />
-                <EditableRowBool
-                  label="Viene de otra iglesia"
-                  value={form.viene_otra_iglesia}
-                  edit={edit}
-                  onChange={onBoolString("viene_otra_iglesia")}
-                />
-                <EditableRow
-                  label="Nombre otra iglesia"
-                  value={form.otra_iglesia_nombre}
-                  edit={edit}
-                  onInput={onCE("otra_iglesia_nombre")}
-                  // Deshabilitado condicionalmente
-                />
-                <EditableRowSelect
-                  label="Convivencia"
-                  value={form.convivencia}
-                  edit={edit}
-                  onChange={(v) => setF("convivencia", v as any)}
-                  options={CONVIVENCIA}
-                />
+              <EditableRowBool
+                label="Se congrega"
+                value={form.se_congrega}
+                edit={edit}
+                onChange={onBoolString('se_congrega')}
+              />
+              <EditableRowSelect
+                label="Día congrega"
+                value={form.dia_congrega}
+                edit={edit}
+                onChange={(v) => setF('dia_congrega', v as any)}
+                options={DIAS}
+                disabled={form.se_congrega !== 'si'}
+              />
+              <EditableRow
+                label="Tiempo en la iglesia"
+                value={form.tiempo_iglesia}
+                edit={edit}
+                onInput={onCE('tiempo_iglesia')}
+              />
+              <EditableRow
+                label="Invitó"
+                value={form.invito}
+                edit={edit}
+                onInput={onCE('invito')}
+              />
+              <EditableRow
+                label="Pastor"
+                value={form.pastor}
+                edit={edit}
+                onInput={onCE('pastor')}
+              />
+              <EditableRowBool
+                label="Viene de otra iglesia"
+                value={form.viene_otra_iglesia}
+                edit={edit}
+                onChange={onBoolString('viene_otra_iglesia')}
+              />
+              <EditableRow
+                label="Nombre otra iglesia"
+                value={form.otra_iglesia_nombre}
+                edit={edit}
+                onInput={onCE('otra_iglesia_nombre')}
+              />
+              <EditableRowSelect
+                label="Convivencia"
+                value={form.convivencia}
+                edit={edit}
+                onChange={(v) => setF('convivencia', v as any)}
+                options={CONVIVENCIA}
+              />
             </div>
           </section>
 
-          <section className="rounded-2xl ring-1 ring-black/5 bg-zinc-50 overflow-hidden">
-            <div className="flex items-center justify-between bg-gradient-to-r from-blue-100 to-indigo-100 p-3">
-                <div className="flex items-center gap-2">
-                    <BookOpen size={16} className="text-indigo-900/70" />
-                    <h4 className="text-sm font-semibold text-indigo-900">Datos espirituales</h4>
-                </div>
-                {edit && <Edit2 size={14} className="text-indigo-400/70" />}
+          {/* --- ESTILO: Tarjeta "Liquid Glass" --- */}
+          <section className="rounded-2xl shadow-xl shadow-black/5 border border-white/50 bg-white/60 backdrop-blur-lg overflow-hidden">
+            <div className="flex items-center justify-between bg-white/70 backdrop-blur-sm p-4 border-b border-black/10">
+              <div className="flex items-center gap-2.5">
+                <BookOpen size={16} className="text-blue-600" />
+                <h4 className="text-base font-semibold text-zinc-900">
+                  Datos espirituales
+                </h4>
+              </div>
+              {edit && <Edit2 size={14} className="text-blue-400/80" />}
             </div>
             <div className="p-4">
-                <EditableRowBool_SNNS
-                  label="Nacimiento del Espíritu"
-                  value={form.nacimiento_espiritu}
-                  edit={edit}
-                  onChange={onBoolSNNS("nacimiento_espiritu")}
-                />
-                <EditableRowBool
-                  label="Bautizo en agua"
-                  value={form.bautizo_agua}
-                  edit={edit}
-                  onChange={onBoolString("bautizo_agua")}
-                />
-                <EditableRowBool
-                  label="Bautismo del Espíritu"
-                  value={form.bautismo_espiritu}
-                  edit={edit}
-                  onChange={onBoolString("bautismo_espiritu")}
-                />
-                <EditableRowBool
-                  label="Tiene Biblia"
-                  value={form.tiene_biblia}
-                  edit={edit}
-                  onChange={onBool("tiene_biblia")}
-                />
-                <EditableRowBool
-                  label="Ayuna"
-                  value={form.ayuna}
-                  edit={edit}
-                  onChange={onBoolString("ayuna")}
-                />
-                <EditableRow
-                  label="Motivo Ayuno"
-                  value={form.motivo_ayuno}
-                  edit={edit}
-                  onInput={onCE("motivo_ayuno")}
-                  // Deshabilitado condicionalmente
-                />
-                <EditableRowSelect
-                  label="Tiempo de oración"
-                  value={form.tiempo_oracion}
-                  edit={edit}
-                  onChange={(v) => setF("tiempo_oracion", v)}
-                  options={TIEMPO_ORACION}
-                />
-                <EditableRowSelect
-                  label="Lectura Bíblica"
-                  value={form.frecuencia_lectura_biblia}
-                  edit={edit}
-                  onChange={(v) => setF("frecuencia_lectura_biblia", v)} 
-                  options={LECTURA_BIBLIA}
-                />
+              <EditableRowBool_SNNS
+                label="Nacimiento del Espíritu"
+                value={form.nacimiento_espiritu}
+                edit={edit}
+                onChange={onBoolSNNS('nacimiento_espiritu')}
+              />
+              <EditableRowBool
+                label="Bautizo en agua"
+                value={form.bautizo_agua}
+                edit={edit}
+                onChange={onBoolString('bautizo_agua')}
+              />
+              <EditableRowBool
+                label="Bautismo del Espíritu"
+                value={form.bautismo_espiritu}
+                edit={edit}
+                onChange={onBoolString('bautismo_espiritu')}
+              />
+              <EditableRowBool
+                label="Tiene Biblia"
+                value={form.tiene_biblia}
+                edit={edit}
+                onChange={onBool('tiene_biblia')}
+              />
+              <EditableRowBool
+                label="Ayuna"
+                value={form.ayuna}
+                edit={edit}
+                onChange={onBoolString('ayuna')}
+              />
+              <EditableRow
+                label="Motivo Ayuno"
+                value={form.motivo_ayuno}
+                edit={edit}
+                onInput={onCE('motivo_ayuno')}
+              />
+              <EditableRowSelect
+                label="Tiempo de oración"
+                value={form.tiempo_oracion}
+                edit={edit}
+                onChange={(v) => setF('tiempo_oracion', v)}
+                options={TIEMPO_ORACION}
+              />
+              <EditableRowSelect
+                label="Lectura Bíblica"
+                value={form.frecuencia_lectura_biblia}
+                edit={edit}
+                onChange={(v) => setF('frecuencia_lectura_biblia', v)}
+                options={LECTURA_BIBLIA}
+              />
             </div>
           </section>
 
-          <section className="rounded-2xl ring-1 ring-black/5 bg-zinc-50 overflow-hidden">
-            <div className="flex items-center justify-between bg-gradient-to-r from-blue-100 to-indigo-100 p-3">
-                <div className="flex items-center gap-2">
-                    <HeartPulse size={16} className="text-indigo-900/70" />
-                    <h4 className="text-sm font-semibold text-indigo-900">Salud y Consejería</h4>
-                </div>
-                {edit && <Edit2 size={14} className="text-indigo-400/70" />}
+          {/* --- ESTILO: Tarjeta "Liquid Glass" --- */}
+          <section className="rounded-2xl shadow-xl shadow-black/5 border border-white/50 bg-white/60 backdrop-blur-lg overflow-hidden">
+            <div className="flex items-center justify-between bg-white/70 backdrop-blur-sm p-4 border-b border-black/10">
+              <div className="flex items-center gap-2.5">
+                <HeartPulse size={16} className="text-blue-600" />
+                <h4 className="text-base font-semibold text-zinc-900">
+                  Salud y Consejería
+                </h4>
+              </div>
+              {edit && <Edit2 size={14} className="text-blue-400/80" />}
             </div>
             <div className="p-4">
-                <EditableRow label="Meta Personal" value={form.meta_personal} edit={edit} onInput={onCE("meta_personal")} />
-                <EditableRow label="Retiros Asistidos" value={form.retiros_asistidos} edit={edit} onInput={onCE("retiros_asistidos")} />
-                <EditableRow label="Enfermedad" value={form.enfermedad} edit={edit} onInput={onCE("enfermedad")} />
-                <EditableRowBool
-                  label="Tratamiento clínico"
-                  value={form.tratamiento_clinico}
-                  edit={edit}
-                  onChange={onBoolString("tratamiento_clinico")}
-                />
-                <EditableRow
-                  label="Motivo tratamiento"
-                  value={form.motivo_tratamiento}
-                  edit={edit}
-                  onInput={onCE("motivo_tratamiento")}
-                  // Deshabilitado condicionalmente
-                />
-                <EditableRowBool
-                  label="Recibe consejería"
-                  value={form.recibe_consejeria}
-                  edit={edit}
-                  onChange={onBoolString("recibe_consejeria")}
-                />
-                <EditableRow
-                  label="Motivo consejería"
-                  value={form.motivo_consejeria}
-                  edit={edit}
-                  onInput={onCE("motivo_consejeria")}
-                  // Deshabilitado condicionalmente
-                />
+              <EditableRow
+                label="Meta Personal"
+                value={form.meta_personal}
+                edit={edit}
+                onInput={onCE('meta_personal')}
+              />
+              <EditableRow
+                label="Retiros Asistidos"
+                value={form.retiros_asistidos}
+                edit={edit}
+                onInput={onCE('retiros_asistidos')}
+              />
+              <EditableRow
+                label="Enfermedad"
+                value={form.enfermedad}
+                edit={edit}
+                onInput={onCE('enfermedad')}
+              />
+              <EditableRowBool
+                label="Tratamiento clínico"
+                value={form.tratamiento_clinico}
+                edit={edit}
+                onChange={onBoolString('tratamiento_clinico')}
+              />
+              <EditableRow
+                label="Motivo tratamiento"
+                value={form.motivo_tratamiento}
+                edit={edit}
+                onInput={onCE('motivo_tratamiento')}
+              />
+              <EditableRowBool
+                label="Recibe consejería"
+                value={form.recibe_consejeria}
+                edit={edit}
+                onChange={onBoolString('recibe_consejeria')}
+              />
+              <EditableRow
+                label="Motivo consejería"
+                value={form.motivo_consejeria}
+                edit={edit}
+                onInput={onCE('motivo_consejeria')}
+              />
             </div>
           </section>
 
-          <section className="rounded-2xl ring-1 ring-black/5 bg-zinc-50 overflow-hidden">
-            <div className="flex items-center justify-between bg-gradient-to-r from-blue-100 to-indigo-100 p-3">
-                <div className="flex items-center gap-2">
-                    <ClipboardList size={16} className="text-indigo-900/70" />
-                    <h4 className="text-sm font-semibold text-indigo-900">Evaluación y observaciones</h4>
-                </div>
-                {edit && <Edit2 size={14} className="text-indigo-400/70" />}
+          {/* --- ESTILO: Tarjeta "Liquid Glass" --- */}
+          <section className="rounded-2xl shadow-xl shadow-black/5 border border-white/50 bg-white/60 backdrop-blur-lg overflow-hidden">
+            <div className="flex items-center justify-between bg-white/70 backdrop-blur-sm p-4 border-b border-black/10">
+              <div className="flex items-center gap-2.5">
+                <ClipboardList size={16} className="text-blue-600" />
+                <h4 className="text-base font-semibold text-zinc-900">
+                  Evaluación y observaciones
+                </h4>
+              </div>
+              {edit && <Edit2 size={14} className="text-blue-400/80" />}
             </div>
             <div className="p-4">
-                <EditableRowBool
-                  label="Aspecto feliz"
-                  value={form.aspecto_feliz}
-                  edit={edit}
-                  onChange={onBool("aspecto_feliz")}
-                />
-                <EditableRowBool
-                  label="Muy interesado"
-                  value={form.muy_interesado}
-                  edit={edit}
-                  onChange={onBool("muy_interesado")}
-                />
-                <EditableRowBool
-                  label="Interviene"
-                  value={form.interviene}
-                  edit={edit}
-                  onChange={onBool("interviene")}
-                />
-                <EditableRow label="Cambios físicos" value={form.cambios_fisicos} edit={edit} onInput={onCE("cambios_fisicos")} />
-                <EditableRow label="Cambios emocionales" value={form.cambios_emocionales} edit={edit} onInput={onCE("cambios_emocionales")} />
-                <EditableRow label="Desempeño en clase" value={form.desempeno_clase} edit={edit} onInput={onCE("desempeno_clase")}
-                />
-                <EditableRow label="Maestro encargado" value={form.maestro_encargado} edit={edit} onInput={onCE("maestro_encargado")}
-                />
-                <EditableRowBool
-                  label="Promovido"
-                  value={form.promovido}
-                  edit={edit}
-                  onChange={onBoolString("promovido")}
-                />
+              <EditableRowBool
+                label="Aspecto feliz"
+                value={form.aspecto_feliz}
+                edit={edit}
+                onChange={onBool('aspecto_feliz')}
+              />
+              <EditableRowBool
+                label="Muy interesado"
+                value={form.muy_interesado}
+                edit={edit}
+                onChange={onBool('muy_interesado')}
+              />
+              <EditableRowBool
+                label="Interviene"
+                value={form.interviene}
+                edit={edit}
+                onChange={onBool('interviene')}
+              />
+              <EditableRow
+                label="Cambios físicos"
+                value={form.cambios_fisicos}
+                edit={edit}
+                onInput={onCE('cambios_fisicos')}
+              />
+              <EditableRow
+                label="Cambios emocionales"
+                value={form.cambios_emocionales}
+                edit={edit}
+                onInput={onCE('cambios_emocionales')}
+              />
+              <EditableRow
+                label="Desempeño en clase"
+                value={form.desempeno_clase}
+                edit={edit}
+                onInput={onCE('desempeno_clase')}
+              />
+              <EditableRow
+                label="Maestro encargado"
+                value={form.maestro_encargado}
+                edit={edit}
+                onInput={onCE('maestro_encargado')}
+              />
+              <EditableRowBool
+                label="Promovido"
+                value={form.promovido}
+                edit={edit}
+                onChange={onBoolString('promovido')}
+              />
             </div>
           </section>
 
-          <section className="rounded-2xl ring-1 ring-black/5 bg-zinc-50 overflow-hidden">
-            <div className="flex items-center justify-between bg-gradient-to-r from-blue-100 to-indigo-100 p-3">
-                <div className="flex items-center gap-2">
-                    <NotebookPen size={16} className="text-indigo-900/70" />
-                    <h4 className="text-sm font-semibold text-indigo-900">Notas Adicionales</h4>
-                </div>
-                {edit && <Edit2 size={14} className="text-indigo-400/70" />}
+          {/* --- ESTILO: Tarjeta "Liquid Glass" --- */}
+          <section className="rounded-2xl shadow-xl shadow-black/5 border border-white/50 bg-white/60 backdrop-blur-lg overflow-hidden">
+            <div className="flex items-center justify-between bg-white/70 backdrop-blur-sm p-4 border-b border-black/10">
+              <div className="flex items-center gap-2.5">
+                <NotebookPen size={16} className="text-blue-600" />
+                <h4 className="text-base font-semibold text-zinc-900">
+                  Notas Adicionales
+                </h4>
+              </div>
+              {edit && <Edit2 size={14} className="text-blue-400/80" />}
             </div>
             <div className="p-4">
-                <EditableRow label="Notas del maestro" value={form.notas} edit={edit} onInput={onCE("notas")} />
+              <EditableRow
+                label="Notas del maestro"
+                value={form.notas}
+                edit={edit}
+                onInput={onCE('notas')}
+              />
             </div>
           </section>
-
         </div>
 
-        <div className="mt-6 text-right text-xs text-zinc-500">
+        <div className="mt-8 text-center text-xs text-zinc-500">
           Creada: {formatDateTime(row.created_at)}
         </div>
       </div>

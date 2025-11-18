@@ -104,13 +104,13 @@ type AdminTab = 'matricular' | 'maestros' | 'servidores' | 'consultar';
 
 // --- Animaciones de Framer Motion (Sin cambios) ---
 const backdropVariants = {
-  hidden: { opacity: 0 },
-  visible: { opacity: 1 },
+  hidden: { opacity: 0, backdropFilter: 'blur(0px)', background: 'rgba(255, 255, 255, 0)' },
+  visible: { opacity: 1, backdropFilter: 'blur(4px)', background: 'rgba(255, 255, 255, 0.8)' },
 };
 const modalVariants = {
-  hidden: { scale: 0.9, opacity: 0, y: 50 },
-  visible: { scale: 1, opacity: 1, y: 0, transition: { type: 'spring' as const, stiffness: 300, damping: 30 } },
-  exit: { scale: 0.9, opacity: 0, y: 50 },
+  hidden: { scale: 0.9, opacity: 0 },
+  visible: { scale: 1, opacity: 1, transition: { type: 'spring' as const, stiffness: 300, damping: 30 } },
+  exit: { scale: 0.9, opacity: 0 },
 };
 
 // --- Animación de Barrido (Entrada) - (Sin cambios) ---
@@ -233,7 +233,7 @@ export default function AdminPage() {
         className="fixed inset-0 z-[-1] overflow-hidden"
         style={{
           // Fondo azul claro premium (sutil)
-          background: 'linear-gradient(180deg, #eaf4ff 0%, #dbeafe 100%)',
+          background: 'linear-gradient(180deg, #bfdbfe 0%, #c4b5fd 100%)',
           backgroundSize: 'cover',
         }}
       />
@@ -246,12 +246,12 @@ export default function AdminPage() {
             El fondo real es el motion.div animado.
           */
           /* Cambiado a un fondo azul claro premium y sin animación */
-          background: linear-gradient(180deg, #eaf4ff 0%, #dbeafe 100%);
+          background: linear-gradient(180deg, #bfdbfe 0%, #c4b5fd 100%);
           color: #1a1a1a; /* Texto oscuro por defecto para mejor contraste */
           
           /* ================================================= */
-          /* CAMBIO 1: Evita el scroll en el body principal */
-          overflow: hidden;
+          /* CAMBIO 1: Permite scroll en el body principal para evitar que la tarjeta sea recortada */
+          overflow: auto;
           /* ================================================= */
         }
 
@@ -267,60 +267,75 @@ export default function AdminPage() {
       {/* ================================================= */}
       {/* CAMBIO 2: 'min-h-screen' -> 'h-screen'            */}
       {/* ================================================= */}
-      <main className="flex flex-col-reverse h-screen w-full text-gray-900 md:flex-row">
-        
-        {/* --- REFACTOR VISUAL: Barra Lateral Izquierda (Efecto Vidrio) --- */}
-        {/* ================================================= */}
-        {/* CAMBIO 3: Añadido 'overflow-y-auto' a la barra  */}
-        {/* ================================================= */}
-        <nav className="fixed bottom-0 left-0 right-0 z-40 flex h-16 w-full flex-row items-center justify-around bg-white/30 backdrop-blur-xl p-2 border-t border-white/50 shadow-lg overflow-x-auto md:relative md:h-auto md:w-64 md:flex-shrink-0 md:flex-col md:items-stretch md:justify-start md:p-4 md:border-r md:border-white/50 md:shadow-lg md:overflow-y-auto">
-          {/* Contenido de la barra lateral */}
-          <div className="flex md:flex-col gap-2">
-            <TabButton
-              IconComponent={Server}
-              label="Gestionar Servidores"
-              isActive={activeTab === 'servidores'}
-              onClick={() => setActiveTab('servidores')}
-            />
-            <TabButton
-              IconComponent={Users}
-              label="Gestionar Maestros"
-              isActive={activeTab === 'maestros'}
-              onClick={() => setActiveTab('maestros')}
-            />
-            <TabButton
-              IconComponent={UserPlus}
-              label="Matricular Estudiantes"
-              isActive={activeTab === 'matricular'}
-              onClick={() => setActiveTab('matricular')}
-              badgeCount={estudiantesPendientesCount > 0 ? estudiantesPendientesCount : 0}
-            />
-            
-            <TabButton
-              IconComponent={ClipboardList}
-              label="Consultar Estudiantes"
-              isActive={activeTab === 'consultar'}
-              onClick={() => setActiveTab('consultar')}
-            />
-          </div>
-          
-          {/* Espaciador */}
-          <div className="flex-grow"></div>
-          
-          {/* Footer de la barra lateral */}
-          <div className="flex flex-col gap-2">
-            <TabButton
-              IconComponent={Settings}
-              label="Configuración"
-              isActive={false}
-              onClick={() => { /* No-op */ }}
-            />
-          </div>
-        </nav>
+        <div className="page-wrapper flex items-start justify-center min-h-screen w-full p-6 pt-4 text-gray-900">
+          <div className="super-card mx-auto w-full max-w-[1400px] rounded-3xl bg-white/25 backdrop-blur-xl border border-white/40 shadow-2xl p-4 flex flex-col md:flex-row md:items-center overflow-hidden max-h-[calc(100vh-4rem)] min-h-[620px] md:min-h-[620px]">
+            <div className="layout-grid flex flex-col md:flex-row w-full h-full gap-4 min-h-0 items-start md:items-center">
+              {/* Sidebar vertical para md y superior */}
+              <aside className="sidebar hidden md:flex flex-col w-56 flex-shrink-0 h-full items-stretch bg-white/30 backdrop-blur-xl p-4 md:p-4 border-r border-white/50 shadow-sm overflow-hidden rounded-l-3xl">
+                <div className="flex md:flex-col gap-2">
+                  <TabButton
+                    IconComponent={Server}
+                    label="Gestionar Servidores"
+                    isActive={activeTab === 'servidores'}
+                    onClick={() => setActiveTab('servidores')}
+                  />
+                  <TabButton
+                    IconComponent={Users}
+                    label="Gestionar Maestros"
+                    isActive={activeTab === 'maestros'}
+                    onClick={() => setActiveTab('maestros')}
+                  />
+                  <TabButton
+                    IconComponent={UserPlus}
+                    label="Matricular Estudiantes"
+                    isActive={activeTab === 'matricular'}
+                    onClick={() => setActiveTab('matricular')}
+                    badgeCount={estudiantesPendientesCount > 0 ? estudiantesPendientesCount : 0}
+                  />
+                  <TabButton
+                    IconComponent={ClipboardList}
+                    label="Consultar Estudiantes"
+                    isActive={activeTab === 'consultar'}
+                    onClick={() => setActiveTab('consultar')}
+                  />
+                </div>
+                <div className="flex-grow"></div>
+                {/* Eliminada pestaña Configuración */}
+              </aside>
+
+              {/* Sidebar horizontal fijo abajo solo para móviles */}
+              <aside className="sidebar-mobile md:hidden fixed bottom-0 left-0 w-full bg-white/40 backdrop-blur-xl border-t border-white/50 shadow-lg flex flex-row items-center justify-around px-2 py-2 z-40">
+                <TabButton
+                  IconComponent={Server}
+                  label="Servidores"
+                  isActive={activeTab === 'servidores'}
+                  onClick={() => setActiveTab('servidores')}
+                />
+                <TabButton
+                  IconComponent={Users}
+                  label="Maestros"
+                  isActive={activeTab === 'maestros'}
+                  onClick={() => setActiveTab('maestros')}
+                />
+                <TabButton
+                  IconComponent={UserPlus}
+                  label="Matricular"
+                  isActive={activeTab === 'matricular'}
+                  onClick={() => setActiveTab('matricular')}
+                  badgeCount={estudiantesPendientesCount > 0 ? estudiantesPendientesCount : 0}
+                />
+                <TabButton
+                  IconComponent={ClipboardList}
+                  label="Consultar"
+                  isActive={activeTab === 'consultar'}
+                  onClick={() => setActiveTab('consultar')}
+                />
+                {/* Eliminada pestaña Configuración en móvil */}
+              </aside>
 
         {/* --- REFACTOR VISUAL: Panel de Contenido Principal (Transparente) --- */}
         {/* ESTE 'overflow-y-auto' ahora funciona como se espera */}
-        <div className="flex-1 p-6 md:p-8 overflow-y-auto bg-transparent">
+          <main className="content flex-1 p-6 md:p-8 overflow-y-auto bg-transparent min-h-0 h-full max-h-full flex flex-col">
           
           {/* Contenido de los Paneles (Lógica sin cambios) */}
           <div className="relative overflow-hidden">
@@ -372,7 +387,7 @@ export default function AdminPage() {
               </motion.div>
             </AnimatePresence>
           </div>
-        </div>
+          </main>
 
         {/* --- Modales (Ahora con estilo 'Liquid Glass') --- */}
         <AnimatePresence>
@@ -417,7 +432,9 @@ export default function AdminPage() {
             />
           )}
         </AnimatePresence>
-      </main>
+          </div>
+        </div>
+      </div>
     </>
   );
 }
@@ -529,7 +546,7 @@ function PanelConsultarEstudiantes({
           {/* Columna Izquierda: Pendientes */}
           <div>
             {/* --- REFACTOR VISUAL: Cabecera de columna 'Liquid Glass' --- */}
-            <div className="flex items-center gap-3 px-4 py-3 mb-3 rounded-lg bg-white/40 shadow-md border border-white/50">
+            <div className="flex items-center gap-3 px-4 py-3 mb-3 rounded-lg bg-gradient-to-br from-white/60 to-white/30 backdrop-blur-sm ring-1 ring-white/30 border border-white/40 shadow-md">
               <UserX className="h-6 w-6 text-gray-600" />
               <div>
                 <h3 className="text-lg font-semibold text-gray-900">
@@ -558,7 +575,7 @@ function PanelConsultarEstudiantes({
           {/* Columna Derecha: Matriculados */}
           <div>
             {/* --- REFACTOR VISUAL: Cabecera de columna 'Liquid Glass' (con acento) --- */}
-            <div className="flex items-center gap-3 px-4 py-3 mb-3 rounded-lg bg-white/40 shadow-md border border-blue-300">
+            <div className="flex items-center gap-3 px-4 py-3 mb-3 rounded-lg bg-gradient-to-br from-white/60 to-white/30 backdrop-blur-sm ring-1 ring-white/30 border border-blue-300 shadow-md">
               <UserCheck2 className="h-6 w-6 text-blue-600" />
               <div>
                 <h3 className="text-lg font-semibold text-blue-800">
@@ -1005,7 +1022,7 @@ function PanelGestionarMaestros({
                       className="relative flex items-center gap-1 rounded-lg bg-white/40 border border-white/50 px-3 py-1.5 text-xs font-semibold text-gray-800 hover:bg-white/60 transition-colors"
                     >
                       <MessageSquarePlus size={14} />
-                      <span>Observaciones</span>
+                      <span className="hidden md:inline">Observaciones</span>
                       <AnimatePresence>
                         {maestro.obs_count > 0 && (
                           <motion.span
@@ -1035,14 +1052,14 @@ function PanelGestionarMaestros({
                       className="flex items-center gap-1 rounded-lg bg-white/40 border border-white/50 px-3 py-1.5 text-xs font-semibold text-gray-800 hover:bg-white/60 transition-colors"
                     >
                       <Edit2 size={14} />
-                      Editar
+                      <span className="hidden md:inline">Editar</span>
                     </button>
                     <button
                       onClick={() => onAsignarCursos(maestro)}
                       className="flex items-center gap-1 rounded-lg bg-white/40 border border-white/50 px-3 py-1.5 text-xs font-semibold text-gray-800 hover:bg-white/60 transition-colors"
                     >
                       <BookOpen size={14} />
-                      Asignar Cursos
+                      <span className="hidden md:inline">Asignar Cursos</span>
                     </button>
 
                     {/* --- REFACTOR VISUAL: Botón destructivo 'Liquid Glass' --- */}
@@ -1051,7 +1068,7 @@ function PanelGestionarMaestros({
                       className="flex items-center gap-1 rounded-lg bg-white/40 border border-white/50 px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-50/50 transition-colors"
                     >
                       <Trash2 size={14} />
-                      Desactivar
+                      <span className="hidden md:inline">Desactivar</span>
                     </button>
 
                   </div>
@@ -1140,14 +1157,14 @@ function ModalCrearEditarMaestro({
       initial="hidden"
       animate="visible"
       exit="hidden"
-      // --- REFACTOR VISUAL: Backdrop 'Liquid Glass' ---
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30 backdrop-blur-lg"
+      // --- REFACTOR VISUAL: Backdrop Premium ---
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
       onClick={onClose}
     >
       <motion.div
         variants={modalVariants}
-        // --- REFACTOR VISUAL: Contenedor del Modal 'Liquid Glass' ---
-        className="relative w-full max-w-lg rounded-2xl bg-white/30 backdrop-blur-2xl shadow-2xl overflow-hidden border border-white/50"
+        // --- REFACTOR VISUAL: Contenedor del Modal Blanco Premium ---
+        className="relative w-full max-w-lg rounded-2xl bg-white shadow-2xl overflow-hidden border border-gray-200"
         onClick={(e) => e.stopPropagation()}
       >
         <button
@@ -1157,11 +1174,11 @@ function ModalCrearEditarMaestro({
           <X size={20} />
         </button>
         
-        <div className="p-6">
-          <h2 className="text-xl font-semibold text-gray-900">
+        <div className="p-4">
+          <h2 className="text-lg font-semibold text-gray-900">
             {isEditMode ? "Editar Maestro/Servidor" : "Crear Nuevo Maestro/Servidor"}
           </h2>
-          <p className="mt-1 text-sm text-gray-800">
+          <p className="mt-1 text-xs text-gray-700">
             {isEditMode 
               ? `Editando el registro de ${maestroInicial.nombre}`
               : "Este registro se guardará en `servidores` y se le asignará un rol."
@@ -1171,7 +1188,7 @@ function ModalCrearEditarMaestro({
         
         <form onSubmit={handleSubmit}>
           {/* --- REFACTOR VISUAL: Inputs y Selects 'Liquid Glass' --- */}
-          <div className="space-y-6 px-6 pb-6">
+          <div className="space-y-4 px-6 pb-6">
             <FormInput
               id="nombre"
               label="Nombre Completo"
@@ -1217,7 +1234,7 @@ function ModalCrearEditarMaestro({
           </div>
           
           {/* --- REFACTOR VISUAL: Footer del Modal 'Liquid Glass' --- */}
-          <div className="flex items-center justify-end gap-3 px-6 py-4 bg-white/10 border-t border-white/50">
+          <div className="flex items-center justify-end gap-3 px-6 py-4 bg-gray-50 border-t border-gray-200">
             {error && <span className="text-sm text-red-700 mr-auto max-w-xs">{error}</span>}
             <button
               type="button"
@@ -1662,7 +1679,7 @@ function FormInput({
 }) {
   return (
     <div>
-      <label htmlFor={id} className="block text-sm font-medium text-gray-700">
+      <label htmlFor={id} className="block text-xs font-medium text-gray-700">
         {label} {required && <span className="text-red-500">*</span>}
       </label>
       {/* --- REFACTOR VISUAL: Input estilo 'Liquid Glass' --- */}
@@ -1672,7 +1689,7 @@ function FormInput({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         disabled={disabled}
-        className="mt-1 block w-full rounded-lg border border-white/50 bg-white/40 backdrop-blur-sm py-3 px-4 shadow-sm text-gray-900 placeholder-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:bg-white/60 disabled:bg-gray-50/20 disabled:opacity-70"
+        className="mt-0.5 block w-full rounded-lg border border-white/50 bg-white/40 backdrop-blur-sm py-2 px-3 shadow-sm text-sm text-gray-900 placeholder-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:bg-white/60 disabled:bg-gray-50/20 disabled:opacity-70"
       />
     </div>
   );
@@ -1726,8 +1743,8 @@ function FormSelect({
   return (
     <div className={!label ? 'w-full' : ''} ref={rootRef}>
       <label className={classNames(
-        "block text-sm font-medium text-gray-700",
-        !label ? "sr-only" : "mb-1"
+        "block text-xs font-medium text-gray-700",
+        !label ? "sr-only" : "mb-0.5"
       )}>
         {label || 'Seleccionar'} {required && <span className="text-red-500">*</span>}
       </label>
@@ -1738,26 +1755,26 @@ function FormSelect({
           onClick={() => { if (!disabled) setOpen(prev => !prev); }}
           disabled={disabled}
           className={classNames(
-            "w-full text-left rounded-lg border border-gray-200 px-3 py-3 pr-10 shadow-sm",
-            "bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500",
+            "w-full text-left rounded-lg border border-gray-200 px-3 py-2 pr-10 shadow-sm",
+            "bg-white text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500",
             disabled ? 'opacity-60 cursor-not-allowed' : 'hover:bg-gray-50'
           )}
         >
           <span className="truncate">{selectedLabel || (options[0]?.label ?? 'Seleccionar')}</span>
           <ChevronDown 
-            size={20} 
+            size={16} 
             className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" 
           />
         </button>
 
         {open && (
-          <div className="absolute mt-2 left-0 right-0 z-50 rounded-lg bg-white border border-gray-200 shadow-xl max-h-60 overflow-y-auto">
+          <div className="absolute mt-1 left-0 right-0 z-50 rounded-lg bg-white border border-gray-200 shadow-xl max-h-48 overflow-y-auto">
             {options.map(opt => (
               <div
                 key={opt.value}
                 onClick={() => !opt.disabled && handleSelect(opt.value)}
                 className={classNames(
-                  'px-4 py-2 cursor-pointer text-gray-900',
+                  'px-3 py-1.5 cursor-pointer text-sm text-gray-900',
                   opt.disabled ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50',
                   opt.value === value ? 'bg-blue-50 font-medium' : ''
                 )}
@@ -1791,7 +1808,7 @@ function TabButton({
       type="button"
       onClick={onClick}
       className={classNames(
-        "relative flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm transition-all duration-200 overflow-hidden",
+        "relative inline-flex w-auto items-center whitespace-nowrap gap-2 rounded-md px-2 py-2 text-sm transition-all duration-200 overflow-hidden",
         isActive
           ? "bg-white/40 text-blue-700 font-semibold shadow-md border border-white/50" // Activo: 'Liquid Glass'
           : "text-gray-800 hover:bg-white/20 hover:text-gray-900" // Inactivo: 'Liquid Glass'
@@ -1808,7 +1825,7 @@ function TabButton({
       
       {/* --- Contenido con animación de barrido --- */}
       <motion.div
-        className="relative flex items-center gap-2.5 w-full"
+        className="relative flex items-center gap-2.5"
         animate={isActive ? { x: 0 } : { x: 0 }}
         initial={{ x: isActive ? -25 : 0 }}
         transition={{ duration: 0.4 }}
@@ -1822,16 +1839,7 @@ function TabButton({
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0, opacity: 0 }}
               transition={{ type: "spring", stiffness: 500, damping: 30 }}
-              className="
-                absolute -top-2 -right-2 
-                flex items-center justify-center 
-                min-w-[22px] h-5 px-1.5 
-                rounded-full 
-                bg-gradient-to-r from-pink-500 to-rose-500 
-                text-white text-xs font-bold 
-                shadow-lg shadow-rose-500/50 
-                ring-2 ring-white
-              "
+              className="absolute -top-1 -right-0 flex items-center justify-center min-w-[14px] h-3 px-0.5 rounded-full bg-gradient-to-r from-pink-500 to-rose-500 text-white text-[9px] font-semibold"
             >
               {badgeCount}
             </motion.span>
@@ -1870,7 +1878,7 @@ function CardHeader({
   return (
     // --- REFACTOR VISUAL: Cabecera 'Liquid Glass' (integrada) ---
     <div className={classNames(
-      "flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border-b border-white/50 p-4 md:p-6",
+      "flex flex-col md:flex-row items-start md:items-center justify-between gap-4 p-4 md:p-6 rounded-t-2xl bg-gradient-to-br from-indigo-50/30 via-white/70 to-white/50 backdrop-blur-md ring-1 ring-white/30 border-b border-white/60 shadow-sm",
       className
     )}>
       <div className="flex items-start gap-4">
