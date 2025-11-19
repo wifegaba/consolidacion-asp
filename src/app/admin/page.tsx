@@ -110,15 +110,11 @@ export default function AdminPage() {
        <div className="relative z-10 h-full w-full flex items-center justify-center p-0 md:p-6">
           
           {/* TARJETA PRINCIPAL */}
-          {/* FIX: En móvil es h-full y rounded-none. En desktop es h-[85vh] y rounded-3xl */}
-          <div className={`w-full max-w-[1500px] h-full md:h-[85vh] flex flex-col md:flex-row md:rounded-3xl overflow-hidden ${GLASS_STYLES.container}`}>
+          {/* FIX: En móvil es h-full y rounded-none. En desktop es h-[92vh] (ampliado) y rounded-3xl */}
+          <div className={`w-full max-w-[1500px] h-full md:h-[92vh] flex flex-col md:flex-row md:rounded-3xl overflow-hidden ${GLASS_STYLES.container}`}>
             
             {/* SIDEBAR (Desktop) */}
             <aside className="hidden md:flex w-64 flex-col border-r border-white/40 bg-white/20 p-4">
-              <div className="mb-8 px-2">
-                 <h1 className="text-xl font-bold text-indigo-900">Academia Admin</h1>
-                 <p className="text-xs text-indigo-700/70 font-medium">Panel de Control v2.5</p>
-              </div>
               <nav className="flex flex-col gap-2 flex-1">
                 <TabButton Icon={Server} label="Servidores" isActive={activeTab === 'servidores'} onClick={() => setActiveTab('servidores')} />
                 <TabButton Icon={Users} label="Maestros" isActive={activeTab === 'maestros'} onClick={() => setActiveTab('maestros')} />
@@ -139,10 +135,7 @@ export default function AdminPage() {
             {/* CONTENIDO PRINCIPAL */}
             <main className="flex-1 relative flex flex-col min-w-0 bg-transparent h-full">
                {/* Header Móvil */}
-               <div className="md:hidden flex justify-between items-center p-4 border-b border-white/40 bg-white/20 backdrop-blur-md shrink-0 z-20">
-                  <span className="font-bold text-indigo-900">Academia</span>
-                  <Settings className="text-indigo-700" size={20}/>
-               </div>
+               {/* Removido: Título 'Academia' */}
 
                {/* Area de Contenido con Scroll */}
                <div className="flex-1 overflow-y-auto p-2 md:p-8 scroll-smooth">
@@ -358,7 +351,7 @@ function PanelMatricular({ maestros, cursos, estudiantes, inscripciones, onMatri
     <GlassCard className="h-full flex flex-col">
        <CardHeader Icon={UserPlus} title="Matricular Estudiantes" subtitle="Asignación de cursos y maestros." />
        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 p-6 flex-1 min-h-0 overflow-hidden">
-          <div className="space-y-4 overflow-y-auto max-h-[200px] md:max-h-full">
+          <div className="space-y-4 overflow-visible md:overflow-y-auto md:max-h-full">
              <div className="space-y-2">
                <label className="text-xs font-bold text-gray-600 uppercase tracking-wider">Configuración</label>
                <FormSelect label="Curso" value={cursoId} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => { setCursoId(e.target.value); setMaestroId(''); }}>
@@ -511,7 +504,7 @@ function FormInput({ id, label, value, onChange, type="text", disabled }: InputP
 function ModalTemplate({ children, onClose, title }: { children: React.ReactNode, onClose: ()=>void, title: string }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/30 backdrop-blur-sm" onClick={onClose}>
-       <motion.div variants={modalVariants} initial="hidden" animate="visible" exit="exit" onClick={e => e.stopPropagation()} className={`relative w-full max-w-lg rounded-2xl overflow-hidden flex flex-col max-h-[85vh] ${GLASS_STYLES.container} bg-white/80`}>
+      <motion.div variants={modalVariants} initial="hidden" animate="visible" exit="exit" onClick={e => e.stopPropagation()} className={`relative w-full max-w-lg rounded-2xl overflow-hidden flex flex-col max-h-[92vh] ${GLASS_STYLES.container} bg-white/80`}>
           <div className={`p-4 flex justify-between items-center border-b border-white/50 bg-white/40`}>
              <h3 className="font-bold text-gray-900 text-lg">{title}</h3>
              <button onClick={onClose} className="p-1 hover:bg-white/50 rounded-full text-gray-500"><X size={20}/></button>

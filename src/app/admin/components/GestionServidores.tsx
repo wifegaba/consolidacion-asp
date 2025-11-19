@@ -4,9 +4,9 @@
   ESTADO: PRODUCTION READY - Liquid Glass System
   
   CAMBIOS RECIENTES:
-  1. Fix: Modal de "Configuración Académica" compactado para evitar desbordamiento en pantallas pequeñas.
-  2. Fix: Hidratación correcta de roles al buscar un usuario.
-  3. UI: Reducción de paddings y tamaños de botones en modales secundarios.
+  1. UI: Botones de Roles simplificados (Solo Icono + Nombre).
+  2. Fix: Modal "Configuración Académica" compactado.
+  3. Fix: Hidratación correcta de roles en búsqueda.
 */
 
 'use client';
@@ -24,18 +24,22 @@ import { motion, AnimatePresence } from 'framer-motion';
 const S = {
   // Superficies
   GLASS_PANEL: "bg-white/40 backdrop-blur-xl border border-white/60 shadow-xl rounded-3xl",
-  GLASS_INPUT: "w-full bg-white/30 backdrop-blur-md border border-white/50 focus:bg-white/60 focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 text-gray-800 placeholder-gray-500 rounded-xl px-4 py-3 transition-all duration-200 shadow-inner",
+    GLASS_INPUT: "w-full bg-white/30 backdrop-blur-md border border-white/50 focus:bg-white/60 focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 text-gray-800 placeholder-gray-500 rounded-xl px-4 py-3 transition-all duration-200 shadow-inner",
+    GLASS_INPUT_COMPACT: "w-full bg-white/30 backdrop-blur-md border border-white/50 focus:bg-white/60 focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 text-gray-800 placeholder-gray-500 rounded-lg px-3 py-1.5 text-sm transition-all duration-200 shadow-inner",
   GLASS_CARD: "bg-gradient-to-br from-white/60 to-white/20 backdrop-blur-lg border border-white/40 shadow-lg rounded-2xl hover:shadow-xl transition-all duration-300",
   
-  // Tipografía
-  LABEL: "block text-xs font-bold text-indigo-900/60 uppercase tracking-wider mb-2 ml-1",
-  TITLE: "text-xl font-bold text-gray-900 tracking-tight",
-  SUBTITLE: "text-sm text-gray-500 font-medium",
+    // Tipografía
+    LABEL: "block text-xs font-bold text-indigo-900/60 uppercase tracking-wider mb-2 ml-1",
+    TITLE: "text-lg font-bold text-gray-900 tracking-tight",
+    SUBTITLE: "text-sm text-gray-500 font-medium",
 
   // Botones
-  BTN_PRIMARY: "bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-500/30 px-6 py-3 rounded-xl font-bold transition-all active:scale-95 flex items-center gap-2 justify-center disabled:opacity-70 disabled:cursor-not-allowed",
-  BTN_SECONDARY: "bg-white/50 hover:bg-white/80 text-gray-700 border border-white/60 shadow-sm px-6 py-3 rounded-xl font-bold transition-all active:scale-95 flex items-center gap-2 justify-center",
-  BTN_DANGER: "bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 px-6 py-3 rounded-xl font-bold transition-all active:scale-95 flex items-center gap-2",
+    BTN_PRIMARY: "bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-500/30 px-6 py-3 rounded-xl font-bold transition-all active:scale-95 flex items-center gap-2 justify-center disabled:opacity-70 disabled:cursor-not-allowed",
+    BTN_PRIMARY_COMPACT: "bg-indigo-600 hover:bg-indigo-700 text-white shadow-md shadow-indigo-500/20 px-3 py-1.5 rounded-lg font-bold text-sm transition-all active:scale-95 flex items-center gap-2 justify-center disabled:opacity-70 disabled:cursor-not-allowed",
+    BTN_SECONDARY: "bg-white/50 hover:bg-white/80 text-gray-700 border border-white/60 shadow-sm px-6 py-3 rounded-xl font-bold transition-all active:scale-95 flex items-center gap-2 justify-center",
+    BTN_SECONDARY_COMPACT: "bg-white/50 hover:bg-white/80 text-gray-700 border border-white/60 shadow-sm px-3 py-1.5 rounded-lg text-sm font-bold transition-all active:scale-95 flex items-center gap-2 justify-center",
+    BTN_DANGER: "bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 px-6 py-3 rounded-xl font-bold transition-all active:scale-95 flex items-center gap-2",
+    BTN_DANGER_COMPACT: "bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 px-3 py-1.5 rounded-lg text-sm font-bold transition-all active:scale-95 flex items-center gap-2",
   
   // Estados
   ERROR_RING: "ring-2 ring-rose-500/50 border-rose-400 bg-rose-50/30",
@@ -89,6 +93,25 @@ const ROLES_DEF = [
 // Helpers
 const trim = (s: string) => (s ?? '').trim();
 const rolEs = (rol: string, base: string) => rol === base || rol === `Timoteo - ${base}`;
+// Mapea un id de rol (valor guardado en BD) a la etiqueta visible en UI.
+// Acepta variantes como 'Timoteo - Contactos' o 'Timoteo - Maestros'.
+const roleLabelFromId = (id?: string) => {
+    if (!id) return '';
+    const raw = id.trim();
+    // Manejar variantes que incluyan la palabra base
+    if (/contactos/i.test(raw)) return 'Timoteos';
+    if (/maestro|maestros/i.test(raw)) return 'Coordinadores';
+    // Buscar en definiciones normales
+    const found = ROLES_DEF.find(r => r.id.toLowerCase() === raw.toLowerCase());
+    if (found) return found.label;
+    // Si viene en formato 'Timoteo - Contactos', devolver etiqueta amigable
+    const parts = raw.split('-').map(p => p.trim());
+    for (const p of parts) {
+        const f = ROLES_DEF.find(r => r.id.toLowerCase() === p.toLowerCase());
+        if (f) return f.label;
+    }
+    return raw;
+};
 const toEtapaDetFromUi = (nivelSel: string) => {
     const m = /^(semillas|devocionales|restauracion)\s+(\d+)/i.exec(nivelSel);
     if (!m) return null;
@@ -107,13 +130,18 @@ export default function GestionServidores() {
 
     // Modales
     const [modalState, setModalState] = useState<{
-        contactos: boolean; timoteo: boolean; buscar: boolean; admin: boolean; listado: boolean; detalle: boolean;
-    }>({ contactos: false, timoteo: false, buscar: false, admin: false, listado: false, detalle: false });
+        contactos: boolean; timoteo: boolean; buscar: boolean; admin: boolean; listado: boolean; detalle: boolean; premium: boolean; deleteConfirm: boolean;
+    }>({ contactos: false, timoteo: false, buscar: false, admin: false, listado: false, detalle: false, premium: false, deleteConfirm: false });
 
     // Logica Contactos/Maestros
     const [contactosSemana, setContactosSemana] = useState('Semana 1');
     const [contactosDia, setContactosDia] = useState<AppEstudioDia | ''>('');
     const [nivelSel, setNivelSel] = useState(''); 
+    // Indica desde qué botón se abrió el modal de "contactos" (timoteos|maestros|null)
+    const [contactosOpenedFrom, setContactosOpenedFrom] = useState<'timoteos' | 'maestros' | null>(null);
+    // Premium toast state (non-blocking)
+    const [premiumMessage, setPremiumMessage] = useState('');
+    const premiumTimerRef = useRef<number | null>(null);
 
     // Busqueda y Listado
     const [q, setQ] = useState('');
@@ -135,7 +163,8 @@ export default function GestionServidores() {
         setForm({ nombre: '', telefono: '', cedula: '', rol: '', destino: [], cultoSeleccionado: '', observaciones: '', cultos: defaultCultos() });
         setErrores({}); setEditMode(false); setCedulaUnlocked(true);
         setContactosSemana('Semana 1'); setContactosDia(''); setNivelSel('');
-        setModalState({ contactos: false, timoteo: false, buscar: false, admin: false, listado: false, detalle: false });
+        setModalState({ contactos: false, timoteo: false, buscar: false, admin: false, listado: false, detalle: false, premium: false, deleteConfirm: false });
+        setContactosOpenedFrom(null);
     };
 
     const handleGuardar = async () => {
@@ -181,10 +210,67 @@ export default function GestionServidores() {
             await supabase.from('servidores_roles').upsert({ servidor_id: sid, rol: form.rol, vigente: true }, { onConflict: 'servidor_id' });
             if (form.observaciones) await supabase.from('observaciones_servidor').insert({ servidor_id: sid, texto: form.observaciones });
 
-            alert('Guardado exitosamente');
+            // Mostrar mensaje premium (toast) tanto en creación como en actualización. Se autohide tras 5s.
             resetForm();
+            showPremium('Guardado exitosamente');
         } catch (e: any) { alert(e.message); } finally { setBusy(false); }
     };
+
+    // La eliminación confirmada se realiza desde el modal de confirmación
+    const handleEliminarConfirmed = async () => {
+        if (!form.cedula) { showPremium('No hay cédula seleccionada'); setModalState(prev => ({ ...prev, deleteConfirm: false })); return; }
+        setModalState(prev => ({ ...prev, deleteConfirm: false }));
+        setBusy(true);
+        try {
+            const ced = trim(form.cedula);
+            // Buscar id del servidor por cédula
+            const { data: servData, error: errServ } = await supabase.from('servidores').select('id').eq('cedula', ced).single();
+            if (errServ || !servData) throw errServ || new Error('Servidor no encontrado');
+            const sid = (servData as any).id;
+
+            // Desactivar asignaciones y roles vigentes
+            await Promise.all([
+                supabase.from('asignaciones_contacto').update({ vigente: false }).eq('servidor_id', sid),
+                supabase.from('asignaciones_maestro').update({ vigente: false }).eq('servidor_id', sid),
+                supabase.from('asignaciones_logistica').update({ vigente: false }).eq('servidor_id', sid),
+                supabase.from('servidores_roles').update({ vigente: false }).eq('servidor_id', sid),
+                supabase.from('servidores').update({ activo: false }).eq('id', sid),
+            ]);
+
+            showPremium('Servidor inhabilitado correctamente');
+            resetForm();
+            // recargar listado si está abierto
+            if (modalState.listado) cargarListado(listPage);
+        } catch (e: any) {
+            showPremium(e?.message || 'Error al eliminar');
+        } finally { setBusy(false); }
+    };
+
+    // Muestra un toast premium no bloqueante en la parte inferior
+    const showPremium = (msg = '') => {
+        // limpiar timeout previo
+        if (premiumTimerRef.current) { clearTimeout(premiumTimerRef.current); premiumTimerRef.current = null; }
+        setPremiumMessage(msg || 'Operación realizada con éxito');
+        setModalState(prev => ({ ...prev, premium: true }));
+        // auto-hide
+        const t = window.setTimeout(() => {
+            setModalState(prev => ({ ...prev, premium: false }));
+            setPremiumMessage('');
+            premiumTimerRef.current = null;
+        }, 5000);
+        premiumTimerRef.current = t as unknown as number;
+    };
+
+    const hidePremium = () => {
+        if (premiumTimerRef.current) { clearTimeout(premiumTimerRef.current); premiumTimerRef.current = null; }
+        setModalState(prev => ({ ...prev, premium: false }));
+        setPremiumMessage('');
+    };
+
+    // limpiar timeout al desmontar
+    useEffect(() => {
+        return () => { if (premiumTimerRef.current) { clearTimeout(premiumTimerRef.current); premiumTimerRef.current = null; } };
+    }, []);
 
     const handleBuscar = async () => {
         if (q.length < MIN_SEARCH) return;
@@ -201,13 +287,23 @@ export default function GestionServidores() {
             .limit(10);
 
         setResults((data as any[]) || []);
+        // DEBUG: mostrar en consola los resultados de la búsqueda para inspección
+        // Abre la consola del navegador (F12) y busca 'buscar resultados' cuando uses Buscar
+        // Esto ayuda a verificar el valor real de `servidores_roles` y por qué no aparece 'Timoteos'.
+        // Nota: elimina este log una vez depurado.
+        // eslint-disable-next-line no-console
+        console.log('buscar resultados:', data);
     };
 
     const cargarListado = async (page: number) => {
         setBusy(true);
         const from = (page - 1) * 8;
         const to = from + 7;
-        const { data, count } = await supabase.from('servidores').select('*', { count: 'exact' }).range(from, to).order('nombre');
+        // Traer también la relación `servidores_roles` para mostrar el rol en la tabla
+        const { data, count } = await supabase.from('servidores')
+            .select('*, servidores_roles(rol, vigente)', { count: 'exact' })
+            .range(from, to)
+            .order('nombre');
         setListData((data as any[]) || []);
         setListTotal(count || 0);
         setListPage(page);
@@ -216,35 +312,33 @@ export default function GestionServidores() {
 
     // --- RENDER UI ---
     return (
-        <div className="space-y-8 animate-in fade-in duration-500">
-            
-            {/* 1. HEADER & ACCIONES PRINCIPALES */}
-            <div className={`flex flex-col md:flex-row justify-between items-center p-8 ${S.GLASS_PANEL}`}>
-                <div className="flex items-center gap-4">
-                    <div className="h-14 w-14 rounded-2xl bg-indigo-600 text-white flex items-center justify-center shadow-lg shadow-indigo-500/30">
-                        <Server size={28} />
-                    </div>
-                    <div>
-                        <h2 className={S.TITLE}>Gestión de Servidores</h2>
-                        <p className={S.SUBTITLE}>Administración centralizada de recursos humanos.</p>
-                    </div>
-                </div>
-                <div className="flex gap-3 mt-6 md:mt-0">
-                    <button onClick={() => { setQ(''); setResults([]); toggleModal('buscar', true); }} className={S.BTN_SECONDARY}>
-                        <Search size={18} /> Buscar
-                    </button>
-                    <button onClick={() => { cargarListado(1); toggleModal('listado', true); }} className={S.BTN_SECONDARY}>
-                        <List size={18} /> Listado
-                    </button>
-                </div>
-            </div>
+        <div className="space-y-4 animate-in fade-in duration-500">
 
-            {/* 2. FORMULARIO PRINCIPAL */}
-            <div className={`p-8 ${S.GLASS_PANEL} relative overflow-hidden`}>
+            {/* 2. FORMULARIO PRINCIPAL (Incluye Cabezera compacta para unificación) */}
+            <div className={`p-6 ${S.GLASS_PANEL} relative overflow-hidden`}>
+                <div className="flex items-center justify-between gap-4 mb-4">
+                    <div className="flex items-center gap-3">
+                        <div className="h-10 w-10 rounded-lg bg-indigo-600 text-white flex items-center justify-center shadow-md shadow-indigo-300/20">
+                            <Server size={20} />
+                        </div>
+                        <div>
+                            <h2 className={S.TITLE}>Gestión de Servidores</h2>
+                            <p className={S.SUBTITLE}>Administración centralizada de recursos humanos.</p>
+                        </div>
+                    </div>
+                    <div className="flex gap-2">
+                        <button onClick={() => { setQ(''); setResults([]); toggleModal('buscar', true); }} className={S.BTN_SECONDARY_COMPACT}>
+                            <Search size={16} /> Buscar
+                        </button>
+                        <button onClick={() => { cargarListado(1); toggleModal('listado', true); }} className={S.BTN_SECONDARY_COMPACT}>
+                            <List size={16} /> Listado
+                        </button>
+                    </div>
+                </div>
                 {/* Fondo Decorativo */}
                 <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl -z-10 pointer-events-none" />
                 
-                <form onSubmit={e => e.preventDefault()} className="space-y-8">
+                <form onSubmit={e => e.preventDefault()} className="space-y-6">
                     {/* Sección Datos Personales */}
                     <div>
                         <div className="flex items-center gap-2 mb-4">
@@ -253,35 +347,23 @@ export default function GestionServidores() {
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                             <div>
-                                <input
-                                    ref={inputNombreRef}
-                                    aria-label="Nombre Completo"
-                                    value={form.nombre}
-                                    onChange={e => setForm({...form, nombre: e.target.value})}
-                                    className={`${S.GLASS_INPUT} ${errores.nombre ? S.ERROR_RING : ''}`}
-                                    placeholder="Ej. Juan Perez"
-                                />
+                                <input aria-label="Nombre Completo" ref={inputNombreRef} value={form.nombre} onChange={e => setForm({...form, nombre: e.target.value})} className={`${S.GLASS_INPUT} ${errores.nombre ? S.ERROR_RING : ''}`} placeholder="Nombre completo" />
                                 {errores.nombre && <span className="text-xs text-rose-500 mt-1 ml-1 font-bold">{errores.nombre}</span>}
                             </div>
                             <div>
-                                <input
-                                    aria-label="Teléfono o celular"
-                                    value={form.telefono}
-                                    onChange={e => setForm({...form, telefono: e.target.value})}
-                                    className={S.GLASS_INPUT}
-                                    placeholder="Ej. 300 123 4567"
-                                />
+                                <input aria-label="Teléfono / Celular" value={form.telefono} onChange={e => setForm({...form, telefono: e.target.value})} className={S.GLASS_INPUT} placeholder="Teléfono / Celular" />
                             </div>
                             <div className="relative">
+                                
                                 <div className="relative">
-                                    <input
-                                        aria-label="Cédula de ciudadanía"
-                                        value={form.cedula}
-                                        onChange={e => setForm({...form, cedula: e.target.value})}
+                                    <input 
+                                        value={form.cedula} 
+                                        onChange={e => setForm({...form, cedula: e.target.value})} 
                                         readOnly={editMode && !cedulaUnlocked}
                                         onClick={() => editMode && !cedulaUnlocked && toggleModal('admin', true)}
-                                        className={`${S.GLASS_INPUT} ${editMode && !cedulaUnlocked ? 'opacity-60 cursor-not-allowed' : ''} ${errores.cedula ? S.ERROR_RING : ''}`}
-                                        placeholder="Número de Documento"
+                                        className={`${S.GLASS_INPUT} ${editMode && !cedulaUnlocked ? 'opacity-60 cursor-not-allowed' : ''} ${errores.cedula ? S.ERROR_RING : ''}`} 
+                                        aria-label="Cédula de Ciudadanía"
+                                        placeholder="Cédula de ciudadanía" 
                                     />
                                     {editMode && !cedulaUnlocked && <span className="absolute right-4 top-3 text-gray-400"><ShieldAlert size={18}/></span>}
                                 </div>
@@ -291,7 +373,7 @@ export default function GestionServidores() {
 
                     <hr className="border-white/40" />
 
-                    {/* Sección Roles (Grid Premium) */}
+                    {/* Sección Roles (Botones Simplificados) */}
                     <div>
                         <div className="flex items-center gap-2 mb-4">
                             <Layers className="text-indigo-600" size={20}/>
@@ -306,22 +388,32 @@ export default function GestionServidores() {
                                     <button
                                         key={role.id}
                                         onClick={() => {
-                                            if (role.id === 'Timoteo') { toggleModal('timoteo', true); } 
-                                            else if (role.id === 'Contactos' || role.id === 'Maestros') { 
+                                            if (role.id === 'Timoteo') { 
+                                                toggleModal('timoteo', true);
+                                                setContactosOpenedFrom(null);
+                                            } else if (role.id === 'Contactos') {
                                                 setForm(f => ({...f, rol: role.id})); 
+                                                setContactosOpenedFrom('timoteos');
+                                                toggleModal('contactos', true); 
+                                            } else if (role.id === 'Maestros') {
+                                                setForm(f => ({...f, rol: role.id})); 
+                                                setContactosOpenedFrom('maestros');
                                                 toggleModal('contactos', true); 
                                             } else {
                                                 setForm(f => ({...f, rol: role.id}));
+                                                setContactosOpenedFrom(null);
                                             }
                                         }}
-                                        className={`relative group p-4 rounded-2xl border text-left transition-all duration-300 ${isSelected ? `bg-white/80 border-indigo-500 shadow-lg shadow-indigo-500/20 ring-1 ring-indigo-500` : 'bg-white/40 border-white/50 hover:bg-white/60 hover:border-white/80'}`}
+                                        // ESTILO MODIFICADO: Flex Row para layout compacto (Icono + Nombre)
+                                        className={`relative group p-3 rounded-xl border transition-all duration-300 flex items-center gap-3 ${isSelected ? `bg-white/80 border-indigo-500 shadow-lg shadow-indigo-500/20 ring-1 ring-indigo-500` : 'bg-white/40 border-white/50 hover:bg-white/60 hover:border-white/80'}`}
                                     >
-                                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center mb-3 transition-colors ${isSelected ? 'bg-indigo-100 text-indigo-700' : `${role.bg} ${role.color}`}`}>
-                                            <role.icon size={20} />
+                                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${isSelected ? 'bg-indigo-100 text-indigo-700' : `${role.bg} ${role.color}`}`}>
+                                            <role.icon size={18} />
                                         </div>
-                                        <p className={`font-bold text-sm ${isSelected ? 'text-gray-900' : 'text-gray-700'}`}>{role.label}</p>
-                                        <p className="text-[10px] text-gray-500 mt-1 font-medium">{role.desc}</p>
-                                        {isSelected && <div className="absolute top-3 right-3 w-2 h-2 bg-indigo-500 rounded-full animate-pulse"/>}
+                                        <span className={`font-bold text-sm ${isSelected ? 'text-gray-900' : 'text-gray-600'}`}>{role.label}</span>
+                                        
+                                        {/* Indicador minimalista */}
+                                        {isSelected && <div className="absolute top-2 right-2 w-2 h-2 bg-indigo-500 rounded-full animate-pulse"/>}
                                     </button>
                                 );
                             })}
@@ -358,25 +450,25 @@ export default function GestionServidores() {
 
                     {/* Observaciones */}
                           <div>
-                                 <textarea
-                                     aria-label="Notas u observaciones"
-                                     rows={3}
+                                 <label className={S.LABEL}>Notas / Observaciones</label>
+                                 <textarea 
+                                     rows={2} 
                                      value={form.observaciones}
                                      onChange={e => setForm({...form, observaciones: e.target.value})}
-                                     className={S.GLASS_INPUT}
+                                     className={S.GLASS_INPUT_COMPACT + " resize-y max-h-[96px]"}
                                      placeholder="Información adicional relevante..."
                                  />
                           </div>
 
                     {/* Botones de Acción */}
-                    <div className="flex flex-col md:flex-row justify-end gap-4 pt-6 border-t border-white/40">
-                        <button onClick={resetForm} className={S.BTN_SECONDARY}>Cancelar</button>
+                    <div className="flex flex-col md:flex-row justify-end gap-3 pt-4 border-t border-white/40">
+                        <button onClick={resetForm} className={S.BTN_SECONDARY_COMPACT}>Cancelar</button>
                         {editMode && (
-                            <button onClick={() => { /* Logica eliminar */ }} className={S.BTN_DANGER}><Trash2 size={18}/> Eliminar</button>
+                            <button onClick={() => setModalState(prev => ({ ...prev, deleteConfirm: true }))} className={S.BTN_DANGER_COMPACT}><Trash2 size={14}/> Eliminar</button>
                         )}
-                        <button onClick={handleGuardar} disabled={busy} className={S.BTN_PRIMARY}>
-                            {busy ? <Loader2 className="animate-spin" size={20}/> : <Save size={20}/>}
-                            {editMode ? 'Actualizar Registro' : 'Guardar Servidor'}
+                        <button onClick={handleGuardar} disabled={busy} className={S.BTN_PRIMARY_COMPACT}>
+                            {busy ? <Loader2 className="animate-spin" size={16}/> : <Save size={16}/>}
+                            {editMode ? 'Actualizar' : 'Guardar'}
                         </button>
                     </div>
                 </form>
@@ -384,7 +476,7 @@ export default function GestionServidores() {
 
             {/* --- 5. MODALES --- */}
 
-            {/* Modal Configuración Académica (COMPACTADO) */}
+            {/* Modal Configuración Académica (COMPACTO) */}
             <AnimatePresence>
                 {modalState.contactos && (
                     <ModalBase onClose={() => toggleModal('contactos', false)} maxWidth="max-w-lg">
@@ -394,10 +486,10 @@ export default function GestionServidores() {
                                     <h3 className="text-lg font-bold text-gray-900">Configuración Académica</h3>
                                     <p className="text-xs text-gray-500">Detalles del rol {rolEs(form.rol, 'Maestros') ? 'Coordinador' : 'Timoteo'}</p>
                                 </div>
-                                <button onClick={() => toggleModal('contactos', false)} className="p-2 hover:bg-gray-100 rounded-full"><X size={18}/></button>
+                                <button onClick={() => { toggleModal('contactos', false); setContactosOpenedFrom(null); }} className="p-2 hover:bg-gray-100 rounded-full"><X size={18}/></button>
                             </div>
                             
-                            <div className="space-y-3 overflow-y-auto max-h-[60vh] pr-1">
+                            <div className="space-y-3 overflow-y-auto max-h-[80vh] pr-1">
                                 {/* Seleccion Dia */}
                                 <div className="space-y-2">
                                     <label className={S.LABEL}>Día de Servicio</label>
@@ -437,7 +529,7 @@ export default function GestionServidores() {
                                 </div>
 
                                 {/* Semana (Solo contactos) */}
-                                {rolEs(form.rol, 'Contactos') && (
+                                {rolEs(form.rol, 'Contactos') && contactosOpenedFrom !== 'timoteos' && (
                                     <div className="space-y-2">
                                         <label className={S.LABEL}>Semana de Turno</label>
                                         <div className="flex gap-2 bg-gray-100 p-1 rounded-xl w-fit">
@@ -453,7 +545,7 @@ export default function GestionServidores() {
                             </div>
 
                             <div className="pt-4 mt-4 border-t flex justify-end">
-                                <button onClick={() => toggleModal('contactos', false)} className={S.BTN_PRIMARY + " py-2 text-sm"}>Confirmar</button>
+                                <button onClick={() => { toggleModal('contactos', false); setContactosOpenedFrom(null); }} className={S.BTN_PRIMARY_COMPACT}>Confirmar</button>
                             </div>
                         </div>
                     </ModalBase>
@@ -464,7 +556,7 @@ export default function GestionServidores() {
             <AnimatePresence>
                 {modalState.buscar && (
                     <ModalBase onClose={() => toggleModal('buscar', false)}>
-                        <div className="p-6">
+                        <div className="p-4">
                             <div className="relative mb-6">
                                 <Search className="absolute left-4 top-3.5 text-gray-400" size={20}/>
                                 <input 
@@ -475,7 +567,7 @@ export default function GestionServidores() {
                                     className="w-full bg-gray-50 border border-gray-200 rounded-2xl pl-12 pr-4 py-3 text-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
                                 />
                             </div>
-                            <div className="max-h-[50vh] overflow-y-auto space-y-2">
+                            <div className="max-h-[40vh] overflow-y-auto space-y-2">
                                 {results.length === 0 && q.length > 2 && <div className="text-center text-gray-400 py-8">No se encontraron resultados</div>}
                                 {results.map(r => (
                                     <button key={r.id} onClick={() => { 
@@ -511,8 +603,11 @@ export default function GestionServidores() {
                                             <span className="font-bold text-gray-900 group-hover:text-indigo-700">{r.nombre}</span>
                                             <div className="flex items-center gap-2">
                                                 {r.servidores_roles?.find(sr => sr.vigente) && (
-                                                    <span className="bg-indigo-100 text-indigo-700 text-[10px] px-2 py-0.5 rounded-md font-bold uppercase tracking-wide">
-                                                        {r.servidores_roles.find(sr => sr.vigente)?.rol}
+                                                    <span
+                                                        title={r.servidores_roles.find(sr => sr.vigente)?.rol || JSON.stringify(r.servidores_roles) || ''}
+                                                        className="bg-indigo-100 text-indigo-700 text-[10px] px-2 py-0.5 rounded-md font-bold uppercase tracking-wide whitespace-nowrap"
+                                                    >
+                                                        {roleLabelFromId(r.servidores_roles.find(sr => sr.vigente)?.rol)}
                                                     </span>
                                                 )}
                                                 <span className={`text-xs px-2 py-1 rounded-full ${r.activo ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{r.activo ? 'Activo' : 'Inactivo'}</span>
@@ -533,7 +628,7 @@ export default function GestionServidores() {
             <AnimatePresence>
                 {modalState.listado && (
                     <ModalBase onClose={() => toggleModal('listado', false)} maxWidth="max-w-4xl">
-                        <div className="flex flex-col h-[80vh]">
+                        <div className="flex flex-col h-[64vh]">
                             <div className="p-6 border-b flex justify-between items-center">
                                 <h3 className="text-xl font-bold text-gray-900">Directorio de Servidores</h3>
                                 <button onClick={() => toggleModal('listado', false)}><X className="text-gray-400 hover:text-gray-600"/></button>
@@ -553,7 +648,11 @@ export default function GestionServidores() {
                                                 <td className="px-6 py-4 font-medium text-gray-900">{s.nombre}</td>
                                                 <td className="px-6 py-4 text-gray-500 font-mono text-sm">{s.cedula}</td>
                                                 <td className="px-6 py-4 text-gray-500">{s.telefono || '—'}</td>
-                                                <td className="px-6 py-4"><span className="bg-indigo-50 text-indigo-700 px-2 py-1 rounded text-xs font-bold">Rol</span></td>
+                                                <td className="px-6 py-4">
+                                                    <span title={s.servidores_roles?.find(sr => sr.vigente)?.rol || ''} className="bg-indigo-50 text-indigo-700 px-3 py-1 rounded text-xs font-bold whitespace-nowrap">
+                                                        {roleLabelFromId(s.servidores_roles?.find(sr => sr.vigente)?.rol) || '—'}
+                                                    </span>
+                                                </td>
                                                 <td className="px-6 py-4">{s.activo ? <span className="text-green-600 text-xs font-bold">● Activo</span> : <span className="text-red-500 text-xs">● Inactivo</span>}</td>
                                             </tr>
                                         ))}
@@ -602,6 +701,46 @@ export default function GestionServidores() {
                             </div>
                         </div>
                     </ModalBase>
+                )}
+            </AnimatePresence>
+
+            {/* Modal Premium de confirmación de eliminación */}
+            <AnimatePresence>
+                {modalState.deleteConfirm && (
+                    <ModalBase onClose={() => setModalState(prev => ({ ...prev, deleteConfirm: false }))} maxWidth="max-w-md">
+                        <div className="p-6 bg-gradient-to-r from-blue-50 via-blue-100 to-blue-200 rounded-2xl">
+                            <div className="text-center">
+                                <div className="text-lg font-bold text-indigo-900 mb-2">¿Confirmar inhabilitación?</div>
+                                <div className="text-sm text-indigo-800 mb-4">Se inhabilitarán las asignaciones y el rol del servidor seleccionado.</div>
+                                <div className="text-sm text-indigo-700 font-medium mb-6">{form.nombre || form.cedula}</div>
+                                <div className="flex justify-center gap-3">
+                                    <button onClick={() => setModalState(prev => ({ ...prev, deleteConfirm: false }))} className={S.BTN_SECONDARY_COMPACT}>Cancelar</button>
+                                    <button onClick={handleEliminarConfirmed} className={S.BTN_DANGER_COMPACT}>Confirmar</button>
+                                </div>
+                            </div>
+                        </div>
+                    </ModalBase>
+                )}
+            </AnimatePresence>
+
+            {/* Premium toast (no bloqueante) */}
+            <AnimatePresence>
+                {modalState.premium && (
+                    <motion.div
+                        initial={{ opacity: 0, y: 24 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: 24 }}
+                        className="fixed bottom-6 right-6 z-[70]"
+                    >
+                        <div onClick={hidePremium} className="max-w-sm bg-gradient-to-r from-blue-50 via-blue-100 to-blue-200 shadow-lg rounded-2xl p-4 flex items-start gap-3 cursor-pointer">
+                            <div className="w-10 h-10 bg-white/70 text-indigo-600 rounded-lg flex items-center justify-center">
+                                <UserCheck size={20} />
+                            </div>
+                            <div>
+                                <div className="text-sm font-semibold text-indigo-900">{premiumMessage || 'Operación realizada con éxito'}</div>
+                            </div>
+                        </div>
+                    </motion.div>
                 )}
             </AnimatePresence>
 
