@@ -76,9 +76,11 @@ const DonutChartModule = dynamic(async () => {
     } catch (e) { return null; }
   };
 
-  // Componente Retornado
-  return ({ data, onHover, hoveredModuloKey, colors }: any) => (
-    <ResponsiveContainer width="100%" height="100%">
+  // Componente Retornado (convertido a componente nombrado para evitar error `react/display-name`)
+  const DonutInner = (props: any) => {
+    const { data, onHover, hoveredModuloKey, colors } = props;
+    return (
+      <ResponsiveContainer width="100%" height="100%">
       <PieChart onMouseLeave={() => onHover(null, null)} margin={{ top: 40, right: 40, bottom: 40, left: 40 }}>
         <Tooltip content={<CustomTooltip />} />
         <Pie
@@ -132,7 +134,12 @@ const DonutChartModule = dynamic(async () => {
         </Pie>
       </PieChart>
     </ResponsiveContainer>
-  );
+    );
+  };
+
+  DonutInner.displayName = 'DonutChartModuleInner';
+
+  return DonutInner;
 }, {
   ssr: false,
   loading: () => <div className="w-full h-full flex items-center justify-center text-slate-400 bg-slate-50/50 rounded-full animate-pulse">Cargando gráfico...</div> 
