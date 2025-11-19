@@ -1,22 +1,23 @@
 'use client';
 
-import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
+import { useEffect, useMemo, useState, useCallback, useRef, memo } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
-import { getPersonaIdDesdeProgreso, getObservacionesPersona } from '@/lib/api';
+// import { getPersonaIdDesdeProgreso, getObservacionesPersona } from '@/lib/api'; // (No usado en el código original, lo dejo comentado igual)
 import dynamic from 'next/dynamic';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
-import * as XLSX from 'xlsx';
+// MEJORA 1: Eliminados imports estáticos pesados para Lazy Loading
+// import jsPDF from 'jspdf';
+// import autoTable from 'jspdf-autotable';
+// import * as XLSX from 'xlsx';
 import { useToast } from '@/components/ToastProvider';
 
 const PersonaNueva = dynamic(() => import('@/app/panel/contactos/FormularioPersonaNueva'), { ssr: false });
 const Servidores = dynamic(() => import('@/app/panel/servidores/page'), { ssr: false });
-import { motion, AnimatePresence, type Variants } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 
 /* ================= Tipos ================= */
 type Dia = 'Domingo' | 'Martes' | 'Virtual';
-type Semana = 1 | 2 | 3; // BD limita a 1..3
+type Semana = 1 | 2 | 3;
 
 type Resultado =
   | 'no_contesta'
@@ -64,18 +65,18 @@ type AgendadoRow = {
 };
    
 // === Transición estilo Dribbble (Shared Axis X) ===
-const EASE: [number, number, number, number] = [0.2, 0.8, 0.2, 1];
-const DUR_IN = 0.24;
-const DUR_OUT = 0.18;
+// const EASE: [number, number, number, number] = [0.2, 0.8, 0.2, 1]; // No usado explícitamente, comentado.
+// const DUR_IN = 0.24;
+// const DUR_OUT = 0.18;
 
 // Hook para dirección (→ abrir, ← volver)
 function useDirection<T>(value: T | null | undefined) {
   const prev = useRef<T | null | undefined>(value);
   const dir = useRef<1 | -1>(1);
   useEffect(() => {
-    if (prev.current == null && value != null) dir.current = 1;       // vacío -> algo
-    else if (prev.current != null && value == null) dir.current = -1; // algo -> vacío
-    else if (prev.current !== value) dir.current = 1;                 // A -> B
+    if (prev.current == null && value != null) dir.current = 1;       
+    else if (prev.current != null && value == null) dir.current = -1; 
+    else if (prev.current !== value) dir.current = 1;                 
     prev.current = value;
   }, [value]);
   return dir.current;
@@ -130,9 +131,7 @@ const RPC_GUARDAR_LLAMADA = 'fn_guardar_llamada';
 const RPC_ASIST     = 'fn_marcar_asistencia';
 
 /** ======== Banco Archivo (constantes) ======== */
-/** Vista que lista archivados visibles para este panel */
 const V_BANCO = 'v_banco_archivo';
-/** RPC que re-activa un registro desde Banco Archivo hacia el panel actual */
 const RPC_REACTIVAR = 'fn_reactivar_desde_archivo';
 
 // Duraciones UI centralizadas
@@ -158,24 +157,6 @@ const resultadoLabels: Record<Resultado, string> = {
 };
 
 const LEFT_PANEL_VARIANTS = {
-  initial: { opacity: 0, x: 160, scale: 0.96, filter: 'blur(14px)' },
-  animate: {
-    opacity: 1,
-    x: 0,
-    scale: 1,
-    filter: 'blur(0px)',
-    transition: { duration: 0.6, ease: EASE_SMOOTH }
-  },
-  exit: {
-    opacity: 0,
-    x: -110,
-    scale: 0.97,
-    filter: 'blur(10px)',
-    transition: { duration: 0.45, ease: EASE_EXIT }
-  }
-};
-
-const RIGHT_PANEL_VARIANTS = {
   initial: { opacity: 0, x: 160, scale: 0.96, filter: 'blur(14px)' },
   animate: {
     opacity: 1,
@@ -256,6 +237,82 @@ const LIST_ITEM_VARIANTS = {
   }
 };
 
+// MEJORA 2: Componente Memoizado para la Lista (Evita re-renders masivos)
+const PendienteItem = memo(({ 
+  c, 
+  selectedId, 
+  disabled, 
+  onSelect 
+}: { 
+  c: PendRowUI, 
+  selectedId: string | null, 
+  disabled: boolean, 
+  onSelect: (e: React.MouseEvent<HTMLLIElement>, c: PendRowUI) => void 
+}) => {
+  return (
+    <motion.li
+      variants={LIST_ITEM_VARIANTS}
+      layout
+      className={`px-4 md:px-5 py-3 transition
+        ${selectedId === c.progreso_id ? 'bg-white/50' : ''}
+        rounded-lg m-2 ring-2 ${c._ui === 'new' ? 'ring-emerald-300/60 animate-fadeInScale' : 'ring-transparent'}
+        ${c._ui === 'changed' ? 'animate-flashBg' : ''}
+        ${disabled ? 'opacity-55 cursor-not-allowed' : 'hover:bg-white/40 cursor-pointer'}
+        transition-[box-shadow] duration-500`}
+      onClick={(e) => onSelect(e, c)}
+    >
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex items-start gap-3 min-w-0">
+          <span className={`mt-1 inline-block h-2.5 w-2.5 rounded-full ${
+            c._ui === 'new'
+              ? 'bg-emerald-500 shadow-[0_0_0_4px_rgba(16,185,129,.25)] animate-newUiFade-5s'
+              : (disabled
+                  ? 'bg-neutral-300 shadow-[0_0_0_3px_rgba(156,163,175,.25)]'
+                  : 'bg-gradient-to-r from-green-400 to-green-600 shadow-[0_0_0_3px_rgba(34,197,94,.25)]')
+          }`} />
+          <div className="min-w-0">
+            <div className={`font-semibold leading-tight truncate ${
+              disabled ? 'text-neutral-500' : 'text-neutral-900'
+            }`}>
+              {c.nombre}
+            </div>
+            <div className="mt-0.5 inline-flex items-center gap-1.5 text-neutral-700 text-xs md:text-sm">
+              <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" className="opacity-80">
+                <path d="M6.6 10.8c1.3 2.5 3.1 4.4 5.6 5.6l2.1-2.1a1 1 0 0 1 1.1-.22c1.2.48 2.6.74 4 .74a1 1 0 0 1 1 1v3.5a1 1 0 0 1-1 1C12.1 20.3 3.7 11.9 3.7 2.7a1 1 0 0 1 1-1H8.2a1 1 0 0 1 1 1c0 1.4.26 2.8.74 4a1 1 0 0 1-.22 1.1l-2.1 2.1Z" fill="currentColor" />
+              </svg>
+              <span className="truncate">{c.telefono ?? '—'}</span>
+            </div>
+            {c._ui === 'new' && (
+              <span className="mt-1 inline-flex items-center text-[10px] font-semibold text-emerald-800 bg-emerald-50 rounded-full px-2 py-0.5 ring-1 ring-emerald-200 animate-newUiFade-5s">
+                Nuevo
+              </span>
+            )}
+            {disabled && (
+              <span className="mt-1 inline-flex items-center text-[10px] font-semibold text-neutral-700 bg-neutral-100 rounded-full px-2 py-0.5 ring-1 ring-neutral-200">
+                Disponible la próxima semana
+              </span>
+            )}
+          </div>
+        </div>
+
+        <div className="shrink-0 text-right text-[11px] md:text-xs text-neutral-700 leading-5">
+          {[c.llamada1 ?? null, c.llamada2 ?? null, c.llamada3 ?? null].map((r, idx) => (
+            <div key={idx}>
+              <span className="mr-1">Llamada {idx + 1}:</span>
+              {r ? (
+                <span className="font-medium text-neutral-900">{resultadoLabels[r as Resultado]}</span>
+              ) : (
+                <span className="italic">sin registro</span>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    </motion.li>
+  );
+});
+PendienteItem.displayName = 'PendienteItem';
+
 /* ================= Helpers ================= */
 const normalizeCedula = (s: string) => (s || '').trim();
 const norm = (t: string) =>
@@ -265,7 +322,6 @@ const norm = (t: string) =>
     .toLowerCase()
     .trim();
 
-/** "Semilla 3" | "Devocionales 2" | "Restauracion 1" -> etapaBase + módulo */
 function mapEtapaDetToBase(etapaDet: string): {
   etapaBase: 'Semillas' | 'Devocionales' | 'Restauracion';
   modulo: 1 | 2 | 3 | 4;
@@ -286,7 +342,6 @@ function mapEtapaDetToBase(etapaDet: string): {
   return { etapaBase: 'Restauracion', modulo: 1, hasModulo: false };
 }
 
-/** Coincidencia de un row de `progreso` con la asignación/día/semana actual */
 function matchAsigRow(
   row: any,
   asig: MaestroAsignacion,
@@ -311,7 +366,7 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
   const params = useSearchParams();
   const cedula = normalizeCedula(cedulaProp ?? params?.get('cedula') ?? '');
   const rtDebug = (params?.get('rtlog') === '1') || (params?.get('debug') === '1');
-  const rtLog = (...args: any[]) => { if (rtDebug) console.log('[RT maestros]', ...args); };
+  const rtLog = useCallback((...args: any[]) => { if (rtDebug) console.log('[RT maestros]', ...args); }, [rtDebug]);
 
   const [nombre, setNombre] = useState('');
   const [asig, setAsig] = useState<MaestroAsignacion | null>(null);
@@ -333,13 +388,8 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
 
   // Modal para registros inhabilitados
   const [showNextWeekModal, setShowNextWeekModal] = useState(false);
-  // === INICIO DE LA MODIFICACIÓN 1: Nuevo estado para el modal ===
-  // Este estado guarda el ID del registro que el modal está mostrando
   const [modalTargetId, setModalTargetId] = useState<string | null>(null);
-  // === INICIO DE LA MODIFICACIÓN: Nuevo estado para la POSICIÓN del modal ===
   const [modalPosition, setModalPosition] = useState<{ top: number; left: number } | null>(null);
-  // === FIN DE LA MODIFICACIÓN ===
-  // === FIN DE LA MODIFICACIÓN 1 ===
 
   /** ======== Banco Archivo (estado) ======== */
   const [bancoOpen, setBancoOpen] = useState(false);
@@ -350,10 +400,9 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
   const [servidorId, setServidorId] = useState<string | null>(null);
   const [showReactivationConfirm, setShowReactivationConfirm] = useState(false);
   const [reactivationCandidate, setReactivationCandidate] = useState<BancoRow | null>(null);
-  // === INICIO DE LA MODIFICACIÓN: Estado de paginación para Banco Archivo ===
   const [bancoPagina, setBancoPagina] = useState(0);
   const REGS_POR_PAGINA = 8;
-  // === FIN DE LA MODIFICACIÓN ===
+  
   // Modales adicionales
   const [nuevaAlmaOpen, setNuevaAlmaOpen] = useState(false);
   const [servidoresOpen, setServidoresOpen] = useState(false);
@@ -361,79 +410,71 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
   // Estado para desbloqueo temporal
   const [tempUnlocked, setTempUnlocked] = useState<Record<string, number>>({});
 
+  // MEJORA 3: Estado 'now' global actualizado cada minuto para evitar new Date() en cada render de la lista
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    const interval = setInterval(() => setNow(Date.now()), 60000); // Actualiza cada min
+    return () => clearInterval(interval);
+  }, []);
+
   /**
    * Comprueba si un registro está inhabilitado.
-   * Ahora comprueba primero el desbloqueo temporal.
+   * Optimizado para usar timestamps numéricos y el estado 'now'.
    */
   const estaInhabilitado = useCallback((id: string, h?: string | null) => {
-    // 1. Revisar si hay un desbloqueo temporal activo
     const unlockExpiresAt = tempUnlocked[id];
     if (unlockExpiresAt) {
-      if (Date.now() < unlockExpiresAt) {
-        return false; // ¡Está desbloqueado temporalmente!
+      if (now < unlockExpiresAt) { // Comparación numérica rápida
+        return false; 
       } else {
-        // El desbloqueo expiró, limpiamos el estado
         setTempUnlocked(prev => {
           const newState = { ...prev };
           delete newState[id];
           return newState;
         });
-        // Dejamos que continúe la lógica normal...
       }
     }
 
-    // 2. Lógica original (si no hay desbloqueo temporal)
-    if (!h) {
-      // Si no hay fecha de habilitación (ej: un registro nuevo), se asume que está habilitado.
-      return false;
-    }
+    if (!h) return false;
+    
     try {
-      // 'h' ahora es un string ISO 8601 completo (ej: '2025-11-09T10:00:00-05:00')
-      const habilitadoDesde = new Date(h);
-      // Obtenemos la fecha y hora actuales
-      const ahora = new Date();
-      // Si la hora actual es ANTERIOR a la hora de habilitación, está inhabilitado.
-      return ahora < habilitadoDesde;
+      // Comparación numérica más eficiente
+      const habilitadoTime = new Date(h).getTime();
+      return now < habilitadoTime;
     } catch (e) {
       console.error("Error al parsear la fecha habilitado_desde:", h, e);
       return false;
     }
-  }, [tempUnlocked]); // Añadimos la dependencia
+  }, [tempUnlocked, now]); 
 
-  // refs para estado “vivo” dentro de handlers realtime
   const semanaRef = useRef(semana);
   const diaRef = useRef<Dia | null>(dia);
   const asigRef = useRef<MaestroAsignacion | null>(asig);
   const pendRef = useRef<PendRowUI[]>(pendientes);
   const rightPanelRef = useRef<HTMLElement | null>(null);
-  const dir = useDirection(selectedId);
+  // const dir = useDirection(selectedId); // Comentado si no se usa
 
   useEffect(() => { semanaRef.current = semana; }, [semana]);
   useEffect(() => { diaRef.current = dia; }, [dia]);
   useEffect(() => { asigRef.current = asig; }, [asig]);
   useEffect(() => { pendRef.current = pendientes; }, [pendientes]);
 
-  // Cuando se abren modales grandes en responsive, llevar vista al inicio
   useEffect(() => {
     if (nuevaAlmaOpen || servidoresOpen) {
       try { window.scrollTo({ top: 0, behavior: 'auto' }); } catch {}
     }
   }, [nuevaAlmaOpen, servidoresOpen]);
 
-  // En responsive: al seleccionar un registro, llevar el panel derecho al inicio
- useEffect(() => {
-  if (!selectedId) return;
-  // Solo aplicar en pantallas pequeñas (menor a lg)
-  const isLgUp = typeof window !== 'undefined' && window.matchMedia('(min-width: 1024px)').matches;
-  if (isLgUp) return;
-  // Intentar desplazar al inicio del panel derecho y al tope de la ventana
-  try {
-    rightPanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  } catch {}
-}, [selectedId]);
+  useEffect(() => {
+    if (!selectedId) return;
+    const isLgUp = typeof window !== 'undefined' && window.matchMedia('(min-width: 1024px)').matches;
+    if (isLgUp) return;
+    try {
+      rightPanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } catch {}
+  }, [selectedId]);
 
-  // limpiar resaltado "_ui"
   const clearTimersRef = useRef<Record<string, number>>({});
   const scheduleClearUI = (id: string, ms = NEW_UI_MS) => {
     if (clearTimersRef.current[id]) window.clearTimeout(clearTimersRef.current[id]);
@@ -443,20 +484,20 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
     }, ms);
   };
 
-  /** Para marcar “Nuevo” cuando viene de reactivación */
   const rtNewRef = useRef<Set<string>>(new Set());
-
   const toast = useToast();
 
-  const downloadPDF = () => {
+  // MEJORA 1: Lazy Loading para funciones de descarga
+  const downloadPDF = async () => {
+    const jsPDF = (await import('jspdf')).default;
+    const autoTable = (await import('jspdf-autotable')).default;
+
     const doc = new jsPDF();
     
-    // Premium Header
     doc.setFontSize(20);
     doc.setTextColor(40, 58, 90);
     doc.text(`Contactos Pendientes por llamar Semana ${semana}`, 14, 22);
 
-    // Table
     autoTable(doc, {
       startY: 30,
       head: [['Nombre', 'Teléfono', 'Observaciones']],
@@ -468,11 +509,12 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
       headStyles: { fillColor: [41, 128, 185] },
     });
 
-  doc.save(`contactos_pendientes_semana_${semana}.pdf`);
-  toast.success('Archivo descargado exitosamente');
+    doc.save(`contactos_pendientes_semana_${semana}.pdf`);
+    toast.success('Archivo descargado exitosamente');
   };
 
-  const downloadExcel = () => {
+  const downloadExcel = async () => {
+    const XLSX = await import('xlsx');
     const ws_name = "Contactos Pendientes";
     const wb = XLSX.utils.book_new();
     
@@ -483,11 +525,8 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
       [p.llamada1, p.llamada2, p.llamada3].filter(Boolean).map((r, i) => `Llamada ${i+1}: ${resultadoLabels[r as Resultado]}`).join('\n') || '-'
     ]);
 
-    // ...código para crear y guardar el Excel...
-    // Suponiendo que guardas el archivo aquí:
     toast.success('Archivo descargado exitosamente');
 
-    // Premium Header
     const finalData = [
       [`Contactos Pendientes por llamar Semana ${semana}`],
       [],
@@ -496,11 +535,8 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
     ];
 
     const ws = XLSX.utils.aoa_to_sheet(finalData);
-
-    // Merge cells for the main header
     ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 2 } }];
 
-    // Premium styling (basic)
     if(ws['A1']) {
       ws['A1'].s = {
         font: {
@@ -522,8 +558,11 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
     XLSX.writeFile(wb, `contactos_pendientes_semana_${semana}.xlsx`);
   };
 
-  const downloadBancoPDF = () => {
+  const downloadBancoPDF = async () => {
     if (!asig) return;
+    const jsPDF = (await import('jspdf')).default;
+    const autoTable = (await import('jspdf-autotable')).default;
+
     const doc = new jsPDF();
     doc.setFontSize(20);
     doc.setTextColor(40, 58, 90);
@@ -547,8 +586,10 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
     toast.success('Archivo PDF del Banco Archivo descargado exitosamente');
   };
 
-  const downloadBancoExcel = () => {
+  const downloadBancoExcel = async () => {
     if (!asig) return;
+    const XLSX = await import('xlsx');
+
     const ws_name = "Banco Archivo";
     const wb = XLSX.utils.book_new();
     
@@ -585,8 +626,11 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
     toast.success('Archivo Excel del Banco Archivo descargado exitosamente');
   };
 
-  const downloadAsistenciasPDF = () => {
+  const downloadAsistenciasPDF = async () => {
     if (!asig) return;
+    const jsPDF = (await import('jspdf')).default;
+    const autoTable = (await import('jspdf-autotable')).default;
+
     const doc = new jsPDF();
     doc.setFontSize(20);
     doc.setTextColor(40, 58, 90);
@@ -607,9 +651,7 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
     toast.success('Archivo PDF de Asistencias descargado exitosamente');
   };
 
-
-
-  // Cargar asignación del maestro (y servidorId para reactivar)
+  // Cargar asignación
   useEffect(() => {
     (async () => {
       if (!cedula) return;
@@ -652,7 +694,6 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
     if (!asig) return;
     if (!opts?.quiet) setLoadingPend(true);
 
-    // 1) NO pedimos habilitado_desde a la vista (evita que falle si la vista no lo tiene)
     const [{ data: hist, error: e1 }, { data: base, error: e2 }] = await Promise.all([
       supabase
         .from(V_PEND_HIST)
@@ -679,69 +720,56 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
     const allowed = new Set((base ?? []).map((r: any) => r.progreso_id));
     const draft = ((hist ?? []) as PendienteRow[]).filter((r) => allowed.has(r.progreso_id));
 
-    // 2) Traemos habilitado_desde desde la tabla progreso y lo fusionamos
    let byId = new Map<string, string | null>();
-try {
-  const ids = draft.map((r) => r.progreso_id);
-  
+    try {
+      const ids = draft.map((r) => r.progreso_id);
+      if (ids.length) {
+        const { data: fechas, error: e3 } = await supabase.rpc('fn_progreso_hab_desde', { ids });
+        if (e3) {
+          console.error('[progreso fechas] ERROR', e3.message);
+        } else {
+          byId = new Map((fechas ?? []).map((f: any) => [f.id, f.habilitado_desde ?? null]));
+        }
+      }
+    } catch (err: any) {}
 
-  if (ids.length) {
- const { data: fechas, error: e3 } = await supabase
-  .rpc('fn_progreso_hab_desde', { ids });
+    const prev = pendRef.current;
+    const prevById = new Map(prev.map((p) => [p.progreso_id, p]));
+    const next: PendRowUI[] = draft.map((r) => {
+      const old = prevById.get(r.progreso_id);
+      let _ui: 'new' | 'changed' | undefined;
 
+      if (rtNewRef.current.has(r.progreso_id)) {
+        _ui = 'new';
+        rtNewRef.current.delete(r.progreso_id);
+      } else if (!old) _ui = 'new';
+      else if (
+        old.llamada1 !== r.llamada1 ||
+        old.llamada2 !== r.llamada2 ||
+        old.llamada3 !== r.llamada3 ||
+        old.nombre !== r.nombre ||
+        old.telefono !== r.telefono
+      ) {
+        _ui = 'changed';
+      }
 
-    if (e3) {
-      console.error('[progreso fechas] ERROR', e3.message);
-    } else {
-     
-      byId = new Map((fechas ?? []).map((f: any) => [f.id, f.habilitado_desde ?? null]));
-      
-    }
-  }
-} catch (err: any) {
-  
-}
+      if (old?._ui === 'new' && clearTimersRef.current[r.progreso_id]) {
+        _ui = 'new';
+      }
 
-const prev = pendRef.current;
-const prevById = new Map(prev.map((p) => [p.progreso_id, p]));
-const next: PendRowUI[] = draft.map((r) => {
-  const old = prevById.get(r.progreso_id);
-  let _ui: 'new' | 'changed' | undefined;
-
-  if (rtNewRef.current.has(r.progreso_id)) {
-    _ui = 'new';
-    rtNewRef.current.delete(r.progreso_id);
-  } else if (!old) _ui = 'new';
-  else if (
-    old.llamada1 !== r.llamada1 ||
-    old.llamada2 !== r.llamada2 ||
-    old.llamada3 !== r.llamada3 ||
-    old.nombre !== r.nombre ||
-    old.telefono !== r.telefono
-  ) {
-    _ui = 'changed';
-  }
-
-  if (old?._ui === 'new' && clearTimersRef.current[r.progreso_id]) {
-    _ui = 'new';
-  }
-
-  // Preferimos la fecha nueva; si no llega, conservamos la anterior (evita que quede null por race)
-  const mergedHabDesde = byId.get(r.progreso_id) ?? old?.habilitado_desde ?? null;
-
-  return { ...r, habilitado_desde: mergedHabDesde, _ui };
-});
+      const mergedHabDesde = byId.get(r.progreso_id) ?? old?.habilitado_desde ?? null;
+      return { ...r, habilitado_desde: mergedHabDesde, _ui };
+    });
          
-setPendientes(next);
-next.forEach((r) => {
-  if (!r._ui) return;
-  if (!clearTimersRef.current[r.progreso_id]) {
-    scheduleClearUI(r.progreso_id, r._ui === 'new' ? NEW_UI_MS : CHANGED_UI_MS);
-  }
-});
+    setPendientes(next);
+    next.forEach((r) => {
+      if (!r._ui) return;
+      if (!clearTimersRef.current[r.progreso_id]) {
+        scheduleClearUI(r.progreso_id, r._ui === 'new' ? NEW_UI_MS : CHANGED_UI_MS);
+      }
+    });
 
-if (!opts?.quiet) setLoadingPend(false);
-
+    if (!opts?.quiet) setLoadingPend(false);
   },
   [asig]
 );
@@ -766,44 +794,20 @@ if (!opts?.quiet) setLoadingPend(false);
   useEffect(() => { void fetchAgendados({ quiet: false }); }, [fetchAgendados]);
 
   /* ====== Acciones ====== */
-
-  // === INICIO DE LA MODIFICACIÓN 2: Nuevas funciones para el Modal ===
-  /**
-   * Cierra el modal de inhabilitado y limpia el estado de `modalTargetId`.
-   */
   const handleCloseModal = () => {
     setShowNextWeekModal(false);
     setModalTargetId(null);
-    setModalPosition(null); // Limpiar la posición al cerrar
+    setModalPosition(null);
   };
 
-  /**
-   * Maneja el clic en "Desbloquear Temporalmente".
-   * Usa `modalTargetId` para saber a quién desbloquear.
-   */
   const handleTempUnlock = () => {
-    // 1. Usar el ID del estado del modal, NO el selectedId principal
     if (!modalTargetId) return;
-
-    // 2. Calcular 1 hora (60 min * 60 seg * 1000 ms)
     const expirationTime = Date.now() + (60 * 60 * 1000); 
-
-    // 3. Añadir el registro al estado de desbloqueados
-    setTempUnlocked(prev => ({
-      ...prev,
-      [modalTargetId]: expirationTime
-    }));
-
-    // 4. Cerrar el modal y limpiar el target
+    setTempUnlocked(prev => ({ ...prev, [modalTargetId]: expirationTime }));
     handleCloseModal();
-    
-    // 5. ¡AHORA SÍ! Establecer el selectedId principal para mostrar el panel
     setSelectedId(modalTargetId);
-    
-    // 6. Mostramos una notificación
     toast.success('Registro desbloqueado por 1 hora.');
   };
-  // === FIN DE LA MODIFICACIÓN 2 ===
 
   const enviarResultado = async (payload: { resultado: Resultado; notas?: string }) => {
     const row = pendRef.current.find((p) => p.progreso_id === selectedId);
@@ -811,7 +815,6 @@ if (!opts?.quiet) setLoadingPend(false);
 
     const esConfirmado = payload.resultado === 'confirmo_asistencia';
 
-    // Optimista en UI
     setAgendados((prev) => {
       const yaEsta = prev.some((a) => a.progreso_id === row.progreso_id);
       if (esConfirmado) {
@@ -831,8 +834,7 @@ if (!opts?.quiet) setLoadingPend(false);
           p_dia: dia,
           p_resultado: payload.resultado,
           p_notas: payload.notas ?? null,
-          p_hecho_por: servidorId,
-                                                                              
+          p_hecho_por: servidorId,                                                                  
         });
       if (error) throw error;
 
@@ -852,19 +854,12 @@ if (!opts?.quiet) setLoadingPend(false);
   const toggleMark = (id: string, tipo: 'A' | 'N') =>
     setMarks((m) => ({ ...m, [id]: m[id] === tipo ? undefined : tipo }));
 
-  // ==================================================================
-  // === LÓGICA DE RESTAURACIÓN (SIN CAMBIOS) ===
-  // ==================================================================
-
-  
-const handleRestauracionAsistencia = async (student: AgendadoRow) => {
-    // === INICIO DE LA CORRECCIÓN ===
+  const handleRestauracionAsistencia = async (student: AgendadoRow) => {
     if (!student?.nombre) {
       console.error("Error: Se intentó registrar asistencia sin nombre de estudiante.", student);
       toast.error('Error: El estudiante no tiene nombre, no se puede procesar.');
-      return false; // <-- Devuelve 'false' explícitamente
+      return false; 
     }
-    // === FIN DE LA CORRECCIÓN ===
 
     const placeholderCedula = `TEMP_${crypto.randomUUID()}`;
     const payload = {
@@ -926,11 +921,6 @@ const handleRestauracionAsistencia = async (student: AgendadoRow) => {
     }
   };
 
-  // ==================================================================
-  // === FIN LÓGICA DE RESTAURACIÓN ===
-  // ==================================================================
-
-
   /* ====== Realtime ====== */
   useEffect(() => {
     if (!asig) return;
@@ -976,7 +966,6 @@ const handleRestauracionAsistencia = async (student: AgendadoRow) => {
       const oldMatch = matchAsigRow(oldRow, a, d, s);
       const newMatch = matchAsigRow(newRow, a, d, s);
 
-      // antes NO y ahora SÍ ? agregar
       if (!oldMatch && newMatch) {
         if (!pendRef.current.some(p => p.progreso_id === newRow.id)) {
           const { data: per } = await supabase
@@ -1001,18 +990,15 @@ const handleRestauracionAsistencia = async (student: AgendadoRow) => {
         return;
       }
 
-      // antes SÍ y ahora NO ? quitar
       if (oldMatch && !newMatch) {
         setPendientes(prev => prev.filter(p => p.progreso_id !== newRow.id));
         if (selectedId === newRow.id) setSelectedId(null);
         return;
       }
 
-      // sigue coincidiendo ? refrescar silencioso
       if (newMatch) refreshQuiet();
     };
                                                                                    
-    // ---- refresh silencioso con debounce ----
     let t: number | null = null;
     const refreshQuiet = () => {
       if (t) window.clearTimeout(t);
@@ -1026,16 +1012,13 @@ const handleRestauracionAsistencia = async (student: AgendadoRow) => {
       }, 150);
     };
 
-    // ---- canal ----
     const channelName = `rt-maestros-${cedula}`;
     const ch = supabase.channel(channelName);
 
-    // Logs de diagnóstico (activar con ?rtlog=1)
     ch.on('postgres_changes', { event: '*', schema: 'public', table: 'progreso' }, (p: any) => {
       if (rtDebug) rtLog('ev:progreso', p?.eventType, { old: p?.old?.id, new: p?.new?.id });
     });
 
-    // INSERT progreso con fallback
     ch.on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'progreso' }, async (payload) => {
       const id = payload.new?.id;
       if (!id) return;
@@ -1054,7 +1037,6 @@ const handleRestauracionAsistencia = async (student: AgendadoRow) => {
       await tryPatchProgresoInsert(row);
     });
 
-    // UPDATE progreso con fallback
     ch.on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'progreso' }, async (payload) => {
       if (payload.old && payload.new) {
         void tryPatchProgresoUpdate(payload.old, payload.new);
@@ -1067,7 +1049,6 @@ const handleRestauracionAsistencia = async (student: AgendadoRow) => {
       }
     });
 
-    // transition_log: refuerzo para transiciones S1?S2, etc.
     ch.on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'transition_log' }, async (payload) => {
       const progId = payload.new?.progreso_id;
       if (!progId) return;
@@ -1076,7 +1057,6 @@ const handleRestauracionAsistencia = async (student: AgendadoRow) => {
       refreshQuiet();
     });
 
-    // Otros eventos que impactan vistas ? refresco silencioso
     ch.on('postgres_changes', { event: '*', schema: 'public', table: 'llamada_intento' }, () => refreshQuiet());
     ch.on('postgres_changes', { event: '*', schema: 'public', table: 'asistencia' }, () => refreshQuiet());
     ch.on('postgres_changes', { event: '*', schema: 'public', table: 'persona' }, () => refreshQuiet());
@@ -1135,7 +1115,6 @@ const handleRestauracionAsistencia = async (student: AgendadoRow) => {
           <span className="text-neutral-700 text-sm">Coordinador - {titulo || '-'}
           </span>
 
-          {/* ====== Botón Banco Archivo (añadido) ====== */}
           <button
             onClick={() => openBanco()}
             className="ml-auto inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-sky-300 via-indigo-300 to-cyan-300 text-slate-900 ring-1 ring-white/50 shadow-[0_6px_20px_rgba(20,150,220,0.35)] px-3 py-1.5 text-sm font-semibold hover:scale-[1.02] active:scale-95 transition"
@@ -1280,97 +1259,31 @@ const handleRestauracionAsistencia = async (student: AgendadoRow) => {
             className="divide-y divide-white/50"
           >
            {pendientes.map((c) => {
-  const disabled = estaInhabilitado(c.progreso_id, c.habilitado_desde);
-
-  return (
-    <motion.li
-      key={c.progreso_id}
-      variants={LIST_ITEM_VARIANTS}
-      layout
-      className={`px-4 md:px-5 py-3 transition
-        ${selectedId === c.progreso_id ? 'bg-white/50' : ''}
-        rounded-lg m-2 ring-2 ${c._ui === 'new' ? 'ring-emerald-300/60 animate-fadeInScale' : 'ring-transparent'}
-        ${c._ui === 'changed' ? 'animate-flashBg' : ''}
-        ${disabled ? 'opacity-55 cursor-not-allowed' : 'hover:bg-white/40 cursor-pointer'}
-        transition-[box-shadow] duration-500`}
-      // === INICIO DE LA MODIFICACIÓN 3: Lógica de onClick CORREGIDA ===
-      onClick={(e: React.MouseEvent<HTMLLIElement>) => { // 1. Capturar el evento
-        if (disabled) {
-          // Si está deshabilitado:
-          // 1. Poner el ID en el target del modal
-          setModalTargetId(c.progreso_id);
-          
-          // 2. Calcular y guardar la posición
-          const rect = e.currentTarget.getBoundingClientRect();
-          setModalPosition({
-            top: rect.bottom + window.scrollY + 8, // 8px de espacio
-            left: rect.left + window.scrollX,
-          });
-
-          // 3. Mostrar el modal
-          setShowNextWeekModal(true);
-        } else {
-          // Si está habilitado:
-          // 1. Poner el ID en el selectedId principal para mostrar el panel
-          setSelectedId(c.progreso_id);
-          // 2. Asegurarse que el target y la posición del modal estén limpios
-          setModalTargetId(null);
-          setModalPosition(null);
-        }
-      }}
-      // === FIN DE LA MODIFICACIÓN 3 ===
-    >
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex items-start gap-3 min-w-0">
-          <span className={`mt-1 inline-block h-2.5 w-2.5 rounded-full ${
-            c._ui === 'new'
-              ? 'bg-emerald-500 shadow-[0_0_0_4px_rgba(16,185,129,.25)] animate-newUiFade-5s'
-              : (disabled
-                  ? 'bg-neutral-300 shadow-[0_0_0_3px_rgba(156,163,175,.25)]'
-                  : 'bg-gradient-to-r from-green-400 to-green-600 shadow-[0_0_0_3px_rgba(34,197,94,.25)]')
-          }`} />
-          <div className="min-w-0">
-            <div className={`font-semibold leading-tight truncate ${
-              disabled ? 'text-neutral-500' : 'text-neutral-900'
-            }`}>
-              {c.nombre}
-            </div>
-            <div className="mt-0.5 inline-flex items-center gap-1.5 text-neutral-700 text-xs md:text-sm">
-              <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" className="opacity-80">
-                <path d="M6.6 10.8c1.3 2.5 3.1 4.4 5.6 5.6l2.1-2.1a1 1 0 0 1 1.1-.22c1.2.48 2.6.74 4 .74a1 1 0 0 1 1 1v3.5a1 1 0 0 1-1 1C12.1 20.3 3.7 11.9 3.7 2.7a1 1 0 0 1 1-1H8.2a1 1 0 0 1 1 1c0 1.4.26 2.8.74 4a1 1 0 0 1-.22 1.1l-2.1 2.1Z" fill="currentColor" />
-              </svg>
-              <span className="truncate">{c.telefono ?? '—'}</span>
-            </div>
-            {c._ui === 'new' && (
-              <span className="mt-1 inline-flex items-center text-[10px] font-semibold text-emerald-800 bg-emerald-50 rounded-full px-2 py-0.5 ring-1 ring-emerald-200 animate-newUiFade-5s">
-                Nuevo
-              </span>
-            )}
-            {disabled && (
-              <span className="mt-1 inline-flex items-center text-[10px] font-semibold text-neutral-700 bg-neutral-100 rounded-full px-2 py-0.5 ring-1 ring-neutral-200">
-                Disponible la próxima semana
-              </span>
-            )}
-          </div>
-        </div>
-
-        <div className="shrink-0 text-right text-[11px] md:text-xs text-neutral-700 leading-5">
-          {[c.llamada1 ?? null, c.llamada2 ?? null, c.llamada3 ?? null].map((r, idx) => (
-            <div key={idx}>
-              <span className="mr-1">Llamada {idx + 1}:</span>
-              {r ? (
-                <span className="font-medium text-neutral-900">{resultadoLabels[r as Resultado]}</span>
-              ) : (
-                <span className="italic">sin registro</span>
-              )}
-            </div>
-          ))}
-        </div>
-      </div>
-    </motion.li>
-  );
-})}
-         
+            const disabled = estaInhabilitado(c.progreso_id, c.habilitado_desde);
+            return (
+              <PendienteItem
+                key={c.progreso_id}
+                c={c}
+                selectedId={selectedId}
+                disabled={disabled}
+                onSelect={(e, item) => {
+                  if (disabled) {
+                    setModalTargetId(item.progreso_id);
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    setModalPosition({
+                      top: rect.bottom + window.scrollY + 8,
+                      left: rect.left + window.scrollX,
+                    });
+                    setShowNextWeekModal(true);
+                  } else {
+                    setSelectedId(item.progreso_id);
+                    setModalTargetId(null);
+                    setModalPosition(null);
+                  }
+                }}
+              />
+            );
+          })}
           </motion.ul>
         )}
       </motion.div>
@@ -1392,8 +1305,12 @@ const handleRestauracionAsistencia = async (student: AgendadoRow) => {
       animate="animate"
       exit="exit"
       layout
+      // MEJORA 4: willChange para aceleración de hardware en animación pesada
       className="relative transform-gpu will-change-transform will-change-opacity"
-      style={{ transformOrigin: '50% 50%' }}
+      style={{ 
+        transformOrigin: '50% 50%', 
+        willChange: 'transform, opacity, filter' 
+      }}
     >
       {!selectedId ? (
         <div className="grid place-items-center text-neutral-700 h-full min-h-[300px]">
@@ -1457,8 +1374,6 @@ const handleRestauracionAsistencia = async (student: AgendadoRow) => {
                   </svg>
                   PDF
                 </button>
-
-               
             </div>
           </div>
 
@@ -1571,16 +1486,11 @@ const handleRestauracionAsistencia = async (student: AgendadoRow) => {
                 </div>
               </div>                                 
 
-
-
-
-
               {/* Contenido (scrollable) */}
               <div className="flex-1 overflow-y-auto">
                 {/* Tabla */}
                 <div className="px-4 md:px-6 py-3">
                   <div className="overflow-x-auto">
-                    {/* === INICIO: Lógica de paginación === */}
                     {(() => {
                       const totalPaginas = Math.ceil(bancoRows.length / REGS_POR_PAGINA);
                       const registrosMostrados = bancoRows.slice(
@@ -1593,7 +1503,6 @@ const handleRestauracionAsistencia = async (student: AgendadoRow) => {
                           <table className="w-full text-sm">
                             <thead>
                               <tr className="text-left text-neutral-800">
-                                {/* === MODIFICADO: Columna Nombre (sticky) === */}
                                 <th className="sticky left-0 z-10 py-2 pr-3 bg-white/90 supports-[backdrop-filter]:bg-white/70 backdrop-blur-sm">Nombre</th>
                                 <th className="py-2 pr-3">Teléfono</th>
                                 <th className="py-2 pr-3">Módulo</th>
@@ -1610,7 +1519,6 @@ const handleRestauracionAsistencia = async (student: AgendadoRow) => {
                                 <tr><td colSpan={7} className="py-6 text-center text-neutral-700">Sin registros archivados.</td></tr>
                               ) : registrosMostrados.map((r) => (
                                 <tr key={r.progreso_id} className="border-t border-white/50">
-                                  {/* === MODIFICADO: Celda Nombre (sticky) === */}
                                   <td className="sticky left-0 z-10 py-2 pr-3 font-medium text-neutral-900 bg-white/90 supports-[backdrop-filter]:bg-white/70 backdrop-blur-sm">{r.nombre}</td>
                                   <td className="py-2 pr-3 text-neutral-800">{r.telefono ?? '—'}</td>
                                   <td className="py-2 pr-3">{r.modulo ?? '—'}</td>
@@ -1654,7 +1562,6 @@ const handleRestauracionAsistencia = async (student: AgendadoRow) => {
                             </tbody>
                           </table>
                           
-                          {/* ====== INICIO: Paginación Banco Archivo ====== */}
                           {totalPaginas > 1 && (
                             <div className="sticky bottom-0 px-1 py-3 flex items-center justify-between border-t border-white/50 bg-white/50 backdrop-blur-sm mt-2">
                               <button
@@ -1684,11 +1591,9 @@ const handleRestauracionAsistencia = async (student: AgendadoRow) => {
                               </button>
                             </div>
                           )}
-                          {/* ====== FIN: Paginación Banco Archivo ====== */}
                         </>
                       );
                     })()}
-                    {/* === FIN: Lógica de paginación === */}
                   </div>
                 </div>
               </div>
@@ -1748,19 +1653,15 @@ const handleRestauracionAsistencia = async (student: AgendadoRow) => {
       <AnimatePresence>
         {showNextWeekModal && (
           <>
-            {/* === INICIO DE LA MODIFICACIÓN 4: onClick del Backdrop === */}
             <motion.div
               key="backdrop"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               className="fixed inset-0 z-[60] bg-black/50"
-              onClick={handleCloseModal} // Usar el nuevo handler
+              onClick={handleCloseModal}
             />
-            {/* === FIN DE LA MODIFICACIÓN 4 === */}
             
-            {/* Card */}
-            {/* === INICIO DE LA MODIFICACIÓN: Contenedor del Modal como Popover === */}
             <motion.div
               key="card"
               role="dialog"
@@ -1769,20 +1670,15 @@ const handleRestauracionAsistencia = async (student: AgendadoRow) => {
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 0, scale: 0.95 }}
               transition={{ type: "spring", stiffness: 300, damping: 20 }}
-              className="absolute z-[61]" // MODIFICADO: De 'fixed' a 'absolute'
+              className="absolute z-[61]"
               style={{
-                // MODIFICADO: Posicionamiento dinámico
                 top: modalPosition ? `${modalPosition.top}px` : 0,
                 left: modalPosition ? `${modalPosition.left}px` : 0,
                 visibility: modalPosition ? 'visible' : 'hidden',
               }}
             >
-              {/* El div interno define el tamaño y estilo del popover */}
               <div className="w-full max-w-md rounded-2xl bg-white/80 shadow-2xl ring-1 ring-white/40">
-            {/* === FIN DE LA MODIFICACIÓN: Contenedor del Modal como Popover === */}
-            
                 <div className="p-6 md:p-7">
-                  {/* Header */}
                   <div className="flex items-start gap-3">
                     <div className="h-10 w-10 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center shadow-md">
                       <svg width="22" height="22" viewBox="0 0 24 24" fill="white" aria-hidden="true">
@@ -1793,14 +1689,11 @@ const handleRestauracionAsistencia = async (student: AgendadoRow) => {
                       <h3 className="text-base md:text-lg font-semibold text-neutral-900">
                         Registro inhabilitado
                       </h3>
-                      {/* === INICIO DE LA MODIFICACIÓN 5: Texto del modal actualizado === */}
                       <p className="mt-1 text-sm text-neutral-700">
                          Este registro fue gestionado por el servidor de la semana anterior.
   Por ese motivo estará disponible nuevamente el próximo domingo a las 10:00 AM.
                       </p>
-                      {/* Mostrar fecha exacta si existe en el registro seleccionado */}
                       {(() => {
-                        // Usar modalTargetId para encontrar los datos
                         const selected = modalTargetId && pendientes.find(p => p.progreso_id === modalTargetId);
                         if (selected && selected.habilitado_desde) {
                           return (
@@ -1811,12 +1704,9 @@ const handleRestauracionAsistencia = async (student: AgendadoRow) => {
                         }
                         return null;
                       })()}
-                      {/* === FIN DE LA MODIFICACIÓN 5 === */}
                     </div>
                   </div>
 
-
-                  {/* === INICIO DE LA MODIFICACIÓN 6: Footer del modal actualizado === */}
                   <div className="mt-6 flex justify-end gap-3">
                     <button
                       type="button"
@@ -1828,13 +1718,12 @@ const handleRestauracionAsistencia = async (student: AgendadoRow) => {
 
                     <button
                       type="button"
-                      onClick={handleCloseModal} // Usar el nuevo handler
+                      onClick={handleCloseModal}
                       className="inline-flex items-center justify-center rounded-xl px-4 py-2 text-sm font-semibold text-white bg-gradient-to-r from-amber-500 to-orange-500 shadow hover:brightness-105 active:brightness-95 transition"
                     >
                       Entendido
                     </button>
                   </div>
-                  {/* === FIN DE LA MODIFICACIÓN 6 === */}
                 </div>
               </div>
             </motion.div>
@@ -1928,7 +1817,7 @@ async function openBanco() {
   if (!asig) return;
   setBancoOpen(true);
   setBancoLoading(true);
-  setBancoPagina(0); // <-- MODIFICACIÓN: Resetear paginación
+  setBancoPagina(0); 
   
   try {
     let q = supabase
@@ -1936,10 +1825,8 @@ async function openBanco() {
       .select('progreso_id,persona_id,nombre,telefono,modulo,semana,dia,creado_en,etapa')
       .eq('dia', asig.dia);
 
-    // ?? Filtro correcto: etapaBase + modulo
     q = (q as any).eq('etapa', asig.etapaBase);
     if (asig.etapaBase !== 'Restauracion') {
-
       q = (q as any).eq('modulo', asig.modulo);
     }
 
@@ -1970,12 +1857,10 @@ async function openBanco() {
       });
       if (error) throw error;
 
-      // Quitar del modal y refrescar listas
       setBancoRows((prev) => prev.filter((r) => r.progreso_id !== row.progreso_id));
       if (dia) await fetchPendientes(semana, dia, { quiet: true });
       await fetchAgendados({ quiet: true });
 
-      // Marcar como "Nuevo" en el panel
       rtNewRef.current.add(row.progreso_id);
     } catch (e: any) {
       console.error(e?.message ?? 'No se pudo reactivar');
@@ -2039,14 +1924,12 @@ function FollowUp({
   const [obs, setObs] = useState('');
   const [obsCount, setObsCount] = useState<number | null>(null);
 
-  // Reiniciar estado cuando cambia el registro seleccionado
   useEffect(() => {
     setResultado(null);
     setObs('');
   }, [row?.progreso_id]);
 
 
-  // Observaciones modal state
   type ObsItem = { 
     fecha: string; 
     notas: string; 
@@ -2070,7 +1953,6 @@ function FollowUp({
     }
   }, [row.progreso_id]);
 
-  // ?? Cargar observaciones del registro (llamada_intento) para el modal
 const openObsModal = async () => {
   setObsOpen(true);
   setObsLoading(true);
@@ -2118,7 +2000,6 @@ const openObsModal = async () => {
   const waHref = waNumber ? `https://wa.me/${waNumber}?text=${encodeURIComponent(waText)}` : null;
 
 
-  // Cargar conteo al cambiar de registro
   useEffect(() => {
     setObsCount(null);
     void refreshObsCount();
@@ -2257,7 +2138,6 @@ const openObsModal = async () => {
               <div className="px-4 md:px-6 py-4 md:py-5">
                 <div className="flex md:block gap-4">
                  
-
                   {/* Contenido principal del modal */}
                   <div className="flex-1 min-w-0">
                     {obsLoading ? (
@@ -2267,31 +2147,30 @@ const openObsModal = async () => {
                     ) : (
                       <ul className="space-y-3">
                        {obsItems.map((it, idx) => (
-  <li key={idx} className="rounded-2xl bg-white ring-1 ring-neutral-200 px-4 py-3 shadow-sm">
-    <div className="text-sm text-neutral-600 flex items-center justify-between">
-      <span className="font-medium text-neutral-800">
-        {new Date(it.fecha).toLocaleString()}
-      </span>
-      <span className="text-[11px] inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-neutral-100 ring-1 ring-neutral-200 text-neutral-600">
-        {it.fuente === 'registro' ? 'Registro' : 'Llamada'}
-      </span>
-    </div>
+                        <li key={idx} className="rounded-2xl bg-white ring-1 ring-neutral-200 px-4 py-3 shadow-sm">
+                          <div className="text-sm text-neutral-600 flex items-center justify-between">
+                            <span className="font-medium text-neutral-800">
+                              {new Date(it.fecha).toLocaleString()}
+                            </span>
+                            <span className="text-[11px] inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-neutral-100 ring-1 ring-neutral-200 text-neutral-600">
+                              {it.fuente === 'registro' ? 'Registro' : 'Llamada'}
+                            </span>
+                          </div>
 
-    {it.autor && (
-      <div className="mt-1 text-[11px] text-neutral-500">
-        Registrado por {it.autor}
-      </div>
-    )}
+                          {it.autor && (
+                            <div className="mt-1 text-[11px] text-neutral-500">
+                              Registrado por {it.autor}
+                            </div>
+                          )}
 
-    <div className="mt-2 text-[13px] text-neutral-900 whitespace-pre-wrap">
-      <strong className="font-semibold">
-        {it.resultado ? (resultadoLabels[it.resultado as Resultado] ?? it.resultado) : '-'}
-      </strong>
-      {it.notas ? ` - ${it.notas}` : ''}
-    </div>
-  </li>
-))}
-
+                          <div className="mt-2 text-[13px] text-neutral-900 whitespace-pre-wrap">
+                            <strong className="font-semibold">
+                              {it.resultado ? (resultadoLabels[it.resultado as Resultado] ?? it.resultado) : '-'}
+                            </strong>
+                            {it.notas ? ` - ${it.notas}` : ''}
+                          </div>
+                        </li>
+                      ))}
                       </ul>
                     )}
                   </div>

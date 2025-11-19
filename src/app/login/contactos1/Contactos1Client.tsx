@@ -1,51 +1,14 @@
 ﻿'use client';
 
-// Placeholder visual premium para el panel derecho
-const EmptyRightPlaceholder = () => (
-  <motion.div
-    initial={{ opacity: 0, y: 8, scale: 0.98 }}
-    animate={{ opacity: 1, y: 0, scale: 1 }}
-    transition={{ duration: 0.45, ease: 'easeOut' }}
-    className="h-full grid place-items-center"
-    role="status"
-    aria-label="Sin selección"
-  >
-    <div className="w-full max-w-md rounded-2xl p-5 ring-1 ring-white/60 shadow-[0_24px_60px_-30px_rgba(16,24,40,.35)] bg-[linear-gradient(135deg,rgba(255,255,255,.85),rgba(245,247,255,.6))] supports-[backdrop-filter]:backdrop-blur-xl text-center">
-      <div className="mx-auto mb-3 h-14 w-14 rounded-2xl grid place-items-center ring-1 ring-white/60 shadow-inner
-                      bg-[radial-gradient(120px_120px_at_30%_30%,rgba(99,102,241,.25),transparent),radial-gradient(120px_120px_at_70%_70%,rgba(56,189,248,.22),transparent)]">
-        {/* Phone/Ghost icono con sutil latido */}
-        <motion.svg
-          width="28" height="28" viewBox="0 0 24 24"
-          initial={{ scale: 0.96, opacity: 0.9 }}
-          animate={{ scale: [0.96, 1.02, 0.96], opacity: [0.9, 1, 0.9] }}
-          transition={{ duration: 2.2, repeat: Infinity, ease: 'easeInOut' }}
-          className="text-neutral-700"
-        >
-          <path fill="currentColor" d="M6.6 10.8c1.3 2.5 3.1 4.4 5.6 5.6l2.1-2.1a1 1 0 0 1 1.1-.22c1.2.48 2.6.74 4 .74a1 1 0 0 1 1 1v3.5a1 1 0 0 1-1 1C12.1 20.3 3.7 11.9 3.7 2.7a1 1 0 0 1 1-1H8.2a1 1 0 0 1 1 1c0 1.4.26 2.8.74 4a1 1 0 0 1-.22 1.1l-2.1 2.1Z"/>
-        </motion.svg>
-      </div>
-
-      <h4 className="text-[15px] md:text-base font-semibold text-neutral-900">Nada seleccionado</h4>
-      <p className="mt-1 text-sm text-neutral-600">Elige un nombre de la lista para <span className="font-medium">llamar / registrar</span>.</p>
-
-      {/* Pistas rápidas (opcionales, no rompen layout) */}
-      <div className="mt-4 flex items-center justify-center gap-2 flex-wrap text-xs">
-        <span className="rounded-full px-2.5 py-1 ring-1 ring-white/60 bg-white/80 text-neutral-700">Semana {new Date().getDay() === 0 ? 1 : ''}</span>
-        <span className="rounded-full px-2.5 py-1 ring-1 ring-white/60 bg-white/80 text-neutral-700">Día asignado</span>
-        <span className="rounded-full px-2.5 py-1 ring-1 ring-white/60 bg-white/80 text-neutral-700">Estados de llamada</span>
-      </div>
-    </div>
-  </motion.div>
-);
-
-import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
+import { useEffect, useMemo, useState, useCallback, useRef, memo } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
 import dynamic from 'next/dynamic';
 import { AnimatePresence, motion } from 'framer-motion';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
-import * as XLSX from 'xlsx';
+// MEJORA 1: Eliminados imports estáticos pesados
+// import jsPDF from 'jspdf';
+// import autoTable from 'jspdf-autotable';
+// import * as XLSX from 'xlsx';
 import { useToast } from '@/components/ToastProvider';
 
 // Carga dinámica de los formularios
@@ -54,7 +17,7 @@ const Servidores = dynamic(() => import('@/app/panel/servidores/page'), { ssr: f
 
 /* ================= Tipos ================= */
 type Dia = 'Domingo' | 'Martes' | 'Virtual';
-type Semana = 1 | 2 | 3; // BD limita a 1..3
+type Semana = 1 | 2 | 3; 
 
 type Resultado =
   | 'no_contesta'
@@ -85,7 +48,7 @@ type MaestroAsignacion = {
 
 type PendienteRow = {
   progreso_id: string;
-  nombre: string | undefined; // <-- permitir undefined para hardening
+  nombre: string | undefined; 
   telefono: string | null;
   llamada1?: Resultado | null;
   llamada2?: Resultado | null;
@@ -97,16 +60,15 @@ type PendRowUI = PendienteRow & { _ui?: 'new' | 'changed' };
 
 type AgendadoRow = {
   progreso_id: string;
-  nombre: string | undefined; // <-- permitir undefined para hardening
+  nombre: string | undefined; 
   telefono: string | null;
   semana: number;
 };
 
-/** ======== Banco Archivo ======== */
 type BancoRow = {
   progreso_id: string;
   persona_id: string;
-  nombre: string | undefined; // <-- permitir undefined
+  nombre: string | undefined; 
   telefono: string | null;
   modulo: 1 | 2 | 3 | 4 | null;
   semana: number | null;
@@ -121,37 +83,7 @@ const V_PEND_BASE   = 'v_llamadas_pendientes';
 const V_AGENDADOS   = 'v_agendados';
 const RPC_GUARDAR_LLAMADA = 'fn_guardar_llamada';
 const RPC_ASIST     = 'fn_marcar_asistencia';
-
-const MAC2025_PANEL_VARIANTS = {
-  initial: {
-    opacity: 0,
-    y: 48,
-    scale: 0.98,
-    filter: 'blur(10px)',
-    boxShadow: '0 12px 36px -12px rgba(30,41,59,0.10)'
-  },
-  animate: {
-    opacity: 1,
-    y: 0,
-    scale: 1,
-    filter: 'blur(0px)',
-    boxShadow: '0 24px 80px -24px rgba(30,41,59,0.18)',
-    transition: { duration: 0.32 }
-  },
-  exit: {
-    opacity: 0,
-    y: -32,
-    scale: 0.97,
-    filter: 'blur(8px)',
-    boxShadow: '0 12px 36px -12px rgba(30,41,59,0.08)',
-    transition: { duration: 0.22 }
-  }
-};
-
-/** ======== Banco Archivo (constantes) ======== */
-/** Vista que lista archivados visibles para este panel */
 const V_BANCO = 'v_banco_archivo';
-/** RPC que re-activa un registro desde Banco Archivo hacia el panel actual */
 const RPC_REACTIVAR = 'fn_reactivar_desde_archivo';
 
 const resultadoLabels: Record<Resultado, string> = {
@@ -169,89 +101,140 @@ const resultadoLabels: Record<Resultado, string> = {
   otro: 'OTRO',
 };
 
-// Easing idéntico al del formulario Maestros
 const EASE_SMOOTH = [0.16, 1, 0.3, 1] as const;
 const EASE_EXIT   = [0.7, 0, 0.84, 0] as const;
 
+// Variantes de animación
+const MAC2025_PANEL_VARIANTS = {
+  initial: { opacity: 0, y: 48, scale: 0.98, filter: 'blur(10px)', boxShadow: '0 12px 36px -12px rgba(30,41,59,0.10)' },
+  animate: { opacity: 1, y: 0, scale: 1, filter: 'blur(0px)', boxShadow: '0 24px 80px -24px rgba(30,41,59,0.18)', transition: { duration: 0.32 } },
+  exit: { opacity: 0, y: -32, scale: 0.97, filter: 'blur(8px)', boxShadow: '0 12px 36px -12px rgba(30,41,59,0.08)', transition: { duration: 0.22 } }
+};
+
 const MODAL_BACKDROP_VARIANTS = {
   initial: { opacity: 0, backdropFilter: 'blur(0px)' },
-  animate: {
-    opacity: 1,
-    backdropFilter: 'blur(18px)',
-    transition: { duration: 0.6, ease: EASE_SMOOTH }
-  },
-  exit: {
-    opacity: 0,
-    backdropFilter: 'blur(0px)',
-    transition: { duration: 0.45, ease: EASE_EXIT }
-  }
+  animate: { opacity: 1, backdropFilter: 'blur(18px)', transition: { duration: 0.6, ease: EASE_SMOOTH } },
+  exit: { opacity: 0, backdropFilter: 'blur(0px)', transition: { duration: 0.45, ease: EASE_EXIT } }
 };
 
 const MODAL_PANEL_VARIANTS = {
-  initial: {
-    opacity: 0,
-    y: 56,
-    scale: 0.9,
-    rotateX: 8,
-    filter: 'blur(26px)',
-    transformPerspective: 1400
-  },
-  animate: {
-    opacity: 1,
-    y: 0,
-    scale: 1,
-    rotateX: 0,
-    filter: 'blur(0px)',
-    transformPerspective: 1400,
-    transition: { duration: 0.65, ease: EASE_SMOOTH }
-  },
-  exit: {
-    opacity: 0,
-    y: -40,
-    scale: 0.94,
-    rotateX: -6,
-    filter: 'blur(22px)',
-    transformPerspective: 1400,
-    transition: { duration: 0.5, ease: EASE_EXIT }
-  }
+  initial: { opacity: 0, y: 56, scale: 0.9, rotateX: 8, filter: 'blur(26px)', transformPerspective: 1400 },
+  animate: { opacity: 1, y: 0, scale: 1, rotateX: 0, filter: 'blur(0px)', transformPerspective: 1400, transition: { duration: 0.65, ease: EASE_SMOOTH } },
+  exit: { opacity: 0, y: -40, scale: 0.94, rotateX: -6, filter: 'blur(22px)', transformPerspective: 1400, transition: { duration: 0.5, ease: EASE_EXIT } }
 };
 
-// Animación del panel izquierdo completo
 const LEFT_PANEL_VARIANTS = {
   initial: { opacity: 0, x: 160, scale: 0.96, filter: 'blur(14px)' },
-  animate: {
-    opacity: 1,
-    x: 0,
-    scale: 1,
-    filter: 'blur(0px)',
-    transition: { duration: 0.6, ease: EASE_SMOOTH }
-  },
-  exit: {
-    opacity: 0,
-    x: -110,
-    scale: 0.97,
-    filter: 'blur(10px)',
-    transition: { duration: 0.45, ease: EASE_EXIT }
-  }
+  animate: { opacity: 1, x: 0, scale: 1, filter: 'blur(0px)', transition: { duration: 0.6, ease: EASE_SMOOTH } },
+  exit: { opacity: 0, x: -110, scale: 0.97, filter: 'blur(10px)', transition: { duration: 0.45, ease: EASE_EXIT } }
 };
 
-// Stagger para la lista
 const LIST_WRAPPER_VARIANTS = {
   initial: { transition: { staggerChildren: 0.035, staggerDirection: -1 } },
   animate: { transition: { delayChildren: 0.12, staggerChildren: 0.055 } }
 };
 
-// Entrada de cada item
 const LIST_ITEM_VARIANTS = {
   initial: { opacity: 0, x: 28, y: 14, scale: 0.97 },
-  animate: {
-    opacity: 1, x: 0, y: 0, scale: 1,
-    transition: { duration: 0.5, ease: EASE_SMOOTH }
-  }
+  animate: { opacity: 1, x: 0, y: 0, scale: 1, transition: { duration: 0.5, ease: EASE_SMOOTH } }
 };
 
+/* ================= Placeholder Component ================= */
+const EmptyRightPlaceholder = () => (
+  <motion.div
+    initial={{ opacity: 0, y: 8, scale: 0.98 }}
+    animate={{ opacity: 1, y: 0, scale: 1 }}
+    transition={{ duration: 0.45, ease: 'easeOut' }}
+    className="h-full grid place-items-center"
+  >
+    <div className="w-full max-w-md rounded-2xl p-5 ring-1 ring-white/60 shadow-[0_24px_60px_-30px_rgba(16,24,40,.35)] bg-[linear-gradient(135deg,rgba(255,255,255,.85),rgba(245,247,255,.6))] supports-[backdrop-filter]:backdrop-blur-xl text-center">
+      <div className="mx-auto mb-3 h-14 w-14 rounded-2xl grid place-items-center ring-1 ring-white/60 shadow-inner bg-[radial-gradient(120px_120px_at_30%_30%,rgba(99,102,241,.25),transparent),radial-gradient(120px_120px_at_70%_70%,rgba(56,189,248,.22),transparent)]">
+        <motion.svg
+          width="28" height="28" viewBox="0 0 24 24"
+          initial={{ scale: 0.96, opacity: 0.9 }}
+          animate={{ scale: [0.96, 1.02, 0.96], opacity: [0.9, 1, 0.9] }}
+          transition={{ duration: 2.2, repeat: Infinity, ease: 'easeInOut' }}
+          className="text-neutral-700"
+        >
+          <path fill="currentColor" d="M6.6 10.8c1.3 2.5 3.1 4.4 5.6 5.6l2.1-2.1a1 1 0 0 1 1.1-.22c1.2.48 2.6.74 4 .74a1 1 0 0 1 1 1v3.5a1 1 0 0 1-1 1C12.1 20.3 3.7 11.9 3.7 2.7a1 1 0 0 1 1-1H8.2a1 1 0 0 1 1 1c0 1.4.26 2.8.74 4a1 1 0 0 1-.22 1.1l-2.1 2.1Z"/>
+        </motion.svg>
+      </div>
+      <h4 className="text-[15px] md:text-base font-semibold text-neutral-900">Nada seleccionado</h4>
+      <p className="mt-1 text-sm text-neutral-600">Elige un nombre de la lista para <span className="font-medium">llamar / registrar</span>.</p>
+      <div className="mt-4 flex items-center justify-center gap-2 flex-wrap text-xs">
+        <span className="rounded-full px-2.5 py-1 ring-1 ring-white/60 bg-white/80 text-neutral-700">Semana {new Date().getDay() === 0 ? 1 : ''}</span>
+        <span className="rounded-full px-2.5 py-1 ring-1 ring-white/60 bg-white/80 text-neutral-700">Día asignado</span>
+        <span className="rounded-full px-2.5 py-1 ring-1 ring-white/60 bg-white/80 text-neutral-700">Estados de llamada</span>
+      </div>
+    </div>
+  </motion.div>
+);
+
+// MEJORA 2: Componente Memoizado para Items de la Lista
+const PendienteItem = memo(({ 
+  c, 
+  selectedId, 
+  disabled, 
+  onSelect 
+}: { 
+  c: PendRowUI, 
+  selectedId: string | null, 
+  disabled: boolean, 
+  onSelect: (e: React.MouseEvent<HTMLLIElement>, c: PendRowUI) => void 
+}) => {
+  return (
+    <motion.li
+      variants={LIST_ITEM_VARIANTS}
+      layout
+      className={`px-4 md:px-5 py-3 transition 
+        ${selectedId === c.progreso_id ? 'bg-neutral-50' : ''} 
+        ${c._ui === 'new' ? 'animate-fadeInScale ring-2 ring-emerald-300/60' : c._ui === 'changed' ? 'animate-flashBg' : ''} 
+        ${disabled ? 'opacity-55 cursor-not-allowed' : 'hover:bg-neutral-50 cursor-pointer'}`}
+      onClick={(e) => onSelect(e, c)}
+    >
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex items-start gap-3 min-w-0">
+          <span className={`mt-1 inline-block h-2.5 w-2.5 rounded-full ${c._ui === 'new' ? 'bg-emerald-500 shadow-[0_0_0_4px_rgba(16,185,129,.32)]' : (disabled ? 'bg-neutral-300 shadow-[0_0_0_3px_rgba(156,163,175,.25)]' : 'bg-emerald-400 shadow-[0_0_0_4px_rgba(16,185,129,.28)]')}`} />
+          <div className="min-w-0">
+            <div className="font-semibold text-neutral-800 leading-tight truncate">{c.nombre ?? '—'}</div>
+            <div className="mt-0.5 inline-flex items-center gap-1.5 text-neutral-600 text-xs md:text-sm">
+              <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" className="opacity-80">
+                <path d="M6.6 10.8c1.3 2.5 3.1 4.4 5.6 5.6l2.1-2.1a1 1 0 0 1 1.1-.22c1.2.48 2.6.74 4 .74a1 1 0 0 1 1 1v3.5a1 1 0 0 1-1 1C12.1 20.3 3.7 11.9 3.7 2.7a1 1 0 0 1 1-1H8.2a1 1 0 0 1 1 1c0 1.4.26 2.8.74 4a1 1 0 0 1-.22 1.1l-2.1 2.1Z" fill="currentColor" />
+              </svg>
+              <span className="truncate">{c.telefono ?? '—'}</span>
+            </div>
+            {disabled && (
+              <span className="mt-1 inline-flex items-center text-[10px] font-semibold text-neutral-700 bg-neutral-100 rounded-full px-2 py-0.5 ring-1 ring-neutral-200">
+                Disponible la próxima semana
+              </span>
+            )}
+            {c._ui === 'new' && !disabled && (
+              <span className="mt-1 inline-flex items-center text-[10px] font-semibold text-emerald-700 bg-emerald-50 rounded-full px-2 py-0.5">
+                Nuevo
+              </span>
+            )}
+          </div>
+        </div>
+
+        <div className="shrink-0 text-right text-[11px] md:text-xs text-neutral-500 leading-5">
+          {[c.llamada1 ?? null, c.llamada2 ?? null, c.llamada3 ?? null].map((r, idx) => (
+            <div key={idx}>
+              <span className="mr-1">Llamada {idx + 1}:</span>
+              {r ? (
+                <span className="font-medium text-neutral-700">{resultadoLabels[r as Resultado]}</span>
+              ) : (
+                <span className="italic">sin registro</span>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    </motion.li>
+  );
+});
+PendienteItem.displayName = 'PendienteItem';
+
 /* ================= Helpers ================= */
-// ÚNICO CAMBIO REALIZADO: Esta función ahora solo limpia espacios en blanco.
 const normalizeCedula = (s: string) => (s || '').trim();
 const norm = (t: string) =>
   (t ?? '')
@@ -260,7 +243,6 @@ const norm = (t: string) =>
     .toLowerCase()
     .trim();
 
-/** "Semilla 3" | "Devocionales 2" | "Restauracion 1" -> etapaBase + módulo */
 function mapEtapaDetToBase(etapaDet: string): {
   etapaBase: 'Semillas' | 'Devocionales' | 'Restauracion';
   modulo: 1 | 2 | 3 | 4;
@@ -281,7 +263,6 @@ function mapEtapaDetToBase(etapaDet: string): {
   return { etapaBase: 'Restauracion', modulo: 1, hasModulo: false };
 }
 
-/** Coincidencia de un row de `progreso` con la asignación/día/semana actual */
 function matchAsigRow(
   row: any,
   asig: MaestroAsignacion,
@@ -310,29 +291,29 @@ export default function Contactos1Client(
   }: {
     cedula?: string;
     etapaInicial?: string;
-    diaInicial?: string; // validado internamente a 'Domingo' | 'Martes' | 'Virtual'
-    semanaInicial?: number; // validado internamente a 1 | 2 | 3
+    diaInicial?: string; 
+    semanaInicial?: number;
   }
 ) {
-  // Estado para modales Persona Nueva y Servidores (debe estar dentro del componente)
   const [nuevaAlmaOpen, setNuevaAlmaOpen] = useState(false);
   const [servidoresOpen, setServidoresOpen] = useState(false);
-  // Modal premium para inhabilitados
   const [showNextWeekModal, setShowNextWeekModal] = useState(false);
   
-  // === INICIO DE LA MODIFICACIÓN 1: Nuevos estados ===
-  // Este estado guarda el ID del registro que el modal está mostrando
   const [modalTargetId, setModalTargetId] = useState<string | null>(null);
-  // Este estado guardará el ID del progreso y la hora (timestamp) en que expira su desbloqueo
   const [tempUnlocked, setTempUnlocked] = useState<Record<string, number>>({});
-  // Este estado guarda la posición del clic para el modal responsivo
   const [modalPosition, setModalPosition] = useState<{ top: number, left: number } | null>(null);
-  // === FIN DE LA MODIFICACIÓN 1 ===
+
+  // MEJORA 3: Estado 'now' global actualizado cada minuto
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    const interval = setInterval(() => setNow(Date.now()), 60000);
+    return () => clearInterval(interval);
+  }, []);
 
   const router = useRouter();
   const cedula = normalizeCedula(cedulaProp ?? '');
   const rtDebug = false;
-  const rtLog = (...args: any[]) => { if (rtDebug) console.log('[RT contactos1]', ...args); };
+  const rtLog = useCallback((...args: any[]) => { if (rtDebug) console.log('[RT contactos1]', ...args); }, []);
 
   const [nombre, setNombre] = useState('');
   const [asig, setAsig] = useState<MaestroAsignacion | null>(null);
@@ -351,7 +332,7 @@ export default function Contactos1Client(
   const [agendados, setAgendados] = useState<AgendadoRow[]>([]);
   const [marks, setMarks] = useState<Record<string, 'A' | 'N' | undefined>>({});
   const [savingAg, setSavingAg] = useState(false);
-  // Ref al panel derecho para llevarlo a la vista en móviles
+  
   const rightPanelRef = useRef<HTMLDivElement | null>(null);
 
   /** ======== Banco Archivo (estado) ======== */
@@ -364,47 +345,34 @@ export default function Contactos1Client(
   const [showReactivationConfirm, setShowReactivationConfirm] = useState(false);
   const [reactivationCandidate, setReactivationCandidate] = useState<BancoRow | null>(null);
 
-  // === INICIO DE LA MODIFICACIÓN 2: Lógica de `estaInhabilitado` (movida y actualizada) ===
   /**
    * Comprueba si un registro está inhabilitado.
-   * Ahora comprueba primero el desbloqueo temporal.
+   * Optimizado con 'now' state.
    */
   const estaInhabilitado = useCallback((id: string, h?: string | null) => {
-    // 1. Revisar si hay un desbloqueo temporal activo
     const unlockExpiresAt = tempUnlocked[id];
     if (unlockExpiresAt) {
-      if (Date.now() < unlockExpiresAt) {
-        return false; // ¡Está desbloqueado temporalmente!
+      if (now < unlockExpiresAt) {
+        return false; 
       } else {
-        // El desbloqueo expiró, limpiamos el estado
         setTempUnlocked(prev => {
           const newState = { ...prev };
           delete newState[id];
           return newState;
         });
-        // Dejamos que continúe la lógica normal...
       }
     }
 
-    // 2. Lógica original (si no hay desbloqueo temporal)
-    if (!h) {
-      // Si no hay fecha de habilitación (ej: un registro nuevo), se asume que está habilitado.
-      return false;
-    }
+    if (!h) return false;
     try {
-      // 'h' ahora es un string ISO 8601 completo (ej: '2025-11-09T10:00:00-05:00')
-      const habilitadoDesde = new Date(h);
-      // Obtenemos la fecha y hora actuales
-      const ahora = new Date();
-      // Si la hora actual es ANTERIOR a la hora de habilitación, está inhabilitado.
-      return ahora < habilitadoDesde;
+      const habilitadoTime = new Date(h).getTime();
+      return now < habilitadoTime;
     } catch (e) {
       console.error("Error al parsear la fecha habilitado_desde:", h, e);
       return false;
     }
-  }, [tempUnlocked]); // Añadimos la dependencia
-  // === FIN DE LA MODIFICACIÓN 2 ===
-  
+  }, [tempUnlocked, now]);
+
   // refs para estado “vivo” dentro de handlers realtime
   const semanaRef = useRef(semana);
   const diaRef = useRef<Dia | null>(dia);
@@ -414,10 +382,9 @@ export default function Contactos1Client(
   useEffect(() => { diaRef.current = dia; }, [dia]);
   useEffect(() => { asigRef.current = asig; }, [asig]);
   useEffect(() => { pendRef.current = pendientes; }, [pendientes]);
-  // Cuando se selecciona un registro, mostrar el panel derecho y hacer scroll en móviles
+
   useEffect(() => {
     if (selectedId) {
-      // Pequeño delay para asegurar que la sección esté renderizada
       setTimeout(() => {
         try {
           rightPanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -426,21 +393,17 @@ export default function Contactos1Client(
     }
   }, [selectedId]);
 
-  // Inicializar con props opcionales, validando valores
   useEffect(() => {
-    // Semana: solo 1..3
     if (typeof semanaInicial === 'number' && [1, 2, 3].includes(semanaInicial)) {
       const w = semanaInicial as Semana;
       if (semanaRef.current !== w) setSemana(w);
     }
 
-    // Día: solo valores permitidos
     if (diaInicial === 'Domingo' || diaInicial === 'Martes' || diaInicial === 'Virtual') {
       const d = diaInicial as Dia;
       if (diaRef.current !== d) setDia(d);
     }
 
-    // Etapa: si hay también día, podemos armar una asignación inicial
     if (etapaInicial && (diaInicial === 'Domingo' || diaInicial === 'Martes' || diaInicial === 'Virtual')) {
       const base = mapEtapaDetToBase(etapaInicial);
       const initAsig: MaestroAsignacion = {
@@ -453,7 +416,6 @@ export default function Contactos1Client(
     }
   }, [etapaInicial, diaInicial, semanaInicial]);
 
-  // limpiar resaltado "_ui"
   const clearTimersRef = useRef<Record<string, number>>({});
   const scheduleClearUI = (id: string, ms = 6000) => {
     if (clearTimersRef.current[id]) window.clearTimeout(clearTimersRef.current[id]);
@@ -463,14 +425,15 @@ export default function Contactos1Client(
     }, ms);
   };
 
-  /** Para marcar “Nuevo” cuando viene de reactivación */
   const rtNewRef = useRef<Set<string>>(new Set());
-
   const toast = useToast();
 
-  const downloadPDF = () => {
+  // MEJORA 1: Lazy Loading
+  const downloadPDF = async () => {
+    const jsPDF = (await import('jspdf')).default;
+    const autoTable = (await import('jspdf-autotable')).default;
+
     const doc = new jsPDF();
-    
     doc.setFontSize(20);
     doc.setTextColor(40, 58, 90);
     doc.text(`Contactos Pendientes por llamar Semana ${semana}`, 14, 22);
@@ -486,11 +449,12 @@ export default function Contactos1Client(
       headStyles: { fillColor: [41, 128, 185] },
     });
 
-  doc.save(`contactos_pendientes_semana_${semana}.pdf`);
-  toast.success('Archivo descargado exitosamente');
+    doc.save(`contactos_pendientes_semana_${semana}.pdf`);
+    toast.success('Archivo descargado exitosamente');
   };
 
-  const downloadExcel = () => {
+  const downloadExcel = async () => {
+    const XLSX = await import('xlsx');
     const ws_name = "Contactos Pendientes";
     const wb = XLSX.utils.book_new();
     
@@ -501,8 +465,6 @@ export default function Contactos1Client(
       [p.llamada1, p.llamada2, p.llamada3].filter(Boolean).map((r, i) => `Llamada ${i+1}: ${resultadoLabels[r as Resultado]}`).join('\n') || '-'
     ]);
 
-    // ...código para crear y guardar el Excel...
-    // Suponiendo que guardas el archivo aquí:
     toast.success('Archivo descargado exitosamente');
 
     const finalData = [
@@ -528,8 +490,11 @@ export default function Contactos1Client(
     XLSX.writeFile(wb, `contactos_pendientes_semana_${semana}.xlsx`);
   };
 
-  const downloadBancoPDF = () => {
+  const downloadBancoPDF = async () => {
     if (!asig) return;
+    const jsPDF = (await import('jspdf')).default;
+    const autoTable = (await import('jspdf-autotable')).default;
+
     const doc = new jsPDF();
     doc.setFontSize(20);
     doc.setTextColor(40, 58, 90);
@@ -553,8 +518,9 @@ export default function Contactos1Client(
     toast.success('Archivo PDF del Banco Archivo descargado exitosamente');
   };
 
-  const downloadBancoExcel = () => {
+  const downloadBancoExcel = async () => {
     if (!asig) return;
+    const XLSX = await import('xlsx');
     const ws_name = "Banco Archivo";
     const wb = XLSX.utils.book_new();
     
@@ -591,8 +557,11 @@ export default function Contactos1Client(
     toast.success('Archivo Excel del Banco Archivo descargado exitosamente');
   };
 
-  const downloadAsistenciasPDF = () => {
+  const downloadAsistenciasPDF = async () => {
     if (!asig) return;
+    const jsPDF = (await import('jspdf')).default;
+    const autoTable = (await import('jspdf-autotable')).default;
+
     const doc = new jsPDF();
     doc.setFontSize(20);
     doc.setTextColor(40, 58, 90);
@@ -613,7 +582,6 @@ export default function Contactos1Client(
     toast.success('Archivo PDF de Asistencias descargado exitosamente');
   };
 
-  // Cargar asignación del contacto (y servidorId para reactivar)
   useEffect(() => {
     (async () => {
       if (!cedula) return;
@@ -631,7 +599,6 @@ export default function Contactos1Client(
       setNombre((data as any).nombre ?? '');
       setServidorId((data as any).id ?? null);
 
-      // Preferir asignación de contactos vigente
       const ac = (data as any).asignaciones_contacto?.find((x: any) => x.vigente);
       if (ac) {
         const baseC = mapEtapaDetToBase(ac.etapa);
@@ -647,12 +614,8 @@ export default function Contactos1Client(
         return;
       }
 
-      // Fallback: asignación maestro vigente
       const a = (data as any).asignaciones_maestro?.find((x: AsigMaestro) => x.vigente) as AsigMaestro | undefined;
-      if (!a) {
-        // Sin asignación: no redirigir, solo no mostrar datos
-        return;
-      }
+      if (!a) return;
       const base = mapEtapaDetToBase(a.etapa);
       const asign: MaestroAsignacion = {
         etapaDet: a.etapa,
@@ -667,7 +630,6 @@ export default function Contactos1Client(
 
   const titulo = useMemo(() => asig?.etapaDet ?? '', [asig]);
 
-  /* ====== Fetchers ====== */
   const fetchPendientes = useCallback(
     async (s: Semana, d: Dia, opts?: { quiet?: boolean }) => {
       if (!asig) return;
@@ -695,7 +657,6 @@ export default function Contactos1Client(
       const allowed = new Set((base ?? []).map((r: any) => r.progreso_id));
       const draft = ((hist ?? []) as PendienteRow[]).filter((r) => allowed.has(r.progreso_id));
 
-      // --- merge habilitado_desde ---
       let byId = new Map<string, string | null>();
       try {
         const ids = draft.map(r => r.progreso_id);
@@ -755,43 +716,20 @@ export default function Contactos1Client(
   useEffect(() => { void fetchAgendados({ quiet: false }); }, [fetchAgendados]);
 
   /* ====== Acciones ====== */
-
-  // === INICIO DE LA MODIFICACIÓN 3: Nuevas funciones para el Modal ===
-  /**
-   * Cierra el modal de inhabilitado y limpia los estados relacionados.
-   */
   const handleCloseModal = () => {
     setShowNextWeekModal(false);
     setModalTargetId(null);
-    setModalPosition(null); // Limpiar posición
+    setModalPosition(null); 
   };
 
-  /**
-   * Maneja el clic en "Desbloquear Temporalmente".
-   */
   const handleTempUnlock = () => {
-    // 1. Usar el ID del estado del modal
     if (!modalTargetId) return;
-
-    // 2. Calcular 1 hora
     const expirationTime = Date.now() + (60 * 60 * 1000); 
-
-    // 3. Añadir el registro al estado de desbloqueados
-    setTempUnlocked(prev => ({
-      ...prev,
-      [modalTargetId]: expirationTime
-    }));
-    
-    // 4. Cerrar el modal
+    setTempUnlocked(prev => ({ ...prev, [modalTargetId]: expirationTime }));
     handleCloseModal();
-    
-    // 5. Establecer el selectedId principal para mostrar el panel
     setSelectedId(modalTargetId);
-    
-    // 6. Mostramos una notificación
     toast.success('Registro desbloqueado por 1 hora.');
   };
-  // === FIN DE LA MODIFICACIÓN 3 ===
 
   const enviarResultado = async (payload: { resultado: Resultado; notas?: string }) => {
     const row = pendRef.current.find((p) => p.progreso_id === selectedId);
@@ -799,7 +737,6 @@ export default function Contactos1Client(
 
     const esConfirmado = payload.resultado === 'confirmo_asistencia';
 
-    // Optimista en UI
     setAgendados((prev) => {
       const yaEsta = prev.some((a) => a.progreso_id === row.progreso_id);
       const nombreSafe = row.nombre ?? '—';
@@ -820,8 +757,7 @@ export default function Contactos1Client(
         p_dia: dia,
         p_resultado: payload.resultado,
         p_notas: payload.notas ?? null,
-        p_hecho_por: servidorId,
-                                                                            
+        p_hecho_por: servidorId,                                                           
       });
       if (error) throw error;                             
 
@@ -840,10 +776,6 @@ export default function Contactos1Client(
 
   const toggleMark = (id: string, tipo: 'A' | 'N') =>
     setMarks((m) => ({ ...m, [id]: m[id] === tipo ? undefined : tipo }));
-
-  // ==================================================================
-  // === INICIO DE LA MODIFICACIÓN (Lógica de Restauración) ===
-  // ==================================================================
 
   const handleRestauracionAsistencia = async (student: AgendadoRow) => {
     if (!student?.nombre) return;
@@ -878,15 +810,10 @@ export default function Contactos1Client(
     
     try {
       for (const [progId, v] of entradas) {
-        // --- INICIO DE LA LÓGICA CONDICIONAL ---
         if (asig?.etapaBase === 'Restauracion' && v === 'A') {
           const student = agendados.find(a => a.progreso_id === progId);
           if (!student) continue;
-          
-          // 1. Intentar guardar en 'entrevistas'
           const exito = await handleRestauracionAsistencia(student);
-          
-          // 2. Solo si tuvo éxito, marcar asistencia
           if (exito) {
             const { error: rpcError } = await supabase.rpc(RPC_ASIST, {
               p_progreso: progId,
@@ -895,14 +822,12 @@ export default function Contactos1Client(
             if (rpcError) throw rpcError;
           }
         } else {
-          // --- LÓGICA ORIGINAL ---
           const { error } = await supabase.rpc(RPC_ASIST, {
             p_progreso: progId,
             p_asistio: v === 'A',
           });
           if (error) throw error;
         }
-        // --- FIN DE LA LÓGICA CONDICIONAL ---
       }
       setMarks({});
       await fetchAgendados({ quiet: true });
@@ -913,15 +838,11 @@ export default function Contactos1Client(
       setSavingAg(false);
     }
   };       
-  // ==================================================================
-  // === FIN DE LA MODIFICACIÓN ===
-  // ==================================================================
 
   /* ====== Realtime ====== */
   useEffect(() => {
     if (!asig) return;
 
-    // ---- parches finos ----
   const tryPatchProgresoInsert = async (row: any) => {
       const a = asigRef.current;
       const d = diaRef.current;
@@ -962,7 +883,6 @@ export default function Contactos1Client(
       const oldMatch = matchAsigRow(oldRow, a, d, s);
       const newMatch = matchAsigRow(newRow, a, d, s);
 
-      // antes NO y ahora SÍ → agregar
       if (!oldMatch && newMatch) {
         if (!pendRef.current.some(p => p.progreso_id === newRow.id)) {
           const { data: per } = await supabase
@@ -987,18 +907,15 @@ export default function Contactos1Client(
         return;
       }
 
-      // antes SÍ y ahora NO → quitar
       if (oldMatch && !newMatch) {
         setPendientes(prev => prev.filter(p => p.progreso_id !== newRow.id));
         if (selectedId === newRow.id) setSelectedId(null);
         return;
       }
 
-      // sigue coincidiendo → refrescar silencioso
       if (newMatch) refreshQuiet();
     };
 
-    // ---- refresh silencioso con debounce ----
     let t: number | null = null;
     const refreshQuiet = () => {
       if (t) window.clearTimeout(t);
@@ -1012,16 +929,13 @@ export default function Contactos1Client(
       }, 150);
     };
 
-    // ---- canal ----
     const channelName = `rt-contactos1-${cedula}`;
     const ch = supabase.channel(channelName);
 
-    // Logs de diagnóstico (activar con ?rtlog=1)
     ch.on('postgres_changes', { event: '*', schema: 'public', table: 'progreso' }, (p: any) => {
       if (rtDebug) rtLog('ev:progreso', p?.eventType, { old: p?.old?.id, new: p?.new?.id });
     });
 
-    // INSERT progreso con fallback
     ch.on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'progreso' }, async (payload) => {
       const id = payload.new?.id;
       if (!id) return;
@@ -1040,7 +954,6 @@ export default function Contactos1Client(
       await tryPatchProgresoInsert(row);
     });
 
-    // UPDATE progreso con fallback
     ch.on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'progreso' }, async (payload) => {
       if (payload.old && payload.new) {
         void tryPatchProgresoUpdate(payload.old, payload.new);
@@ -1053,7 +966,6 @@ export default function Contactos1Client(
       }
     });
 
-    // transition_log: refuerzo para transiciones S1→S2, etc.
     ch.on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'transition_log' }, async (payload) => {
       const progId = payload.new?.progreso_id;
       if (!progId) return;
@@ -1062,7 +974,6 @@ export default function Contactos1Client(
       refreshQuiet();
     });
 
-    // Otros eventos que impactan vistas → refresco silencioso
     ch.on('postgres_changes', { event: '*', schema: 'public', table: 'llamada_intento' }, () => refreshQuiet());
     ch.on('postgres_changes', { event: '*', schema: 'public', table: 'asistencia' }, () => refreshQuiet());
     ch.on('postgres_changes', { event: '*', schema: 'public', table: 'persona' }, () => refreshQuiet());
@@ -1099,9 +1010,7 @@ export default function Contactos1Client(
   }
 
   return (
-    <main
-      className="relative min-h-[100dvh] px-5 md:px-8 py-6 overflow-hidden supports-[backdrop-filter]:backdrop-blur-2xl"
-    >
+    <main className="relative min-h-[100dvh] px-5 md:px-8 py-6 overflow-hidden supports-[backdrop-filter]:backdrop-blur-2xl">
       <div
         className="absolute inset-0 z-0"
         style={{
@@ -1129,11 +1038,9 @@ export default function Contactos1Client(
           </h1>
           <span className="text-neutral-700 text-sm">Timoteo  - {titulo || '-'}
           </span>
-
           <span className="text-neutral-700 text-sm">  •  {dia}</span>
 
           <div className="ml-auto flex gap-2">
-            {/* Botón Banco Archivo (ya existente) */}
             <button
             onClick={() => openBanco()}
               className="relative inline-flex items-center gap-2 rounded-2xl h-10 md:h-11 px-2 md:px-3 text-sm font-semibold text-slate-800 bg-white/60 ring-1 ring-white/60 backdrop-blur-md transition-all duration-300 shadow-[inset_0_1px_0_rgba(255,255,255,.9),0_12px_32px_-12px_rgba(2,6,23,.35)] hover:bg-gradient-to-r hover:from-indigo-400/80 hover:via-sky-400/80 hover:to-white hover:text-white hover:shadow-[0_0_0_4px_rgba(56,189,248,.18),0_0_32px_0_rgba(79,70,229,.18)] active:scale-[.99] focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300/60 before:absolute before:inset-0 before:-z-10 before:rounded-2xl before:blur-xl before:opacity-80 hover:before:opacity-100 before:bg-[radial-gradient(120%_120%_at_0%_0%,rgba(79,70,229,.35),transparent_55%),radial-gradient(120%_120%_at_100%_100%,rgba(56,189,248,.28),transparent_55%)] shrink-0"
@@ -1148,6 +1055,7 @@ export default function Contactos1Client(
             </button>
           </div>
         </header>
+
       {/* Modal Persona Nueva */}
       <AnimatePresence mode="sync" initial={false}>
         {nuevaAlmaOpen && (
@@ -1206,8 +1114,8 @@ export default function Contactos1Client(
         )}
       </AnimatePresence>
         
-        {/* Tarjeta de semanas y botones (igual que Maestros) */}
-  <div className="flex flex-wrap md:flex-nowrap items-center gap-3 rounded-2xl bg-white/55 supports-[backdrop-filter]:bg-white/35 backdrop-blur-xl px-3 py-3 shadow-[0_10px_40px_-20px_rgba(0,0,0,.35)] ring-1 ring-white/60 mb-4">
+        {/* Tarjeta de semanas y botones */}
+        <div className="flex flex-wrap md:flex-nowrap items-center gap-3 rounded-2xl bg-white/55 supports-[backdrop-filter]:bg-white/35 backdrop-blur-xl px-3 py-3 shadow-[0_10px_40px_-20px_rgba(0,0,0,.35)] ring-1 ring-white/60 mb-4">
           <div className="inline-flex items-center gap-2">
             <span className="text-sm text-neutral-600">Semana:</span>
             {[1, 2, 3].map((n) => {
@@ -1253,7 +1161,6 @@ export default function Contactos1Client(
           </div>
 
           <div className="w-full md:w-auto md:ml-auto mt-2 md:mt-0">
-            {/* Botón Persona Nueva */}
             <button
               type="button"
               onClick={() => setNuevaAlmaOpen(true)}
@@ -1326,77 +1233,27 @@ export default function Contactos1Client(
                         {pendientes.map((c) => {
                           const disabled = estaInhabilitado(c.progreso_id, c.habilitado_desde);
                           return (
-                            <motion.li
+                            <PendienteItem 
                               key={c.progreso_id}
-                              variants={LIST_ITEM_VARIANTS}
-                              layout
-                              className={`px-4 md:px-5 py-3 transition ${selectedId === c.progreso_id ? 'bg-neutral-50' : ''} ${c._ui === 'new' ? 'animate-fadeInScale ring-2 ring-emerald-300/60' : c._ui === 'changed' ? 'animate-flashBg' : ''} ${disabled ? 'opacity-55 cursor-not-allowed' : 'hover:bg-neutral-50 cursor-pointer'}`}
-                              
-                              // === INICIO DE LA MODIFICACIÓN: Lógica de onClick IDÉNTICA a MaestrosClient ===
-                              onClick={(e: React.MouseEvent<HTMLLIElement>) => {
+                              c={c}
+                              selectedId={selectedId}
+                              disabled={disabled}
+                              onSelect={(e, item) => {
                                 if (disabled) {
-                                  // Si está deshabilitado:
-                                  // 1. Poner el ID en el target del modal
-                                  setModalTargetId(c.progreso_id);
-                                  
-                                  // 2. Calcular y guardar la posición
+                                  setModalTargetId(item.progreso_id);
                                   const rect = e.currentTarget.getBoundingClientRect();
                                   setModalPosition({
-                                    top: rect.bottom + window.scrollY + 8, // 8px de espacio
+                                    top: rect.bottom + window.scrollY + 8, 
                                     left: rect.left + window.scrollX,
                                   });
-
-                                  // 3. Mostrar el modal
                                   setShowNextWeekModal(true);
                                 } else {
-                                  // Si está habilitado:
-                                  // 1. Poner el ID en el selectedId principal para mostrar el panel
-                                  setSelectedId(c.progreso_id);
-                                  // 2. Asegurarse que el target y la posición del modal estén limpios
+                                  setSelectedId(item.progreso_id);
                                   setModalTargetId(null);
                                   setModalPosition(null);
                                 }
                               }}
-                              // === FIN DE LA MODIFICACIÓN ===
-                            >
-                              <div className="flex items-start justify-between gap-4">
-                                <div className="flex items-start gap-3 min-w-0">
-                                  <span className={`mt-1 inline-block h-2.5 w-2.5 rounded-full ${c._ui === 'new' ? 'bg-emerald-500 shadow-[0_0_0_4px_rgba(16,185,129,.25)]' : (disabled ? 'bg-neutral-300 shadow-[0_0_0_3px_rgba(156,163,175,.25)]' : 'bg-amber-500 shadow-[0_0_0_3px_rgba(251,191,36,.25)]')}`} />
-                                  <div className="min-w-0">
-                                    <div className="font-semibold text-neutral-800 leading-tight truncate">{c.nombre ?? '—'}</div>
-                                    <div className="mt-0.5 inline-flex items-center gap-1.5 text-neutral-600 text-xs md:text-sm">
-                                      <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" className="opacity-80">
-                                        <path d="M6.6 10.8c1.3 2.5 3.1 4.4 5.6 5.6l2.1-2.1a1 1 0 0 1 1.1-.22c1.2.48 2.6.74 4 .74a1 1 0 0 1 1 1v3.5a1 1 0 0 1-1 1C12.1 20.3 3.7 11.9 3.7 2.7a1 1 0 0 1 1-1H8.2a1 1 0 0 1 1 1c0 1.4.26 2.8.74 4a1 1 0 0 1-.22 1.1l-2.1 2.1Z" fill="currentColor" />
-                                      </svg>
-                                      <span className="truncate">{c.telefono ?? '—'}</span>
-                                    </div>
-                                    {disabled && (
-                                      <span className="mt-1 inline-flex items-center text-[10px] font-semibold text-neutral-700 bg-neutral-100 rounded-full px-2 py-0.5 ring-1 ring-neutral-200">
-                                        Disponible la próxima semana
-                                      </span>
-                                    )}
-                                    {c._ui === 'new' && !disabled && (
-                                      <span className="mt-1 inline-flex items-center text-[10px] font-semibold text-emerald-700 bg-emerald-50 rounded-full px-2 py-0.5">
-                                        Nuevo
-                                      </span>
-                                    )}
-                                  </div>
-                                </div>
-
-                                <div className="shrink-0 text-right text-[11px] md:text-xs text-neutral-500 leading-5">
-                                  {[c.llamada1 ?? null, c.llamada2 ?? null, c.llamada3 ?? null].map((r, idx) => (
-                                    <div key={idx}>
-                                      <span className="mr-1">Llamada {idx + 1}:</span>
-                                      {r ? (
-                                        <span className="font-medium text-neutral-700">{resultadoLabels[r as Resultado]}</span>
-                                      ) : (
-                                        <span className="italic">sin registro</span>
-                                      )}
-                                    </div>
-                                  ))}
-                                </div>
-                              </div>
-                            </motion.li>
+                            />
                           );
                         })}
                       </motion.ul>
@@ -1420,8 +1277,9 @@ export default function Contactos1Client(
       animate="animate"
       exit="exit"
       layout
-      className="relative"
-      style={{ willChange: 'transform, opacity, filter', transformOrigin: '50% 50%' }}
+      // MEJORA 4: will-change
+      className="relative will-change-transform will-change-opacity"
+      style={{ transformOrigin: '50% 50%' }}
     >
       {!selectedId ? (
         <EmptyRightPlaceholder />
@@ -1433,7 +1291,7 @@ export default function Contactos1Client(
           }
           return (
             <>
-              {/* Botón volver: solo móvil (sin tocar estilos) */}
+              {/* Botón volver */}
               <div className="mb-3 lg:hidden">
                 <button
                   type="button"
@@ -1447,7 +1305,6 @@ export default function Contactos1Client(
                 </button>
               </div>
 
-              {/* Mantengo exactamente tu componente actual */}
               <FollowUp
                 semana={semana}
                 dia={dia}
@@ -1552,7 +1409,6 @@ export default function Contactos1Client(
         onClick={() => setBancoOpen(false)}
           />
           <div className="relative w-full max-w-md sm:max-w-lg md:max-w-4xl max-h-[90vh] md:max-h-[96vh] overflow-auto rounded-3xl shadow-[0_20px_60px_-20px_rgba(0,0,0,35)] ring-1 ring-white/60 bg-[linear-gradient(180deg,rgba(255,255,255,.70),rgba(255,255,255,.45))] backdrop-blur-xl">
-        {/* Header */}
         <div className="px-5 md:px-7 py-4 flex items-center justify-between border-b border-white/50">
           <div>
             <div className="text-xl md:text-2xl font-semibold text-neutral-900">Banco Archivo</div>
@@ -1590,7 +1446,6 @@ export default function Contactos1Client(
           </div>
         </div>
 
-        {/* Tabla */}
         <div className="px-4 md:px-6 py-3">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -1706,7 +1561,7 @@ export default function Contactos1Client(
         )}
       </AnimatePresence>
 
-      {/* === INICIO DE LA MODIFICACIÓN: Modal de MaestrosClient PEGADO AQUÍ === */}
+      {/* Modal inhabilitados */}
       <AnimatePresence>
         {showNextWeekModal && (
           <>
@@ -1716,9 +1571,8 @@ export default function Contactos1Client(
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               className="fixed inset-0 z-[60] bg-black/50"
-              onClick={handleCloseModal} // Usar el nuevo handler
+              onClick={handleCloseModal} 
             />
-            
             <motion.div
               key="card"
               role="dialog"
@@ -1727,9 +1581,8 @@ export default function Contactos1Client(
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 0, scale: 0.95 }}
               transition={{ type: "spring", stiffness: 300, damping: 20 }}
-              className="absolute z-[61]" // <-- CLAVE: 'absolute'
+              className="absolute z-[61]"
               style={{
-                // CLAVE: Posicionamiento dinámico simple
                 top: modalPosition ? `${modalPosition.top}px` : 0,
                 left: modalPosition ? `${modalPosition.left}px` : 0,
                 visibility: modalPosition ? 'visible' : 'hidden',
@@ -1737,7 +1590,6 @@ export default function Contactos1Client(
             >
               <div className="w-full max-w-md rounded-2xl bg-white/80 shadow-2xl ring-1 ring-white/40">
                 <div className="p-6 md:p-7">
-                  {/* Header */}
                   <div className="flex items-start gap-3">
                     <div className="h-10 w-10 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center shadow-md">
                       <svg width="22" height="22" viewBox="0 0 24 24" fill="white" aria-hidden="true">
@@ -1748,12 +1600,10 @@ export default function Contactos1Client(
                       <h3 className="text-base md:text-lg font-semibold text-neutral-900">
                         Registro inhabilitado
                       </h3>
-                      {/* Texto idéntico al de Maestros */}
                       <p className="mt-1 text-sm text-neutral-700">
                          Este registro fue gestionado por el servidor de la semana anterior.
   Por ese motivo estará disponible nuevamente el próximo domingo a las 10:00 AM.
                       </p>
-                      {/* Lógica de fecha idéntica a la de Maestros */}
                       {(() => {
                         const selected = modalTargetId && pendientes.find(p => p.progreso_id === modalTargetId);
                         if (selected && selected.habilitado_desde) {
@@ -1768,7 +1618,6 @@ export default function Contactos1Client(
                     </div>
                   </div>
 
-                  {/* Botones idénticos a los de Maestros */}
                   <div className="mt-6 flex justify-end gap-3">
                     <button
                       type="button"
@@ -1777,7 +1626,6 @@ export default function Contactos1Client(
                     >
                       Desbloquear Temporalmente
                     </button>
-
                     <button
                       type="button"
                       onClick={handleCloseModal} 
@@ -1792,10 +1640,7 @@ export default function Contactos1Client(
           </>
         )}
       </AnimatePresence>
-      {/* === FIN DE LA MODIFICACIÓN === */}
 
-
-      {/* Animaciones / estilos */}
       <style jsx global>{`
         @keyframes cardIn {
           0% { opacity: 0; transform: translateY(14px) scale(0.98); filter: blur(3px); }
@@ -1831,7 +1676,6 @@ async function openBanco() {
       .select('progreso_id,persona_id,nombre,telefono,modulo,semana,dia,creado_en,etapa')
       .eq('dia', asig.dia);
 
-    // 🔑 Filtro correcto: etapaBase + modulo
     q = (q as any).eq('etapa', asig.etapaBase);
     if (asig.etapaBase !== 'Restauracion') {
       q = (q as any).eq('modulo', asig.modulo);
@@ -1864,12 +1708,10 @@ async function openBanco() {
       });
       if (error) throw error;
 
-      // Quitar del modal y refrescar listas
       setBancoRows((prev) => prev.filter((r) => r.progreso_id !== row.progreso_id));
       if (dia) await fetchPendientes(semana, dia, { quiet: true });
       await fetchAgendados({ quiet: true });
 
-      // Marcar como "Nuevo" en el panel
       rtNewRef.current.add(row.progreso_id);
     } catch (e: any) {
       console.error(e?.message ?? 'No se pudo reactivar');
@@ -1933,13 +1775,11 @@ function FollowUp({
   const [obs, setObs] = useState('');
   const [obsCount, setObsCount] = useState<number | null>(null);
 
-  // Reiniciar estado cuando cambia el registro seleccionado
   useEffect(() => {
     setResultado(null);
     setObs('');
   }, [row?.progreso_id]);
 
-  // Observaciones modal state
   type ObsItem = {
     fecha: string;
     notas: string;
@@ -2000,7 +1840,6 @@ const openObsModal = async () => {
 
   const telHref = row.telefono ? `tel:${row.telefono.replace(/[^\d+]/g, '')}` : null;
 
-  // Cargar conteo al cambiar de registro
   useEffect(() => {
     setObsCount(null);
     void refreshObsCount();
