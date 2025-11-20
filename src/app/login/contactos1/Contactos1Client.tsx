@@ -363,6 +363,9 @@ export default function Contactos1Client(
       }
     }
 
+    // No mostrar inhabilitado cuando se visualizan semanas 2 o 3
+    if (semana !== 1) return false;
+
     if (!h) return false;
     try {
       const habilitadoTime = new Date(h).getTime();
@@ -371,7 +374,7 @@ export default function Contactos1Client(
       console.error("Error al parsear la fecha habilitado_desde:", h, e);
       return false;
     }
-  }, [tempUnlocked, now]);
+  }, [tempUnlocked, now, semana]);
 
   // refs para estado “vivo” dentro de handlers realtime
   const semanaRef = useRef(semana);

@@ -435,6 +435,10 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
       }
     }
 
+    // If we're viewing Semana 2 or 3, never show registros as inhabilitados.
+    // Esto evita que llamadas/registro aparezcan deshabilitados para semanas 2 y 3.
+    if (semana !== 1) return false;
+
     if (!h) return false;
     
     try {
@@ -445,7 +449,7 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
       console.error("Error al parsear la fecha habilitado_desde:", h, e);
       return false;
     }
-  }, [tempUnlocked, now]); 
+  }, [tempUnlocked, now, semana]); 
 
   const semanaRef = useRef(semana);
   const diaRef = useRef<Dia | null>(dia);

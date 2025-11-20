@@ -1,17 +1,13 @@
 // File: FormularioPersonaNueva.tsx
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
-// Iconos actualizados: PDF, Excel y Teléfono
+import React, { useEffect, useRef, useState, useCallback, memo } from 'react';
 import { Trash2, Phone, FileText, FileSpreadsheet } from "lucide-react";
 import { supabase } from '@/lib/supabaseClient';
-
-// Importaciones para exportar archivos
-import jsPDF from 'jspdf';
-// Importar 'autoTable' como una función nombrada
-import autoTable from 'jspdf-autotable';
-import * as XLSX from 'xlsx';
-
+// MEJORA 1: Eliminados imports estáticos pesados para Lazy Loading
+// import jsPDF from 'jspdf';
+// import autoTable from 'jspdf-autotable';
+// import * as XLSX from 'xlsx';
 
 /* ========= Tipos ========= */
 type AppEstudioDia = 'Domingo' | 'Martes' | 'Virtual' | 'Pendientes';
@@ -25,12 +21,11 @@ type Registro = {
     preferencias: string | null;
     cultosSeleccionados: string | null;
     observaciones?: string | null;
-    estudioDia?: string | null; // para prender el switch
-    etapa?: AppEtapa | null;    // NUEVO: etapa actual
-    semana?: number | null;     // NUEVO: semana actual
+    estudioDia?: string | null; 
+    etapa?: AppEtapa | null;    
+    semana?: number | null;     
 };
 
-// Fila ligera para el modal de pendientes
 type PendienteItem = {
     progreso_id?: string;
     persona_id?: string;
@@ -42,16 +37,14 @@ type PendienteItem = {
     etapa?: string | null;
     modulo?: number | null;
     observaciones?: string | null;
-    culto_seleccionado?: string | null; // <-- CORRECCIÓN 1: Añadido
+    culto_seleccionado?: string | null; 
     creado_en?: string | null;
     created_at?: string | null;
     fecha?: string | null;
-    creado_por_nombre?: string | null; // Campo para el nombre del servidor
+    creado_por_nombre?: string | null; 
 };
 
 type Errores = { nombre?: string | null; telefono?: string | null; };
-
-/** Claves válidas para la UI de Cultos (botones grandes) */
 type DiaKey = 'DOMINGO' | 'MIÉRCOLES' | 'VIERNES' | 'SÁBADO';
 
 type CultosMap = {
@@ -92,12 +85,10 @@ const toDbEstudio = (arr: string[]): AppEstudioDia =>
     arr.includes('MARTES') ? 'Martes' :
     arr.includes('PENDIENTES') ? 'Pendientes' :
     arr.includes('VIRTUAL') ? 'Virtual' :
-    'Virtual'; // fallback de seguridad
+    'Virtual'; 
 
-// Normaliza teléfono a solo dígitos
 const normalizaTelefono = (v: string) => (v || '').replace(/\D+/g, '');
 
-// Chequea duplicado SOLO en pendientes
 const existePendienteConTelefono = async (tel: string, excluirId?: string | null) => {
     const query = supabase
         .from('pendientes')
@@ -110,34 +101,24 @@ const existePendienteConTelefono = async (tel: string, excluirId?: string | null
     return (count || 0) > 0;
 };
 
-
 const normaliza = (s: string) =>
     s.toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '');
 
-/** Formatea a solo fecha (dd/mm/aa) */
 const soloFecha = (v?: string | null): string => {
     if (!v) return '';
     const d = new Date(v);
-    
-    // Si la fecha es inválida, intenta formatear el string YYYY-MM-DD
     if (isNaN((d as unknown) as number)) {
         const parts = v.slice(0, 10).split('-');
         if (parts.length === 3 && parts[0].length === 4) {
-             // Formato YYYY-MM-DD -> DD/MM/YY
              return `${parts[2]}/${parts[1]}/${parts[0].slice(2)}`;
         }
-        return v.slice(0, 10); // Fallback si el formato es desconocido
+        return v.slice(0, 10); 
     }
-    
-    // Si la fecha es válida, usa toLocaleDateString con año de 2 dígitos
     try { 
         return d.toLocaleDateString('es-ES', { 
-            day: '2-digit', 
-            month: '2-digit', 
-            year: '2-digit' 
+            day: '2-digit', month: '2-digit', year: '2-digit' 
         }); 
     } catch { 
-        // Fallback manual en caso de error
         const year = d.getFullYear().toString().slice(-2);
         const month = (d.getMonth() + 1).toString().padStart(2, '0');
         const day = d.getDate().toString().padStart(2, '0');
@@ -154,13 +135,6 @@ const claveDia = (d: string): DiaKey | null => {
     return null;
 };
 
-// =================================================================
-// =================== CORRECCIÓN 2: HELPER MEJORADO ===================
-// =================================================================
-/**
- * Extrae el culto de ingreso.
- * Puede leer desde 'culto_seleccionado' (formato nuevo) o 'observaciones' (formato antiguo).
- */
 const extraerCulto = (
     cultoDirecto?: string | null,
     txtObservaciones?: string | null
@@ -171,7 +145,6 @@ const extraerCulto = (
     let full: string | null = null;
     let cleanObs: string = txtObservaciones || '';
 
-    // Prioridad 1: Leer del campo 'culto_seleccionado' (el dato limpio)
     if (cultoDirecto) {
         const parts = cultoDirecto.split(' - ');
         if (parts.length === 2) {
@@ -181,11 +154,9 @@ const extraerCulto = (
         }
     }
 
-    // Prioridad 2: Si no se encontró, intentar leer de 'observaciones' (formato legado)
     if (!full && txtObservaciones) {
         const parts = txtObservaciones.split('|').map(s => s.trim()).filter(Boolean);
         const resto: string[] = [];
-
         for (const p of parts) {
             const m = /^Culto\s+de\s+ingreso\s*:\s*([A-Za-zÁÉÍÓÚáéíóú]+)\s*-\s*([0-9:\sAPMapm\.]+)$/i.exec(p);
             if (m && !diaKey) {
@@ -195,20 +166,130 @@ const extraerCulto = (
                 resto.push(p);
             }
         }
-        
         full = diaKey && hora ? `${diaKey[0] + diaKey.slice(1).toLowerCase()} - ${hora}` : null;
         cleanObs = resto.join(' | ');
     }
-    
     return { diaKey, hora, full, clean: cleanObs };
 };
 
+// MEJORA 2: Componente Memoizado para Filas de Pendientes (Evita re-renders masivos)
+const PendienteRowItem = memo(({ 
+    row, 
+    onSelect, 
+    onDelete 
+}: { 
+    row: PendienteItem; 
+    onSelect: (p: PendienteItem) => void; 
+    onDelete: (p: PendienteItem) => void 
+}) => {
+    return (
+        <div
+            title="Cargar en el formulario"
+            onClick={() => onSelect(row)}
+            className="flex items-center w-full cursor-pointer transition-colors hover:bg-neutral-600/5 border-b border-neutral-200/70"
+        >
+            <div className="flex-1 px-3 py-3">
+                <div className="hidden sm:flex items-center justify-between">
+                    <span className="text-sm font-medium text-neutral-800">
+                        {row.nombre ?? ""}
+                    </span>
+                </div>
+                <div className="flex sm:hidden items-center justify-between">
+                    <span className="text-sm font-medium text-neutral-800">
+                        {row.nombre ?? ""}
+                    </span>
+                    <span className="text-xs text-neutral-600 ml-2 flex-shrink-0">
+                        {soloFecha(row.creado_en ?? row.created_at ?? row.fecha ?? "")}
+                    </span>
+                </div>
+                <div className="sm:hidden text-sm text-neutral-700 mt-0.5">
+                    {row.telefono ?? ""}
+                </div>
+                <div className="sm:hidden text-xs text-indigo-600 mt-0.5">
+                    Servidor: {row.creado_por_nombre ?? "Sistema"}
+                </div>
+            </div>
+            
+            <div className="hidden sm:block px-4 py-3 text-sm text-neutral-700 text-center">
+                {row.telefono ?? ""}
+            </div>
+            <div className="hidden sm:block px-4 py-3 text-sm text-neutral-600 text-center">
+                {soloFecha(row.creado_en ?? row.created_at ?? row.fecha ?? "")}
+            </div>
+            <div className="hidden sm:block px-4 py-3 text-sm text-neutral-700 text-center" title={row.creado_por_nombre ?? ''}>
+                {row.creado_por_nombre ?? "Sistema"}
+            </div>
+            <div className="px-4 py-3 text-center flex items-center justify-end gap-1">
+                <a
+                    href={`tel:${normalizaTelefono(row.telefono ?? '')}`}
+                    onClick={(e) => {
+                        if (!row.telefono) e.preventDefault();
+                        e.stopPropagation();
+                    }}
+                    title={`Llamar a ${row.nombre ?? ''}`}
+                    className={`grid place-items-center w-7 h-7 rounded-full text-white transition-all hover:scale-110 shadow-sm ${
+                        row.telefono ? 'bg-blue-500 hover:bg-blue-600' : 'bg-neutral-400 cursor-not-allowed'
+                    }`}
+                >
+                    <Phone size={13} strokeWidth={2.5} />
+                </a>
+                <button
+                    aria-label="Eliminar pendiente"
+                    title="Eliminar pendiente"
+                    onClick={(e) => { e.stopPropagation(); onDelete(row); }}
+                    className="inline-grid place-items-center w-7 h-7 rounded-full transition-all hover:scale-105 bg-red-100/80 hover:bg-red-200/90"
+                >
+                    <Trash2 size={15} className="text-red-600" />
+                </button>
+            </div>
+        </div>
+    );
+});
+PendienteRowItem.displayName = 'PendienteRowItem';
+
+// MEJORA 3: Componente Memoizado para Resultados de Búsqueda
+const SearchResultItem = memo(({ 
+    p, 
+    isActive, 
+    onSelect, 
+    onHover 
+}: { 
+    p: Registro; 
+    isActive: boolean; 
+    onSelect: (p: Registro) => void; 
+    onHover: () => void 
+}) => {
+    return (
+        <button
+            id={`optm-${p.id}`}
+            role="option"
+            aria-selected={isActive}
+            onMouseEnter={onHover}
+            onMouseDown={(ev) => ev.preventDefault()}
+            onClick={() => onSelect(p)}
+            className={`sug-item ${isActive ? 'active' : ''}`}
+            title={`${p.nombre} • ${p.telefono ?? '—'}`}
+        >
+            <div className="sug-name">{p.nombre}</div>
+            <div className="sug-sub">
+                {p.telefono ?? '—'}
+                <span className="sug-pill" style={{ marginLeft: 8 }}>
+                    Grupo: {p.estudioDia ?? '—'}
+                </span>
+                <span className="sug-pill" style={{ marginLeft: 8 }}>
+                    Etapa: {p.etapa ?? '—'}
+                </span>
+                <span className="sug-pill" style={{ marginLeft: 8 }}>
+                    Semana: {p.semana ?? '—'}
+                </span>
+            </div>
+        </button>
+    );
+});
+SearchResultItem.displayName = 'SearchResultItem';
+
 
 export default function PersonaNueva({ servidorId }: { servidorId: string | null }) {
-    
-    // --- LÓGICA DE 'localServidorId' y 'isLoadingId' ELIMINADA ---
-    // Ahora confiamos 100% en el prop 'servidorId' que nos pasa el padre
-
     const observacionesRef = useRef<HTMLTextAreaElement | null>(null);
     const inputNombreRef = useRef<HTMLInputElement | null>(null);
     const inputBusquedaModalRef = useRef<HTMLInputElement | null>(null);
@@ -228,7 +309,6 @@ export default function PersonaNueva({ servidorId }: { servidorId: string | null
     const [modoEdicion, setModoEdicion] = useState(false);
     const [indiceEdicion, setIndiceEdicion] = useState<string | null>(null);
 
-    // Modal búsqueda
     const [modalBuscarVisible, setModalBuscarVisible] = useState(false);
     const [busqueda, setBusqueda] = useState('');
     const [sugs, setSugs] = useState<Registro[]>([]);
@@ -237,14 +317,12 @@ export default function PersonaNueva({ servidorId }: { servidorId: string | null
     const [loadingSug, setLoadingSug] = useState(false);
     const [modoSoloPendientes, setModoSoloPendientes] = useState(false);
 
-    // Modal Pendientes
     const [modalPendVisible, setModalPendVisible] = useState(false);
     const [pendLoading, setPendLoading] = useState(false);
     const [pendientesRows, setPendientesRows] = useState<PendienteItem[]>([]);
     const [pendPage, setPendPage] = useState(0);
     const PEND_PAGE_SIZE = 7;
 
-    // Estados para el modo listado en el modal de búsqueda
     const [modoListado, setModoListado] = useState(false);
     const [listadoPersonas, setListadoPersonas] = useState<Registro[]>([]);
     const [listadoPage, setListadoPage] = useState(0);
@@ -252,64 +330,39 @@ export default function PersonaNueva({ servidorId }: { servidorId: string | null
     const [listadoLoading, setListadoLoading] = useState(false);
     const LISTADO_PAGE_SIZE = 10;
 
-
     const cacheSugs = useRef(new Map<string, { ts: number; data: Registro[] }>()).current;
     const TTL_MS = 60_000, MIN_CHARS = 3, DEBOUNCE_MS = 350;
     
     useEffect(() => { if (modalBuscarVisible) setTimeout(() => inputBusquedaModalRef.current?.focus(), 0); }, [modalBuscarVisible]);
 
-    // --- useEffect DE fetchServidorId ELIMINADO ---
-    // Ya no es necesario, el componente es "simple" y solo recibe props.
-
-    const toast = (msg: string) => {
+    const toast = useCallback((msg: string) => {
         const t = document.createElement('div'); t.className = 'toast'; t.textContent = msg;
         document.body.appendChild(t); setTimeout(() => t.remove(), 3000);
-    };
+    }, []);
 
-    // --- INICIO: Premium "Cupertino 2025" toast/modal para descargas ---
-    const ensurePremiumToastStyles = () => {
+    const ensurePremiumToastStyles = useCallback(() => {
         if (document.getElementById('premium-toast-styles')) return;
         const s = document.createElement('style');
         s.id = 'premium-toast-styles';
         s.textContent = `
             .premium-toast-wrap {
-                position: fixed;
-                right: 20px;
-                bottom: 26px;
-                z-index: 99999;
-                backdrop-filter: blur(8px) saturate(120%);
-                -webkit-backdrop-filter: blur(8px) saturate(120%);
+                position: fixed; right: 20px; bottom: 26px; z-index: 99999;
+                backdrop-filter: blur(8px) saturate(120%); -webkit-backdrop-filter: blur(8px) saturate(120%);
                 transition: transform .32s cubic-bezier(.22,.9,.3,1), opacity .28s ease;
-                transform-origin: bottom right;
-                opacity: 0;
-                transform: translateY(18px) scale(.98);
-                pointer-events: none;
+                transform-origin: bottom right; opacity: 0; transform: translateY(18px) scale(.98); pointer-events: none;
             }
             .premium-toast-wrap.visible { opacity: 1; transform: translateY(0) scale(1); pointer-events: auto; }
             .premium-toast-card {
-                display: flex;
-                align-items: center;
-                gap: 12px;
-                min-width: 320px;
-                max-width: 420px;
-                padding: 12px 14px;
-                border-radius: 14px;
-                box-shadow: 0 10px 32px rgba(20,20,40,0.08), inset 0 1px 0 rgba(255,255,255,0.6);
+                display: flex; align-items: center; gap: 12px; min-width: 320px; max-width: 420px; padding: 12px 14px;
+                border-radius: 14px; box-shadow: 0 10px 32px rgba(20,20,40,0.08), inset 0 1px 0 rgba(255,255,255,0.6);
                 background: linear-gradient(180deg, rgba(255,255,255,0.86), rgba(245,246,250,0.86));
-                border: 1px solid rgba(60,60,90,0.06);
-                font-family: Inter, system-ui, -apple-system, "SF Pro Text", "Helvetica Neue", Arial;
+                border: 1px solid rgba(60,60,90,0.06); font-family: Inter, system-ui, sans-serif;
             }
             .premium-toast-card.ok { border-color: rgba(16,185,129,0.12); }
             .premium-toast-card.err { border-color: rgba(239,68,68,0.12); }
             .premium-toast-icon {
-                flex: 0 0 44px;
-                height: 44px;
-                border-radius: 10px;
-                display: grid;
-                place-items: center;
-                font-weight: 700;
-                font-size: 18px;
-                color: white;
+                flex: 0 0 44px; height: 44px; border-radius: 10px; display: grid; place-items: center;
+                font-weight: 700; font-size: 18px; color: white;
             }
             .premium-toast-icon.ok { background: linear-gradient(135deg,#10b981,#059669); box-shadow: 0 6px 20px rgba(16,185,129,0.18); }
             .premium-toast-icon.err { background: linear-gradient(135deg,#ef4444,#dc2626); box-shadow: 0 6px 20px rgba(239,68,68,0.18); }
@@ -320,9 +373,9 @@ export default function PersonaNueva({ servidorId }: { servidorId: string | null
             @media (max-width:420px){ .premium-toast-wrap{ left:12px; right:12px; bottom:18px } .premium-toast-card{min-width:unset;width:100%} }
         `;
         document.head.appendChild(s);
-    };
+    }, []);
 
-    const showPremiumToast = (success: boolean, tipo: 'PDF'|'Excel') => {
+    const showPremiumToast = useCallback((success: boolean, tipo: 'PDF'|'Excel') => {
         ensurePremiumToastStyles();
         const id = `premium-toast-${Date.now()}`;
         const wrap = document.createElement('div');
@@ -364,20 +417,106 @@ export default function PersonaNueva({ servidorId }: { servidorId: string | null
         wrap.appendChild(card);
         document.body.appendChild(wrap);
 
-        // Animate in
         requestAnimationFrame(() => wrap.classList.add('visible'));
-        // Auto remove
         setTimeout(() => {
             wrap.classList.remove('visible');
             setTimeout(() => wrap.remove(), 340);
         }, 4200);
-    };
-    // --- FIN: Premium toast ---
+    }, [ensurePremiumToastStyles]);
 
-    // Cargar un registro desde el modal de Pendientes al formulario
+    // Funciones encapsuladas con useCallback para uso en Memo
+    const selectPersona = useCallback((p: Registro, fromPendientes: boolean = false, cultoDirecto?: string | null) => {
+        const culto = extraerCulto(cultoDirecto, p.observaciones);
+        let cultosMap: CultosMap = defaultCultos();
+        let cultoSeleccionado = '';
+        let cultoFueCargado = false;
+
+        if (culto.diaKey && culto.hora) {
+            const key = culto.diaKey as DiaKey;
+            const diaBonito = key[0] + key.slice(1).toLowerCase();
+            cultosMap = { ...defaultCultos(), [key]: culto.hora! };
+            cultoSeleccionado = `${diaBonito} - ${culto.hora}`;
+            cultoFueCargado = true;
+        }
+
+        const destino = p.estudioDia ? [p.estudioDia.toUpperCase()] : [];
+
+        setForm(f => ({
+            ...f,
+            nombre: p.nombre || '',
+            telefono: p.telefono || '',
+            observaciones: culto.clean || '', 
+            destino,
+            cultos: cultosMap,
+            cultoSeleccionado,
+            pendienteId: fromPendientes ? (p.id || null) : null,
+        }));
+
+        setModoEdicion(!fromPendientes); 
+        setIndiceEdicion(fromPendientes ? null : p.id); 
+        setBloquearCultos(cultoFueCargado); 
+
+        setBusqueda(''); setSugs([]); setOpenSugs(false); setModoSoloPendientes(false); setModalBuscarVisible(false);
+        setTimeout(() => observacionesRef.current?.focus(), 0);
+    }, []);
+
+    const selectPendiente = useCallback((p: PendienteItem) => {
+        const culto = extraerCulto(p.culto_seleccionado, p.observaciones);
+        let cultosMap: CultosMap = defaultCultos();
+        let cultoSeleccionado = '';
+        let cultoFueCargado = false; 
+
+        if (culto.diaKey && culto.hora) {
+            const key = culto.diaKey as DiaKey;
+            const diaBonito = key[0] + key.slice(1).toLowerCase();
+            cultosMap = { ...defaultCultos(), [key]: culto.hora! };
+            cultoSeleccionado = `${diaBonito} - ${culto.hora}`;
+            cultoFueCargado = true; 
+        }
+
+        setForm(f => ({
+            ...f,
+            nombre: p?.nombre || '',
+            telefono: p?.telefono || '',
+            observaciones: culto.clean || '', 
+            destino: [], 
+            cultos: cultosMap, 
+            cultoSeleccionado, 
+            pendienteId: (p?.id ?? p?.progreso_id ?? p?.persona_id ?? null) || null,
+        }));
+        
+        setModoEdicion(false); 
+        setIndiceEdicion(null);
+        setBloquearCultos(cultoFueCargado); 
+
+        setModalPendVisible(false);
+        setModalBuscarVisible(false);
+        setModoSoloPendientes(false);
+        setBusqueda('');
+        setSugs([]);
+        setOpenSugs(false);
+        setTimeout(() => observacionesRef.current?.focus(), 0);
+    }, []);
+
+    const handleEliminarPendiente = useCallback(async (row: PendienteItem) => {
+      if (!row?.id) { toast('No se encontró el ID del pendiente'); return; }
+      const ok = window.confirm(`¿Eliminar el pendiente de "${row.nombre ?? ''}"?`);
+      if (!ok) return;
+      try {
+          const { error } = await supabase.from('pendientes').delete().eq('id', row.id);
+          if (error) throw error;
+          setPendientesRows(prev => prev.filter(r => r.id !== row.id));
+          toast('🗑️ Pendiente eliminado');
+      } catch (e) {
+          console.error(e);
+          toast('❌ Error eliminando pendiente');
+      }
+    }, [toast]);
+
+    // Funciones de formulario principales
     const selectDesdePendiente = (row: PendienteItem) => {
       const reg: Registro = {
-        id: row.persona_id || '', // este se usa para lógica normal
+        id: row.persona_id || '',
         fecha: '',
         nombre: row.nombre || '',
         telefono: row.telefono || null,
@@ -388,21 +527,11 @@ export default function PersonaNueva({ servidorId }: { servidorId: string | null
         etapa: (row.etapa as AppEtapa) ?? null,
         semana: typeof row.semana === 'number' ? row.semana : null,
       };
-
       setModalPendVisible(false);
-
-      // 👇 Aquí garantizamos que el form.pendienteId sea el UUID real de la tabla pendientes
-      
-      // Pasamos el 'culto_seleccionado' de la fila del pendiente
-      selectPersona(reg, true, row.culto_seleccionado); // <-- CORREGIDO
-      
+      selectPersona(reg, true, row.culto_seleccionado);
       setForm(prev => ({ ...prev, pendienteId: row.id })); 
-      
-      // setBloquearCultos(false); // <--- Eliminar esto, selectPersona lo maneja
     };
 
-
-    /* ===== Guardar / Actualizar / Reactivar ===== */
     const validar = (): boolean => {
         const err: Errores = {};
         if (!form.nombre.trim()) { err.nombre = 'Ingresa el Nombre y Apellido'; setErrores(err); return false; }
@@ -412,10 +541,6 @@ export default function PersonaNueva({ servidorId }: { servidorId: string | null
         setErrores({}); setMostrarErrorCulto(false); setMostrarErrorDestino(false); return true;
     };
 
-    /**
-     * Construye las notas para el guardado "normal" (no pendientes).
-     * Incluye el culto + observaciones.
-     */
     const construirNotasNormales = () => {
         const [dia, hora] = form.cultoSeleccionado.split(' - ');
         const cultoLinea = dia && hora ? `Culto de ingreso: ${dia} - ${hora}` : null;
@@ -423,43 +548,27 @@ export default function PersonaNueva({ servidorId }: { servidorId: string | null
         return [cultoLinea, extra].filter(Boolean).join(' | ') || null;
     };
 
-
     const resetForm = () => {
         setForm({ nombre: '', telefono: '', destino: [], cultoSeleccionado: '', observaciones: '', cultos: defaultCultos(), pendienteId: null });
         setErrores({}); setMostrarErrorCulto(false); setMostrarErrorDestino(false);
         setBloquearCultos(false); setModoEdicion(false); setIndiceEdicion(null);
-        // limpiar estados de UI auxiliares
-       
     };
 
     const handleGuardar = async () => {
-
         if (!validar()) return;
-    
         const p_estudio: AppEstudioDia = toDbEstudio(form.destino);
-        // p_notas ahora se define de forma diferente según el destino
-    
         try {
-            // 🔹 Caso especial: si viene de Pendientes, SIEMPRE registrar como nuevo
             if (form.pendienteId) {
-                // ...
-                // Lógica para mover de Pendiente -> Normal
-                // ...
                 const p_notas_registro_normal = construirNotasNormales();
-
                 const { error } = await supabase.rpc('fn_registrar_persona', {
                     p_nombre: form.nombre.trim(),
                     p_telefono: form.telefono.trim(),
                     p_culto: toDbEstudio(form.destino),
                     p_estudio: toDbEstudio(form.destino),
-                    p_notas: p_notas_registro_normal, // Usar las notas construidas
+                    p_notas: p_notas_registro_normal, 
                 });
                 if (error) throw error;
-                // ...existing code...
-                const { error: delError } = await supabase
-                    .from('pendientes')
-                    .delete()
-                    .eq('id', form.pendienteId);
+                const { error: delError } = await supabase.from('pendientes').delete().eq('id', form.pendienteId);
                 if (delError) {
                     console.error(delError);
                     toast('Guardado, pero no se pudo eliminar de pendientes');
@@ -467,7 +576,6 @@ export default function PersonaNueva({ servidorId }: { servidorId: string | null
                     toast('Persona registrada y eliminada de Pendientes');
                 }
                 setForm(prev => ({ ...prev, pendienteId: null }));
-                // ...existing code...
                 if (modalPendVisible) {
                     try {
                         const { data } = await supabase.rpc('fn_listar_pendientes');
@@ -478,36 +586,24 @@ export default function PersonaNueva({ servidorId }: { servidorId: string | null
                 return;
             }
     
-            // --- INICIO DE LA MODIFICACIÓN (Lógica handleGuardar) ---
-            // 🔹 Si el destino es PENDIENTES, usar la nueva función de pendientes
             if (form.destino.includes('PENDIENTES')) {
-                // Normalizar teléfono y validar
                 const telNorm = normalizaTelefono(form.telefono);
                 if (telNorm.length < 7) {
                     setErrores(prev => ({ ...prev, telefono: 'Número inválido o incompleto' }));
                     toast('Número inválido o incompleto');
                     return;
                 }
-    
-                // Verificar duplicado en pendientes (usa la función existente)
                 const dup = await existePendienteConTelefono(telNorm, form.pendienteId ?? null);
                 if (dup) {
                     setErrores(prev => ({ ...prev, telefono: 'Ya existe un pendiente con este teléfono' }));
                     toast('⚠️ Ya existe un pendiente con este teléfono');
                     return;
                 }
-    
-                // Usar el ID de servidor que vino del prop.
                 if (!servidorId) {
-                    toast('❌ Error: No se pudo identificar al servidor. La página padre no proporcionó un ID.');
-                    console.error('[FormPersonaNueva] handleGuardar bloqueado: El prop servidorId es null.');
+                    toast('❌ Error: No se pudo identificar al servidor.');
                     return;
                 }
-    
-                // Llamada RPC: enviamos el 'servidorId' del prop
                 try {
-                    // Este código es CORRECTO.
-                    // Tu función SQL (fn_registrar_pendiente) SÍ los guarda.
                     const { error } = await supabase.rpc('fn_registrar_pendiente', {
                         p_nombre: form.nombre.trim(),
                         p_telefono: telNorm,
@@ -516,53 +612,30 @@ export default function PersonaNueva({ servidorId }: { servidorId: string | null
                         p_observaciones: (form.observaciones || '').trim() || null, 
                         p_creado_por: servidorId 
                     });
-    
                     if (error) throw error;
-    
                     toast('Registro guardado en Pendientes');
-    
-                    // Si el modal de Pendientes está abierto, recargar la lista
                     if (modalPendVisible) {
                         try {
-                            // Tu RPC 'fn_listar_pendientes' DEBE seleccionar 'culto_seleccionado'
                             const { data } = await supabase.rpc('fn_listar_pendientes');
                             setPendientesRows((data || []) as PendienteItem[]);
-                        } catch (e) {
-                            console.error('[pendientes] error recargando lista tras insertar:', e);
-                        }
+                        } catch (e) {}
                     }
-    
                     resetForm();
                     return;
                 } catch (e: any) {
-                    console.error('[pendientes] Error al registrar pendiente:', e);
                     toast('❌ Error guardando pendiente: ' + (e?.message ?? e));
                     return;
                 }
             }
-            // --- FIN DE LA MODIFICACIÓN ---
     
-            // 🔹 Validar duplicado para switches DOMINGO, MARTES, VIRTUAL
             if (form.destino.some(d => ['DOMINGO', 'MARTES', 'VIRTUAL'].includes(d))) {
                 const telNorm = normalizaTelefono(form.telefono);
-                // Buscar duplicado en la tabla persona (no pendientes)
-                const { count, error } = await supabase
-                    .from('persona')
-                    .select('id', { count: 'exact' })
-                    .eq('telefono', telNorm)
-                    .limit(1);
+                const { count, error } = await supabase.from('persona').select('id', { count: 'exact' }).eq('telefono', telNorm).limit(1);
                 if (error) throw error;
-                // Si está editando, excluir el mismo registro
                 let isDup = false;
                 if (count && count > 0) {
                     if (modoEdicion && indiceEdicion) {
-                        // Buscar si el duplicado es el mismo registro
-                        const { data: personaData, error: personaError } = await supabase
-                            .from('persona')
-                            .select('id')
-                            .eq('telefono', telNorm)
-                            .limit(1);
-                        if (personaError) throw personaError;
+                        const { data: personaData } = await supabase.from('persona').select('id').eq('telefono', telNorm).limit(1);
                         if (personaData && personaData.length > 0 && personaData[0].id !== indiceEdicion) {
                             isDup = true;
                         }
@@ -577,10 +650,7 @@ export default function PersonaNueva({ servidorId }: { servidorId: string | null
                 }
             }
             
-            // Definir p_notas SÓLO para guardado normal
             const p_notas_normal = construirNotasNormales();
-
-            // 🔹 Actualización normal
             if (modoEdicion && indiceEdicion) {
                 const { error } = await supabase.rpc('fn_actualizar_persona', {
                     p_id: indiceEdicion,
@@ -595,14 +665,13 @@ export default function PersonaNueva({ servidorId }: { servidorId: string | null
                 const { error } = await supabase.rpc('fn_registrar_persona', {
                     p_nombre: form.nombre.trim(),
                     p_telefono: form.telefono.trim(),
-                    p_culto: p_estudio, // si tu RPC lo usa
+                    p_culto: p_estudio, 
                     p_estudio,
                     p_notas: p_notas_normal,
                 });
                 if (error) throw error;
                 toast('✅ Guardado. Enviado a Semillas 1 • Semana 1');
             }
-    
             resetForm();
         } catch (e) {
             console.error(e);
@@ -610,8 +679,6 @@ export default function PersonaNueva({ servidorId }: { servidorId: string | null
         }
     };
 
-
-    /* ===== ELIMINAR ===== */
     const handleEliminar = async () => {
         if (!modoEdicion || !indiceEdicion) {
             toast('Selecciona un registro primero.');
@@ -619,11 +686,9 @@ export default function PersonaNueva({ servidorId }: { servidorId: string | null
         }
         const ok = window.confirm('¿Seguro que deseas eliminar este registro? Esta acción no se puede deshacer.');
         if (!ok) return;
-
         try {
             const { error } = await supabase.rpc('fn_eliminar_persona', { p_id: indiceEdicion });
             if (error) throw error;
-
             toast('🗑️ Registro eliminado');
             resetForm();
         } catch (e) {
@@ -632,14 +697,11 @@ export default function PersonaNueva({ servidorId }: { servidorId: string | null
         }
     };
 
-    /* ===== Listado de Personas (desde el modal de búsqueda) ===== */
     const fetchListado = async () => {
         setListadoLoading(true);
         try {
             const { data, error } = await supabase.rpc('fn_buscar_persona', { q: '' });
-
             if (error) throw error;
-
             const arr: Registro[] = (data || []).map((r: any) => ({
                 id: r.id,
                 nombre: r.nombre,
@@ -648,45 +710,33 @@ export default function PersonaNueva({ servidorId }: { servidorId: string | null
                 observaciones: r.observaciones ?? null,
                 etapa: r.etapa as AppEtapa | null,
                 semana: typeof r.semana === 'number' ? r.semana : null,
-                // Rellenar campos para mantener consistencia con el tipo Registro
                 fecha: '',
                 preferencias: null,
-                cultosSeleccionados: null, // Este campo es de la tabla `persona_registro`, no `persona`
+                cultosSeleccionados: null, 
             }));
-
             setListadoPersonas(arr);
             setTotalPersonas(arr.length);
-
         } catch (e) {
-            console.error('Error cargando listado:', e);
             toast('❌ Error al cargar el listado');
         } finally {
             setListadoLoading(false);
         }
     };
 
-
-    /* ===== Búsqueda (modal) ===== */
     useEffect(() => {
-        if (modoSoloPendientes) return; // No ejecutar búsqueda cuando es modo solo pendientes
+        if (modoSoloPendientes) return; 
         const q = busqueda.trim();
         if (q.length < MIN_CHARS) { setSugs([]); setOpenSugs(false); setActive(0); return; }
-
         const cached = cacheSugs.get(q);
         if (cached && Date.now() - cached.ts < TTL_MS) {
             setSugs(cached.data); setOpenSugs(cached.data.length > 0); setActive(0); return;
         }
-
         let cancel = false;
         setLoadingSug(true);
-
         const t = setTimeout(async () => {
             try {
-                // 1) RPC de búsqueda por persona (nombre/teléfono)
                 const { data, error } = await supabase.rpc('fn_buscar_persona', { q });
                 if (error) throw error;
-
-                // 2) Mapeo base (trae estudioDia y, si existieran, etapa/semana)
                 let arr: Registro[] = (data || []).map((r: any) => ({
                     id: r.id,
                     fecha: '',
@@ -699,8 +749,6 @@ export default function PersonaNueva({ servidorId }: { servidorId: string | null
                     etapa: (r.etapa as AppEtapa) ?? null,
                     semana: (typeof r.semana === 'number' ? r.semana : null),
                 }));
-
-                // 3) Si la RPC no trajo etapa/semana, completar consultando 'progreso' activo
                 const needStatus = arr.some(x => !x.etapa || x.semana == null);
                 if (needStatus) {
                     const ids = arr.map(x => x.id).filter(Boolean);
@@ -726,112 +774,18 @@ export default function PersonaNueva({ servidorId }: { servidorId: string | null
                         }
                     }
                 }
-
                 if (!cancel) {
                     cacheSugs.set(q, { ts: Date.now(), data: arr });
                     setSugs(arr); setOpenSugs(arr.length > 0); setActive(0);
                 }
             } catch (e) {
-                console.error('buscar sugerencias:', e);
                 if (!cancel) { setSugs([]); setOpenSugs(false); }
             } finally {
                 if (!cancel) setLoadingSug(false);
             }
         }, DEBOUNCE_MS);
-
         return () => { cancel = true; clearTimeout(t); };
-    }, [busqueda, modoSoloPendientes]);
-
-    /* ===== Inyectar datos al formulario desde búsqueda ===== */
-    const selectPersona = (p: Registro, fromPendientes: boolean = false, cultoDirecto?: string | null) => {
-        
-        // Usa el helper nuevo
-        const culto = extraerCulto(cultoDirecto, p.observaciones);
-        
-        let cultosMap: CultosMap = defaultCultos();
-        let cultoSeleccionado = '';
-        let cultoFueCargado = false; // Flag para bloquear la UI
-
-        if (culto.diaKey && culto.hora) {
-            const key = culto.diaKey as DiaKey;
-            const diaBonito = key[0] + key.slice(1).toLowerCase();
-            cultosMap = { ...defaultCultos(), [key]: culto.hora! };
-            cultoSeleccionado = `${diaBonito} - ${culto.hora}`;
-            cultoFueCargado = true;
-        }
-
-        const destino = p.estudioDia ? [p.estudioDia.toUpperCase()] : [];
-
-        setForm(f => ({
-            ...f,
-            nombre: p.nombre || '',
-            telefono: p.telefono || '',
-            observaciones: culto.clean || '', // Poner solo las observaciones limpias
-            destino,
-            cultos: cultosMap,
-            cultoSeleccionado,
-            pendienteId: fromPendientes ? (p.id || null) : null,
-        }));
-
-        setModoEdicion(!fromPendientes); // Solo modo edición si NO viene de pendientes
-        setIndiceEdicion(fromPendientes ? null : p.id); // Solo índice si NO viene de pendientes
-        
-        setBloquearCultos(cultoFueCargado); // <<<<----- LÓGICA CLAVE
-
-        setBusqueda(''); setSugs([]); setOpenSugs(false); setModoSoloPendientes(false); setModalBuscarVisible(false);
-        setTimeout(() => observacionesRef.current?.focus(), 0);
-    };
-
-
-    // =================================================================
-    // ================== CORRECCIÓN 3: FUNCIÓN CLAVE ==================
-    // =================================================================
-    // Cargar un registro del modal de Pendientes como NUEVO
-    const selectPendiente = (p: PendienteItem) => {
-        
-        // Usa el helper nuevo, pasando las DOS columnas
-        const culto = extraerCulto(p.culto_seleccionado, p.observaciones);
-        
-        let cultosMap: CultosMap = defaultCultos();
-        let cultoSeleccionado = '';
-        let cultoFueCargado = false; 
-
-        // Si el pendiente tiene un culto asociado, establecerlo en el formulario
-        if (culto.diaKey && culto.hora) {
-            const key = culto.diaKey as DiaKey;
-            const diaBonito = key[0] + key.slice(1).toLowerCase();
-            cultosMap = { ...defaultCultos(), [key]: culto.hora! };
-            cultoSeleccionado = `${diaBonito} - ${culto.hora}`;
-            cultoFueCargado = true; 
-        }
-
-        setForm(f => ({
-            ...f,
-            nombre: p?.nombre || '',
-            telefono: p?.telefono || '',
-            observaciones: culto.clean || '', // Usar las observaciones limpias
-            destino: [], // Al cargar de pendientes, el destino NUNCA está pre-seleccionado
-            cultos: cultosMap, // Establecer el culto mapeado
-            cultoSeleccionado, // Establecer el string de culto seleccionado
-            // El ID de pendiente se usa para la lógica de "Guardar"
-            pendienteId: (p?.id ?? p?.progreso_id ?? p?.persona_id ?? null) || null,
-        }));
-        
-        // Al cargar de pendientes, NUNCA estamos en modo edición
-        setModoEdicion(false); 
-        setIndiceEdicion(null);
-
-        // Bloquear la UI del culto SÓLO SI cargamos un culto
-        setBloquearCultos(cultoFueCargado); // <-- ESTA ES LA LÍNEA CORREGIDA
-
-        setModalPendVisible(false);
-        setModalBuscarVisible(false);
-        setModoSoloPendientes(false);
-        setBusqueda('');
-        setSugs([]);
-        setOpenSugs(false);
-        setTimeout(() => observacionesRef.current?.focus(), 0);
-    };
+    }, [busqueda, modoSoloPendientes, cacheSugs]);
 
     const onKeyDownSearch = (e: React.KeyboardEvent<HTMLInputElement>) => {
         if (e.key === 'Enter') {
@@ -846,192 +800,96 @@ export default function PersonaNueva({ servidorId }: { servidorId: string | null
         else if (e.key === 'Escape') { setOpenSugs(false); }
     };
 
-    // Abrir el mismo modal de búsqueda pero mostrando solo "Pendientes"
-    const abrirSoloPendientes = async () => {
-        setModoSoloPendientes(true);
-        setModalBuscarVisible(true);
-        setBusqueda('');
-        setSugs([]);
-        setOpenSugs(false);
-        setLoadingSug(true);
-
-        try {
-            const { data, error } = await supabase.rpc('fn_buscar_persona', { q: '' });
-            if (error) throw error;
-
-            let arr: Registro[] = (data || []).map((r: any) => ({
-                id: r.id,
-                nombre: r.nombre,
-                telefono: r.telefono ?? null,
-                estudioDia: r.estudio_dia ?? null,
-                etapa: (r.etapa as AppEtapa) ?? null,
-                semana: (typeof r.semana === 'number' ? r.semana : null),
-                observaciones: r.observaciones ?? null,
-                // campos adicionales del tipo Registro, no usados aquí
-                fecha: '',
-                preferencias: null,
-                cultosSeleccionados: null,
-            }));
-
-            // 🔹 Filtrar solo pendientes
-            arr = arr.filter(p => p.estudioDia?.toUpperCase() === 'PENDIENTES');
-
-            setSugs(arr);
-            setOpenSugs(arr.length > 0);
-            setActive(0);
-        } catch (e) {
-            console.error(e);
-            toast('Error cargando pendientes');
-        } finally {
-            setLoadingSug(false);
-        }
-    };
-
-    // Modal Pendientes: abre y carga lista desde vista histórica
     const abrirPendientes = async () => {
         setModalPendVisible(true);
         setPendLoading(true);
         try {
-            // NOTA: Tu RPC 'fn_listar_pendientes' DEBE seleccionar la columna 'culto_seleccionado'
-            // Si no lo hace, debes modificarla en Supabase.
             const { data, error } = await supabase.rpc('fn_listar_pendientes');
             if (error) throw error;
             setPendientesRows((data || []) as PendienteItem[]);
             setPendPage(0);
         } catch (e) {
-            console.error(e);
             toast('Error cargando pendientes');
         } finally {
             setPendLoading(false);
         }
     };
 
-    // Sugerencia de autocompletado fantasma para el buscador
-    const ghost =
-        openSugs && sugs[0] && (sugs[0].nombre ?? '').toLowerCase().startsWith(busqueda.toLowerCase())
+    const ghost = openSugs && sugs[0] && (sugs[0].nombre ?? '').toLowerCase().startsWith(busqueda.toLowerCase())
             ? (sugs[0].nombre ?? '').slice(busqueda.length)
             : '';
 
-    // Eliminar pendiente desde el modal
-    const handleEliminarPendiente = async (row: PendienteItem) => {
-      if (!row?.id) { toast('No se encontró el ID del pendiente'); return; }
-      const ok = window.confirm(`¿Eliminar el pendiente de "${row.nombre ?? ''}"?`);
-      if (!ok) return;
-      try {
-          const { error } = await supabase.from('pendientes').delete().eq('id', row.id);
-          if (error) throw error;
-          setPendientesRows(prev => prev.filter(r => r.id !== row.id));
-          toast('🗑️ Pendiente eliminado');
-      } catch (e) {
-          console.error(e);
-          toast('❌ Error eliminando pendiente');
-      }
-    };
-
-    
-    /* ===== FUNCIONES DE EXPORTACIÓN ===== */
-
-    const handleExportPDF = () => {
-        if (!pendientesRows.length) {
-            toast('No hay datos para exportar');
-            return;
-        }
-
-        const mesActual = new Date().toLocaleString('es-ES', { month: 'long' });
-        const doc = new jsPDF();
-        
-        doc.setFontSize(16);
-        doc.text(`Listado de Contactos pendientes del Mes ${mesActual.charAt(0).toUpperCase() + mesActual.slice(1)}`, 14, 20);
-
-        const headers = [["Nombre", "Teléfono", "Fecha", "Culto de Ingreso"]];
-        const body = pendientesRows.map(row => {
-            // Usar la función helper actualizada
-            const culto = extraerCulto(row.culto_seleccionado, row.observaciones);
-            return [
-                row.nombre || '',
-                row.telefono || '',
-                soloFecha(row.creado_en ?? row.created_at ?? row.fecha ?? ""),
-                culto.full || 'N/A' // 'full' tiene el formato "Domingo - 7:00 AM"
-            ];
-        });
-
+    // MEJORA 1: Lazy Loading en exports
+    const handleExportPDF = async () => {
+        if (!pendientesRows.length) { toast('No hay datos para exportar'); return; }
         try {
-            // Llamar a autoTable como una función, pasando el 'doc'
+            const jsPDF = (await import('jspdf')).default;
+            const autoTable = (await import('jspdf-autotable')).default;
+            const mesActual = new Date().toLocaleString('es-ES', { month: 'long' });
+            const doc = new jsPDF();
+            
+            doc.setFontSize(16);
+            doc.text(`Listado de Contactos pendientes del Mes ${mesActual.charAt(0).toUpperCase() + mesActual.slice(1)}`, 14, 20);
+
+            const headers = [["Nombre", "Teléfono", "Fecha", "Culto de Ingreso"]];
+            const body = pendientesRows.map(row => {
+                const culto = extraerCulto(row.culto_seleccionado, row.observaciones);
+                return [
+                    row.nombre || '',
+                    row.telefono || '',
+                    soloFecha(row.creado_en ?? row.created_at ?? row.fecha ?? ""),
+                    culto.full || 'N/A' 
+                ];
+            });
             autoTable(doc, {
                 startY: 28,
                 head: headers,
                 body: body,
                 theme: 'striped',
-                headStyles: { fillColor: [79, 70, 229] } // Indigo color
+                headStyles: { fillColor: [79, 70, 229] } 
             });
-
             doc.save(`pendientes_${mesActual}.pdf`);
-            // Notificación premium de éxito
-            try { showPremiumToast(true, 'PDF'); } catch { /* ignore */ }
+            showPremiumToast(true, 'PDF');
         } catch (err) {
             console.error('Error exportando PDF:', err);
-            // Notificación premium de error
-            try { showPremiumToast(false, 'PDF'); } catch { /* ignore */ }
+            showPremiumToast(false, 'PDF');
         }
     };
 
-    const handleExportExcel = () => {
-        if (!pendientesRows.length) {
-            toast('No hay datos para exportar');
-            return;
-        }
-
-        const mesActual = new Date().toLocaleString('es-ES', { month: 'long' });
-        
-        // Fila de Título
-        const title = [`Listado de Contactos pendientes del Mes ${mesActual.charAt(0).toUpperCase() + mesActual.slice(1)}`];
-        
-        // Fila de Encabezados
-        const headers = ["Nombre", "Teléfono", "Fecha", "Culto de Ingreso"];
-        
-        // Filas de Datos
-        const data = pendientesRows.map(row => {
-            // Usar la función helper actualizada
-            const culto = extraerCulto(row.culto_seleccionado, row.observaciones);
-            return [
-                row.nombre || '',
-                row.telefono || '',
-                soloFecha(row.creado_en ?? row.created_at ?? row.fecha ?? ""),
-                culto.full || 'N/A'
-            ];
-        });
-
-        // Combinar todo
-        const allRows = [title, [], headers, ...data]; // Fila vacía para espaciado
-        
-        // Crear hoja de cálculo
-        const ws = XLSX.utils.aoa_to_sheet(allRows);
-        
-        // Unir celdas del título (A1 a D1)
-        ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 3 } }];
-        
+    const handleExportExcel = async () => {
+        if (!pendientesRows.length) { toast('No hay datos para exportar'); return; }
         try {
-            // Crear libro y añadir hoja
+            const XLSX = await import('xlsx');
+            const mesActual = new Date().toLocaleString('es-ES', { month: 'long' });
+            const title = [`Listado de Contactos pendientes del Mes ${mesActual.charAt(0).toUpperCase() + mesActual.slice(1)}`];
+            const headers = ["Nombre", "Teléfono", "Fecha", "Culto de Ingreso"];
+            const data = pendientesRows.map(row => {
+                const culto = extraerCulto(row.culto_seleccionado, row.observaciones);
+                return [
+                    row.nombre || '',
+                    row.telefono || '',
+                    soloFecha(row.creado_en ?? row.created_at ?? row.fecha ?? ""),
+                    culto.full || 'N/A'
+                ];
+            });
+            const allRows = [title, [], headers, ...data]; 
+            const ws = XLSX.utils.aoa_to_sheet(allRows);
+            ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 3 } }];
             const wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, ws, `Pendientes ${mesActual}`);
-
-            // Guardar archivo
             XLSX.writeFile(wb, `pendientes_${mesActual}.xlsx`);
-            // Notificación premium de éxito
-            try { showPremiumToast(true, 'Excel'); } catch { /* ignore */ }
+            showPremiumToast(true, 'Excel');
         } catch (err) {
             console.error('Error exportando Excel:', err);
-            try { showPremiumToast(false, 'Excel'); } catch { /* ignore */ }
+            showPremiumToast(false, 'Excel');
         }
     };
     
-    /* ===== UI ===== */
     return (
         <div className="pn-root">
             <div className="formulario-box" id="formulario1">
                 <div className="form-title" style={{ marginBottom: '6px', fontSize: '1.08rem' }}>Registro Persona Nueva</div>
 
-                {/* Modal BUSCAR */}
                 {modalBuscarVisible && (
                     <div className="modal-buscar2-backdrop fixed inset-0 z-40 bg-[rgba(80,70,229,0.10)] backdrop-blur-md" style={{ overflow: 'hidden' }}></div>
                 )}
@@ -1041,39 +899,11 @@ export default function PersonaNueva({ servidorId }: { servidorId: string | null
                             <button
                                 className="modal-buscar2__close"
                                 aria-label="Cerrar"
-                                style={{
-                                    transition: 'background 0.18s, color 0.18s',
-                                    position: 'absolute',
-                                    top: 12,
-                                    right: 12,
-                                    zIndex: 100,
-                                    width: 40,
-                                    height: 40,
-                                    padding: 0,
-                                    borderRadius: '50%',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    fontSize: '1.7rem',
-                                    border: 'none',
-                                    background: 'rgba(255,255,255,0.85)',
-                                    boxShadow: '0 2px 8px rgba(0,0,0,0.10)',
-                                    cursor: 'pointer',
-                                }}
+                                style={{ transition: 'background 0.18s, color 0.18s', position: 'absolute', top: 12, right: 12, zIndex: 100, width: 40, height: 40, padding: 0, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.7rem', border: 'none', background: 'rgba(255,255,255,0.85)', boxShadow: '0 2px 8px rgba(0,0,0,0.10)', cursor: 'pointer' }}
                                 onMouseEnter={e => { e.currentTarget.style.background = '#ff4d4f'; e.currentTarget.style.color = '#fff'; }}
                                 onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.85)'; e.currentTarget.style.color = ''; }}
                                 onClick={() => {
-                                    setBusqueda('');
-                                    setSugs([]);
-                                    setOpenSugs(false);
-                                    setModalBuscarVisible(false);
-                                    setModoSoloPendientes(false);
-                                    setModoListado(false);
-                                    setListadoPage(0);
-                                    // Optimizacion: No limpiamos listadoPersonas para que sirva de caché
-                                    // si el usuario vuelve a abrir el modal en la misma sesión.
-                                    // Si prefieres que siempre recargue, descomenta la linea de abajo
-                                    // setListadoPersonas([]);
+                                    setBusqueda(''); setSugs([]); setOpenSugs(false); setModalBuscarVisible(false); setModoSoloPendientes(false); setModoListado(false); setListadoPage(0);
                                 }}
                             >×</button>
 
@@ -1166,32 +996,15 @@ export default function PersonaNueva({ servidorId }: { servidorId: string | null
                                     />
                                     {openSugs && (
                                         <div id="sug-list-modal" role="listbox" className="sug-list">
+                                            {/* MEJORA 3: Uso de componente memoizado para items de búsqueda */}
                                             {sugs.map((p, i) => (
-                                                <button
+                                                <SearchResultItem 
                                                     key={p.id}
-                                                    id={`optm-${p.id}`}
-                                                    role="option"
-                                                    aria-selected={i === active}
-                                                    onMouseEnter={() => setActive(i)}
-                                                    onMouseDown={(ev) => ev.preventDefault()}
-                                                    onClick={() => selectPersona(p)}
-                                                    className={`sug-item ${i === active ? 'active' : ''}`}
-                                                    title={`${p.nombre} • ${p.telefono ?? '—'}`}
-                                                >
-                                                    <div className="sug-name">{p.nombre}</div>
-                                                    <div className="sug-sub">
-                                                        {p.telefono ?? '—'}
-                                                        <span className="sug-pill" style={{ marginLeft: 8 }}>
-                                                            Grupo: {p.estudioDia ?? '—'}
-                                                        </span>
-                                                        <span className="sug-pill" style={{ marginLeft: 8 }}>
-                                                            Etapa: {p.etapa ?? '—'}
-                                                        </span>
-                                                        <span className="sug-pill" style={{ marginLeft: 8 }}>
-                                                            Semana: {p.semana ?? '—'}
-                                                        </span>
-                                                    </div>
-                                                </button>
+                                                    p={p}
+                                                    isActive={i === active}
+                                                    onSelect={selectPersona}
+                                                    onHover={() => setActive(i)}
+                                                />
                                             ))}
                                             {loadingSug && <div className="sug-loading">Buscando…</div>}
                                             {!loadingSug && sugs.length === 0 && <div className="sug-empty">Sin resultados</div>}
@@ -1203,8 +1016,6 @@ export default function PersonaNueva({ servidorId }: { servidorId: string | null
                     </div>
                 )}
 
-
-                {/* Fila: nombre / teléfono */}
                 <div className="form-row first-row" style={{ marginBottom: '4px' }}>
                     <div>
                         <input
@@ -1238,13 +1049,11 @@ export default function PersonaNueva({ servidorId }: { servidorId: string | null
                     </div>
                 </div>
 
-                {/* Culto de ingreso (bloqueado tras selección) */}
                 <div className="cultos-row" style={{ marginBottom: '4px' }}>
                     <label className="Label-Culto">Culto:</label>
                     {Object.entries(form.cultos).map(([dia, valorActual]) => (
                         <div key={dia} className={`culto-box ${bloquearCultos && !valorActual.includes(dia) ? 'disabled' : ''}`}>
                             {valorActual}
-                            {/* Desplegables sólo si NO está bloqueado */}
                             {!bloquearCultos && (
                                 <ul className="culto-lista">
                                     {cultosOpciones[(dia as DiaKey)].map((opcion, index) => (
@@ -1267,7 +1076,6 @@ export default function PersonaNueva({ servidorId }: { servidorId: string | null
                         </div>
                     ))}
                 </div>
-                {/* Etiqueta Proceso Transformacional */}
                 <div style={{ textAlign: 'left', margin: '18px 0 18px 0' }}>
                     <label className="Label-Culto" style={{ fontSize: '1.1rem', display: 'block', marginBottom: '14px' }}>
                         Proceso Transformacional:
@@ -1280,7 +1088,6 @@ export default function PersonaNueva({ servidorId }: { servidorId: string | null
                     </div>
                 )}
 
-                {/* Switches (día de estudio) + Observaciones */}
                 <div className="form-group destinos-row" style={{ marginBottom: '4px', marginTop: '12px' }}>
                     <div className="switch-group" style={{ marginBottom: '24px' }}>
                         {['DOMINGO', 'MARTES', 'VIRTUAL', 'PENDIENTES'].map((d) => (
@@ -1302,19 +1109,18 @@ export default function PersonaNueva({ servidorId }: { servidorId: string | null
                     </div>
 
                     <div style={{ flex: 1 }}>
-            <textarea
-                ref={observacionesRef}
-                id="observaciones"
-                className="observaciones-estilo"
-                placeholder="Escribe aquí las observaciones..."
-                value={form.observaciones}
-                onChange={(e) => setForm({ ...form, observaciones: e.target.value })}
-                style={{ minHeight: '48px', maxHeight: '72px', height: '48px', resize: 'vertical', fontSize: '1rem', padding: '4px 8px', marginBottom: '10px' }}
-            />
+                        <textarea
+                            ref={observacionesRef}
+                            id="observaciones"
+                            className="observaciones-estilo"
+                            placeholder="Escribe aquí las observaciones..."
+                            value={form.observaciones}
+                            onChange={(e) => setForm({ ...form, observaciones: e.target.value })}
+                            style={{ minHeight: '48px', maxHeight: '72px', height: '48px', resize: 'vertical', fontSize: '1rem', padding: '4px 8px', marginBottom: '10px' }}
+                        />
                     </div>
                 </div>
 
-                                {/* ========= INICIO: Modal PENDIENTES (Estilo Cupertino) ========= */}
                                 {modalPendVisible && (
                                     <div
                                         id="modal-pendientes"
@@ -1328,10 +1134,7 @@ export default function PersonaNueva({ servidorId }: { servidorId: string | null
                                             tabIndex={-1}
                                             className="w-auto max-w-[90vw] lg:max-w-5xl rounded-[20px] overflow-hidden border border-neutral-200/50 shadow-2xl bg-white/90 backdrop-blur-xl"
                                         >
-                                            
-                                            {/* Header sticky con Iconos de Exportación */}
                                             <div className="sticky top-0 flex items-center justify-between py-3.5 px-5 bg-white/70 backdrop-blur-sm border-b border-neutral-300/80">
-                                                {/* Iconos Izquierda */}
                                                 <div className="flex items-center gap-2">
                                                     <button 
                                                         onClick={handleExportPDF} 
@@ -1349,15 +1152,10 @@ export default function PersonaNueva({ servidorId }: { servidorId: string | null
                                                     </button>
                                                 </div>
 
-                                                {/* Título Centrado */}
-                                                <h3 
-                                                    id="pend-title" 
-                                                    className="font-semibold tracking-tight text-lg text-neutral-900 absolute left-1/2 -translate-x-1/2"
-                                                >
+                                                <h3 id="pend-title" className="font-semibold tracking-tight text-lg text-neutral-900 absolute left-1/2 -translate-x-1/2">
                                                     Pendientes
                                                 </h3>
 
-                                                {/* Botón Cerrar Derecha */}
                                                 <button
                                                     aria-label="Cerrar"
                                                     onClick={() => setModalPendVisible(false)}
@@ -1369,12 +1167,8 @@ export default function PersonaNueva({ servidorId }: { servidorId: string | null
                                                 </button>
                                             </div>
 
-
-                                            {/* Body: Reemplazamos <table> con una lista de divs */}
                                             <div className="px-3 pb-3 pt-2">
                                                 <div className="w-full text-black">
-                                                    
-                                                    {/* Encabezado del listado (Responsivo) */}
                                                     <div className="flex w-full border-b border-neutral-300/80 px-3 py-2 bg-neutral-100/70">
                                                         <div className="flex-1 text-left text-xs font-semibold text-neutral-600 uppercase tracking-wider">Nombre</div>
                                                         <div className="hidden sm:block px-4 text-center text-xs font-semibold text-neutral-600 uppercase tracking-wider">Teléfono</div>
@@ -1383,13 +1177,10 @@ export default function PersonaNueva({ servidorId }: { servidorId: string | null
                                                         <div className="px-4 text-center text-xs font-semibold text-neutral-600 uppercase tracking-wider">Acciones</div>
                                                     </div>
 
-
-                                                    {/* Contenedor de la lista con scroll */}
                                                     <div className="list-body max-h-[60vh] overflow-y-auto">
                                                         {pendLoading && (
                                                             <div className="text-center text-neutral-600 px-2 py-10">Cargando…</div>
                                                         )}
-
                                                         {!pendLoading && pendientesRows.length === 0 && (
                                                             <div className="text-center text-neutral-600 px-2 py-10">Sin pendientes</div>
                                                         )}
@@ -1398,91 +1189,17 @@ export default function PersonaNueva({ servidorId }: { servidorId: string | null
                                                             pendientesRows
                                                                 .slice(pendPage * PEND_PAGE_SIZE, (pendPage + 1) * PEND_PAGE_SIZE)
                                                                 .map((row) => (
-                                                                    
-                                                                    // Fila de Pendiente (Responsiva)
-                                                                    <div
+                                                                    /* MEJORA 2: Uso de componente memoizado */
+                                                                    <PendienteRowItem 
                                                                         key={(row.progreso_id ?? row.persona_id ?? row.id ?? Math.random().toString())}
-                                                                        title="Cargar en el formulario"
-                                                                        onClick={() => selectPendiente(row)}
-                                                                        className="flex items-center w-full cursor-pointer transition-colors hover:bg-neutral-600/5 border-b border-neutral-200/70"
-                                                                    >
-                                                                        {/* Columna Principal (Contiene Nombre, Fecha y Teléfono en móvil) */}
-                                                                        <div className="flex-1 px-3 py-3">
-                                                                            {/* Fila 1: Nombre (Desktop) */}
-                                                                            <div className="hidden sm:flex items-center justify-between">
-                                                                                <span className="text-sm font-medium text-neutral-800">
-                                                                                    {row.nombre ?? ""}
-                                                                                </span>
-                                                                            </div>
-
-                                                                            {/* Fila 1: Nombre + Fecha (Móvil) */}
-                                                                            <div className="flex sm:hidden items-center justify-between">
-                                                                                <span className="text-sm font-medium text-neutral-800">
-                                                                                    {row.nombre ?? ""}
-                                                                                </span>
-                                                                                {/* Fecha (Solo visible en móvil, al lado del nombre) */}
-                                                                                <span className="text-xs text-neutral-600 ml-2 flex-shrink-0">
-                                                                                    {soloFecha(row.creado_en ?? row.created_at ?? row.fecha ?? "")}
-                                                                                </span>
-                                                                            </div>
-                                                                            
-                                                                            {/* Fila 2: Teléfono (Solo visible en móvil) */}
-                                                                            <div className="sm:hidden text-sm text-neutral-700 mt-0.5">
-                                                                                {row.telefono ?? ""}
-                                                                            </div>
-
-                                                                            {/* Fila 3: Servidor (Solo visible en móvil) */}
-                                                                            <div className="sm:hidden text-xs text-indigo-600 mt-0.5">
-                                                                                Servidor: {row.creado_por_nombre ?? "Sistema"}
-                                                                            </div>
-
-                                                                        </div>
-                                                                        
-                                                                        {/* Columna Teléfono (Solo visible en Desktop) */}
-                                                                        <div className="hidden sm:block px-4 py-3 text-sm text-neutral-700 text-center">
-                                                                            {row.telefono ?? ""}
-                                                                        </div>
-
-                                                                        {/* Columna Día (Solo visible en Desktop) */}
-                                                                        <div className="hidden sm:block px-4 py-3 text-sm text-neutral-600 text-center">
-                                                                            {soloFecha(row.creado_en ?? row.created_at ?? row.fecha ?? "")}
-                                                                        </div>
-                                                                        
-                                                                        {/* Columna Creado Por (Solo visible en Desktop) */}
-                                                                        <div className="hidden sm:block px-4 py-3 text-sm text-neutral-700 text-center" title={row.creado_por_nombre ?? ''}>
-                                                                            {row.creado_por_nombre ?? "Sistema"}
-                                                                        </div>
-
-                                                                        {/* Columna Acciones (Llamar + Eliminar) (Visible en ambos) */}
-                                                                        <div className="px-4 py-3 text-center flex items-center justify-end gap-1">
-                                                                            <a
-                                                                                href={`tel:${normalizaTelefono(row.telefono ?? '')}`}
-                                                                                onClick={(e) => {
-                                                                                    if (!row.telefono) e.preventDefault();
-                                                                                    e.stopPropagation(); // Evita que se active el selectPendiente del div padre
-                                                                                }}
-                                                                                title={`Llamar a ${row.nombre ?? ''}`}
-                                                                                className={`grid place-items-center w-7 h-7 rounded-full text-white transition-all hover:scale-110 shadow-sm ${
-                                                                                    row.telefono ? 'bg-blue-500 hover:bg-blue-600' : 'bg-neutral-400 cursor-not-allowed'
-                                                                                }`}
-                                                                            >
-                                                                                <Phone size={13} strokeWidth={2.5} />
-                                                                            </a>
-                                                                            <button
-                                                                                aria-label="Eliminar pendiente"
-                                                                                title="Eliminar pendiente"
-                                                                                onClick={(e) => { e.stopPropagation(); handleEliminarPendiente(row); }}
-                                                                                className="inline-grid place-items-center w-7 h-7 rounded-full transition-all hover:scale-105 bg-red-100/80 hover:bg-red-200/90"
-                                                                            >
-                                                                                <Trash2 size={15} className="text-red-600" />
-                                                                            </button>
-                                                                        </div>
-                                                                    </div>
+                                                                        row={row}
+                                                                        onSelect={selectPendiente}
+                                                                        onDelete={handleEliminarPendiente}
+                                                                    />
                                                                 ))}
                                                     </div>
                                                 </div>
 
-                                                {/* Paginación (Estilo Cupertino) */}
                                                 {!pendLoading && pendientesRows.length > PEND_PAGE_SIZE && (
                                                     <div className="mt-2 pt-3 flex items-center justify-between text-neutral-800 border-t border-neutral-300/80">
                                                         <button
@@ -1512,10 +1229,7 @@ export default function PersonaNueva({ servidorId }: { servidorId: string | null
                                         </div>
                                     </div>
                                 )}
-                                {/* ========= FIN: Modal PENDIENTES (Estilo Cupertino) ========= */}
 
-
-                {/* Botones */}
                 <div className="btn-container" style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: '4px' }}>
                     <button className="btn-minimal" onClick={handleGuardar} style={{ backgroundColor: (modoEdicion) ? 'orange' : '' }}>
                         {modoEdicion ? 'Actualizar' : 'Guardar'}
@@ -1533,7 +1247,6 @@ export default function PersonaNueva({ servidorId }: { servidorId: string | null
                         Buscar
                     </button>
 
-                    {/* Pendientes */}
                     <button
                         className="btn-minimal"
                         onClick={abrirPendientes}
@@ -1542,7 +1255,6 @@ export default function PersonaNueva({ servidorId }: { servidorId: string | null
                         Pendientes
                     </button>
 
-                    {/* Eliminar */}
                     <button
                         className="btn-minimal"
                         disabled={!modoEdicion}
@@ -1556,20 +1268,3 @@ export default function PersonaNueva({ servidorId }: { servidorId: string | null
         </div>
     );
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

@@ -432,9 +432,19 @@ export default function Servidores() {
     const listPageSize = 7;
     const [listTotal, setListTotal] = useState(0);
     const [listLoading, setListLoading] = useState(false);
+    const [listAnimating, setListAnimating] = useState(false);
     const [listRows, setListRows] = useState<ServidorRow[]>([]);
+    const listFetchLockRef = useRef(false);
+    const [listRequestPage, setListRequestPage] = useState<number | null>(null);
 
     const cargarListado = async (page: number) => {
+        // prevent duplicate concurrent page loads
+        if (listFetchLockRef.current) return;
+        listFetchLockRef.current = true;
+
+        // trigger a smooth fade animation while new page is being fetched
+        setListRequestPage(page);
+        setListAnimating(true);
         setListLoading(true);
         try {
             const start = (page - 1) * listPageSize;
@@ -461,6 +471,10 @@ export default function Servidores() {
             setListTotal(0);
         } finally {
             setListLoading(false);
+            listFetchLockRef.current = false;
+            // keep the fade for a short duration so the new content appears smooth
+            setTimeout(() => setListAnimating(false), 140);
+            setListRequestPage(null);
         }
     };
 
@@ -1430,7 +1444,7 @@ export default function Servidores() {
                             <h4 className="list-title">Listado de Servidores</h4>
                             <div className="list-subtitle">Mostrando {Math.min(listPage*listPageSize, listTotal)} de {listTotal}</div>
                         </div>
-                        <div className="list-table" role="table" aria-label="Servidores">
+                        <div className={`list-table ${listAnimating ? 'is-animating' : ''}`} role="table" aria-label="Servidores">
                             <div className="list-row list-head" role="row">
                                 <div className="list-cell col-idx" role="columnheader">#</div>
                                 <div className="list-cell col-name" role="columnheader">Nombre</div>
@@ -1462,11 +1476,21 @@ export default function Servidores() {
                                     </div>
                                 </div>
                             ))}
+                            {/* Skeleton overlay: keep rows visible but show shimmer during fetch */}
+                            <div className={`list-skeleton-overlay ${listLoading ? 'visible' : ''}`} aria-hidden>
+                                {[...Array(listPageSize)].map((_, i) => (
+                                    <div key={i} className="list-row list-row--skeleton" />
+                                ))}
+                            </div>
                         </div>
                         <div className="list-pager">
-                            <button className="pager-btn" onClick={() => cargarListado(Math.max(1, listPage-1))} disabled={listPage<=1 || listLoading}>◀ Anterior</button>
+                            <button className="pager-btn" onClick={() => cargarListado(Math.max(1, listPage-1))} disabled={listPage<=1 || listLoading} onMouseDown={() => { if (!listLoading) cargarListado(Math.max(1, listPage-1)); }}>
+                                {listRequestPage === Math.max(1, listPage-1) && <span className="pager-spinner" />}◀ Anterior
+                            </button>
                             <span className="pager-info">Página {listPage} de {Math.max(1, Math.ceil(listTotal / listPageSize))}</span>
-                            <button className="pager-btn" onClick={() => cargarListado(listPage+1)} disabled={listPage>=Math.ceil(listTotal / listPageSize) || listLoading}>Siguiente ▶</button>
+                            <button className="pager-btn" onClick={() => cargarListado(listPage+1)} disabled={listPage>=Math.ceil(listTotal / listPageSize) || listLoading} onMouseDown={() => { if (!listLoading) cargarListado(listPage+1); }}>
+                                Siguiente ▶{listRequestPage === listPage+1 && <span className="pager-spinner" />}
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -1967,7 +1991,8 @@ export default function Servidores() {
                 .confirm-text{ margin: 0 0 10px; opacity: .8; }
                 .confirm-data{ display: grid; gap: 6px; font-size: 14px; }
             
-                .list-box{ width: min(92vw, 1200px); max-width: 1100px; padding: 16px 18px 14px; border-radius: 22px; background: radial-gradient(140% 160% at 10% 0%, rgba(255,255,255,.72), rgba(243,246,255,.68)); box-shadow: inset 10px 10px 28px rgba(255,255,255,.55), inset -8px -8px 24px rgba(0,0,0,.04), 0 28px 56px rgba(0,0,0,.28); border: 1px solid rgba(255,255,255,.66); }
+                /* Liquid glass look for the list modal and fixed height to prevent resizing */
+                .list-box{ width: min(92vw, 1200px); max-width: 1100px; padding: 18px 20px; border-radius: 22px; background: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02)); box-shadow: 0 18px 40px rgba(8,15,30,0.4); border: 1px solid rgba(255,255,255,0.06); backdrop-filter: blur(10px) saturate(120%); -webkit-backdrop-filter: blur(10px) saturate(120%); display:flex; flex-direction:column; height: clamp(520px, 68vh, 760px); min-height:480px; }
                 .list-header{ display:flex; align-items:flex-end; justify-content:space-between; margin: 2px 2px 12px; padding: 0 2px; }
                 .list-title{ font-size:20px; font-weight:900; letter-spacing:.2px; color:#0b0b0b; }
                 .list-subtitle{ font-size:12.5px; opacity:.65; }
@@ -1989,7 +2014,8 @@ export default function Servidores() {
                     outline: none;
                     box-shadow: inset 1px 1px 2px rgba(255,255,255,.65), inset -1px -1px 2px rgba(0,0,0,.06), 0 0 0 4px rgba(255,95,87,.28), 0 12px 24px rgba(255,95,87,.28);
                 }
-                .list-table{ width: 100%;  border:1px solid rgba(0,0,0,.05); border-radius:16px; overflow:hidden; background:linear-gradient(180deg, rgba(255,255,255,.96), rgba(244,248,255,.9)); box-shadow: inset 2px 2px 7px rgba(255,255,255,.9), inset -2px -2px 6px rgba(0,0,0,.045); }
+                .list-table{ width: 100%;  border:1px solid rgba(0,0,0,.05); border-radius:16px; overflow:hidden; background:linear-gradient(180deg, rgba(255,255,255,.96), rgba(244,248,255,.9)); box-shadow: inset 2px 2px 7px rgba(255,255,255,.9), inset -2px -2px 6px rgba(0,0,0,.045); flex:1 1 auto; min-height: 0; transition: opacity .12s ease, transform .12s cubic-bezier(.22,1,.36,1); }
+                .list-table.is-animating{ opacity: 0.28; transform: translateY(6px); }
                 .list-row{ display:grid; grid-template-columns: 28px 1.6fr .9fr .8fr .9fr .8fr .8fr 120px; align-items:center; padding:7px 10px; border-bottom:1px solid rgba(0,0,0,.045); }
                 @media (max-width: 640px){
                     .list-row{ grid-template-columns: 1fr .8fr .8fr; }
