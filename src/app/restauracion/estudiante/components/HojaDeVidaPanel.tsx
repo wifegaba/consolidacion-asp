@@ -116,13 +116,13 @@ export function HojaDeVidaPanel({
         tiempo_iglesia: form.tiempo_iglesia ?? null,
         invito: form.invito ?? null,
         pastor: form.pastor ?? null,
-        nacimiento_espiritu: form.nacimiento_espiritu ?? null,
+        // ELIMINADO: nacimiento_espiritu
         bautizo_agua: form.bautizo_agua ?? null,
-        bautismo_espiritu: form.bautismo_espiritu ?? null,
+        // ELIMINADO: bautismo_espiritu
         tiene_biblia: form.tiene_biblia ?? null,
         ayuna: form.ayuna ?? null,
-        aspecto_feliz: form.aspecto_feliz ?? null,
-        muy_interesado: form.muy_interesado ?? null,
+        // ELIMINADO: aspecto_feliz
+        // ELIMINADO: muy_interesado
         interviene: form.interviene ?? null,
         cambios_fisicos: form.cambios_fisicos ?? null,
         notas: form.notas ?? null,
@@ -146,7 +146,7 @@ export function HojaDeVidaPanel({
         recibe_consejeria: form.recibe_consejeria ?? null,
         motivo_consejeria:
           form.recibe_consejeria === 'si' ? form.motivo_consejeria : null,
-        cambios_emocionales: form.cambios_emocionales ?? null,
+        // ELIMINADO: cambios_emocionales
         desempeno_clase: form.desempeno_clase ?? null,
         maestro_encargado: form.maestro_encargado ?? null,
       };
@@ -265,31 +265,28 @@ export function HojaDeVidaPanel({
     // --- NUEVO ESTILO: Contenedor principal del panel con fondo azul fresco ---
     <div
       className={classNames(
-        'flex-1 min-h-0 flex flex-col bg-sky-50', // <-- CAMBIO: De bg-zinc-100 a bg-sky-50
+        'flex-1 min-h-0 flex flex-col bg-sky-50 mt-[1cm]', 
+        'rounded-2xl mx-4 sm:mx-6 md:mx-[1cm] overflow-hidden', 
         className || ''
       )}
     >
-      {/* --- ESTILO: Header "Glass" pegajoso (sin cambios, se adapta al nuevo fondo) --- */}
+      {/* --- ESTILO: Header "Glass" pegajoso (sin cambios) --- */}
       <header
         className={classNames(
-          'px-6 pt-5 pb-4 flex-shrink-0',
+          'px-6 pt-7 pb-4 flex-shrink-0',
           'sticky top-0 z-10',
-          'bg-white/70 backdrop-blur-xl', // Este "glass" ahora flotará sobre el fondo azul
+          'bg-white/70 backdrop-blur-xl',
           'border-b border-black/5'
         )}
       >
         <div className="flex items-start gap-6">
-          <div className="relative">
+          <div className="relative w-32 h-32 rounded-full shadow-xl shadow-black/10 ring-4 ring-white/90 overflow-hidden">
             {/* --- NUEVO ESTILO: Círculo de foto premium --- */}
             <img
               src={localSignedUrl ?? PLACEHOLDER_SVG}
               alt={form.nombre ?? 'avatar'}
-              width={80}
-              height={80}
               className={classNames(
-                'rounded-full object-cover', // Círculo perfecto
-                'shadow-xl shadow-black/10', // Sombra suave
-                'ring-4 ring-white/90',      // Anillo material más grueso
+                'object-cover w-full h-full',      
                 uploadingFoto ? 'opacity-60' : 'opacity-100',
                 'cursor-pointer'
               )}
@@ -369,7 +366,7 @@ export function HojaDeVidaPanel({
                 </button>
               </div>
             </div>
-            {/* ESTILO: "Pills" (sin cambios, se adaptan) */}
+            {/* ESTILO: "Pills" */}
             <div className="mt-2 flex items-center gap-4 text-sm text-zinc-700 flex-wrap">
               <span className="flex items-center gap-1">
                 {edit ? (
@@ -428,12 +425,11 @@ export function HojaDeVidaPanel({
       </header>
 
       {/* --- ESTILO: Contenedor del body con scroll --- */}
-      {/* Este div es transparente, por lo que revela el fondo bg-sky-50 del div raíz */}
-      <div className="px-6 py-6 overflow-y-auto flex-1 min-h-0">
+      {/* CAMBIO AQUÍ: Se ajustó el padding: px-0 en mobile, sm:px-6 en desktop */}
+      <div className="flex-1 min-h-0 overflow-y-auto px-0 py-4 sm:px-6 sm:py-6">
         <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-6">
           
-          {/* --- ESTILO: Tarjeta "Liquid Glass" --- */}
-          {/* Esta tarjeta ahora flota sobre el fondo bg-sky-50 */}
+          {/* --- 1. INFORMACIÓN PERSONAL --- */}
           <section className="rounded-2xl shadow-xl shadow-black/5 border border-white/50 bg-white/60 backdrop-blur-lg overflow-hidden">
             <div className="flex items-center justify-between bg-white/70 backdrop-blur-sm p-4 border-b border-black/10">
               <div className="flex items-center gap-2.5">
@@ -497,7 +493,7 @@ export function HojaDeVidaPanel({
             </div>
           </section>
 
-          {/* --- ESTILO: Tarjeta "Liquid Glass" --- */}
+          {/* --- 2. INFORMACIÓN CONGREGACIONAL --- */}
           <section className="rounded-2xl shadow-xl shadow-black/5 border border-white/50 bg-white/60 backdrop-blur-lg overflow-hidden">
             <div className="flex items-center justify-between bg-white/70 backdrop-blur-sm p-4 border-b border-black/10">
               <div className="flex items-center gap-2.5">
@@ -563,7 +559,7 @@ export function HojaDeVidaPanel({
             </div>
           </section>
 
-          {/* --- ESTILO: Tarjeta "Liquid Glass" --- */}
+          {/* --- 3. DATOS ESPIRITUALES (Modificado) --- */}
           <section className="rounded-2xl shadow-xl shadow-black/5 border border-white/50 bg-white/60 backdrop-blur-lg overflow-hidden">
             <div className="flex items-center justify-between bg-white/70 backdrop-blur-sm p-4 border-b border-black/10">
               <div className="flex items-center gap-2.5">
@@ -575,24 +571,14 @@ export function HojaDeVidaPanel({
               {edit && <Edit2 size={14} className="text-blue-400/80" />}
             </div>
             <div className="p-4">
-              <EditableRowBool_SNNS
-                label="Nacimiento del Espíritu"
-                value={form.nacimiento_espiritu}
-                edit={edit}
-                onChange={onBoolSNNS('nacimiento_espiritu')}
-              />
+              {/* ELIMINADO: Nacimiento del Espíritu */}
               <EditableRowBool
                 label="Bautizo en agua"
                 value={form.bautizo_agua}
                 edit={edit}
                 onChange={onBoolString('bautizo_agua')}
               />
-              <EditableRowBool
-                label="Bautismo del Espíritu"
-                value={form.bautismo_espiritu}
-                edit={edit}
-                onChange={onBoolString('bautismo_espiritu')}
-              />
+              {/* ELIMINADO: Bautismo del Espíritu */}
               <EditableRowBool
                 label="Tiene Biblia"
                 value={form.tiene_biblia}
@@ -628,7 +614,7 @@ export function HojaDeVidaPanel({
             </div>
           </section>
 
-          {/* --- ESTILO: Tarjeta "Liquid Glass" --- */}
+          {/* --- 4. SALUD Y CONSEJERÍA --- */}
           <section className="rounded-2xl shadow-xl shadow-black/5 border border-white/50 bg-white/60 backdrop-blur-lg overflow-hidden">
             <div className="flex items-center justify-between bg-white/70 backdrop-blur-sm p-4 border-b border-black/10">
               <div className="flex items-center gap-2.5">
@@ -685,7 +671,7 @@ export function HojaDeVidaPanel({
             </div>
           </section>
 
-          {/* --- ESTILO: Tarjeta "Liquid Glass" --- */}
+          {/* --- 5. EVALUACIÓN Y OBSERVACIONES (Modificado) --- */}
           <section className="rounded-2xl shadow-xl shadow-black/5 border border-white/50 bg-white/60 backdrop-blur-lg overflow-hidden">
             <div className="flex items-center justify-between bg-white/70 backdrop-blur-sm p-4 border-b border-black/10">
               <div className="flex items-center gap-2.5">
@@ -697,18 +683,8 @@ export function HojaDeVidaPanel({
               {edit && <Edit2 size={14} className="text-blue-400/80" />}
             </div>
             <div className="p-4">
-              <EditableRowBool
-                label="Aspecto feliz"
-                value={form.aspecto_feliz}
-                edit={edit}
-                onChange={onBool('aspecto_feliz')}
-              />
-              <EditableRowBool
-                label="Muy interesado"
-                value={form.muy_interesado}
-                edit={edit}
-                onChange={onBool('muy_interesado')}
-              />
+              {/* ELIMINADO: Aspecto feliz */}
+              {/* ELIMINADO: Muy interesado */}
               <EditableRowBool
                 label="Interviene"
                 value={form.interviene}
@@ -721,12 +697,7 @@ export function HojaDeVidaPanel({
                 edit={edit}
                 onInput={onCE('cambios_fisicos')}
               />
-              <EditableRow
-                label="Cambios emocionales"
-                value={form.cambios_emocionales}
-                edit={edit}
-                onInput={onCE('cambios_emocionales')}
-              />
+              {/* ELIMINADO: Cambios emocionales */}
               <EditableRow
                 label="Desempeño en clase"
                 value={form.desempeno_clase}
@@ -748,7 +719,7 @@ export function HojaDeVidaPanel({
             </div>
           </section>
 
-          {/* --- ESTILO: Tarjeta "Liquid Glass" --- */}
+          {/* --- 6. NOTAS ADICIONALES --- */}
           <section className="rounded-2xl shadow-xl shadow-black/5 border border-white/50 bg-white/60 backdrop-blur-lg overflow-hidden">
             <div className="flex items-center justify-between bg-white/70 backdrop-blur-sm p-4 border-b border-black/10">
               <div className="flex items-center gap-2.5">
