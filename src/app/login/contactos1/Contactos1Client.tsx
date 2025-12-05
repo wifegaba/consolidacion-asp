@@ -17,7 +17,7 @@ const Servidores = dynamic(() => import('@/app/panel/servidores/page'), { ssr: f
 
 /* ================= Tipos ================= */
 type Dia = 'Domingo' | 'Martes' | 'Virtual';
-type Semana = 1 | 2 | 3; 
+type Semana = 1 | 2 | 3;
 
 type Resultado =
   | 'no_contesta'
@@ -48,7 +48,7 @@ type MaestroAsignacion = {
 
 type PendienteRow = {
   progreso_id: string;
-  nombre: string | undefined; 
+  nombre: string | undefined;
   telefono: string | null;
   llamada1?: Resultado | null;
   llamada2?: Resultado | null;
@@ -60,7 +60,7 @@ type PendRowUI = PendienteRow & { _ui?: 'new' | 'changed' };
 
 type AgendadoRow = {
   progreso_id: string;
-  nombre: string | undefined; 
+  nombre: string | undefined;
   telefono: string | null;
   semana: number;
 };
@@ -68,7 +68,7 @@ type AgendadoRow = {
 type BancoRow = {
   progreso_id: string;
   persona_id: string;
-  nombre: string | undefined; 
+  nombre: string | undefined;
   telefono: string | null;
   modulo: 1 | 2 | 3 | 4 | null;
   semana: number | null;
@@ -78,11 +78,11 @@ type BancoRow = {
 };
 
 /* ================= Constantes ================= */
-const V_PEND_HIST   = 'v_llamadas_pendientes_hist';
-const V_PEND_BASE   = 'v_llamadas_pendientes';
-const V_AGENDADOS   = 'v_agendados';
+const V_PEND_HIST = 'v_llamadas_pendientes_hist';
+const V_PEND_BASE = 'v_llamadas_pendientes';
+const V_AGENDADOS = 'v_agendados';
 const RPC_GUARDAR_LLAMADA = 'fn_guardar_llamada';
-const RPC_ASIST     = 'fn_marcar_asistencia';
+const RPC_ASIST = 'fn_marcar_asistencia';
 const V_BANCO = 'v_banco_archivo';
 const RPC_REACTIVAR = 'fn_reactivar_desde_archivo';
 
@@ -102,7 +102,7 @@ const resultadoLabels: Record<Resultado, string> = {
 };
 
 const EASE_SMOOTH = [0.16, 1, 0.3, 1] as const;
-const EASE_EXIT   = [0.7, 0, 0.84, 0] as const;
+const EASE_EXIT = [0.7, 0, 0.84, 0] as const;
 
 // Variantes de animación
 const MAC2025_PANEL_VARIANTS = {
@@ -156,7 +156,7 @@ const EmptyRightPlaceholder = () => (
           transition={{ duration: 2.2, repeat: Infinity, ease: 'easeInOut' }}
           className="text-neutral-700"
         >
-          <path fill="currentColor" d="M6.6 10.8c1.3 2.5 3.1 4.4 5.6 5.6l2.1-2.1a1 1 0 0 1 1.1-.22c1.2.48 2.6.74 4 .74a1 1 0 0 1 1 1v3.5a1 1 0 0 1-1 1C12.1 20.3 3.7 11.9 3.7 2.7a1 1 0 0 1 1-1H8.2a1 1 0 0 1 1 1c0 1.4.26 2.8.74 4a1 1 0 0 1-.22 1.1l-2.1 2.1Z"/>
+          <path fill="currentColor" d="M6.6 10.8c1.3 2.5 3.1 4.4 5.6 5.6l2.1-2.1a1 1 0 0 1 1.1-.22c1.2.48 2.6.74 4 .74a1 1 0 0 1 1 1v3.5a1 1 0 0 1-1 1C12.1 20.3 3.7 11.9 3.7 2.7a1 1 0 0 1 1-1H8.2a1 1 0 0 1 1 1c0 1.4.26 2.8.74 4a1 1 0 0 1-.22 1.1l-2.1 2.1Z" />
         </motion.svg>
       </div>
       <h4 className="text-[15px] md:text-base font-semibold text-neutral-900">Nada seleccionado</h4>
@@ -171,16 +171,16 @@ const EmptyRightPlaceholder = () => (
 );
 
 // MEJORA 2: Componente Memoizado para Items de la Lista
-const PendienteItem = memo(({ 
-  c, 
-  selectedId, 
-  disabled, 
-  onSelect 
-}: { 
-  c: PendRowUI, 
-  selectedId: string | null, 
-  disabled: boolean, 
-  onSelect: (e: React.MouseEvent<HTMLLIElement>, c: PendRowUI) => void 
+const PendienteItem = memo(({
+  c,
+  selectedId,
+  disabled,
+  onSelect
+}: {
+  c: PendRowUI,
+  selectedId: string | null,
+  disabled: boolean,
+  onSelect: (e: React.MouseEvent<HTMLLIElement>, c: PendRowUI) => void
 }) => {
   return (
     <motion.li
@@ -291,14 +291,14 @@ export default function Contactos1Client(
   }: {
     cedula?: string;
     etapaInicial?: string;
-    diaInicial?: string; 
+    diaInicial?: string;
     semanaInicial?: number;
   }
 ) {
   const [nuevaAlmaOpen, setNuevaAlmaOpen] = useState(false);
   const [servidoresOpen, setServidoresOpen] = useState(false);
   const [showNextWeekModal, setShowNextWeekModal] = useState(false);
-  
+
   const [modalTargetId, setModalTargetId] = useState<string | null>(null);
   const [tempUnlocked, setTempUnlocked] = useState<Record<string, number>>({});
   const [modalPosition, setModalPosition] = useState<{ top: number, left: number } | null>(null);
@@ -332,7 +332,7 @@ export default function Contactos1Client(
   const [agendados, setAgendados] = useState<AgendadoRow[]>([]);
   const [marks, setMarks] = useState<Record<string, 'A' | 'N' | undefined>>({});
   const [savingAg, setSavingAg] = useState(false);
-  
+
   const rightPanelRef = useRef<HTMLDivElement | null>(null);
 
   /** ======== Banco Archivo (estado) ======== */
@@ -344,6 +344,13 @@ export default function Contactos1Client(
   const [servidorId, setServidorId] = useState<string | null>(null);
   const [showReactivationConfirm, setShowReactivationConfirm] = useState(false);
   const [reactivationCandidate, setReactivationCandidate] = useState<BancoRow | null>(null);
+  const [bancoCount, setBancoCount] = useState<number | null>(null);
+
+  // Estado para Observaciones del Banco
+  const [bancoObsOpen, setBancoObsOpen] = useState(false);
+  const [bancoObsLoading, setBancoObsLoading] = useState(false);
+  const [bancoObsItems, setBancoObsItems] = useState<any[]>([]);
+  const [bancoObsTargetName, setBancoObsTargetName] = useState('');
 
   /**
    * Comprueba si un registro está inhabilitado.
@@ -353,7 +360,7 @@ export default function Contactos1Client(
     const unlockExpiresAt = tempUnlocked[id];
     if (unlockExpiresAt) {
       if (now < unlockExpiresAt) {
-        return false; 
+        return false;
       } else {
         setTempUnlocked(prev => {
           const newState = { ...prev };
@@ -391,7 +398,7 @@ export default function Contactos1Client(
       setTimeout(() => {
         try {
           rightPanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        } catch {}
+        } catch { }
       }, 0);
     }
   }, [selectedId]);
@@ -431,6 +438,36 @@ export default function Contactos1Client(
   const rtNewRef = useRef<Set<string>>(new Set());
   const toast = useToast();
 
+  // Helper para obtener observaciones en lote (usando RPC para asegurar consistencia y permisos)
+  const fetchObservacionesMap = async (rows: BancoRow[]) => {
+    if (rows.length === 0) return {};
+
+    const obsMap: Record<string, string> = {};
+
+    // Usamos Promise.all para hacer las peticiones en paralelo
+    await Promise.all(rows.map(async (r) => {
+      try {
+        const { data, error } = await supabase.rpc('fn_observaciones_por_progreso_ext', {
+          p_progreso: r.progreso_id,
+        });
+
+        if (!error && data && Array.isArray(data) && data.length > 0) {
+          const lines = data.map((obs: any) => {
+            const date = new Date(obs.creado_en).toLocaleString('es-CO', { dateStyle: 'short', timeStyle: 'short' });
+            const res = resultadoLabels[obs.resultado as Resultado] ?? obs.resultado;
+            const note = obs.notas ? ` - ${obs.notas}` : '';
+            return `[${date}] ${res}${note}`;
+          });
+          obsMap[r.progreso_id] = lines.join('\n');
+        }
+      } catch (err) {
+        console.error(`Error fetching obs for ${r.progreso_id}`, err);
+      }
+    }));
+
+    return obsMap;
+  };
+
   // MEJORA 1: Lazy Loading
   const downloadPDF = async () => {
     const jsPDF = (await import('jspdf')).default;
@@ -445,9 +482,9 @@ export default function Contactos1Client(
       startY: 30,
       head: [['Nombre', 'Teléfono', 'Observaciones']],
       body: pendientes.map(p => [
-        p.nombre ?? '', 
-        p.telefono ?? '-', 
-        [p.llamada1, p.llamada2, p.llamada3].filter(Boolean).map((r, i) => `Llamada ${i+1}: ${resultadoLabels[r as Resultado]}`).join('\n') || '-'
+        p.nombre ?? '',
+        p.telefono ?? '-',
+        [p.llamada1, p.llamada2, p.llamada3].filter(Boolean).map((r, i) => `Llamada ${i + 1}: ${resultadoLabels[r as Resultado]}`).join('\n') || '-'
       ]),
       headStyles: { fillColor: [41, 128, 185] },
     });
@@ -460,12 +497,12 @@ export default function Contactos1Client(
     const XLSX = await import('xlsx');
     const ws_name = "Contactos Pendientes";
     const wb = XLSX.utils.book_new();
-    
+
     const header = ["Nombre", "Teléfono", "Observaciones"];
     const data = pendientes.map((p: PendRowUI) => [
       p.nombre,
       p.telefono ?? '-',
-      [p.llamada1, p.llamada2, p.llamada3].filter(Boolean).map((r, i) => `Llamada ${i+1}: ${resultadoLabels[r as Resultado]}`).join('\n') || '-'
+      [p.llamada1, p.llamada2, p.llamada3].filter(Boolean).map((r, i) => `Llamada ${i + 1}: ${resultadoLabels[r as Resultado]}`).join('\n') || '-'
     ]);
 
     toast.success('Archivo descargado exitosamente');
@@ -481,7 +518,7 @@ export default function Contactos1Client(
 
     ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 2 } }];
 
-    if(ws['A1']) {
+    if (ws['A1']) {
       ws['A1'].s = {
         font: { name: 'Arial', sz: 16, bold: true, color: { rgb: "FFFFFF" } },
         fill: { fgColor: { rgb: "2980b9" } },
@@ -498,6 +535,8 @@ export default function Contactos1Client(
     const jsPDF = (await import('jspdf')).default;
     const autoTable = (await import('jspdf-autotable')).default;
 
+    const obsMap = await fetchObservacionesMap(bancoRows);
+
     const doc = new jsPDF();
     doc.setFontSize(20);
     doc.setTextColor(40, 58, 90);
@@ -505,36 +544,43 @@ export default function Contactos1Client(
 
     autoTable(doc, {
       startY: 30,
-      head: [['Nombre', 'Teléfono', 'Módulo', 'Semana', 'Día', 'Archivado']],
+      head: [['Nombre', 'Teléfono', 'Módulo', 'Semana', 'Día', 'Archivado', 'Observaciones']],
       body: bancoRows.map(r => [
         r.nombre ?? '-',
         r.telefono ?? '-',
         r.modulo?.toString() ?? '-',
         r.semana?.toString() ?? '-',
         r.dia,
-        new Date(r.creado_en).toLocaleString('es-CO', { dateStyle: 'short', timeStyle: 'short' })
+        new Date(r.creado_en).toLocaleString('es-CO', { dateStyle: 'short', timeStyle: 'short' }),
+        obsMap[r.progreso_id] ?? '-'
       ]),
       headStyles: { fillColor: [41, 128, 185] },
+      columnStyles: {
+        6: { cellWidth: 60 } // Ancho extra para observaciones
+      }
     });
 
     doc.save(`banco_archivo_${asig.etapaBase}_${asig.dia}.pdf`);
-    toast.success('Archivo PDF del Banco Archivo descargado exitosamente');
+    toast.success('Archivo PDF del Banco Archivo con observaciones descargado exitosamente');
   };
 
   const downloadBancoExcel = async () => {
     if (!asig) return;
     const XLSX = await import('xlsx');
+    const obsMap = await fetchObservacionesMap(bancoRows);
+
     const ws_name = "Banco Archivo";
     const wb = XLSX.utils.book_new();
-    
-    const header = ["Nombre", "Teléfono", "Módulo", "Semana", "Día", "Archivado"];
+
+    const header = ["Nombre", "Teléfono", "Módulo", "Semana", "Día", "Archivado", "Observaciones"];
     const data = bancoRows.map(r => [
-        r.nombre ?? '-',
-        r.telefono ?? '-',
-        r.modulo?.toString() ?? '-',
-        r.semana?.toString() ?? '-',
-        r.dia,
-        new Date(r.creado_en).toLocaleString('es-CO', { dateStyle: 'short', timeStyle: 'short' })
+      r.nombre ?? '-',
+      r.telefono ?? '-',
+      r.modulo?.toString() ?? '-',
+      r.semana?.toString() ?? '-',
+      r.dia,
+      new Date(r.creado_en).toLocaleString('es-CO', { dateStyle: 'short', timeStyle: 'short' }),
+      obsMap[r.progreso_id] ?? '-'
     ]);
 
     const finalData = [
@@ -545,9 +591,9 @@ export default function Contactos1Client(
     ];
 
     const ws = XLSX.utils.aoa_to_sheet(finalData);
-    ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 5 } }];
+    ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 6 } }];
 
-    if(ws['A1']) {
+    if (ws['A1']) {
       ws['A1'].s = {
         font: { name: 'Arial', sz: 16, bold: true, color: { rgb: "FFFFFF" } },
         fill: { fgColor: { rgb: "2980b9" } },
@@ -555,9 +601,30 @@ export default function Contactos1Client(
       };
     }
 
+    // Aplicar ajuste de texto (Wrap Text) a la columna de Observaciones (Columna G, índice 6)
+    const range = XLSX.utils.decode_range(ws['!ref'] ?? 'A1');
+    // Los datos comienzan en la fila 3 (índice 3) porque: 0=Título, 1=Vacío, 2=Encabezado
+    for (let R = 3; R <= range.e.r; ++R) {
+      const cellAddress = XLSX.utils.encode_cell({ r: R, c: 6 });
+      if (!ws[cellAddress]) continue;
+
+      if (!ws[cellAddress].s) ws[cellAddress].s = {};
+      ws[cellAddress].s.alignment = { wrapText: true, vertical: 'top' };
+    }
+
+    ws['!cols'] = [
+      { wch: 30 }, // Nombre
+      { wch: 15 }, // Teléfono
+      { wch: 8 },  // Módulo
+      { wch: 8 },  // Semana
+      { wch: 10 }, // Día
+      { wch: 20 }, // Archivado
+      { wch: 60 }  // Observaciones (más ancho para facilitar lectura)
+    ];
+
     XLSX.utils.book_append_sheet(wb, ws, ws_name);
     XLSX.writeFile(wb, `banco_archivo_${asig.etapaBase}_${asig.dia}.xlsx`);
-    toast.success('Archivo Excel del Banco Archivo descargado exitosamente');
+    toast.success('Archivo Excel del Banco Archivo con observaciones descargado exitosamente');
   };
 
   const downloadAsistenciasPDF = async () => {
@@ -667,7 +734,7 @@ export default function Contactos1Client(
           const { data: fechas, error: e3 } = await supabase.rpc('fn_progreso_hab_desde', { ids });
           if (!e3) byId = new Map((fechas ?? []).map((f: any) => [f.id, f.habilitado_desde ?? null]));
         }
-      } catch {}
+      } catch { }
 
       const prev = pendRef.current;
       const prevById = new Map(prev.map(p => [p.progreso_id, p]));
@@ -722,12 +789,12 @@ export default function Contactos1Client(
   const handleCloseModal = () => {
     setShowNextWeekModal(false);
     setModalTargetId(null);
-    setModalPosition(null); 
+    setModalPosition(null);
   };
 
   const handleTempUnlock = () => {
     if (!modalTargetId) return;
-    const expirationTime = Date.now() + (60 * 60 * 1000); 
+    const expirationTime = Date.now() + (60 * 60 * 1000);
     setTempUnlocked(prev => ({ ...prev, [modalTargetId]: expirationTime }));
     handleCloseModal();
     setSelectedId(modalTargetId);
@@ -760,9 +827,9 @@ export default function Contactos1Client(
         p_dia: dia,
         p_resultado: payload.resultado,
         p_notas: payload.notas ?? null,
-        p_hecho_por: servidorId,                                                           
+        p_hecho_por: servidorId,
       });
-      if (error) throw error;                             
+      if (error) throw error;
 
       await Promise.all([
         fetchPendientes(semana, dia, { quiet: true }),
@@ -787,7 +854,7 @@ export default function Contactos1Client(
       nombre: student.nombre,
       telefono: student.telefono ?? null,
       cedula: placeholderCedula,
-      created_by: servidorId, 
+      created_by: servidorId,
       notas: `Registro automático creado desde "Asistencia" (Restauración) el ${new Date().toISOString()}. Cédula pendiente de actualizar.`
     };
     try {
@@ -810,7 +877,7 @@ export default function Contactos1Client(
     const entradas = Object.entries(marks).filter(([, v]) => v);
     if (entradas.length === 0) return;
     setSavingAg(true);
-    
+
     try {
       for (const [progId, v] of entradas) {
         if (asig?.etapaBase === 'Restauracion' && v === 'A') {
@@ -835,18 +902,18 @@ export default function Contactos1Client(
       setMarks({});
       await fetchAgendados({ quiet: true });
     } catch (e: any) {
-       console.error("Error en enviarAsistencias:", e?.message);
-       toast.error(`Error al procesar asistencias: ${e?.message}`);
+      console.error("Error en enviarAsistencias:", e?.message);
+      toast.error(`Error al procesar asistencias: ${e?.message}`);
     } finally {
       setSavingAg(false);
     }
-  };       
+  };
 
   /* ====== Realtime ====== */
   useEffect(() => {
     if (!asig) return;
 
-  const tryPatchProgresoInsert = async (row: any) => {
+    const tryPatchProgresoInsert = async (row: any) => {
       const a = asigRef.current;
       const d = diaRef.current;
       const s = semanaRef.current;
@@ -877,7 +944,7 @@ export default function Contactos1Client(
       scheduleClearUI(row.id, 6000);
     };
 
-  const tryPatchProgresoUpdate = async (oldRow: any, newRow: any) => {
+    const tryPatchProgresoUpdate = async (oldRow: any, newRow: any) => {
       const a = asigRef.current;
       const d = diaRef.current;
       const s = semanaRef.current;
@@ -995,6 +1062,37 @@ export default function Contactos1Client(
     };
   }, [asig, cedula, fetchPendientes, fetchAgendados, rtDebug, rtLog, selectedId]);
 
+  // Efecto para contar registros en Banco Archivo
+  useEffect(() => {
+    if (!asig) {
+      setBancoCount(null);
+      return;
+    }
+
+    const fetchCount = async () => {
+      try {
+        let q = supabase
+          .from(V_BANCO)
+          .select('*', { count: 'exact', head: true })
+          .eq('dia', asig.dia);
+
+        q = (q as any).eq('etapa', asig.etapaBase);
+        if (asig.etapaBase !== 'Restauracion') {
+          q = (q as any).eq('modulo', asig.modulo);
+        }
+
+        const { count, error } = await q;
+        if (!error) {
+          setBancoCount(count);
+        }
+      } catch (e) {
+        console.error('Error contando banco:', e);
+      }
+    };
+
+    fetchCount();
+  }, [asig, bancoOpen]);
+
   /* ========================= UI ========================= */
   if (!cedula) {
     return (
@@ -1035,7 +1133,7 @@ export default function Contactos1Client(
         </section>
 
         {/* ===== Encabezado ===== */}
-         <header className="mb-3 md:mb-4 flex items-baseline gap-3 rounded-2xl px-4 py-3 shadow-[0_10px_40px_-20px_rgba(0,0,0,.35)] ring-1 ring-white/60 backdrop-blur-xl bg-[radial-gradient(900px_220px_at_0%_-20%,rgba(56,189,248,0.18),transparent),radial-gradient(900px_240px_at_120%_-30%,rgba(99,102,241,0.16),transparent),linear-gradient(135deg,rgba(255,255,255,.78),rgba(255,255,255,.48))] supports-[backdrop-filter]:bg-[radial-gradient(900px_220px_at_0%_-20%,rgba(56,189,248,0.18),transparent),radial-gradient(900px_240px_at_120%_-30%,rgba(99,102,241,0.16),transparent),linear-gradient(135deg,rgba(255,255,255,.68),rgba(255,255,255,.40))]">
+        <header className="mb-3 md:mb-4 flex items-baseline gap-3 rounded-2xl px-4 py-3 shadow-[0_10px_40px_-20px_rgba(0,0,0,.35)] ring-1 ring-white/60 backdrop-blur-xl bg-[radial-gradient(900px_220px_at_0%_-20%,rgba(56,189,248,0.18),transparent),radial-gradient(900px_240px_at_120%_-30%,rgba(99,102,241,0.16),transparent),linear-gradient(135deg,rgba(255,255,255,.78),rgba(255,255,255,.48))] supports-[backdrop-filter]:bg-[radial-gradient(900px_220px_at_0%_-20%,rgba(56,189,248,0.18),transparent),radial-gradient(900px_240px_at_120%_-30%,rgba(99,102,241,0.16),transparent),linear-gradient(135deg,rgba(255,255,255,.68),rgba(255,255,255,.40))]">
           <h1 className="text-[22px] md:text-[28px] font-semibold text-neutral-900">
             {nombre || 'Servidor'}
           </h1>
@@ -1045,78 +1143,83 @@ export default function Contactos1Client(
 
           <div className="ml-auto flex gap-2">
             <button
-            onClick={() => openBanco()}
+              onClick={() => openBanco()}
               className="relative inline-flex items-center gap-2 rounded-2xl h-10 md:h-11 px-2 md:px-3 text-sm font-semibold text-slate-800 bg-white/60 ring-1 ring-white/60 backdrop-blur-md transition-all duration-300 shadow-[inset_0_1px_0_rgba(255,255,255,.9),0_12px_32px_-12px_rgba(2,6,23,.35)] hover:bg-gradient-to-r hover:from-indigo-400/80 hover:via-sky-400/80 hover:to-white hover:text-white hover:shadow-[0_0_0_4px_rgba(56,189,248,.18),0_0_32px_0_rgba(79,70,229,.18)] active:scale-[.99] focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300/60 before:absolute before:inset-0 before:-z-10 before:rounded-2xl before:blur-xl before:opacity-80 hover:before:opacity-100 before:bg-[radial-gradient(120%_120%_at_0%_0%,rgba(79,70,229,.35),transparent_55%),radial-gradient(120%_120%_at_100%_100%,rgba(56,189,248,.28),transparent_55%)] shrink-0"
-            title="Ver estudiantes archivados y reactivar"
+              title="Ver estudiantes archivados y reactivar"
             >
               <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M3 6.5A2.5 2.5 0 0 1 5.5 4h13A2.5 2.5 0 0 1 21 6.5V18a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6Zm5 1h8v10H8Z" fill="currentColor"/>
+                <path d="M3 6.5A2.5 2.5 0 0 1 5.5 4h13A2.5 2.5 0 0 1 21 6.5V18a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6Zm5 1h8v10H8Z" fill="currentColor" />
               </svg>
-              <span style={{display: 'flex', flexDirection: 'column', lineHeight: '1.1', alignItems: 'center'}}>
+              <span style={{ display: 'flex', flexDirection: 'column', lineHeight: '1.1', alignItems: 'center' }}>
                 Banco<br />Archivo
               </span>
+              {bancoCount !== null && bancoCount > 0 && (
+                <span className="absolute top-0 right-0 -mt-1 -mr-1 inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 text-xs font-bold rounded-full bg-red-500 text-white shadow-sm ring-2 ring-white">
+                  {bancoCount}
+                </span>
+              )}
             </button>
           </div>
         </header>
 
-      {/* Modal Persona Nueva */}
-      <AnimatePresence mode="sync" initial={false}>
-        {nuevaAlmaOpen && (
-          <div
-            key="modal-nueva-alma"
-            className="fixed inset-0 z-[1000] flex min-h-[100dvh] items-start justify-center overflow-y-auto px-1.5 pt-0 pb-6 md:px-4 md:pt-4 md:pb-10 bg-[radial-gradient(1200px_850px_at_50%_-10%,rgba(191,219,254,0.24),transparent),radial-gradient(900px_620px_at_90%_0%,rgba(165,180,252,0.28),rgba(15,23,42,0.78))] supports-[backdrop-filter]:backdrop-blur-[22px]"
-            onClick={(event) => { if (event.target === event.currentTarget) { setNuevaAlmaOpen(false); } }}
-          >
+        {/* Modal Persona Nueva */}
+        <AnimatePresence mode="sync" initial={false}>
+          {nuevaAlmaOpen && (
             <div
-              className="relative w-[min(1100px,96vw)] max-h-[96vh] overflow-hidden rounded-[32px] border border-white/35 bg-[linear-gradient(160deg,rgba(255,255,255,0.94),rgba(240,244,255,0.74))] supports-[backdrop-filter]:bg-white/65 supports-[backdrop-filter]:backdrop-blur-[32px] shadow-[0_48px_140px_-50px_rgba(15,23,42,0.7)] ring-1 ring-white/50"
-              onClick={(event) => event.stopPropagation()}
+              key="modal-nueva-alma"
+              className="fixed inset-0 z-[1000] flex min-h-[100dvh] items-start justify-center overflow-y-auto px-1.5 pt-0 pb-6 md:px-4 md:pt-4 md:pb-10 bg-[radial-gradient(1200px_850px_at_50%_-10%,rgba(191,219,254,0.24),transparent),radial-gradient(900px_620px_at_90%_0%,rgba(165,180,252,0.28),rgba(15,23,42,0.78))] supports-[backdrop-filter]:backdrop-blur-[22px]"
+              onClick={(event) => { if (event.target === event.currentTarget) { setNuevaAlmaOpen(false); } }}
             >
-              <div className="sticky top-0 z-10 flex items-center justify-end px-3 md:px-5 py-2 border-b border-white/60 bg-white/70 supports-[backdrop-filter]:bg-white/55 backdrop-blur">
-                <button
-                  type="button"
-                  onClick={() => setNuevaAlmaOpen(false)}
-                  className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ring-1 ring-white/60 bg-white/80 text-neutral-800 shadow-sm backdrop-blur-sm transition-all duration-200 hover:bg-white hover:ring-white/80 hover:shadow-[0_18px_38px_-22px_rgba(15,23,42,0.55)] hover:-translate-y-0.5 md:px-3.5"
-                >
-                  Cerrar
-                </button>
-              </div>
-              <div className="max-h-[calc(96vh-48px)] overflow-y-auto px-3 md:px-6 pb-4 pt-0">
-                <PersonaNueva servidorId={servidorId} />
+              <div
+                className="relative w-[min(1100px,96vw)] max-h-[96vh] overflow-hidden rounded-[32px] border border-white/35 bg-[linear-gradient(160deg,rgba(255,255,255,0.94),rgba(240,244,255,0.74))] supports-[backdrop-filter]:bg-white/65 supports-[backdrop-filter]:backdrop-blur-[32px] shadow-[0_48px_140px_-50px_rgba(15,23,42,0.7)] ring-1 ring-white/50"
+                onClick={(event) => event.stopPropagation()}
+              >
+                <div className="sticky top-0 z-10 flex items-center justify-end px-3 md:px-5 py-2 border-b border-white/60 bg-white/70 supports-[backdrop-filter]:bg-white/55 backdrop-blur">
+                  <button
+                    type="button"
+                    onClick={() => setNuevaAlmaOpen(false)}
+                    className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ring-1 ring-white/60 bg-white/80 text-neutral-800 shadow-sm backdrop-blur-sm transition-all duration-200 hover:bg-white hover:ring-white/80 hover:shadow-[0_18px_38px_-22px_rgba(15,23,42,0.55)] hover:-translate-y-0.5 md:px-3.5"
+                  >
+                    Cerrar
+                  </button>
+                </div>
+                <div className="max-h-[calc(96vh-48px)] overflow-y-auto px-3 md:px-6 pb-4 pt-0">
+                  <PersonaNueva servidorId={servidorId} />
+                </div>
               </div>
             </div>
-          </div>
-        )}
-      </AnimatePresence>
+          )}
+        </AnimatePresence>
 
-      {/* Modal Servidores */}
-      <AnimatePresence mode="sync" initial={false}>
-        {servidoresOpen && (
-          <div
-            key="modal-servidores"
-            className="fixed inset-0 z-[1000] flex min-h-[100dvh] items-start justify-center overflow-y-auto px-1.5 pt-0 pb-6 md:px-4 md:pt-4 md:pb-10 bg-[radial-gradient(1200px_850px_at_20%_-20%,rgba(125,211,252,0.22),transparent),radial-gradient(900px_620px_at_80%_0%,rgba(196,181,253,0.26),rgba(15,23,42,0.78))] supports-[backdrop-filter]:backdrop-blur-[22px]"
-            onClick={(event) => { if (event.target === event.currentTarget) { setServidoresOpen(false); } }}
-          >
+        {/* Modal Servidores */}
+        <AnimatePresence mode="sync" initial={false}>
+          {servidoresOpen && (
             <div
-              className="relative w-[min(1200px,96vw)] max-h-[96vh] overflow-hidden rounded-[32px] border border-white/35 bg-[linear-gradient(160deg,rgba(255,255,255,0.94),rgba(236,241,255,0.72))] supports-[backdrop-filter]:bg-white/65 supports-[backdrop-filter]:backdrop-blur-[32px] shadow-[0_48px_140px_-50px_rgba(15,23,42,0.7)] ring-1 ring-white/50"
-              onClick={(event) => event.stopPropagation()}
+              key="modal-servidores"
+              className="fixed inset-0 z-[1000] flex min-h-[100dvh] items-start justify-center overflow-y-auto px-1.5 pt-0 pb-6 md:px-4 md:pt-4 md:pb-10 bg-[radial-gradient(1200px_850px_at_20%_-20%,rgba(125,211,252,0.22),transparent),radial-gradient(900px_620px_at_80%_0%,rgba(196,181,253,0.26),rgba(15,23,42,0.78))] supports-[backdrop-filter]:backdrop-blur-[22px]"
+              onClick={(event) => { if (event.target === event.currentTarget) { setServidoresOpen(false); } }}
             >
-              <div className="sticky top-0 z-10 flex items-center justify-end px-3 md:px-5 py-2 border-b border-white/60 bg-white/70 supports-[backdrop-filter]:bg-white/55 backdrop-blur">
-                <button
-                  type="button"
-                  onClick={() => setServidoresOpen(false)}
-                  className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ring-1 ring-white/60 bg-white/80 text-neutral-800 shadow-sm backdrop-blur-sm transition-all duration-200 hover:bg-white hover:ring-white/80 hover:shadow-[0_18px_38px_-22px_rgba(15,23,42,0.55)] hover:-translate-y-0.5 md:px-3.5"
-                >
-                  Cerrar
-                </button>
-              </div>
-              <div className="max-h-[calc(96vh-48px)] overflow-y-auto px-3 md:px-6 pb-4 pt-0">
-                <Servidores />
+              <div
+                className="relative w-[min(1200px,96vw)] max-h-[96vh] overflow-hidden rounded-[32px] border border-white/35 bg-[linear-gradient(160deg,rgba(255,255,255,0.94),rgba(236,241,255,0.72))] supports-[backdrop-filter]:bg-white/65 supports-[backdrop-filter]:backdrop-blur-[32px] shadow-[0_48px_140px_-50px_rgba(15,23,42,0.7)] ring-1 ring-white/50"
+                onClick={(event) => event.stopPropagation()}
+              >
+                <div className="sticky top-0 z-10 flex items-center justify-end px-3 md:px-5 py-2 border-b border-white/60 bg-white/70 supports-[backdrop-filter]:bg-white/55 backdrop-blur">
+                  <button
+                    type="button"
+                    onClick={() => setServidoresOpen(false)}
+                    className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ring-1 ring-white/60 bg-white/80 text-neutral-800 shadow-sm backdrop-blur-sm transition-all duration-200 hover:bg-white hover:ring-white/80 hover:shadow-[0_18px_38px_-22px_rgba(15,23,42,0.55)] hover:-translate-y-0.5 md:px-3.5"
+                  >
+                    Cerrar
+                  </button>
+                </div>
+                <div className="max-h-[calc(96vh-48px)] overflow-y-auto px-3 md:px-6 pb-4 pt-0">
+                  <Servidores />
+                </div>
               </div>
             </div>
-          </div>
-        )}
-      </AnimatePresence>
-        
+          )}
+        </AnimatePresence>
+
         {/* Tarjeta de semanas y botones */}
         <div className="flex flex-wrap md:flex-nowrap items-center gap-3 rounded-2xl bg-white/55 supports-[backdrop-filter]:bg-white/35 backdrop-blur-xl px-3 py-3 shadow-[0_10px_40px_-20px_rgba(0,0,0,.35)] ring-1 ring-white/60 mb-4">
           <div className="inline-flex items-center gap-2">
@@ -1128,11 +1231,10 @@ export default function Contactos1Client(
                   key={n}
                   onClick={() => setSemana(n as Semana)}
                   aria-pressed={active}
-                  className={`px-3.5 py-1.5 rounded-full text-sm font-semibold transition ring-1 focus:outline-none focus-visible:ring-2 ${
-                    active
-                      ? 'bg-gradient-to-r from-sky-400 via-indigo-400 to-cyan-400 text-white ring-1 ring-white/60 shadow-[0_6px_18px_rgba(56,189,248,.35)] scale-[1.03]'
-                      : 'bg-white/40 text-slate-900 ring-white/60 hover:bg-white/60 hover:ring-white/70'
-                  }`}
+                  className={`px-3.5 py-1.5 rounded-full text-sm font-semibold transition ring-1 focus:outline-none focus-visible:ring-2 ${active
+                    ? 'bg-gradient-to-r from-sky-400 via-indigo-400 to-cyan-400 text-white ring-1 ring-white/60 shadow-[0_6px_18px_rgba(56,189,248,.35)] scale-[1.03]'
+                    : 'bg-white/40 text-slate-900 ring-white/60 hover:bg-white/60 hover:ring-white/70'
+                    }`}
                   title={`Semana ${n}`}
                 >
                   {n}
@@ -1150,11 +1252,10 @@ export default function Contactos1Client(
                   key={d}
                   disabled={disabled}
                   onClick={() => !disabled && setDia(d)}
-                  className={`px-3 py-1.5 rounded-full text-sm font-semibold transition ring-1 ${
-                    dia === d
-                      ? 'bg-white/90 text-slate-900 ring-white/70 shadow'
-                      : 'bg-white/40 text-slate-900 ring-white/60 hover:bg-white/60'
-                  } ${disabled ? 'opacity-40 cursor-not-allowed' : ''}`}
+                  className={`px-3 py-1.5 rounded-full text-sm font-semibold transition ring-1 ${dia === d
+                    ? 'bg-white/90 text-slate-900 ring-white/70 shadow'
+                    : 'bg-white/40 text-slate-900 ring-white/60 hover:bg-white/60'
+                    } ${disabled ? 'opacity-40 cursor-not-allowed' : ''}`}
                   title={disabled ? 'Solo puedes ver tu día asignado' : 'Cambiar día'}
                 >
                   {d}
@@ -1171,7 +1272,7 @@ export default function Contactos1Client(
               title="Registrar persona nueva"
             >
               <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor">
-                <path d="M12 5a1 1 0 0 1 1 1v5h5a1 1 0 1 1 0 2h-5v5a1 1 0 1 1-2 0v-5H6a1 1 0 1 1 0-2h5V6a1 1 0 0 1 1-1Z"/>
+                <path d="M12 5a1 1 0 0 1 1 1v5h5a1 1 0 1 1 0 2h-5v5a1 1 0 1 1-2 0v-5H6a1 1 0 1 1 0-2h5V6a1 1 0 0 1 1-1Z" />
               </svg>
               Persona Nueva
             </button>
@@ -1236,7 +1337,7 @@ export default function Contactos1Client(
                         {pendientes.map((c) => {
                           const disabled = estaInhabilitado(c.progreso_id, c.habilitado_desde);
                           return (
-                            <PendienteItem 
+                            <PendienteItem
                               key={c.progreso_id}
                               c={c}
                               selectedId={selectedId}
@@ -1246,7 +1347,7 @@ export default function Contactos1Client(
                                   setModalTargetId(item.progreso_id);
                                   const rect = e.currentTarget.getBoundingClientRect();
                                   setModalPosition({
-                                    top: rect.bottom + window.scrollY + 8, 
+                                    top: rect.bottom + window.scrollY + 8,
                                     left: rect.left + window.scrollX,
                                   });
                                   setShowNextWeekModal(true);
@@ -1268,70 +1369,70 @@ export default function Contactos1Client(
           </section>
 
           {/* Panel derecho de llamada */}
-<section
-  ref={rightPanelRef}
-  className={`relative rounded-[20px] bg-white/78 supports-[backdrop-filter]:bg-white/52 backdrop-blur-xl backdrop-saturate-150 ring-1 ring-white/70 shadow-[0_18px_56px_-28px_rgba(2,6,23,.28)] before:content-[''] before:absolute before:inset-0 before:rounded-[inherit] before:pointer-events-none before:shadow-[inset_0_1px_0_rgba(255,255,255,.72)] p-4 md:p-5 ${!selectedId ? 'hidden lg:block' : ''}`}
->
-  <AnimatePresence initial={false} mode="wait">
-    <motion.div
-      key={selectedId ?? 'empty'}
-      variants={MAC2025_PANEL_VARIANTS}
-      initial="initial"
-      animate="animate"
-      exit="exit"
-      layout
-      // MEJORA 4: will-change
-      className="relative will-change-transform will-change-opacity"
-      style={{ transformOrigin: '50% 50%' }}
-    >
-      {!selectedId ? (
-        <EmptyRightPlaceholder />
-      ) : (
-        (() => {
-          const sel = pendRef.current.find((p) => p.progreso_id === selectedId);
-          if (!sel) {
-            return <div className="p-6 text-neutral-500">Selecciona un registro válido para continuar.</div>;
-          }
-          return (
-            <>
-              {/* Botón volver */}
-              <div className="mb-3 lg:hidden">
-                <button
-                  type="button"
-                  onClick={() => setSelectedId(null)}
-                  className="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-semibold ring-1 ring-black/10 hover:bg-neutral-50"
-                >
-                  <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
-                    <path d="M15.7 5.3a1 1 0 0 1 0 1.4L11.4 11l4.3 4.3a1 1 0 1 1-1.4 1.4l-5-5a1 1 0 0 1 0-1.4l5-5a1 1 0 0 1 1.4 0Z" fill="currentColor"/>
-                  </svg>
-                  Volver
-                </button>
-              </div>
+          <section
+            ref={rightPanelRef}
+            className={`relative rounded-[20px] bg-white/78 supports-[backdrop-filter]:bg-white/52 backdrop-blur-xl backdrop-saturate-150 ring-1 ring-white/70 shadow-[0_18px_56px_-28px_rgba(2,6,23,.28)] before:content-[''] before:absolute before:inset-0 before:rounded-[inherit] before:pointer-events-none before:shadow-[inset_0_1px_0_rgba(255,255,255,.72)] p-4 md:p-5 ${!selectedId ? 'hidden lg:block' : ''}`}
+          >
+            <AnimatePresence initial={false} mode="wait">
+              <motion.div
+                key={selectedId ?? 'empty'}
+                variants={MAC2025_PANEL_VARIANTS}
+                initial="initial"
+                animate="animate"
+                exit="exit"
+                layout
+                // MEJORA 4: will-change
+                className="relative will-change-transform will-change-opacity"
+                style={{ transformOrigin: '50% 50%' }}
+              >
+                {!selectedId ? (
+                  <EmptyRightPlaceholder />
+                ) : (
+                  (() => {
+                    const sel = pendRef.current.find((p) => p.progreso_id === selectedId);
+                    if (!sel) {
+                      return <div className="p-6 text-neutral-500">Selecciona un registro válido para continuar.</div>;
+                    }
+                    return (
+                      <>
+                        {/* Botón volver */}
+                        <div className="mb-3 lg:hidden">
+                          <button
+                            type="button"
+                            onClick={() => setSelectedId(null)}
+                            className="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-semibold ring-1 ring-black/10 hover:bg-neutral-50"
+                          >
+                            <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
+                              <path d="M15.7 5.3a1 1 0 0 1 0 1.4L11.4 11l4.3 4.3a1 1 0 1 1-1.4 1.4l-5-5a1 1 0 0 1 0-1.4l5-5a1 1 0 0 1 1.4 0Z" fill="currentColor" />
+                            </svg>
+                            Volver
+                          </button>
+                        </div>
 
-              <FollowUp
-                semana={semana}
-                dia={dia}
-                row={sel}
-                saving={saving}
-                onSave={enviarResultado}
-              />
-            </>
-          );
-        })()
-      )}
-    </motion.div>
-  </AnimatePresence>
-</section>
-                                              
+                        <FollowUp
+                          semana={semana}
+                          dia={dia}
+                          row={sel}
+                          saving={saving}
+                          onSave={enviarResultado}
+                        />
+                      </>
+                    );
+                  })()
+                )}
+              </motion.div>
+            </AnimatePresence>
+          </section>
+
         </div>
 
         {/* ===== Asistencias ===== */}
         <section className="mt-6 animate-cardIn rounded-[18px] ring-1 ring-white/60 shadow-[0_12px_30px_-16px_rgba(16,24,40,.28)] overflow-hidden bg-white/55 supports-[backdrop-filter]:bg-white/35 backdrop-blur-xl">
           <div className="relative flex items-center justify-between px-4 md:px-6 py-3 bg-white/78 supports-[backdrop-filter]:bg-white/52 backdrop-blur-xl backdrop-saturate-150 ring-1 ring-white/70 shadow-[0_18px_56px_-28px_rgba(2,6,23,.28)] before:content-[''] before:absolute before:inset-0 before:rounded-[inherit] before:pointer-events-none before:shadow-[inset_0_1px_0_rgba(255,255,255,.72)] bg-[linear-gradient(180deg,rgba(255,255,255,.88),rgba(255,255,255,.62)),radial-gradient(900px_220px_at_0%_-40%,rgba(56,189,248,.08),transparent),radial-gradient(900px_240px_at_110%_-50%,rgba(79,70,229,.06),transparent)] backdrop-blur-xl border-b border-white/60">
-        <header className="relative mb-3 md:mb-4 flex items-baseline gap-3 rounded-2xl px-4 py-3 bg-[linear-gradient(135deg,rgba(255,255,255,.88),rgba(255,255,255,.58))] backdrop-blur-xl ring-1 ring-white/60 rounded-2xl shadow-[0_20px_60px_-28px_rgba(2,6,23,.30)] before:content-[''] before:absolute before:inset-0 before:rounded-[inherit] before:pointer-events-none before:shadow-[inset_0_1px_0_rgba(255,255,255,.70)]">
+            <header className="relative mb-3 md:mb-4 flex items-baseline gap-3 rounded-2xl px-4 py-3 bg-[linear-gradient(135deg,rgba(255,255,255,.88),rgba(255,255,255,.58))] backdrop-blur-xl ring-1 ring-white/60 rounded-2xl shadow-[0_20px_60px_-28px_rgba(2,6,23,.30)] before:content-[''] before:absolute before:inset-0 before:rounded-[inherit] before:pointer-events-none before:shadow-[inset_0_1px_0_rgba(255,255,255,.70)]">
               <div>
                 <h3 className="text-[15px] md:text-base font-semibold text-neutral-900">
-                {asig.dia} — {asig.etapaBase === 'Semillas' ? 'Semillas' : asig.etapaBase} {asig.modulo}
+                  {asig.dia} — {asig.etapaBase === 'Semillas' ? 'Semillas' : asig.etapaBase} {asig.modulo}
                 </h3>
                 <p className="text-neutral-500 text-xs">Agendados que confirmaron asistencia.</p>
               </div>
@@ -1347,9 +1448,9 @@ export default function Contactos1Client(
                   </svg>
                   PDF
                 </button>
-               
+
               </div>
-            
+
             </header>
           </div>
 
@@ -1408,112 +1509,194 @@ export default function Contactos1Client(
       {bancoOpen && (
         <div className="fixed inset-0 z-[60] flex justify-center items-start pt-8 md:pt-12">
           <div
-        className="absolute inset-0 bg-black/30 backdrop-blur-sm"
-        onClick={() => setBancoOpen(false)}
+            className="absolute inset-0 bg-black/30 backdrop-blur-sm"
+            onClick={() => setBancoOpen(false)}
           />
           <div className="relative w-full max-w-md sm:max-w-lg md:max-w-4xl max-h-[90vh] md:max-h-[96vh] overflow-auto rounded-3xl shadow-[0_20px_60px_-20px_rgba(0,0,0,35)] ring-1 ring-white/60 bg-[linear-gradient(180deg,rgba(255,255,255,.70),rgba(255,255,255,.45))] backdrop-blur-xl">
-        <div className="px-5 md:px-7 py-4 flex items-center justify-between border-b border-white/50">
-          <div>
-            <div className="text-xl md:text-2xl font-semibold text-neutral-900">Banco Archivo</div>
-            <div className="text-[12px] text-neutral-700">
-          {asig.etapaBase} {asig.etapaBase !== 'Restauracion' ? asig.modulo : ''} • Día {asig.dia}
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={downloadBancoPDF}
-              className="inline-flex items-center gap-1 rounded-xl bg-gradient-to-r from-red-400 via-red-500 to-red-600 text-white ring-1 ring-white/50 shadow-[0_6px_20px_rgba(220,38,38,0.35)] px-2 py-1 text-xs font-medium hover:scale-[1.02] active:scale-95 transition"
-              title="Descargar PDF de Banco Archivo"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ fontSize: '0.85em' }}>
-                <path d="M12 5v14M5 12l7 7 7-7" />
-              </svg>
-              PDF
-            </button>
-            <button
-              onClick={downloadBancoExcel}
-              className="inline-flex items-center gap-1 rounded-xl bg-gradient-to-r from-green-400 via-green-500 to-green-600 text-white ring-1 ring-white/50 shadow-[0_6px_20px_rgba(34,197,94,0.35)] px-2 py-1 text-xs font-medium hover:scale-[1.02] active:scale-95 transition"
-              title="Descargar Excel de Banco Archivo"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ fontSize: '0.85em' }}>
-                <path d="M12 5v14M5 12l7 7 7-7" />
-              </svg>
-              Excel
-            </button>
-            <button
-              onClick={() => setBancoOpen(false)}
-              className="rounded-full bg-white/85 hover:bg-white/95 px-4 py-2 text-sm font-semibold ring-1 ring-white/60 text-neutral-900"
-            >
-              Atrás
-            </button>
-          </div>
-        </div>
-
-        <div className="px-4 md:px-6 py-3">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-          <thead>
-            <tr className="text-left text-neutral-800">
-              <th className="sticky left-0 z-10 py-2 pr-3 bg-white/90 supports-[backdrop-filter]:bg-white/70 backdrop-blur-sm">Nombre</th>
-              <th className="py-2 pr-3">Teléfono</th>
-              <th className="py-2 pr-3">Módulo</th>
-              <th className="py-2 pr-3">Semana</th>
-              <th className="py-2 pr-3">Día</th>
-              <th className="py-2 pr-3">Archivado</th>
-              <th className="py-2 pr-3 text-right">Acción</th>
-            </tr>
-          </thead>
-          <tbody className="align-top">
-            {bancoLoading ? (
-              <tr><td colSpan={7} className="py-6 text-center text-neutral-700">Cargando…</td></tr>
-            ) : bancoRows.length === 0 ? (
-              <tr><td colSpan={7} className="py-6 text-center text-neutral-700">Sin registros archivados.</td></tr>
-            ) : bancoRows.map((r) => (
-              <tr key={r.progreso_id} className="border-t border-white/50">
-            <td className="sticky left-0 z-10 py-2 pr-3 font-medium text-neutral-900 bg-white/90 supports-[backdrop-filter]:bg-white/70 backdrop-blur-sm">{r.nombre}</td>
-            <td className="py-2 pr-3 text-neutral-800">{r.telefono ?? '—'}</td>
-            <td className="py-2 pr-3">{r.modulo ?? '—'}</td>
-            <td className="py-2 pr-3">{r.semana ?? '—'}</td>
-            <td className="py-2 pr-3">{r.dia}</td>
-            <td className="py-2 pr-3">{new Date(r.creado_en).toLocaleString()}</td>
-            <td className="py-2 pr-0 text-right">
-              <div className="flex items-center justify-end gap-2">
+            <div className="px-5 md:px-7 py-4 flex items-center justify-between border-b border-white/50">
+              <div>
+                <div className="text-xl md:text-2xl font-semibold text-neutral-900 flex items-center gap-3">
+                  Banco Archivo
+                  {bancoCount !== null && bancoCount > 0 && (
+                    <span className="inline-flex items-center justify-center min-w-[24px] h-6 px-2 text-sm font-bold rounded-full bg-sky-100 text-sky-700 shadow-sm ring-1 ring-sky-200">
+                      {bancoCount}
+                    </span>
+                  )}
+                </div>
+                <div className="text-[12px] text-neutral-700">
+                  {asig.etapaBase} {asig.etapaBase !== 'Restauracion' ? asig.modulo : ''} • Día {asig.dia}
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
                 <button
-                  disabled={!!reactivating[r.progreso_id] || !!deleting[r.progreso_id]}
-                  onClick={() => {
-                    setReactivationCandidate(r);
-                    setShowReactivationConfirm(true);
-                  }}
-                  className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-yellow-50 via-yellow-100 to-white text-neutral-700 ring-1 ring-yellow-100 shadow-[0_4px_16px_rgba(255,235,150,0.13)] px-3 py-1.5 text-sm transition hover:scale-[1.04] active:scale-95 disabled:opacity-60"
-                  title="Reactivar al panel actual"
+                  onClick={downloadBancoPDF}
+                  className="inline-flex items-center gap-1 rounded-xl bg-gradient-to-r from-red-400 via-red-500 to-red-600 text-white ring-1 ring-white/50 shadow-[0_6px_20px_rgba(220,38,38,0.35)] px-2 py-1 text-xs font-medium hover:scale-[1.02] active:scale-95 transition"
+                  title="Descargar PDF de Banco Archivo"
                 >
-                  {reactivating[r.progreso_id] ? 'Reactivando…' : 'Reactivar'}
+                  <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ fontSize: '0.85em' }}>
+                    <path d="M12 5v14M5 12l7 7 7-7" />
+                  </svg>
+                  PDF
                 </button>
                 <button
-                  disabled={!!deleting[r.progreso_id] || !!reactivating[r.progreso_id]}
-                  onClick={() => eliminarDeBanco(r)}
-                  className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-r from-red-400 to-red-500 text-white ring-1 ring-white/50 shadow-[0_4px_12px_rgba(239,68,68,0.35)] transition hover:scale-[1.05] active:scale-95 disabled:opacity-60"
-                  title="Eliminar permanentemente"
+                  onClick={downloadBancoExcel}
+                  className="inline-flex items-center gap-1 rounded-xl bg-gradient-to-r from-green-400 via-green-500 to-green-600 text-white ring-1 ring-white/50 shadow-[0_6px_20px_rgba(34,197,94,0.35)] px-2 py-1 text-xs font-medium hover:scale-[1.02] active:scale-95 transition"
+                  title="Descargar Excel de Banco Archivo"
                 >
-                  {deleting[r.progreso_id] ? (
-                    <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                  ) : (
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6h14zM5 4a1 1 0 0 1 1-1h12a1 1 0 1 1 0 2H6a1 1 0 0 1-1-1zM9 4V3a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v1H9z"></path>
-                    </svg>
-                  )}
+                  <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ fontSize: '0.85em' }}>
+                    <path d="M12 5v14M5 12l7 7 7-7" />
+                  </svg>
+                  Excel
+                </button>
+                <button
+                  onClick={() => setBancoOpen(false)}
+                  className="rounded-full bg-white/85 hover:bg-white/95 px-4 py-2 text-sm font-semibold ring-1 ring-white/60 text-neutral-900"
+                >
+                  Atrás
                 </button>
               </div>
-            </td>
-              </tr>
-            ))}
-          </tbody>
-            </table>
+            </div>
+
+            <div className="px-4 md:px-6 py-3">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-left text-neutral-800">
+                      <th className="sticky left-0 z-10 py-2 pr-3 bg-white/90 supports-[backdrop-filter]:bg-white/70 backdrop-blur-sm">Nombre</th>
+                      <th className="py-2 pr-3">Teléfono</th>
+                      <th className="py-2 pr-3">Módulo</th>
+                      <th className="py-2 pr-3">Semana</th>
+                      <th className="py-2 pr-3">Día</th>
+                      <th className="py-2 pr-3">Archivado</th>
+                      <th className="py-2 pr-3 text-center">Obs.</th>
+                      <th className="py-2 pr-3 text-right">Acción</th>
+                    </tr>
+                  </thead>
+                  <tbody className="align-top">
+                    {bancoLoading ? (
+                      <tr><td colSpan={7} className="py-6 text-center text-neutral-700">Cargando…</td></tr>
+                    ) : bancoRows.length === 0 ? (
+                      <tr><td colSpan={7} className="py-6 text-center text-neutral-700">Sin registros archivados.</td></tr>
+                    ) : bancoRows.map((r) => (
+                      <tr key={r.progreso_id} className="border-t border-white/50">
+                        <td className="sticky left-0 z-10 py-2 pr-3 font-medium text-neutral-900 bg-white/90 supports-[backdrop-filter]:bg-white/70 backdrop-blur-sm">{r.nombre}</td>
+                        <td className="py-2 pr-3 text-neutral-800">{r.telefono ?? '—'}</td>
+                        <td className="py-2 pr-3">{r.modulo ?? '—'}</td>
+                        <td className="py-2 pr-3">{r.semana ?? '—'}</td>
+                        <td className="py-2 pr-3">{r.dia}</td>
+                        <td className="py-2 pr-3">{new Date(r.creado_en).toLocaleString()}</td>
+                        <td className="py-2 pr-3 text-center">
+                          <button
+                            onClick={() => fetchBancoObservaciones(r)}
+                            className="inline-flex items-center justify-center p-1.5 rounded-lg text-sky-600 hover:bg-sky-50 ring-1 ring-transparent hover:ring-sky-200 transition"
+                            title="Ver historial de observaciones"
+                          >
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                              <path d="M12 3C7 3 2.73 6.11 1 10.5 2.73 14.89 7 18 12 18s9.27-3.11 11-7.5C21.27 6.11 17 3 12 3zm0 13c-3.31 0-6-2.69-6-6s2.69-6 6-6 6 2.69 6 6-2.69 6-6 6zm-1-9h2v4h-2zm0 6h2v2h-2z" />
+                            </svg>
+                          </button>
+                        </td>
+                        <td className="py-2 pr-0 text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            <button
+                              disabled={!!reactivating[r.progreso_id] || !!deleting[r.progreso_id]}
+                              onClick={() => {
+                                setReactivationCandidate(r);
+                                setShowReactivationConfirm(true);
+                              }}
+                              className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-yellow-50 via-yellow-100 to-white text-neutral-700 ring-1 ring-yellow-100 shadow-[0_4px_16px_rgba(255,235,150,0.13)] px-3 py-1.5 text-sm transition hover:scale-[1.04] active:scale-95 disabled:opacity-60"
+                              title="Reactivar al panel actual"
+                            >
+                              {reactivating[r.progreso_id] ? 'Reactivando…' : 'Reactivar'}
+                            </button>
+                            <button
+                              disabled={!!deleting[r.progreso_id] || !!reactivating[r.progreso_id]}
+                              onClick={() => eliminarDeBanco(r)}
+                              className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-r from-red-400 to-red-500 text-white ring-1 ring-white/50 shadow-[0_4px_12px_rgba(239,68,68,0.35)] transition hover:scale-[1.05] active:scale-95 disabled:opacity-60"
+                              title="Eliminar permanentemente"
+                            >
+                              {deleting[r.progreso_id] ? (
+                                <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                              ) : (
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6h14zM5 4a1 1 0 0 1 1-1h12a1 1 0 1 1 0 2H6a1 1 0 0 1-1-1zM9 4V3a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v1H9z"></path>
+                                </svg>
+                              )}
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </div>
         </div>
+      )}
+
+      {/* Modal Observaciones Banco Archivo */}
+      {bancoObsOpen && (
+        <div className="fixed inset-0 z-[80]">
+          <div
+            className="absolute inset-0 bg-black/50 backdrop-blur-md"
+            onClick={() => setBancoObsOpen(false)}
+          />
+          <div className="absolute inset-0 flex justify-center items-start overflow-hidden px-0 md:px-4 pt-4 md:pt-10 pb-4 md:pb-10">
+            <div className="w-full h-full md:h-auto md:max-h-[85vh] max-w-none md:max-w-4xl rounded-none md:rounded-[28px] shadow-[0_30px_80px_-20px_rgba(0,0,0,.45)] ring-0 md:ring-1 ring-neutral-200 bg-white flex flex-col overflow-hidden">
+              <div className="px-4 md:px-7 py-4 md:py-5 flex items-center justify-between border-b border-neutral-200 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/80 z-10 shrink-0">
+                <div>
+                  <div className="text-2xl md:text-3xl font-semibold text-neutral-900">Historial de Observaciones</div>
+                  <div className="text-[13px] text-neutral-500">{bancoObsTargetName}</div>
+                </div>
+                <button
+                  onClick={() => setBancoObsOpen(false)}
+                  className="rounded-full bg-white px-4 py-2 text-sm font-semibold ring-1 ring-neutral-200 text-neutral-900 shadow-sm hover:bg-neutral-50"
+                >
+                  Cerrar
+                </button>
+              </div>
+              <div className="px-4 md:px-6 py-4 md:py-5 overflow-y-auto">
+                <div className="flex-1 min-w-0">
+                  {bancoObsLoading ? (
+                    <div className="py-6 text-center text-neutral-600">Cargando historial...</div>
+                  ) : bancoObsItems.length === 0 ? (
+                    <div className="py-6 text-center text-neutral-500">Sin observaciones registradas.</div>
+                  ) : (
+                    <ul className="space-y-3">
+                      {bancoObsItems.map((it, idx) => (
+                        <li key={idx} className="rounded-2xl bg-white ring-1 ring-neutral-200 px-4 py-3 shadow-sm">
+                          <div className="text-sm text-neutral-600 flex items-center justify-between">
+                            <span className="font-medium text-neutral-800">
+                              {new Date(it.fecha).toLocaleString()}
+                            </span>
+                            <span className="text-[11px] inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-neutral-100 ring-1 ring-neutral-200 text-neutral-600">
+                              {it.fuente === 'registro' ? 'Registro' : 'Llamada'}
+                            </span>
+                          </div>
+
+                          {it.autor && (
+                            <div className="mt-1 text-[11px] text-neutral-500">
+                              Registrado por {it.autor}
+                            </div>
+                          )}
+
+                          <div className="mt-2 text-[13px] text-neutral-900 whitespace-pre-wrap">
+                            <strong className="font-semibold">
+                              {it.resultado ? (resultadoLabels[it.resultado as Resultado] ?? it.resultado) : '-'}
+                            </strong>
+                            {it.notas ? ` - ${it.notas}` : ''}
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       )}
@@ -1574,7 +1757,7 @@ export default function Contactos1Client(
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               className="fixed inset-0 z-[60] bg-black/50"
-              onClick={handleCloseModal} 
+              onClick={handleCloseModal}
             />
             <motion.div
               key="card"
@@ -1596,7 +1779,7 @@ export default function Contactos1Client(
                   <div className="flex items-start gap-3">
                     <div className="h-10 w-10 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center shadow-md">
                       <svg width="22" height="22" viewBox="0 0 24 24" fill="white" aria-hidden="true">
-                        <path d="M12 2l9 4v6c0 5-3.8 9.3-9 10-5.2-.7-9-5-9-10V6l9-4z"/>
+                        <path d="M12 2l9 4v6c0 5-3.8 9.3-9 10-5.2-.7-9-5-9-10V6l9-4z" />
                       </svg>
                     </div>
                     <div className="min-w-0">
@@ -1604,8 +1787,8 @@ export default function Contactos1Client(
                         Registro inhabilitado
                       </h3>
                       <p className="mt-1 text-sm text-neutral-700">
-                         Este registro fue gestionado por el servidor de la semana anterior.
-  Por ese motivo estará disponible nuevamente el próximo domingo a las 10:00 AM.
+                        Este registro fue gestionado por el servidor de la semana anterior.
+                        Por ese motivo estará disponible nuevamente el próximo domingo a las 10:00 AM.
                       </p>
                       {(() => {
                         const selected = modalTargetId && pendientes.find(p => p.progreso_id === modalTargetId);
@@ -1631,7 +1814,7 @@ export default function Contactos1Client(
                     </button>
                     <button
                       type="button"
-                      onClick={handleCloseModal} 
+                      onClick={handleCloseModal}
                       className="inline-flex items-center justify-center rounded-xl px-4 py-2 text-sm font-semibold text-white bg-gradient-to-r from-amber-500 to-orange-500 shadow hover:brightness-105 active:brightness-95 transition"
                     >
                       Entendido
@@ -1668,33 +1851,33 @@ export default function Contactos1Client(
   );
 
   /** ====== Banco Archivo: handlers ====== */
-async function openBanco() {
-  if (!asig) return;
-  setBancoOpen(true);
-  setBancoLoading(true);
+  async function openBanco() {
+    if (!asig) return;
+    setBancoOpen(true);
+    setBancoLoading(true);
 
-  try {
-    let q = supabase
-      .from(V_BANCO)
-      .select('progreso_id,persona_id,nombre,telefono,modulo,semana,dia,creado_en,etapa')
-      .eq('dia', asig.dia);
+    try {
+      let q = supabase
+        .from(V_BANCO)
+        .select('progreso_id,persona_id,nombre,telefono,modulo,semana,dia,creado_en,etapa')
+        .eq('dia', asig.dia);
 
-    q = (q as any).eq('etapa', asig.etapaBase);
-    if (asig.etapaBase !== 'Restauracion') {
-      q = (q as any).eq('modulo', asig.modulo);
+      q = (q as any).eq('etapa', asig.etapaBase);
+      if (asig.etapaBase !== 'Restauracion') {
+        q = (q as any).eq('modulo', asig.modulo);
+      }
+
+      const { data, error } = await q.order('creado_en', { ascending: false });
+      if (error) throw error;
+
+      setBancoRows((data ?? []) as BancoRow[]);
+    } catch (e: any) {
+      console.error(e?.message ?? 'Error cargando Banco Archivo');
+      setBancoRows([]);
+    } finally {
+      setBancoLoading(false);
     }
-
-    const { data, error } = await q.order('creado_en', { ascending: false });
-    if (error) throw error;
-
-    setBancoRows((data ?? []) as BancoRow[]);
-  } catch (e: any) {
-    console.error(e?.message ?? 'Error cargando Banco Archivo');
-    setBancoRows([]);
-  } finally {
-    setBancoLoading(false);
   }
-}
 
   async function reactivar(row: BancoRow) {
     if (!asig || !servidorId) return;
@@ -1743,6 +1926,34 @@ async function openBanco() {
       setDeleting((m) => ({ ...m, [row.progreso_id]: false }));
     }
   }
+
+  async function fetchBancoObservaciones(row: BancoRow) {
+    setBancoObsOpen(true);
+    setBancoObsLoading(true);
+    setBancoObsTargetName(row.nombre ?? '—');
+    setBancoObsItems([]);
+
+    try {
+      const { data, error } = await supabase.rpc('fn_observaciones_por_progreso_ext', {
+        p_progreso: row.progreso_id,
+      });
+      if (error) throw error;
+
+      const items = (data ?? []).map((r: any) => ({
+        fecha: r.creado_en,
+        notas: r.notas,
+        resultado: r.resultado,
+        fuente: 'llamada',
+        autor: r.autor ?? null,
+      }));
+      setBancoObsItems(items);
+    } catch (e: any) {
+      console.error('Error cargando observaciones banco:', e);
+      toast.error('No se pudieron cargar las observaciones');
+    } finally {
+      setBancoObsLoading(false);
+    }
+  }
 }
 
 /* ================= Panel derecho (detalle y envío) ================= */
@@ -1788,50 +1999,50 @@ function FollowUp({
     notas: string;
     resultado?: Resultado | null;
     fuente: 'registro' | 'llamada';
-    autor?: string; 
+    autor?: string;
   };
 
   const [obsOpen, setObsOpen] = useState(false);
   const [obsLoading, setObsLoading] = useState(false);
   const [obsItems, setObsItems] = useState<ObsItem[]>([]);
 
- const refreshObsCount = useCallback(async () => {
-  try {
-    const { data, error } = await supabase.rpc('fn_observaciones_por_progreso_ext', {
-      p_progreso: row.progreso_id,
-    });
-    if (error) throw error;
-    setObsCount(Array.isArray(data) ? data.length : 0);
-  } catch {
-    setObsCount(0);
-  }
-}, [row.progreso_id]);
+  const refreshObsCount = useCallback(async () => {
+    try {
+      const { data, error } = await supabase.rpc('fn_observaciones_por_progreso_ext', {
+        p_progreso: row.progreso_id,
+      });
+      if (error) throw error;
+      setObsCount(Array.isArray(data) ? data.length : 0);
+    } catch {
+      setObsCount(0);
+    }
+  }, [row.progreso_id]);
 
-const openObsModal = async () => {
-  setObsOpen(true);
-  setObsLoading(true);
-  try {
-    const { data, error } = await supabase.rpc('fn_observaciones_por_progreso_ext', {
-      p_progreso: row.progreso_id,
-    });
-    if (error) throw error;
-    const items = (data ?? []).map((r: any) => ({
-      fecha: r.creado_en,
-      notas: r.notas,
-      resultado: r.resultado,
-      fuente: 'llamada' as const,
-      autor: r.autor ?? null,     
-    }));
-    setObsItems(items);
-    setObsCount(items.length);
-  } catch (e) {
-    console.error('No se pudieron cargar observaciones', e);
-    setObsItems([]);
-    setObsCount(0);
-  } finally {
-    setObsLoading(false);
-  }                                
-};                
+  const openObsModal = async () => {
+    setObsOpen(true);
+    setObsLoading(true);
+    try {
+      const { data, error } = await supabase.rpc('fn_observaciones_por_progreso_ext', {
+        p_progreso: row.progreso_id,
+      });
+      if (error) throw error;
+      const items = (data ?? []).map((r: any) => ({
+        fecha: r.creado_en,
+        notas: r.notas,
+        resultado: r.resultado,
+        fuente: 'llamada' as const,
+        autor: r.autor ?? null,
+      }));
+      setObsItems(items);
+      setObsCount(items.length);
+    } catch (e) {
+      console.error('No se pudieron cargar observaciones', e);
+      setObsItems([]);
+      setObsCount(0);
+    } finally {
+      setObsLoading(false);
+    }
+  };
 
   const initials =
     (row.nombre ?? 'U')
@@ -1851,176 +2062,179 @@ const openObsModal = async () => {
   return (
     <div>
       <div className="animate-cardIn">
-      <div className="mb-4 rounded-2xl ring-1 ring-black/5 bg-[linear-gradient(135deg,#eef3ff,#f6efff)] shadow-[0_18px_40px_-22px_rgba(16,24,40,.45)] px-4 py-3 md:px-5 md:py-4 flex items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="grid place-items-center h-10 w-10 md:h-12 md:w-12 rounded-xl text-white font-bold bg-gradient-to-br from-blue-500 to-indigo-500 shadow-sm">
-            {initials}
+        <div className="mb-4 rounded-2xl ring-1 ring-black/5 bg-[linear-gradient(135deg,#eef3ff,#f6efff)] shadow-[0_18px_40px_-22px_rgba(16,24,40,.45)] px-4 py-3 md:px-5 md:py-4 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="grid place-items-center h-10 w-10 md:h-12 md:w-12 rounded-xl text-white font-bold bg-gradient-to-br from-blue-500 to-indigo-500 shadow-sm">
+              {initials}
+            </div>
+            <div>
+              <div className="text-lg md:text-xl font-semibold text-neutral-900 leading-tight">
+                {row.nombre ?? '-'}
+              </div>
+              <div className="text-[12px] text-neutral-500 leading-none">
+                Semana {semana} • {dia}
+              </div>
+            </div>
           </div>
-          <div>
-            <div className="text-lg md:text-xl font-semibold text-neutral-900 leading-tight">
-              {row.nombre ?? '-'}
-            </div>
-            <div className="text-[12px] text-neutral-500 leading-none">
-              Semana {semana} • {dia}
-            </div>
+
+          <div className="shrink-0 flex flex-col items-stretch gap-2 lg:flex-col lg:items-end lg:justify-center lg:gap-3 sm:flex-row sm:overflow-visible sm:flex-nowrap sm:max-w-none">
+            {telHref ? (
+              <a
+                href={telHref}
+                className="inline-flex items-center justify-center gap-2 rounded-full bg-white px-3.5 py-2 text-sm font-semibold ring-1 ring-black/10 shadow-sm transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5 hover:bg-white/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-black/20"
+                title={`Llamar a ${row.telefono}`}
+              >
+                <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+                  <path d="M6.6 10.8c1.3 2.5 3.1 4.4 5.6 5.6l2.1-2.1a1 1 0 0 1 1.1-.22c1.2.48 2.6.74 4 .74a1 1 0 0 1 1 1v3.5a1 1 0 0 1-1 1C12.1 20.3 3.7 11.9 3.7 2.7a1 1 0 0 1 1-1H8.2a1 1 0 0 1 1 1c0 1.4.26 2.8.74 4a1 1 0 0 1-.22 1.1l-2.1 2.1Z" fill="currentColor" />
+                </svg>
+                <span>{row.telefono}</span>
+              </a>
+            ) : (
+              <div className="inline-flex items-center gap-2 rounded-full bg-white px-3.5 py-2 text-sm font-semibold ring-1 ring-black/10 shadow-sm">
+                -
+              </div>
+            )}
+
+            {(() => {
+              const digits = (row.telefono ?? '').replace(/\D+/g, '');
+              let n = digits;
+              if (n.startsWith('00')) n = n.slice(2);
+              if (!n.startsWith('57')) {
+                n = n.replace(/^0+/, '');
+                if (n.length === 10 && n.startsWith('3')) n = '57' + n; else if (n.length >= 7 && n.length <= 10) n = '57' + n;
+              }
+              const href = n ? `https://wa.me/${n}?text=${encodeURIComponent('Hola ' + (row.nombre ?? '') + ',')}` : null;
+              return href ? (
+                <a
+                  href={href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center justify-center gap-2 rounded-full bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200 px-3.5 py-2 text-sm font-semibold shadow-sm transition-all duration-200 hover:bg-emerald-100 hover:shadow-lg hover:-translate-y-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300"
+                  title={`Enviar WhatsApp a ${row.telefono}`}
+                >
+                  <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+                    <path d="M16.9 13.7c-.2-.1-1.2-.6-1.4-.7-.3-.1-.4-.1-.6.1l-.6.7c-.2.2-.4.3-.7.2-.3-.1-1.1-.4-2-1.2-.7-.6-1.2-1.3-1.4-1.6-.2-.3 0-.5.1-.7l.5-.6c.2-.3.1-.4 0-.7-.1-.2-.5-1.2-.7-1.7-.2-.5-.4-.4-.6-.4h-.9c-.3 0-.7.2-.9.5-.3.3-.9 1-.9 2.3 0 1.3 1 2.6 1.1 2.8.1.2 1.9 2.9 4.6 4 .9.4 1.5.5 2 .6.8.1 1.4 0 1.8-.1.6-.2 1.3-.7 1.5-1.3.2-.6.2-1.1.1-1.3 0-.2-.2-.3-.5-.4Z" fill="currentColor" />
+                    <path d="M20.5 3.5A11 11 0 1 0 4 19l-1 3.6 3.7-1A11 11 0 0 0 21 12a10.9 10.9 0 0 0-3.2-8.5ZM12 20.8c-1.7 0-3.3-.4-4.7-1.3l-.3-.2-3 .8.8-2.9-.2-.3A9 9 0 1 1 12 20.8Z" fill="currentColor" />
+                  </svg>
+                  WhatsApp
+                </a>
+              ) : null;
+            })()}
+
+            <button
+              onClick={openObsModal}
+              disabled={obsCount === 0}
+              className="inline-flex items-center justify-center gap-2 rounded-full bg-white px-3.5 py-2 text-sm font-semibold ring-1 ring-black/10 shadow-sm transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5 hover:bg-white/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-black/20 disabled:opacity-60 disabled:cursor-not-allowed"
+              title="Ver observaciones del registro"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 3C7 3 2.73 6.11 1 10.5 2.73 14.89 7 18 12 18s9.27-3.11 11-7.5C21.27 6.11 17 3 12 3zm0 13c-3.31 0-6-2.69-6-6s2.69-6 6-6 6 2.69 6 6-2.69 6-6 6zm-1-9h2v4h-2zm0 6h2v2h-2z" fill="currentColor" />
+              </svg>
+              Observaciones
+              <span className="ml-1 inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 text-xs font-semibold rounded-full bg-emerald-50 ring-1 ring-emerald-200 text-emerald-700">
+                {obsCount ?? 0}
+              </span>
+            </button>
           </div>
         </div>
 
-  <div className="shrink-0 flex flex-col items-stretch gap-2 lg:flex-col lg:items-end lg:justify-center lg:gap-3 sm:flex-row sm:overflow-visible sm:flex-nowrap sm:max-w-none">
-          {telHref ? (
-            <a
-              href={telHref}
-              className="inline-flex items-center justify-center gap-2 rounded-full bg-white px-3.5 py-2 text-sm font-semibold ring-1 ring-black/10 shadow-sm transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5 hover:bg-white/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-black/20"
-              title={`Llamar a ${row.telefono}`}
-            >
-              <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
-                <path d="M6.6 10.8c1.3 2.5 3.1 4.4 5.6 5.6l2.1-2.1a1 1 0 0 1 1.1-.22c1.2.48 2.6.74 4 .74a1 1 0 0 1 1 1v3.5a1 1 0 0 1-1 1C12.1 20.3 3.7 11.9 3.7 2.7a1 1 0 0 1 1-1H8.2a1 1 0 0 1 1 1c0 1.4.26 2.8.74 4a1 1 0 0 1-.22 1.1l-2.1 2.1Z" fill="currentColor" />
-              </svg>
-              <span>{row.telefono}</span>
-            </a>
-          ) : (
-            <div className="inline-flex items-center gap-2 rounded-full bg-white px-3.5 py-2 text-sm font-semibold ring-1 ring-black/10 shadow-sm">
-              -
-            </div>
-          )}
+        <div>
+          <label className="text-xs text-neutral-500">Resultado de la llamada</label>
+          <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+            {opciones.map((o) => (
+              <label key={o.value} className="flex items-center gap-2 rounded-lg ring-1 ring-black/10 bg-neutral-50 px-3 py-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="resultado"
+                  className="accent-blue-600"
+                  onChange={() => setResultado(o.value)}
+                  checked={resultado === o.value}
+                />
+                <span className="text-sm">{o.label}</span>
+              </label>
+            ))}
+          </div>
+        </div>
 
-          {(() => {
-            const digits = (row.telefono ?? '').replace(/\D+/g, '');
-            let n = digits;
-            if (n.startsWith('00')) n = n.slice(2);
-            if (!n.startsWith('57')) {
-              n = n.replace(/^0+/, '');
-              if (n.length === 10 && n.startsWith('3')) n = '57' + n; else if (n.length >=7 && n.length <= 10) n = '57' + n;
-            }
-            const href = n ? `https://wa.me/${n}?text=${encodeURIComponent('Hola ' + (row.nombre ?? '') + ',')}` : null;
-            return href ? (
-            <a
-              href={href}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center justify-center gap-2 rounded-full bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200 px-3.5 py-2 text-sm font-semibold shadow-sm transition-all duration-200 hover:bg-emerald-100 hover:shadow-lg hover:-translate-y-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300"
-              title={`Enviar WhatsApp a ${row.telefono}`}
-            >
-              <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
-                <path d="M16.9 13.7c-.2-.1-1.2-.6-1.4-.7-.3-.1-.4-.1-.6.1l-.6.7c-.2.2-.4.3-.7.2-.3-.1-1.1-.4-2-1.2-.7-.6-1.2-1.3-1.4-1.6-.2-.3 0-.5.1-.7l.5-.6c.2-.3.1-.4 0-.7-.1-.2-.5-1.2-.7-1.7-.2-.5-.4-.4-.6-.4h-.9c-.3 0-.7.2-.9.5-.3.3-.9 1-.9 2.3 0 1.3 1 2.6 1.1 2.8.1.2 1.9 2.9 4.6 4 .9.4 1.5.5 2 .6.8.1 1.4 0 1.8-.1.6-.2 1.3-.7 1.5-1.3.2-.6.2-1.1.1-1.3 0-.2-.2-.3-.5-.4Z" fill="currentColor"/>
-                <path d="M20.5 3.5A11 11 0 1 0 4 19l-1 3.6 3.7-1A11 11 0 0 0 21 12a10.9 10.9 0 0 0-3.2-8.5ZM12 20.8c-1.7 0-3.3-.4-4.7-1.3l-.3-.2-3 .8.8-2.9-.2-.3A9 9 0 1 1 12 20.8Z" fill="currentColor"/>
-              </svg>
-              WhatsApp
-            </a>
-            ) : null;
-          })()}
+        <div className="mt-4">
+          <label className="text-xs text-neutral-500">Observaciones</label>
+          <textarea
+            className="mt-1 w-full min-h-[100px] rounded-lg ring-1 ring-black/10 px-3 py-2 bg-neutral-50 focus:outline-none focus:ring-2 focus:ring-blue-300"
+            placeholder="Escribe aquí las observaciones..."
+            value={obs}
+            onChange={(e) => setObs(e.target.value)}
+          />
+        </div>
 
+        <div className="mt-4">
           <button
-            onClick={openObsModal}
-            disabled={obsCount === 0}
-            className="inline-flex items-center justify-center gap-2 rounded-full bg-white px-3.5 py-2 text-sm font-semibold ring-1 ring-black/10 shadow-sm transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5 hover:bg-white/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-black/20 disabled:opacity-60 disabled:cursor-not-allowed"
-            title="Ver observaciones del registro"
+            disabled={!resultado || saving}
+            onClick={async () => { if (resultado) { await onSave({ resultado, notas: obs || undefined }); await refreshObsCount(); } }}
+            className="rounded-xl bg-gradient-to-r from-emerald-300 via-teal-300 to-indigo-300 text-slate-900 ring-1 ring-white/50 shadow-[0_6px_20px_rgba(16,185,129,0.30)] px-4 py-2 transition hover:scale-[1.02] active:scale-95 disabled:opacity-60"
           >
-            <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M12 3C7 3 2.73 6.11 1 10.5 2.73 14.89 7 18 12 18s9.27-3.11 11-7.5C21.27 6.11 17 3 12 3zm0 13c-3.31 0-6-2.69-6-6s2.69-6 6-6 6 2.69 6 6-2.69 6-6 6zm-1-9h2v4h-2zm0 6h2v2h-2z" fill="currentColor"/>
-            </svg>
-            Observaciones
-            <span className="ml-1 inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 text-xs font-semibold rounded-full bg-emerald-50 ring-1 ring-emerald-200 text-emerald-700">
-              {obsCount ?? 0}
-            </span>
+            {saving ? 'Guardando…' : 'Enviar informe'}
           </button>
         </div>
       </div>
-
-      <div>
-        <label className="text-xs text-neutral-500">Resultado de la llamada</label>
-        <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-          {opciones.map((o) => (
-            <label key={o.value} className="flex items-center gap-2 rounded-lg ring-1 ring-black/10 bg-neutral-50 px-3 py-2 cursor-pointer">
-              <input
-                type="radio"
-                name="resultado"
-                className="accent-blue-600"
-                onChange={() => setResultado(o.value)}
-                checked={resultado === o.value}
-              />
-              <span className="text-sm">{o.label}</span>
-            </label>
-          ))}
-        </div>
-      </div>
-
-      <div className="mt-4">
-        <label className="text-xs text-neutral-500">Observaciones</label>
-        <textarea
-          className="mt-1 w-full min-h-[100px] rounded-lg ring-1 ring-black/10 px-3 py-2 bg-neutral-50 focus:outline-none focus:ring-2 focus:ring-blue-300"
-          placeholder="Escribe aquí las observaciones..."
-          value={obs}
-          onChange={(e) => setObs(e.target.value)}
-        />
-      </div>
-
-      <div className="mt-4">
-        <button
-          disabled={!resultado || saving}
-          onClick={async () => { if (resultado) { await onSave({ resultado, notas: obs || undefined }); await refreshObsCount(); } }}
-          className="rounded-xl bg-gradient-to-r from-emerald-300 via-teal-300 to-indigo-300 text-slate-900 ring-1 ring-white/50 shadow-[0_6px_20px_rgba(16,185,129,0.30)] px-4 py-2 transition hover:scale-[1.02] active:scale-95 disabled:opacity-60"
-        >
-          {saving ? 'Guardando…' : 'Enviar informe'}
-        </button>
-      </div>
-      </div>
       {obsOpen && (
-  <div className="fixed inset-0 z-[70] flex items-start justify-center min-h-screen px-2 sm:px-4 pt-8 sm:pt-12">
+        <div className="fixed inset-0 z-[80]">
           <div
-            className="absolute inset-0 bg-black/30 backdrop-blur-sm"
+            className="absolute inset-0 bg-black/50 backdrop-blur-md"
             onClick={() => setObsOpen(false)}
           />
-          <div className="relative w-full max-w-3xl rounded-3xl shadow-[0_20px_60px_-20px_rgba(0,0,0,35)] ring-1 ring-white/40 bg-[linear-gradient(180deg,rgba(255,255,255,65),rgba(255,255,255,45))] backdrop-blur-xl overflow-hidden">
-              <div className="px-5 md:px-7 py-4 flex items-center justify-between border-b border-white/50">
+          <div className="absolute inset-0 flex justify-center items-start overflow-hidden px-0 md:px-4 pt-4 md:pt-10 pb-4 md:pb-10">
+            <div className="w-full h-full md:h-auto md:max-h-[85vh] max-w-none md:max-w-4xl rounded-none md:rounded-[28px] shadow-[0_30px_80px_-20px_rgba(0,0,0,.45)] ring-0 md:ring-1 ring-neutral-200 bg-white flex flex-col overflow-hidden">
+              <div className="px-4 md:px-7 py-4 md:py-5 flex items-center justify-between border-b border-neutral-200 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/80 z-10 shrink-0">
                 <div>
-                  <div className="text-xl md:text-2xl font-semibold text-neutral-900">Observaciones</div>
-                  <div className="text-[12px] text-neutral-600">{row.nombre ?? '-'}</div>
+                  <div className="text-2xl md:text-3xl font-semibold text-neutral-900">Observaciones</div>
+                  <div className="text-[13px] text-neutral-500">{row.nombre ?? '-'}</div>
                 </div>
                 <button
                   onClick={() => setObsOpen(false)}
-                  className="rounded-full bg-white/80 hover:bg:white px-4 py-2 text-sm font-semibold ring-1 ring-black/10 shadow-sm"
+                  className="rounded-full bg-white px-4 py-2 text-sm font-semibold ring-1 ring-neutral-200 text-neutral-900 shadow-sm hover:bg-neutral-50"
                 >
-                  Atras
+                  Cerrar
                 </button>
               </div>
-              <div className="px-4 md:px-6 py-4">
-                {obsLoading ? (
-                  <div className="py-6 text-center text-neutral-600">Cargando.</div>
-                ) : obsItems.length === 0 ? (
-                  <div className="py-6 text-center text-neutral-500">Sin observaciones registradas.</div>
-                ) : (
-                  <ul className="space-y-3">
-                    {obsItems.map((it, idx) => (
-                      <li key={idx} className="rounded-xl bg-white/70 ring-1 ring-black/10 px-4 py-3 shadow-sm">
-  <div className="text-sm text-neutral-600 flex items-center justify-between">
-    <span className="font-medium text-neutral-800">
-      {new Date(it.fecha).toLocaleString()}
-    </span>
-    <span className="text-[11px] inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-neutral-100 ring-1 ring-black/10">
-      {it.fuente === 'registro' ? 'Registro' : 'Llamada'}
-    </span>
-  </div>
+              <div className="px-4 md:px-6 py-4 md:py-5 overflow-y-auto">
+                <div className="flex-1 min-w-0">
+                  {obsLoading ? (
+                    <div className="py-6 text-center text-neutral-600">Cargando...</div>
+                  ) : obsItems.length === 0 ? (
+                    <div className="py-6 text-center text-neutral-500">Sin observaciones registradas.</div>
+                  ) : (
+                    <ul className="space-y-3">
+                      {obsItems.map((it, idx) => (
+                        <li key={idx} className="rounded-2xl bg-white ring-1 ring-neutral-200 px-4 py-3 shadow-sm">
+                          <div className="text-sm text-neutral-600 flex items-center justify-between">
+                            <span className="font-medium text-neutral-800">
+                              {new Date(it.fecha).toLocaleString()}
+                            </span>
+                            <span className="text-[11px] inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-neutral-100 ring-1 ring-neutral-200 text-neutral-600">
+                              {it.fuente === 'registro' ? 'Registro' : 'Llamada'}
+                            </span>
+                          </div>
 
-  {it.autor && (
-    <div className="mt-1 text-[11px] text-neutral-500">
-      Registrado por {it.autor}
-    </div>
-  )}
+                          {it.autor && (
+                            <div className="mt-1 text-[11px] text-neutral-500">
+                              Registrado por {it.autor}
+                            </div>
+                          )}
 
-  <div className="mt-2 text-[13px] text-neutral-800 whitespace-pre-wrap">
-    <strong>
-      {it.resultado ? (resultadoLabels[it.resultado as Resultado] ?? it.resultado) : '-'}
-    </strong>
-    {it.notas ? ` - ${it.notas}` : ''}
-  </div>
-</li>
-
-                    ))}
-                  </ul>
-                )}
+                          <div className="mt-2 text-[13px] text-neutral-900 whitespace-pre-wrap">
+                            <strong className="font-semibold">
+                              {it.resultado ? (resultadoLabels[it.resultado as Resultado] ?? it.resultado) : '-'}
+                            </strong>
+                            {it.notas ? ` - ${it.notas}` : ''}
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
               </div>
             </div>
+          </div>
         </div>
       )}
     </div>

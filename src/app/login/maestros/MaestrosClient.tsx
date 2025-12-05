@@ -359,6 +359,8 @@ function matchAsigRow(
 }
 
 /* ================= Página ================= */
+
+
 export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string }) {
   const router = useRouter();
   const params = useSearchParams();
@@ -399,6 +401,7 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
   const [showReactivationConfirm, setShowReactivationConfirm] = useState(false);
   const [reactivationCandidate, setReactivationCandidate] = useState<BancoRow | null>(null);
   const [bancoPagina, setBancoPagina] = useState(0);
+  const [bancoCount, setBancoCount] = useState<number | null>(null);
   const REGS_POR_PAGINA = 8;
 
   // Estado para Observaciones del Banco
@@ -566,10 +569,43 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
     XLSX.writeFile(wb, `contactos_pendientes_semana_${semana}.xlsx`);
   };
 
+  // Helper para obtener observaciones en lote (usando RPC para asegurar consistencia y permisos)
+  const fetchObservacionesMap = async (rows: BancoRow[]) => {
+    if (rows.length === 0) return {};
+
+    const obsMap: Record<string, string> = {};
+
+    // Usamos Promise.all para hacer las peticiones en paralelo
+    // Limitamos la concurrencia si es necesario, pero para ~100 filas debería estar bien
+    await Promise.all(rows.map(async (r) => {
+      try {
+        const { data, error } = await supabase.rpc('fn_observaciones_por_progreso_ext', {
+          p_progreso: r.progreso_id,
+        });
+
+        if (!error && data && Array.isArray(data) && data.length > 0) {
+          const lines = data.map((obs: any) => {
+            const date = new Date(obs.creado_en).toLocaleString('es-CO', { dateStyle: 'short', timeStyle: 'short' });
+            const res = resultadoLabels[obs.resultado as Resultado] ?? obs.resultado;
+            const note = obs.notas ? ` - ${obs.notas}` : '';
+            return `[${date}] ${res}${note}`;
+          });
+          obsMap[r.progreso_id] = lines.join('\n');
+        }
+      } catch (err) {
+        console.error(`Error fetching obs for ${r.progreso_id}`, err);
+      }
+    }));
+
+    return obsMap;
+  };
+
   const downloadBancoPDF = async () => {
     if (!asig) return;
     const jsPDF = (await import('jspdf')).default;
     const autoTable = (await import('jspdf-autotable')).default;
+
+    const obsMap = await fetchObservacionesMap(bancoRows);
 
     const doc = new jsPDF();
     doc.setFontSize(20);
@@ -578,37 +614,44 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
 
     autoTable(doc, {
       startY: 30,
-      head: [['Nombre', 'Teléfono', 'Módulo', 'Semana', 'Día', 'Archivado']],
+      head: [['Nombre', 'Teléfono', 'Módulo', 'Semana', 'Día', 'Archivado', 'Observaciones']],
       body: bancoRows.map(r => [
         r.nombre,
         r.telefono ?? '-',
         r.modulo?.toString() ?? '-',
         r.semana?.toString() ?? '-',
         r.dia,
-        new Date(r.creado_en).toLocaleString('es-CO', { dateStyle: 'short', timeStyle: 'short' })
+        new Date(r.creado_en).toLocaleString('es-CO', { dateStyle: 'short', timeStyle: 'short' }),
+        obsMap[r.progreso_id] ?? '-'
       ]),
       headStyles: { fillColor: [41, 128, 185] },
+      columnStyles: {
+        6: { cellWidth: 60 } // Ancho extra para observaciones
+      }
     });
 
     doc.save(`banco_archivo_${asig.etapaBase}_${asig.dia}.pdf`);
-    toast.success('Archivo PDF del Banco Archivo descargado exitosamente');
+    toast.success('Archivo PDF del Banco Archivo con observaciones descargado exitosamente');
   };
 
   const downloadBancoExcel = async () => {
     if (!asig) return;
     const XLSX = await import('xlsx');
 
+    const obsMap = await fetchObservacionesMap(bancoRows);
+
     const ws_name = "Banco Archivo";
     const wb = XLSX.utils.book_new();
 
-    const header = ["Nombre", "Teléfono", "Módulo", "Semana", "Día", "Archivado"];
+    const header = ["Nombre", "Teléfono", "Módulo", "Semana", "Día", "Archivado", "Observaciones"];
     const data = bancoRows.map(r => [
       r.nombre,
       r.telefono ?? '-',
       r.modulo?.toString() ?? '-',
       r.semana?.toString() ?? '-',
       r.dia,
-      new Date(r.creado_en).toLocaleString('es-CO', { dateStyle: 'short', timeStyle: 'short' })
+      new Date(r.creado_en).toLocaleString('es-CO', { dateStyle: 'short', timeStyle: 'short' }),
+      obsMap[r.progreso_id] ?? '-'
     ]);
 
     const finalData = [
@@ -619,7 +662,7 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
     ];
 
     const ws = XLSX.utils.aoa_to_sheet(finalData);
-    ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 5 } }];
+    ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 6 } }];
 
     if (ws['A1']) {
       ws['A1'].s = {
@@ -629,9 +672,31 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
       };
     }
 
+    // Aplicar ajuste de texto (Wrap Text) a la columna de Observaciones (Columna G, índice 6)
+    const range = XLSX.utils.decode_range(ws['!ref'] ?? 'A1');
+    // Los datos comienzan en la fila 3 (índice 3) porque: 0=Título, 1=Vacío, 2=Encabezado
+    for (let R = 3; R <= range.e.r; ++R) {
+      const cellAddress = XLSX.utils.encode_cell({ r: R, c: 6 });
+      if (!ws[cellAddress]) continue;
+
+      if (!ws[cellAddress].s) ws[cellAddress].s = {};
+      ws[cellAddress].s.alignment = { wrapText: true, vertical: 'top' };
+    }
+
+    // Ajustar anchos de columna
+    ws['!cols'] = [
+      { wch: 30 }, // Nombre
+      { wch: 15 }, // Teléfono
+      { wch: 8 },  // Módulo
+      { wch: 8 },  // Semana
+      { wch: 10 }, // Día
+      { wch: 20 }, // Archivado
+      { wch: 60 }  // Observaciones (más ancho para facilitar lectura)
+    ];
+
     XLSX.utils.book_append_sheet(wb, ws, ws_name);
     XLSX.writeFile(wb, `banco_archivo_${asig.etapaBase}_${asig.dia}.xlsx`);
-    toast.success('Archivo Excel del Banco Archivo descargado exitosamente');
+    toast.success('Archivo Excel del Banco Archivo con observaciones descargado exitosamente');
   };
 
   const downloadAsistenciasPDF = async () => {
@@ -1083,6 +1148,43 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
     };
   }, [asig, cedula, fetchPendientes, fetchAgendados, rtDebug, rtLog, selectedId]);
 
+  // Efecto para contar registros en Banco Archivo
+  useEffect(() => {
+    if (!asig) {
+      setBancoCount(null);
+      return;
+    }
+
+    const fetchCount = async () => {
+      try {
+        let q = supabase
+          .from(V_BANCO)
+          .select('*', { count: 'exact', head: true })
+          .eq('dia', asig.dia);
+
+        q = (q as any).eq('etapa', asig.etapaBase);
+        if (asig.etapaBase !== 'Restauracion') {
+          q = (q as any).eq('modulo', asig.modulo);
+        }
+
+        const { count, error } = await q;
+        if (!error) {
+          setBancoCount(count);
+        }
+      } catch (e) {
+        console.error('Error contando banco:', e);
+      }
+    };
+
+    fetchCount();
+
+    // Suscribirse a cambios que afecten el conteo (opcional, pero recomendado para UX "senior")
+    // Reutilizamos el canal global si es posible, o simplemente refrescamos cuando 'bancoRows' cambia
+    // Pero como bancoRows solo se carga al abrir, mejor lo dejamos independiente o ligado a refrescos generales.
+    // Por ahora, lo ligamos a 'bancoOpen' para que se actualice al cerrar si hubo cambios, 
+    // y al montaje inicial.
+  }, [asig, bancoOpen]); // Se actualiza al cambiar asignación o al cerrar/abrir el modal (por si se reactivó alguien)
+
   /* ========================= UI ========================= */
   if (!cedula) {
     return (
@@ -1132,6 +1234,11 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
               <path d="M3 6.5A2.5 2.5 0 0 1 5.5 4h13A2.5 2.5 0 0 1 21 6.5V18a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6Zm5 1h8v10H8Z" fill="currentColor" />
             </svg>
             Banco Archivo
+            {bancoCount !== null && bancoCount > 0 && (
+              <span className="ml-1.5 inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 text-xs font-bold rounded-full bg-white text-sky-700 shadow-sm ring-1 ring-sky-100">
+                {bancoCount}
+              </span>
+            )}
           </button>
         </header>
 
@@ -1458,7 +1565,14 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
               {/* Header */}
               <div className="px-5 md:px-7 py-4 flex items-center justify-between border-b border-white/50 shrink-0">
                 <div>
-                  <div className="text-xl md:text-2xl font-semibold text-neutral-900">Banco Archivo</div>
+                  <div className="text-xl md:text-2xl font-semibold text-neutral-900 flex items-center gap-3">
+                    Banco Archivo
+                    {bancoCount !== null && bancoCount > 0 && (
+                      <span className="inline-flex items-center justify-center min-w-[24px] h-6 px-2 text-sm font-bold rounded-full bg-sky-100 text-sky-700 shadow-sm ring-1 ring-sky-200">
+                        {bancoCount}
+                      </span>
+                    )}
+                  </div>
                   <div className="text-[12px] text-neutral-700">
                     {asig.etapaBase} {asig.etapaBase !== 'Restauracion' ? asig.modulo : ''} • Día {asig.dia}
                   </div>
