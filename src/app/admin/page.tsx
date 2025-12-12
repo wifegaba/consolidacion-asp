@@ -133,12 +133,12 @@ export default function AdminPage() {
           </aside>
 
           {/* CONTENIDO PRINCIPAL */}
-          <main className="flex-1 relative flex flex-col min-w-0 bg-transparent h-full">
+          <main className="flex-1 relative flex flex-col min-w-0 bg-transparent h-full overflow-hidden">
             {/* Header Móvil */}
             {/* Removido: Título 'Academia' */}
 
             {/* Area de Contenido con Scroll */}
-            <div className="flex-1 overflow-y-auto p-2 md:p-8 scroll-smooth">
+            <div className="flex-1 overflow-y-auto p-2 md:p-8 md:pb-8 scroll-smooth">
               <AnimatePresence mode="wait">
                 <motion.div key={activeTab} variants={fadeTransition} initial="hidden" animate="visible" exit="exit" className="h-full flex flex-col">
                   {activeTab === 'servidores' && <ServidoresPage />}
@@ -150,7 +150,7 @@ export default function AdminPage() {
             </div>
 
             {/* Barra de Navegación Móvil (Sticky Bottom) */}
-            <div className="md:hidden border-t border-white/40 bg-white/40 backdrop-blur-xl flex justify-around p-2 pb-safe shrink-0 z-30">
+            <div className="md:hidden border-t border-white/40 bg-white/40 backdrop-blur-xl flex justify-around py-1 px-2 pb-safe shrink-0 z-30">
               <MobileTab Icon={Server} label="Servidores" isActive={activeTab === 'servidores'} onClick={() => setActiveTab('servidores')} />
               <MobileTab Icon={Users} label="Maestros" isActive={activeTab === 'maestros'} onClick={() => setActiveTab('maestros')} />
               <MobileTab Icon={UserPlus} label="Matricular" isActive={activeTab === 'matricular'} onClick={() => setActiveTab('matricular')} badge={estudiantesPendientesCount} />
@@ -199,8 +199,8 @@ interface MobileTabProps { Icon: LucideIcon; label: string; isActive: boolean; o
 function MobileTab({ Icon, label, isActive, onClick, badge }: MobileTabProps) {
   return (
     <button onClick={onClick} className="relative flex flex-col items-center justify-center p-2 rounded-lg w-16 active:scale-95 transition-transform">
-      <div className={`p-1.5 rounded-lg transition-colors ${isActive ? 'bg-indigo-100/50 text-indigo-700' : 'text-gray-600'}`}><Icon size={20} /></div>
-      <span className="text-[10px] font-medium mt-1 text-gray-600">{label}</span>
+      <div className={`p-1 rounded-lg transition-colors ${isActive ? 'bg-indigo-100/50 text-indigo-700' : 'text-gray-600'}`}><Icon size={18} /></div>
+      <span className="text-[10px] font-medium mt-0.5 text-gray-600">{label}</span>
       {badge !== undefined && badge > 0 && <span className="absolute top-1 right-2 h-2 w-2 rounded-full bg-rose-500 ring-2 ring-white" />}
     </button>
   );

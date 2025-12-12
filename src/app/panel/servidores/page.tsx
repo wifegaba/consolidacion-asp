@@ -283,7 +283,7 @@ function CardHeader({
     children?: React.ReactNode;
 }) {
     return (
-        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border-b border-white/80 bg-white/50 p-4 md:p-6">
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border-b border-white/80 bg-gradient-to-r from-blue-50/90 via-indigo-50/90 to-white/80 p-4 md:p-6">
             <div className="flex items-start gap-4">
                 {IconComponent && (
                     <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 text-white shadow-lg">
@@ -292,7 +292,7 @@ function CardHeader({
                 )}
                 <div className={IconComponent ? "" : "pt-1"}>
                     <h2 className="text-xl font-semibold text-gray-900">{title}</h2>
-                    <p className="text-sm text-gray-600">{subtitle}</p>
+                    <p className="text-sm text-gray-600 hidden md:block">{subtitle}</p>
                 </div>
             </div>
             {children && (
@@ -336,7 +336,7 @@ function FormInput({
 
     return (
         <div className={`flex flex-col ${className}`}>
-            <label htmlFor={id} className="mb-1.5 text-sm font-medium text-gray-800">
+            <label htmlFor={id} className="mb-1.5 text-sm font-medium text-gray-800 hidden md:block">
                 {label}
             </label>
             <input
@@ -1294,7 +1294,7 @@ export default function GestionServidores() {
 
     /* ===== 4. INICIO DEL BLOQUE JSX REFACTORIZADO ===== */
     return (
-        <div className="h-full overflow-y-auto">
+        <div className="h-full">
             {/* El formulario principal ahora usa los componentes premium */}
             <GlassCard>
                 <CardHeader
@@ -1322,8 +1322,8 @@ export default function GestionServidores() {
                     </div>
                 </CardHeader>
 
-                {/* Contenido del formulario con padding */}
-                <div className="p-6">
+                {/* Contenido del formulario con padding reducido arriba */}
+                <div className="px-6 pt-3 pb-6">
                     {/* Fila 1: Datos Personales (3 columnas) */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-4 mb-6">
                         <FormInput
@@ -1426,7 +1426,7 @@ export default function GestionServidores() {
                                 const isAdded = form.rolesAgregados.some(x => rolEs(x.rol as any, r as any));
 
                                 return (
-                                    <label key={r} className="cursor-pointer relative">
+                                    <label key={r} className={`cursor-pointer relative ${r === 'Logistica' ? 'hidden md:block' : ''}`}>
                                         <input
                                             type="radio"
                                             name="rol-servidor"
