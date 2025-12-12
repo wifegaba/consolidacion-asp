@@ -38,12 +38,15 @@ export async function POST(req: Request) {
     const servidorId = servidor.id;
 
     // --- OPTIMIZACIÓN: EJECUTAR TODAS LAS CONSULTAS DE ROLES EN PARALELO ---
+    // Usamos select() en lugar de maybeSingle() para obtener TODOS los registros,
+    // ya que ahora permitimos múltiples asignaciones por rol.
     const [
       rolDirectorResult,
       rolAdministradorResult,
-      rolMaestroPtmResult, // <-- AÑADIDO
-      contactoResult,
-      maestroResult
+      rolMaestroPtmResult,
+      contactosResult,
+      maestrosResult,
+      logisticaResult
     ] = await Promise.all([
       // Consulta para el rol de Director
       supabase
@@ -63,87 +66,131 @@ export async function POST(req: Request) {
         .eq('rol', 'Administrador')
         .maybeSingle(),
 
-      // --- AÑADIDO ---
       // Consulta para el rol 'Maestro Ptm'
       supabase
         .from('servidores_roles')
         .select('rol')
         .eq('servidor_id', servidorId)
         .eq('vigente', true)
-        .eq('rol', 'Maestro Ptm') 
+        .eq('rol', 'Maestro Ptm')
         .maybeSingle(),
-      // --- FIN AÑADIDO ---
 
-      // Consulta para la asignación de Contacto
+      // Consulta para las asignaciones de Contacto (Array)
       supabase
         .from('asignaciones_contacto')
         .select('etapa, dia, semana')
         .eq('servidor_id', servidorId)
-        .eq('vigente', true)
-        .maybeSingle(),
-      // Consulta para la asignación de Maestro
+        .eq('vigente', true),
+
+      // Consulta para las asignaciones de Maestro (Array)
       supabase
         .from('asignaciones_maestro')
         .select('etapa, dia')
         .eq('servidor_id', servidorId)
+        .eq('vigente', true),
+
+      // Consulta para las asignaciones de Logística (Array)
+      supabase
+        .from('asignaciones_logistica')
+        .select('dia:dia_culto, franja') // Alias dia_culto -> dia for compatibility
+        .eq('servidor_id', servidorId)
         .eq('vigente', true)
-        .maybeSingle()
     ]);
 
-    // Verificar si alguna de las consultas en paralelo falló
-    if (rolDirectorResult.error || rolAdministradorResult.error || rolMaestroPtmResult.error || contactoResult.error || maestroResult.error) {
-      console.error("Error en consultas paralelas:", rolDirectorResult.error || rolAdministradorResult.error || rolMaestroPtmResult.error || contactoResult.error || maestroResult.error);
+    // Verificar si alguna de las consultas CRÍTICAS falló
+    if (rolDirectorResult.error || rolAdministradorResult.error || rolMaestroPtmResult.error || contactosResult.error || maestrosResult.error) {
+      console.error("Error en consultas paralelas:", rolDirectorResult.error || rolAdministradorResult.error || rolMaestroPtmResult.error || contactosResult.error || maestrosResult.error);
       throw new Error('Error al verificar los roles del usuario.');
     }
 
     const rolDirector = rolDirectorResult.data;
     const rolAdministrador = rolAdministradorResult.data;
-    const rolMaestroPtm = rolMaestroPtmResult.data; // <-- AÑADIDO
-    const contacto = contactoResult.data;
-    const maestro = maestroResult.data;
-    
-    // --- LÓGICA DE DECISIÓN (Ahora con los datos ya cargados) ---
+    const rolMaestroPtm = rolMaestroPtmResult.data;
 
-    // Prioridad 1: ¿Es Director?
-    if (rolDirector) {
-      const token = jwt.sign({ cedula, rol: 'Director', servidorId }, secret, { expiresIn: '8h' });
-      const res = NextResponse.json({ redirect: '/panel' });
-      res.cookies.set(isProd ? '__Host-session' : 'session', token, { httpOnly: true, secure: isProd, sameSite: 'lax', path: '/', maxAge: 60 * 60 * 8 });
-      return res;
-    }
+    // Arrays de asignaciones (declarados UNA SOLA VEZ al inicio)
+    const contactos = contactosResult.data || [];
+    const maestros = maestrosResult.data || [];
+    const logistica = logisticaResult.data || [];
 
-    // Prioridad 2: ¿Es Administrador?
-    if (rolAdministrador) {
-      const token = jwt.sign({ cedula, rol: 'Administrador', servidorId }, secret, { expiresIn: '8h' });
-      const res = NextResponse.json({ redirect: '/admin' }); // Redirige a /admin
-      res.cookies.set(isProd ? '__Host-session' : 'session', token, { httpOnly: true, secure: isProd, sameSite: 'lax', path: '/', maxAge: 60 * 60 * 8 });
-      return res;
-    }
+    // --- LÓGICA DE DECISIÓN ---
 
-    // --- AÑADIDO ---
-    // Prioridad 3: ¿Es Maestro Ptm?
+    // Contar roles administrativos
+    const rolesAdmin = [rolDirector, rolAdministrador].filter(Boolean).length;
+
+    // Prioridad 1: ¿Es Estudiante? (tiene precedencia sobre todo)
     if (rolMaestroPtm) {
       const token = jwt.sign({ cedula, rol: 'Maestro Ptm', servidorId }, secret, { expiresIn: '8h' });
-      // Redirige al formulario de estudiante
-      const res = NextResponse.json({ redirect: '/restauracion/estudiante' }); 
+      const res = NextResponse.json({ redirect: '/restauracion/estudiante' });
       res.cookies.set(isProd ? '__Host-session' : 'session', token, { httpOnly: true, secure: isProd, sameSite: 'lax', path: '/', maxAge: 60 * 60 * 8 });
       return res;
     }
-    // --- FIN AÑADIDO ---
 
-    // Prioridad 4: ¿Es Contacto o Maestro (regular)?
-    if (contacto || maestro) {
-      const rolOperativo: 'contacto' | 'maestro' = contacto ? 'contacto' : 'maestro';
-      const asignacion = contacto || maestro;
-      const redirect = rolOperativo === 'contacto' ? '/login/contactos1' : '/login/maestros';
+    // Prioridad 2: Roles Administrativos (Director / Administrador)
+    if (rolesAdmin > 0) {
+      const totalAsignaciones = contactos.length + maestros.length + logistica.length;
+
+      // Si tiene múltiples roles administrativos O roles admin + roles operativos, va al portal
+      if (rolesAdmin > 1 || (rolesAdmin > 0 && totalAsignaciones > 0)) {
+        const token = jwt.sign({ cedula, roles: ['portal'], servidorId }, secret, { expiresIn: '8h' });
+        const res = NextResponse.json({ redirect: '/login/portal' });
+        res.cookies.set(isProd ? '__Host-session' : 'session', token, { httpOnly: true, secure: isProd, sameSite: 'lax', path: '/', maxAge: 60 * 60 * 8 });
+        return res;
+      }
+
+      // Si solo tiene UN rol administrativo (y ningún operativo), redirige directo
+      if (rolDirector) {
+        const token = jwt.sign({ cedula, rol: 'Director', servidorId }, secret, { expiresIn: '8h' });
+        const res = NextResponse.json({ redirect: '/panel' });
+        res.cookies.set(isProd ? '__Host-session' : 'session', token, { httpOnly: true, secure: isProd, sameSite: 'lax', path: '/', maxAge: 60 * 60 * 8 });
+        return res;
+      }
+
+      if (rolAdministrador) {
+        const token = jwt.sign({ cedula, rol: 'Administrador', servidorId }, secret, { expiresIn: '8h' });
+        const res = NextResponse.json({ redirect: '/admin' });
+        res.cookies.set(isProd ? '__Host-session' : 'session', token, { httpOnly: true, secure: isProd, sameSite: 'lax', path: '/', maxAge: 60 * 60 * 8 });
+        return res;
+      }
+    }
+
+    // Prioridad 3: Roles Operativos (Timoteo, Coordinador, Logística)
+    // Contamos el TOTAL de asignaciones individuales
+    const totalAsignaciones = contactos.length + maestros.length + logistica.length;
+
+    if (totalAsignaciones > 0) {
+      // Si tiene MÁS de una asignación (total > 1), enviamos al PORTAL
+      if (totalAsignaciones > 1) {
+        // En el token indicamos genéricamente que tiene roles, el portal se encarga del detalle
+        const token = jwt.sign({ cedula, roles: ['portal'], servidorId }, secret, { expiresIn: '8h' });
+        const res = NextResponse.json({ redirect: '/login/portal' });
+        res.cookies.set(isProd ? '__Host-session' : 'session', token, { httpOnly: true, secure: isProd, sameSite: 'lax', path: '/', maxAge: 60 * 60 * 8 });
+        return res;
+      }
+
+      // Si tiene SOLO UNA asignación exacta, redirigimos directo
+      let redirect = '';
+      let rolName = '';
+      let extraData = {};
+
+      if (contactos.length === 1) {
+        rolName = 'contacto';
+        redirect = '/login/contactos1';
+        extraData = { etapa: contactos[0].etapa, dia: contactos[0].dia };
+      } else if (maestros.length === 1) {
+        rolName = 'maestro';
+        redirect = '/login/maestros';
+        extraData = { etapa: maestros[0].etapa, dia: maestros[0].dia };
+      } else if (logistica.length === 1) {
+        rolName = 'logistica';
+        redirect = '/login/logistica';
+        extraData = { dia: logistica[0].dia };
+      }
 
       const tokenPayload = {
         cedula,
-        rol: rolOperativo,
+        rol: rolName,
         servidorId,
-        etapa: asignacion!.etapa ?? null,
-        dia: asignacion!.dia ?? null,
-        ...(rolOperativo === 'contacto' && { semana: contacto!.semana ?? null }),
+        ...extraData
       };
 
       const token = jwt.sign(tokenPayload, secret, { expiresIn: '8h' });

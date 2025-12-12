@@ -13,43 +13,43 @@
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
-import { 
-  Server, Search, Check, UserCheck, Loader2, List, Save, Trash2, X, 
-  ChevronDown, AlertTriangle, Calendar, Layers, User, ShieldAlert, 
-  ChevronLeft, ChevronRight, Filter 
+import {
+    Server, Search, Check, UserCheck, Loader2, List, Save, Trash2, X,
+    ChevronDown, AlertTriangle, Calendar, Layers, User, ShieldAlert,
+    ChevronLeft, ChevronRight, Filter, BookOpen
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 // --- 1. SISTEMA DE DISEÑO (Constantes Visuales) ---
 const S = {
-  // Superficies
-  GLASS_PANEL: "bg-white/40 backdrop-blur-xl border border-white/60 shadow-xl rounded-3xl",
+    // Superficies
+    GLASS_PANEL: "bg-white/40 backdrop-blur-xl border border-white/60 shadow-xl rounded-3xl",
     GLASS_INPUT: "w-full bg-white/30 backdrop-blur-md border border-white/50 focus:bg-white/60 focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 text-gray-800 placeholder-gray-500 rounded-xl px-4 py-3 transition-all duration-200 shadow-inner",
     GLASS_INPUT_COMPACT: "w-full bg-white/30 backdrop-blur-md border border-white/50 focus:bg-white/60 focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 text-gray-800 placeholder-gray-500 rounded-lg px-3 py-1.5 text-sm transition-all duration-200 shadow-inner",
-  GLASS_CARD: "bg-gradient-to-br from-white/60 to-white/20 backdrop-blur-lg border border-white/40 shadow-lg rounded-2xl hover:shadow-xl transition-all duration-300",
-  
+    GLASS_CARD: "bg-gradient-to-br from-white/60 to-white/20 backdrop-blur-lg border border-white/40 shadow-lg rounded-2xl hover:shadow-xl transition-all duration-300",
+
     // Tipografía
     LABEL: "block text-xs font-bold text-indigo-900/60 uppercase tracking-wider mb-2 ml-1",
     TITLE: "text-lg font-bold text-gray-900 tracking-tight",
     SUBTITLE: "text-sm text-gray-500 font-medium",
 
-  // Botones
+    // Botones
     BTN_PRIMARY: "bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-500/30 px-6 py-3 rounded-xl font-bold transition-all active:scale-95 flex items-center gap-2 justify-center disabled:opacity-70 disabled:cursor-not-allowed",
     BTN_PRIMARY_COMPACT: "bg-indigo-600 hover:bg-indigo-700 text-white shadow-md shadow-indigo-500/20 px-3 py-1.5 rounded-lg font-bold text-sm transition-all active:scale-95 flex items-center gap-2 justify-center disabled:opacity-70 disabled:cursor-not-allowed",
     BTN_SECONDARY: "bg-white/50 hover:bg-white/80 text-gray-700 border border-white/60 shadow-sm px-6 py-3 rounded-xl font-bold transition-all active:scale-95 flex items-center gap-2 justify-center",
     BTN_SECONDARY_COMPACT: "bg-white/50 hover:bg-white/80 text-gray-700 border border-white/60 shadow-sm px-3 py-1.5 rounded-lg text-sm font-bold transition-all active:scale-95 flex items-center gap-2 justify-center",
     BTN_DANGER: "bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 px-6 py-3 rounded-xl font-bold transition-all active:scale-95 flex items-center gap-2",
     BTN_DANGER_COMPACT: "bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 px-3 py-1.5 rounded-lg text-sm font-bold transition-all active:scale-95 flex items-center gap-2",
-  
-  // Estados
-  ERROR_RING: "ring-2 ring-rose-500/50 border-rose-400 bg-rose-50/30",
-  
-  // Animaciones
-  ANIM_MODAL: {
-    hidden: { opacity: 0, scale: 0.95, y: 20 },
-    visible: { opacity: 1, scale: 1, y: 0, transition: { type: "spring", duration: 0.4, bounce: 0.3 } },
-    exit: { opacity: 0, scale: 0.95, y: 20, transition: { duration: 0.2 } }
-  }
+
+    // Estados
+    ERROR_RING: "ring-2 ring-rose-500/50 border-rose-400 bg-rose-50/30",
+
+    // Animaciones
+    ANIM_MODAL: {
+        hidden: { opacity: 0, scale: 0.95, y: 20 },
+        visible: { opacity: 1, scale: 1, y: 0, transition: { type: "spring", duration: 0.4, bounce: 0.3 } },
+        exit: { opacity: 0, scale: 0.95, y: 20, transition: { duration: 0.2 } }
+    }
 };
 
 // --- 2. TIPOS ---
@@ -59,16 +59,16 @@ type DiaKey = 'DOMINGO' | 'MIÉRCOLES' | 'VIERNES' | 'SÁBADO';
 type CultosMap = { [key in DiaKey]: string };
 type FormState = { nombre: string; telefono: string; cedula: string; rol: string; destino: string[]; cultoSeleccionado: string; observaciones: string; cultos: CultosMap; };
 
-type ServidorRow = { 
-    id: string; 
-    cedula: string; 
-    nombre: string; 
-    telefono: string | null; 
-    email?: string | null; 
-    activo: boolean; 
-    servidores_roles?: { rol: string; vigente: boolean }[]; 
-    asignaciones_contacto?: any[]; 
-    asignaciones_maestro?: any[]; 
+type ServidorRow = {
+    id: string;
+    cedula: string;
+    nombre: string;
+    telefono: string | null;
+    email?: string | null;
+    activo: boolean;
+    servidores_roles?: { rol: string; vigente: boolean }[];
+    asignaciones_contacto?: any[];
+    asignaciones_maestro?: any[];
 };
 type ObservacionRow = { id?: string | number; texto?: string; created_at?: string; };
 
@@ -86,6 +86,7 @@ const ROLES_DEF = [
     { id: 'Logistica', label: 'Logística', desc: 'Servicio y orden', icon: Layers, color: 'text-orange-600', bg: 'bg-orange-50' },
     { id: 'Contactos', label: 'Timoteos', desc: 'Seguimiento y cuidado', icon: UserCheck, color: 'text-blue-600', bg: 'bg-blue-50' },
     { id: 'Maestros', label: 'Coordinadores', desc: 'Enseñanza y guia', icon: User, color: 'text-emerald-600', bg: 'bg-emerald-50' },
+    { id: 'Maestro Ptm', label: 'Maestro PTM', desc: 'Academia y Cursos', icon: BookOpen, color: 'text-indigo-600', bg: 'bg-indigo-50' },
     { id: 'Director', label: 'Director', desc: 'Liderazgo general', icon: Server, color: 'text-purple-600', bg: 'bg-purple-50' },
     { id: 'Administrador', label: 'Admin', desc: 'Control total', icon: ShieldAlert, color: 'text-slate-600', bg: 'bg-slate-50' },
 ];
@@ -136,7 +137,7 @@ export default function GestionServidores() {
     // Logica Contactos/Maestros
     const [contactosSemana, setContactosSemana] = useState('Semana 1');
     const [contactosDia, setContactosDia] = useState<AppEstudioDia | ''>('');
-    const [nivelSel, setNivelSel] = useState(''); 
+    const [nivelSel, setNivelSel] = useState('');
     // Indica desde qué botón se abrió el modal de "contactos" (timoteos|maestros|null)
     const [contactosOpenedFrom, setContactosOpenedFrom] = useState<'timoteos' | 'maestros' | null>(null);
     // Premium toast state (non-blocking)
@@ -157,7 +158,7 @@ export default function GestionServidores() {
 
     // --- HANDLERS PRINCIPALES ---
 
-    const toggleModal = (key: keyof typeof modalState, val: boolean) => setModalState(prev => ({...prev, [key]: val}));
+    const toggleModal = (key: keyof typeof modalState, val: boolean) => setModalState(prev => ({ ...prev, [key]: val }));
 
     const resetForm = () => {
         setForm({ nombre: '', telefono: '', cedula: '', rol: '', destino: [], cultoSeleccionado: '', observaciones: '', cultos: defaultCultos() });
@@ -190,21 +191,22 @@ export default function GestionServidores() {
             await Promise.all([
                 supabase.from('asignaciones_contacto').update({ vigente: false }).eq('servidor_id', sid),
                 supabase.from('asignaciones_maestro').update({ vigente: false }).eq('servidor_id', sid),
-                supabase.from('asignaciones_logistica').update({ vigente: false }).eq('servidor_id', sid)
+                supabase.from('asignaciones_logistica').update({ vigente: false }).eq('servidor_id', sid),
+                supabase.from('asignaciones_academia').update({ vigente: false }).eq('servidor_id', sid)
             ]);
 
             // Nueva Asignación
             if (rolEs(form.rol, 'Contactos')) {
-                await supabase.rpc('fn_asignar_contactos', { 
-                    p_cedula: trim(form.cedula), p_etapa: toEtapaDetFromUi(nivelSel), p_dia: contactosDia, p_semana: parseInt(contactosSemana.replace(/\D/g,'')) 
+                await supabase.rpc('fn_asignar_contactos', {
+                    p_cedula: trim(form.cedula), p_etapa: toEtapaDetFromUi(nivelSel), p_dia: contactosDia, p_semana: parseInt(contactosSemana.replace(/\D/g, ''))
                 });
             } else if (rolEs(form.rol, 'Maestros')) {
-                 await supabase.rpc('fn_asignar_maestro', { 
-                    p_cedula: trim(form.cedula), p_etapa: toEtapaDetFromUi(nivelSel), p_dia: contactosDia 
+                await supabase.rpc('fn_asignar_maestro', {
+                    p_cedula: trim(form.cedula), p_etapa: toEtapaDetFromUi(nivelSel), p_dia: contactosDia
                 });
             } else if (rolEs(form.rol, 'Logistica')) {
-                 const [dia, franja] = form.cultoSeleccionado.split(' - ');
-                 await supabase.rpc('fn_asignar_logistica', { p_cedula: trim(form.cedula), p_dia: dia, p_franja: franja });
+                const [dia, franja] = form.cultoSeleccionado.split(' - ');
+                await supabase.rpc('fn_asignar_logistica', { p_cedula: trim(form.cedula), p_dia: dia, p_franja: franja });
             }
 
             await supabase.from('servidores_roles').upsert({ servidor_id: sid, rol: form.rol, vigente: true }, { onConflict: 'servidor_id' });
@@ -233,6 +235,7 @@ export default function GestionServidores() {
                 supabase.from('asignaciones_contacto').update({ vigente: false }).eq('servidor_id', sid),
                 supabase.from('asignaciones_maestro').update({ vigente: false }).eq('servidor_id', sid),
                 supabase.from('asignaciones_logistica').update({ vigente: false }).eq('servidor_id', sid),
+                supabase.from('asignaciones_academia').update({ vigente: false }).eq('servidor_id', sid),
                 supabase.from('servidores_roles').update({ vigente: false }).eq('servidor_id', sid),
                 supabase.from('servidores').update({ activo: false }).eq('id', sid),
             ]);
@@ -274,7 +277,7 @@ export default function GestionServidores() {
 
     const handleBuscar = async () => {
         if (q.length < MIN_SEARCH) return;
-        
+
         // JOIN con servidores_roles
         const { data } = await supabase.from('servidores')
             .select(`
@@ -337,35 +340,35 @@ export default function GestionServidores() {
                 </div>
                 {/* Fondo Decorativo */}
                 <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl -z-10 pointer-events-none" />
-                
+
                 <form onSubmit={e => e.preventDefault()} className="space-y-6">
                     {/* Sección Datos Personales */}
                     <div>
                         <div className="flex items-center gap-2 mb-4">
-                            <User className="text-indigo-600" size={20}/>
+                            <User className="text-indigo-600" size={20} />
                             <h3 className="text-lg font-bold text-gray-800">Información Personal</h3>
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                             <div>
-                                <input aria-label="Nombre Completo" ref={inputNombreRef} value={form.nombre} onChange={e => setForm({...form, nombre: e.target.value})} className={`${S.GLASS_INPUT} ${errores.nombre ? S.ERROR_RING : ''}`} placeholder="Nombre completo" />
+                                <input aria-label="Nombre Completo" ref={inputNombreRef} value={form.nombre} onChange={e => setForm({ ...form, nombre: e.target.value })} className={`${S.GLASS_INPUT} ${errores.nombre ? S.ERROR_RING : ''}`} placeholder="Nombre completo" />
                                 {errores.nombre && <span className="text-xs text-rose-500 mt-1 ml-1 font-bold">{errores.nombre}</span>}
                             </div>
                             <div>
-                                <input aria-label="Teléfono / Celular" value={form.telefono} onChange={e => setForm({...form, telefono: e.target.value})} className={S.GLASS_INPUT} placeholder="Teléfono / Celular" />
+                                <input aria-label="Teléfono / Celular" value={form.telefono} onChange={e => setForm({ ...form, telefono: e.target.value })} className={S.GLASS_INPUT} placeholder="Teléfono / Celular" />
                             </div>
                             <div className="relative">
-                                
+
                                 <div className="relative">
-                                    <input 
-                                        value={form.cedula} 
-                                        onChange={e => setForm({...form, cedula: e.target.value})} 
+                                    <input
+                                        value={form.cedula}
+                                        onChange={e => setForm({ ...form, cedula: e.target.value })}
                                         readOnly={editMode && !cedulaUnlocked}
                                         onClick={() => editMode && !cedulaUnlocked && toggleModal('admin', true)}
-                                        className={`${S.GLASS_INPUT} ${editMode && !cedulaUnlocked ? 'opacity-60 cursor-not-allowed' : ''} ${errores.cedula ? S.ERROR_RING : ''}`} 
+                                        className={`${S.GLASS_INPUT} ${editMode && !cedulaUnlocked ? 'opacity-60 cursor-not-allowed' : ''} ${errores.cedula ? S.ERROR_RING : ''}`}
                                         aria-label="Cédula de Ciudadanía"
-                                        placeholder="Cédula de ciudadanía" 
+                                        placeholder="Cédula de ciudadanía"
                                     />
-                                    {editMode && !cedulaUnlocked && <span className="absolute right-4 top-3 text-gray-400"><ShieldAlert size={18}/></span>}
+                                    {editMode && !cedulaUnlocked && <span className="absolute right-4 top-3 text-gray-400"><ShieldAlert size={18} /></span>}
                                 </div>
                             </div>
                         </div>
@@ -376,11 +379,11 @@ export default function GestionServidores() {
                     {/* Sección Roles (Botones Simplificados) */}
                     <div>
                         <div className="flex items-center gap-2 mb-4">
-                            <Layers className="text-indigo-600" size={20}/>
+                            <Layers className="text-indigo-600" size={20} />
                             <h3 className="text-lg font-bold text-gray-800">Asignación de Rol</h3>
                         </div>
-                        {errores.rol && <div className="mb-4 p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 text-sm font-bold flex items-center gap-2"><AlertTriangle size={16}/> Selecciona un rol para continuar</div>}
-                        
+                        {errores.rol && <div className="mb-4 p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 text-sm font-bold flex items-center gap-2"><AlertTriangle size={16} /> Selecciona un rol para continuar</div>}
+
                         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
                             {ROLES_DEF.map((role) => {
                                 const isSelected = rolEs(form.rol, role.id);
@@ -388,19 +391,19 @@ export default function GestionServidores() {
                                     <button
                                         key={role.id}
                                         onClick={() => {
-                                            if (role.id === 'Timoteo') { 
+                                            if (role.id === 'Timoteo') {
                                                 toggleModal('timoteo', true);
                                                 setContactosOpenedFrom(null);
                                             } else if (role.id === 'Contactos') {
-                                                setForm(f => ({...f, rol: role.id})); 
+                                                setForm(f => ({ ...f, rol: role.id }));
                                                 setContactosOpenedFrom('timoteos');
-                                                toggleModal('contactos', true); 
+                                                toggleModal('contactos', true);
                                             } else if (role.id === 'Maestros') {
-                                                setForm(f => ({...f, rol: role.id})); 
+                                                setForm(f => ({ ...f, rol: role.id }));
                                                 setContactosOpenedFrom('maestros');
-                                                toggleModal('contactos', true); 
+                                                toggleModal('contactos', true);
                                             } else {
-                                                setForm(f => ({...f, rol: role.id}));
+                                                setForm(f => ({ ...f, rol: role.id }));
                                                 setContactosOpenedFrom(null);
                                             }
                                         }}
@@ -411,9 +414,9 @@ export default function GestionServidores() {
                                             <role.icon size={18} />
                                         </div>
                                         <span className={`font-bold text-sm ${isSelected ? 'text-gray-900' : 'text-gray-600'}`}>{role.label}</span>
-                                        
+
                                         {/* Indicador minimalista */}
-                                        {isSelected && <div className="absolute top-2 right-2 w-2 h-2 bg-indigo-500 rounded-full animate-pulse"/>}
+                                        {isSelected && <div className="absolute top-2 right-2 w-2 h-2 bg-indigo-500 rounded-full animate-pulse" />}
                                     </button>
                                 );
                             })}
@@ -425,20 +428,20 @@ export default function GestionServidores() {
                         {rolEs(form.rol, 'Logistica') && (
                             <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
                                 <div className="p-6 bg-orange-50/50 border border-orange-100 rounded-2xl">
-                                    <h4 className="text-orange-800 font-bold mb-4 flex items-center gap-2"><Calendar size={18}/> Turnos de Servicio</h4>
+                                    <h4 className="text-orange-800 font-bold mb-4 flex items-center gap-2"><Calendar size={18} /> Turnos de Servicio</h4>
                                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                                         {Object.keys(cultosOpciones).map((dia) => (
                                             <div key={dia} className="space-y-2">
                                                 <span className="text-xs font-bold text-orange-700/70 uppercase">{dia}</span>
                                                 <div className="relative">
-                                                    <select 
+                                                    <select
                                                         className="w-full appearance-none bg-white border border-orange-200 text-gray-700 rounded-xl px-4 py-2 focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                                                        onChange={e => setForm(f => ({...f, cultoSeleccionado: `${dia} - ${e.target.value}`}))}
+                                                        onChange={e => setForm(f => ({ ...f, cultoSeleccionado: `${dia} - ${e.target.value}` }))}
                                                     >
                                                         <option value="">Seleccionar Horario...</option>
                                                         {cultosOpciones[dia as DiaKey].map(op => <option key={op} value={op}>{op}</option>)}
                                                     </select>
-                                                    <ChevronDown className="absolute right-3 top-2.5 text-orange-400 pointer-events-none" size={16}/>
+                                                    <ChevronDown className="absolute right-3 top-2.5 text-orange-400 pointer-events-none" size={16} />
                                                 </div>
                                             </div>
                                         ))}
@@ -449,25 +452,25 @@ export default function GestionServidores() {
                     </AnimatePresence>
 
                     {/* Observaciones */}
-                          <div>
-                                 <label className={S.LABEL}>Notas / Observaciones</label>
-                                 <textarea 
-                                     rows={2} 
-                                     value={form.observaciones}
-                                     onChange={e => setForm({...form, observaciones: e.target.value})}
-                                     className={S.GLASS_INPUT_COMPACT + " resize-y max-h-[96px]"}
-                                     placeholder="Información adicional relevante..."
-                                 />
-                          </div>
+                    <div>
+                        <label className={S.LABEL}>Notas / Observaciones</label>
+                        <textarea
+                            rows={2}
+                            value={form.observaciones}
+                            onChange={e => setForm({ ...form, observaciones: e.target.value })}
+                            className={S.GLASS_INPUT_COMPACT + " resize-y max-h-[96px]"}
+                            placeholder="Información adicional relevante..."
+                        />
+                    </div>
 
                     {/* Botones de Acción */}
                     <div className="flex flex-col md:flex-row justify-end gap-3 pt-4 border-t border-white/40">
                         <button onClick={resetForm} className={S.BTN_SECONDARY_COMPACT}>Cancelar</button>
                         {editMode && (
-                            <button onClick={() => setModalState(prev => ({ ...prev, deleteConfirm: true }))} className={S.BTN_DANGER_COMPACT}><Trash2 size={14}/> Eliminar</button>
+                            <button onClick={() => setModalState(prev => ({ ...prev, deleteConfirm: true }))} className={S.BTN_DANGER_COMPACT}><Trash2 size={14} /> Eliminar</button>
                         )}
                         <button onClick={handleGuardar} disabled={busy} className={S.BTN_PRIMARY_COMPACT}>
-                            {busy ? <Loader2 className="animate-spin" size={16}/> : <Save size={16}/>}
+                            {busy ? <Loader2 className="animate-spin" size={16} /> : <Save size={16} />}
                             {editMode ? 'Actualizar' : 'Guardar'}
                         </button>
                     </div>
@@ -486,16 +489,16 @@ export default function GestionServidores() {
                                     <h3 className="text-lg font-bold text-gray-900">Configuración Académica</h3>
                                     <p className="text-xs text-gray-500">Detalles del rol {rolEs(form.rol, 'Maestros') ? 'Coordinador' : 'Timoteo'}</p>
                                 </div>
-                                <button onClick={() => { toggleModal('contactos', false); setContactosOpenedFrom(null); }} className="p-2 hover:bg-gray-100 rounded-full"><X size={18}/></button>
+                                <button onClick={() => { toggleModal('contactos', false); setContactosOpenedFrom(null); }} className="p-2 hover:bg-gray-100 rounded-full"><X size={18} /></button>
                             </div>
-                            
+
                             <div className="space-y-3 overflow-y-auto max-h-[80vh] pr-1">
                                 {/* Seleccion Dia */}
                                 <div className="space-y-2">
                                     <label className={S.LABEL}>Día de Servicio</label>
                                     <div className="flex flex-wrap gap-2">
                                         {['Domingo', 'Martes', 'Virtual'].map(d => (
-                                            <button key={d} onClick={() => setContactosDia(d as any)} 
+                                            <button key={d} onClick={() => setContactosDia(d as any)}
                                                 className={`px-3 py-1.5 text-sm rounded-xl border font-medium transition-all ${contactosDia === d ? 'bg-indigo-600 text-white border-indigo-600 shadow-lg shadow-indigo-500/30' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}>
                                                 {d}
                                             </button>
@@ -511,7 +514,7 @@ export default function GestionServidores() {
                                             <div key={grupo} className="bg-gray-50 p-2.5 rounded-xl border border-gray-200">
                                                 <span className="text-[10px] font-bold text-gray-500 uppercase mb-1.5 block">{grupo}</span>
                                                 <div className="flex flex-wrap gap-2">
-                                                    {[1,2,3,4].map(n => {
+                                                    {[1, 2, 3, 4].map(n => {
                                                         if (grupo === 'Restauracion' && n > 1) return null;
                                                         const val = `${grupo} ${n}`;
                                                         const isSel = nivelSel === val;
@@ -533,8 +536,8 @@ export default function GestionServidores() {
                                     <div className="space-y-2">
                                         <label className={S.LABEL}>Semana de Turno</label>
                                         <div className="flex gap-2 bg-gray-100 p-1 rounded-xl w-fit">
-                                            {[1,2,3].map(s => (
-                                                <button key={s} onClick={() => setContactosSemana(`Semana ${s}`)} 
+                                            {[1, 2, 3].map(s => (
+                                                <button key={s} onClick={() => setContactosSemana(`Semana ${s}`)}
                                                     className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${contactosSemana === `Semana ${s}` ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
                                                     Semana {s}
                                                 </button>
@@ -558,30 +561,30 @@ export default function GestionServidores() {
                     <ModalBase onClose={() => toggleModal('buscar', false)}>
                         <div className="p-4">
                             <div className="relative mb-6">
-                                <Search className="absolute left-4 top-3.5 text-gray-400" size={20}/>
-                                <input 
+                                <Search className="absolute left-4 top-3.5 text-gray-400" size={20} />
+                                <input
                                     autoFocus
                                     value={q}
-                                    onChange={e => { setQ(e.target.value); if(e.target.value.length > 1) handleBuscar(); }}
-                                    placeholder="Buscar por nombre o cédula..." 
+                                    onChange={e => { setQ(e.target.value); if (e.target.value.length > 1) handleBuscar(); }}
+                                    placeholder="Buscar por nombre o cédula..."
                                     className="w-full bg-gray-50 border border-gray-200 rounded-2xl pl-12 pr-4 py-3 text-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
                                 />
                             </div>
                             <div className="max-h-[40vh] overflow-y-auto space-y-2">
                                 {results.length === 0 && q.length > 2 && <div className="text-center text-gray-400 py-8">No se encontraron resultados</div>}
                                 {results.map(r => (
-                                    <button key={r.id} onClick={() => { 
+                                    <button key={r.id} onClick={() => {
                                         // LOGICA DE HIDRATACIÓN COMPLETA
                                         const rolActivo = r.servidores_roles?.find(sr => sr.vigente)?.rol || '';
                                         const datosContacto = r.asignaciones_contacto?.find(ac => ac.vigente);
                                         const datosMaestro = r.asignaciones_maestro?.find(am => am.vigente);
 
                                         setForm(prev => ({
-                                            ...prev, 
-                                            nombre: r.nombre, 
-                                            cedula: r.cedula, 
+                                            ...prev,
+                                            nombre: r.nombre,
+                                            cedula: r.cedula,
                                             telefono: r.telefono || '',
-                                            rol: rolActivo 
+                                            rol: rolActivo
                                         }));
 
                                         // Hidratar estados auxiliares
@@ -594,11 +597,11 @@ export default function GestionServidores() {
                                             setNivelSel(datosMaestro.etapa);
                                         }
 
-                                        setEditMode(true); 
-                                        setCedulaUnlocked(false); 
-                                        toggleModal('buscar', false); 
-                                    }} 
-                                    className="w-full text-left p-4 hover:bg-indigo-50 rounded-xl transition-colors border border-transparent hover:border-indigo-100 group">
+                                        setEditMode(true);
+                                        setCedulaUnlocked(false);
+                                        toggleModal('buscar', false);
+                                    }}
+                                        className="w-full text-left p-4 hover:bg-indigo-50 rounded-xl transition-colors border border-transparent hover:border-indigo-100 group">
                                         <div className="flex justify-between items-center">
                                             <span className="font-bold text-gray-900 group-hover:text-indigo-700">{r.nombre}</span>
                                             <div className="flex items-center gap-2">
@@ -614,7 +617,7 @@ export default function GestionServidores() {
                                             </div>
                                         </div>
                                         <div className="text-sm text-gray-500 mt-1 flex gap-3">
-                                            <span className="flex items-center gap-1"><User size={12}/> {r.cedula}</span>
+                                            <span className="flex items-center gap-1"><User size={12} /> {r.cedula}</span>
                                         </div>
                                     </button>
                                 ))}
@@ -631,7 +634,7 @@ export default function GestionServidores() {
                         <div className="flex flex-col h-[64vh]">
                             <div className="p-6 border-b flex justify-between items-center">
                                 <h3 className="text-xl font-bold text-gray-900">Directorio de Servidores</h3>
-                                <button onClick={() => toggleModal('listado', false)}><X className="text-gray-400 hover:text-gray-600"/></button>
+                                <button onClick={() => toggleModal('listado', false)}><X className="text-gray-400 hover:text-gray-600" /></button>
                             </div>
                             <div className="flex-1 overflow-auto bg-gray-50/50">
                                 <table className="w-full">
@@ -662,28 +665,28 @@ export default function GestionServidores() {
                             <div className="p-4 border-t bg-white flex justify-between items-center">
                                 <span className="text-sm text-gray-500">Total: {listTotal} registros</span>
                                 <div className="flex gap-2">
-                                    <button onClick={() => cargarListado(Math.max(1, listPage-1))} disabled={listPage===1} className="p-2 border rounded hover:bg-gray-50 disabled:opacity-50"><ChevronLeft size={16}/></button>
+                                    <button onClick={() => cargarListado(Math.max(1, listPage - 1))} disabled={listPage === 1} className="p-2 border rounded hover:bg-gray-50 disabled:opacity-50"><ChevronLeft size={16} /></button>
                                     <span className="px-4 py-2 font-mono text-sm bg-gray-100 rounded">{listPage}</span>
-                                    <button onClick={() => cargarListado(listPage+1)} disabled={listPage * 8 >= listTotal} className="p-2 border rounded hover:bg-gray-50 disabled:opacity-50"><ChevronRight size={16}/></button>
+                                    <button onClick={() => cargarListado(listPage + 1)} disabled={listPage * 8 >= listTotal} className="p-2 border rounded hover:bg-gray-50 disabled:opacity-50"><ChevronRight size={16} /></button>
                                 </div>
                             </div>
                         </div>
                     </ModalBase>
                 )}
             </AnimatePresence>
-            
+
             {/* Modal Password Admin */}
             <AnimatePresence>
                 {modalState.admin && (
                     <ModalBase onClose={() => toggleModal('admin', false)} maxWidth="max-w-sm">
                         <div className="p-8 text-center">
                             <div className="w-16 h-16 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mx-auto mb-4">
-                                <ShieldAlert size={32}/>
+                                <ShieldAlert size={32} />
                             </div>
                             <h3 className="text-lg font-bold text-gray-900 mb-2">Acceso Restringido</h3>
                             <p className="text-sm text-gray-500 mb-6">Ingresa la clave maestra para editar documentos sensibles.</p>
-                            <input 
-                                type="password" 
+                            <input
+                                type="password"
                                 autoFocus
                                 value={adminPass}
                                 onChange={e => setAdminPass(e.target.value)}
@@ -692,8 +695,8 @@ export default function GestionServidores() {
                             />
                             <div className="flex gap-3">
                                 <button onClick={() => toggleModal('admin', false)} className="flex-1 py-2 text-gray-500 font-medium hover:bg-gray-100 rounded-lg">Cancelar</button>
-                                <button 
-                                    onClick={() => { if(adminPass === ADMIN_PASSWORD) { setCedulaUnlocked(true); toggleModal('admin', false); setAdminPass(''); } else { alert('Clave incorrecta'); } }}
+                                <button
+                                    onClick={() => { if (adminPass === ADMIN_PASSWORD) { setCedulaUnlocked(true); toggleModal('admin', false); setAdminPass(''); } else { alert('Clave incorrecta'); } }}
                                     className="flex-1 py-2 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-lg shadow-lg shadow-amber-500/20"
                                 >
                                     Autorizar
@@ -752,12 +755,12 @@ export default function GestionServidores() {
 function ModalBase({ children, onClose, maxWidth = "max-w-2xl" }: { children: React.ReactNode, onClose: () => void, maxWidth?: string }) {
     return (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm" onClick={onClose}>
-            <motion.div 
-                initial={{ scale: 0.95, y: 20, opacity: 0 }} 
-                animate={{ scale: 1, y: 0, opacity: 1 }} 
-                exit={{ scale: 0.95, y: 20, opacity: 0 }} 
+            <motion.div
+                initial={{ scale: 0.95, y: 20, opacity: 0 }}
+                animate={{ scale: 1, y: 0, opacity: 1 }}
+                exit={{ scale: 0.95, y: 20, opacity: 0 }}
                 transition={{ type: "spring", duration: 0.5, bounce: 0.3 }}
-                onClick={e => e.stopPropagation()} 
+                onClick={e => e.stopPropagation()}
                 className={`w-full ${maxWidth} bg-white rounded-3xl shadow-2xl overflow-hidden`}
             >
                 {children}

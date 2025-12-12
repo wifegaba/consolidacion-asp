@@ -5,6 +5,8 @@ import MaestrosClient from "./MaestrosClient";
 import "../../panel/contactos/contactos.css";
 import "../../panel/servidores/servidores.css";
 
+import PremiumLoader from "../../components/PremiumLoader";
+
 export const dynamic = "force-dynamic";
 export const fetchCache = "force-no-store";
 
@@ -18,7 +20,7 @@ export default async function Page() {
         try {
             const payload = jwt.verify(token, process.env.JWT_SECRET) as any;
             cedula = String(payload?.cedula || '');
-        } catch {}
+        } catch { }
     }
     return (
         <Suspense fallback={<Fallback />}>
@@ -29,8 +31,6 @@ export default async function Page() {
 
 function Fallback() {
     return (
-        <main className="min-h-[100dvh] grid place-items-center">
-            <div>Cargando…</div>
-        </main>
+        <PremiumLoader fullscreen text="Cargando panel..." />
     );
 }

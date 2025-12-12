@@ -742,7 +742,17 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
       setNombre((data as any).nombre ?? '');
       setServidorId((data as any).id ?? null);
 
-      const a = (data as any).asignaciones_maestro?.find((x: AsigMaestro) => x.vigente) as AsigMaestro | undefined;
+      const allActive = (data as any).asignaciones_maestro?.filter((x: AsigMaestro) => x.vigente) || [];
+
+      // Intentar encontrar el que coincida con la URL (si existe)
+      const pEtapa = params?.get('etapa');
+      const pDia = params?.get('dia');
+
+      let a = allActive.find((x: AsigMaestro) => x.etapa === pEtapa && x.dia === pDia);
+
+      // Fallback: usar el primero vigente si no hay match en URL
+      if (!a) a = allActive[0];
+
       if (!a) {
         router.replace(`/bienvenida?cedula=${cedula}`);
         return;
@@ -757,7 +767,7 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
       setAsig(asign);
       setDia(asign.dia);
     })();
-  }, [cedula, router]);
+  }, [cedula, router, params]);
 
   const titulo = useMemo(() => asig?.etapaDet ?? '', [asig]);
 

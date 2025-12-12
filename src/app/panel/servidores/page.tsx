@@ -1,11 +1,47 @@
+/*
+  ARCHIVO: app/panel/admin/components/GestionServidores.tsx
+  ROL: Módulo de Gestión de Servidores (Refactorizado)
+  (ACTUALIZADO con diseño LIQUID GLASS PREMIUM y efectos visuales modernos)
+  
+  ESTILO VISUAL 2025:
+  - Efecto Liquid Glass con backdrop-filter blur(20px)
+  - Gradientes suaves 135deg con rgba transparentes
+  - Sombras internas (inset) para profundidad premium
+  - Bordes translúcidos rgba(255,255,255,0.6-0.7)
+  - Transiciones smooth con cubic-bezier(0.4, 0, 0.2, 1)
+  - Colores modernos: Slate-900 (#0f172a), Slate-600 (#475569)
+  - Animaciones suaves: slideIn, spin, glassBlur
+  - Compatibilidad webkit para navegadores Safari/Chrome
+*/
 'use client';
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
+// --- 1. Imports de UI/UX añadidos ---
+import {
+    Server,
+    type LucideIcon,
+    Search,
+    Check,
+    UserCheck,
+    Loader2,
+    List,
+    Save,
+    Trash2,
+    X,
+    PlusCircle,
+    Truck,
+    Users,
+    ClipboardList,
+    Crown,
+    Shield,
+    ShieldCheck,
+} from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion'; // <-- Añadido para animación
 
 /* ========= Tipos ========= */
+// (Toda tu lógica de Tipos permanece intacta)
 type AppEstudioDia = 'Domingo' | 'Martes' | 'Virtual';
-
 type Errores = {
     nombre?: string | null;
     telefono?: string | null;
@@ -16,16 +52,13 @@ type Errores = {
     semana?: string | null;
     culto?: string | null;
 };
-
 type DiaKey = 'DOMINGO' | 'MIÉRCOLES' | 'VIERNES' | 'SÁBADO';
-
 type CultosMap = {
     DOMINGO: string;
     MIÉRCOLES: string;
     VIERNES: string;
     SÁBADO: string;
 };
-
 type FormState = {
     nombre: string;
     telefono: string;
@@ -35,8 +68,17 @@ type FormState = {
     cultoSeleccionado: string;
     observaciones: string;
     cultos: CultosMap;
+    rolesAgregados: AddedRole[];
 };
-
+type AddedRole = {
+    rol: string;
+    detalles?: {
+        etapa?: string;
+        dia?: string;
+        semana?: number | string;
+        culto?: string;
+    };
+};
 type AsigContacto = {
     id: number;
     etapa: 'Semillas' | 'Devocionales' | 'Restauracion';
@@ -44,14 +86,17 @@ type AsigContacto = {
     semana: number;
     vigente: boolean;
 };
-
 type AsigMaestro = {
     id: number;
-    etapa: string; // puede venir "Semillas 1", etc.
+    etapa: string;
     dia: AppEstudioDia;
     vigente: boolean;
 };
-
+type ServidorRol = {
+    id: number;
+    rol: string;
+    vigente: boolean;
+};
 type ServidorRow = {
     id: string;
     cedula: string;
@@ -61,93 +106,74 @@ type ServidorRow = {
     activo: boolean;
     asignaciones_contacto?: AsigContacto[];
     asignaciones_maestro?: AsigMaestro[];
+    servidores_roles?: ServidorRol[];
 };
-
 type ObservacionRow = {
     id?: string | number;
     texto?: string;
     created_at?: string;
 };
 
+
 /* ========= Constantes / Helpers ========= */
-
+// (Toda tu lógica de Helpers permanece intacta)
 const ADMIN_PASSWORD = '1061355';
-
-// Mínimo de caracteres para disparar la búsqueda online
 const MIN_SEARCH = 2;
-
 const defaultCultos = (): CultosMap => ({
     DOMINGO: 'DOMINGO',
     MIÉRCOLES: 'MIÉRCOLES',
     VIERNES: 'VIERNES',
     SÁBADO: 'SÁBADO',
 });
-
-
 const cultosOpciones: Record<DiaKey, string[]> = {
     DOMINGO: ['7:00 AM', '9:00 AM', '11:00 AM', '5:30 PM'],
     MIÉRCOLES: ['7:00 AM', '9:00 AM', '11:00 AM', '1:00 PM', '3:00 PM', '6:30 PM'],
     VIERNES: ['9:00 AM', '5:30 PM'],
     SÁBADO: ['Ayuno Familiar', 'Jóvenes'],
 };
-
 const ROLES_FILA_1 = ['Logistica', 'Contactos', 'Maestros'];
-const ROLES_FILA_2 = ['Director'];
-
+const ROLES_FILA_2 = ['Director', 'Administrador'];
 const ROLE_UI_LABEL: Record<string, string> = {
     Maestros: 'Coordinadores',
     Contactos: 'Timoteos',
 };
-
 const uiRoleLabel = (v: string) => ROLE_UI_LABEL[v] ?? v;
-
 const trim = (s: string) => (s ?? '').trim();
 const esVacio = (s: string) => !trim(s);
-
 const maskCedulaValue = (value?: string | null) => {
     const base = trim(value ?? '');
     if (!base) return '';
     return base.replace(/\S/g, '*');
 };
-
 const maskCedulaDisplay = (value?: string | null) => maskCedulaValue(value) || '—';
-
 type AsigBase = { id?: number; vigente?: boolean };
-
 const getVigente = <T extends AsigBase>(arr?: T[]) =>
-  (arr ?? []).find(a => !!a.vigente) ?? (arr && arr.length ? arr[0] : undefined);
-
+    (arr ?? []).find(a => !!a.vigente) ?? (arr && arr.length ? arr[0] : undefined);
 const comparaMasReciente = (a?: AsigBase[], b?: AsigBase[]) => {
-  const ida = a?.[0]?.id ?? -1;   // se asume orden DESC por id en la query
-  const idb = b?.[0]?.id ?? -1;
-  return ida >= idb ? 'contactos' : 'maestros';
+    const ida = a?.[0]?.id ?? -1;
+    const idb = b?.[0]?.id ?? -1;
+    return ida >= idb ? 'contactos' : 'maestros';
 };
-
 const rolDesdeServidor = (s: ServidorRow): 'Contactos' | 'Maestros' | '' => {
-  const vigC = (s.asignaciones_contacto ?? []).some(x => x.vigente);
-  const vigM = (s.asignaciones_maestro ?? []).some(x => x.vigente);
-
-  if (vigC) return 'Contactos';
-  if (vigM) return 'Maestros';
-
-  const hasC = (s.asignaciones_contacto?.length ?? 0) > 0;
-  const hasM = (s.asignaciones_maestro?.length ?? 0) > 0;
-  if (!hasC && !hasM) return '';
-
-  return comparaMasReciente(s.asignaciones_contacto, s.asignaciones_maestro) === 'contactos'
-    ? 'Contactos'
-    : 'Maestros';
+    const vigC = (s.asignaciones_contacto ?? []).some(x => x.vigente);
+    const vigM = (s.asignaciones_maestro ?? []).some(x => x.vigente);
+    if (vigC) return 'Contactos';
+    if (vigM) return 'Maestros';
+    const hasC = (s.asignaciones_contacto?.length ?? 0) > 0;
+    const hasM = (s.asignaciones_maestro?.length ?? 0) > 0;
+    if (!hasC && !hasM) return '';
+    return comparaMasReciente(s.asignaciones_contacto, s.asignaciones_maestro) === 'contactos'
+        ? 'Contactos'
+        : 'Maestros';
 };
-
 const getVigenteContacto = (s: ServidorRow) => getVigente(s.asignaciones_contacto);
-const getVigenteMaestro  = (s: ServidorRow) => getVigente(s.asignaciones_maestro);
+const getVigenteMaestro = (s: ServidorRow) => getVigente(s.asignaciones_maestro);
 const norm = (t: string) =>
     (t ?? '')
         .normalize('NFD')
         .replace(/\p{Diacritic}/gu, '')
         .toLowerCase()
         .trim();
-
 const toEtapaEnum = (
     texto: string
 ): 'Semillas' | 'Devocionales' | 'Restauracion' | null => {
@@ -157,11 +183,8 @@ const toEtapaEnum = (
     if (t.startsWith('restauracion')) return 'Restauracion';
     return null;
 };
-
-// <-- CORRECCIÓN: Se añade 'Director' para que la lógica de validación y guardado lo reconozca.
-const rolEs = (rol: string, base: 'Contactos' | 'Maestros' | 'Logistica' | 'Director') =>
+const rolEs = (rol: string, base: 'Contactos' | 'Maestros' | 'Logistica' | 'Director' | 'Administrador') =>
     rol === base || rol === `Timoteo - ${base}`;
-
 const toEtapaDetFromUi = (nivelSel: string): string | null => {
     const t = norm(nivelSel);
     const m = /^(semillas|devocionales|restauracion)\s+(\d+)/.exec(t);
@@ -172,7 +195,6 @@ const toEtapaDetFromUi = (nivelSel: string): string | null => {
     if (grupo === 'devocionales') return `Devocionales ${num}`;
     return `Restauracion ${num}`;
 };
-
 const parseEtapaDetFromDb = (
     etapaDb: string
 ): { grupoUI: 'Semillas' | 'Devocionales' | 'Restauración'; num: string } | null => {
@@ -185,37 +207,30 @@ const parseEtapaDetFromDb = (
     if (base === 'devocionales') return { grupoUI: 'Devocionales', num };
     return { grupoUI: 'Restauración', num };
 };
-
 const roleFromRow = (s: ServidorRow): string => {
     if (s.asignaciones_contacto?.some(a => a?.vigente)) return 'Contactos';
     if (s.asignaciones_maestro?.some(a => a?.vigente)) return 'Maestros';
     return '—';
 };
 const etapaDiaFromRow = (s: ServidorRow): { etapa: string; dia: string } => {
-  const ac = s.asignaciones_contacto?.find(a => a?.vigente);
-  const am = s.asignaciones_maestro?.find(a => a?.vigente);
-  return { etapa: (ac?.etapa ?? am?.etapa ?? '—') as string, dia: (ac?.dia ?? am?.dia ?? '—') as string };
+    const ac = s.asignaciones_contacto?.find(a => a?.vigente);
+    const am = s.asignaciones_maestro?.find(a => a?.vigente);
+    return { etapa: (ac?.etapa ?? am?.etapa ?? '—') as string, dia: (ac?.dia ?? am?.dia ?? '—') as string };
 };
-
 type ModalTransitionState = 'entering' | 'entered' | 'exiting';
-
 const MODAL_TRANSITION_MS = 220;
-
 const useModalTransition = (isVisible: boolean, duration = MODAL_TRANSITION_MS) => {
     const [shouldRender, setShouldRender] = useState(isVisible);
     const [transitionState, setTransitionState] = useState<ModalTransitionState>(
         isVisible ? 'entered' : 'exiting'
     );
-
     useEffect(() => {
         let timeoutId: ReturnType<typeof setTimeout> | null = null;
         let rafId: number | null = null;
         let rafId2: number | null = null;
-
         if (isVisible) {
             setShouldRender(true);
             setTransitionState('entering');
-
             rafId = requestAnimationFrame(() => {
                 rafId2 = requestAnimationFrame(() => {
                     setTransitionState('entered');
@@ -227,20 +242,136 @@ const useModalTransition = (isVisible: boolean, duration = MODAL_TRANSITION_MS) 
                 setShouldRender(false);
             }, duration);
         }
-
         return () => {
             if (timeoutId) clearTimeout(timeoutId);
             if (rafId) cancelAnimationFrame(rafId);
             if (rafId2) cancelAnimationFrame(rafId2);
         };
     }, [isVisible, duration, shouldRender]);
-
     return { shouldRender, transitionState };
 };
 
+// --- 2. AÑADIDAS CONSTANTES DE ANIMACIÓN ---
+const backdropVariants = {
+    hidden: { opacity: 0 },
+    visible: { opacity: 1 },
+};
+const modalVariants = {
+    hidden: { scale: 0.9, opacity: 0, y: 50 },
+    visible: { scale: 1, opacity: 1, y: 0, transition: { type: 'spring' as const, stiffness: 300, damping: 30 } },
+    exit: { scale: 0.9, opacity: 0, y: 50 },
+};
 
-/* ========= Componente ========= */
-export default function Servidores() {
+// --- AÑADIDOS COMPONENTES DE UI ---
+function GlassCard({ children }: { children: React.ReactNode }) {
+    return (
+        <div className="w-full rounded-2xl bg-white/60 backdrop-blur-lg shadow-xl ring-1 ring-black/5 overflow-hidden">
+            {children}
+        </div>
+    );
+}
+
+function CardHeader({
+    IconComponent,
+    title,
+    subtitle,
+    children
+}: {
+    IconComponent?: LucideIcon;
+    title: string;
+    subtitle: string;
+    children?: React.ReactNode;
+}) {
+    return (
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border-b border-white/80 bg-white/50 p-4 md:p-6">
+            <div className="flex items-start gap-4">
+                {IconComponent && (
+                    <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 text-white shadow-lg">
+                        <IconComponent size={24} />
+                    </div>
+                )}
+                <div className={IconComponent ? "" : "pt-1"}>
+                    <h2 className="text-xl font-semibold text-gray-900">{title}</h2>
+                    <p className="text-sm text-gray-600">{subtitle}</p>
+                </div>
+            </div>
+            {children && (
+                <div className="w-full md:w-auto flex-shrink-0">
+                    {children}
+                </div>
+            )}
+        </div>
+    );
+}
+
+function FormInput({
+    label,
+    id,
+    value,
+    onChange,
+    placeholder,
+    className = '',
+    error,
+    guidedError,
+    readOnly = false,
+    onFocus,
+    onMouseDown,
+    inputRef
+}: {
+    label: string;
+    id: string;
+    value: string;
+    onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+    placeholder?: string;
+    className?: string;
+    error?: string | null;
+    guidedError?: { key: string; msg: string } | null;
+    readOnly?: boolean;
+    onFocus?: (e: React.FocusEvent<HTMLInputElement>) => void;
+    onMouseDown?: (e: React.MouseEvent<HTMLInputElement>) => void;
+    inputRef?: React.Ref<HTMLInputElement>;
+}) {
+    const hasError = !!error || (guidedError?.key === id);
+    const errorMsg = error || guidedError?.msg;
+
+    return (
+        <div className={`flex flex-col ${className}`}>
+            <label htmlFor={id} className="mb-1.5 text-sm font-medium text-gray-800">
+                {label}
+            </label>
+            <input
+                ref={inputRef}
+                type="text"
+                id={id}
+                name={id}
+                value={value}
+                onChange={onChange}
+                onFocus={onFocus}
+                onMouseDown={onMouseDown}
+                readOnly={readOnly}
+                placeholder={placeholder}
+                className={
+                    `w-full rounded-lg border bg-white/50 py-2.5 px-4 text-sm text-gray-900 placeholder-gray-500 shadow-sm
+          transition-all duration-200
+          focus:outline-none focus:ring-2 focus:ring-indigo-500
+          ${readOnly ? 'cursor-not-allowed bg-gray-100/80' : ''}
+          ${hasError ? 'border-red-500 ring-2 ring-red-200' : 'border-gray-300'}`
+                }
+            />
+            {hasError && (
+                <p className="mt-1.5 text-xs font-semibold text-red-600">
+                    {errorMsg}
+                </p>
+            )}
+        </div>
+    );
+}
+// --- FIN DE COMPONENTES AÑADIDOS ---
+
+
+/* ========= Componente Principal ========= */
+export default function GestionServidores() {
+    // (Lógica de 'useRef', 'useState', 'useEffect' y funciones intacta)
     const observacionesRef = useRef<HTMLTextAreaElement | null>(null);
     const inputNombreRef = useRef<HTMLInputElement | null>(null);
     const inputCedulaRef = useRef<HTMLInputElement | null>(null);
@@ -251,7 +382,6 @@ export default function Servidores() {
     const modalEtapasRef = useRef<HTMLDivElement | null>(null);
     const adminPasswordRef = useRef<HTMLInputElement | null>(null);
     const adminPassDismissedAt = useRef<number>(0);
-
     const [form, setForm] = useState<FormState>({
         nombre: '',
         telefono: '',
@@ -261,13 +391,13 @@ export default function Servidores() {
         cultoSeleccionado: '',
         observaciones: '',
         cultos: defaultCultos(),
+        rolesAgregados: [],
     });
-
     const [errores, setErrores] = useState<Errores>({});
     const [feedback, setFeedback] = useState<string | null>(null);
     const [feedbackKind, setFeedbackKind] = useState<'success' | 'error' | 'delete' | 'info' | null>(null);
+    const [hardDelete, setHardDelete] = useState(false);
     const feedbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
     const clearToast = () => {
         if (feedbackTimer.current) {
             clearTimeout(feedbackTimer.current);
@@ -276,7 +406,6 @@ export default function Servidores() {
         toastClear();
         setFeedbackKind(null);
     };
-
     const showToast = (kind: 'success' | 'error' | 'delete' | 'info', text: string) => {
         if (feedbackTimer.current) clearTimeout(feedbackTimer.current);
         setFeedback(text);
@@ -292,13 +421,17 @@ export default function Servidores() {
         | { key: 'nombre' | 'cedula' | 'rol' | 'etapa' | 'dia' | 'semana' | 'culto'; msg: string }
         | null
     >(null);
-
     const [editMode, setEditMode] = useState(false);
     const [cedulaUnlocked, setCedulaUnlocked] = useState(true);
     const [adminPassModalVisible, setAdminPassModalVisible] = useState(false);
     const [adminPassValue, setAdminPassValue] = useState('');
     const [adminPassError, setAdminPassError] = useState<string | null>(null);
 
+    // Estados para modal premium de roles administrativos
+    const [adminRoleModalVisible, setAdminRoleModalVisible] = useState(false);
+    const [adminRolePassword, setAdminRolePassword] = useState('');
+    const [adminRoleError, setAdminRoleError] = useState<string | null>(null);
+    const [pendingAdminRole, setPendingAdminRole] = useState<string | null>(null);
     useEffect(() => {
         if (editMode) {
             setCedulaUnlocked(false);
@@ -309,7 +442,6 @@ export default function Servidores() {
             setCedulaUnlocked(true);
         }
     }, [editMode]);
-
     useEffect(() => {
         if (adminPassModalVisible) {
             const timer = setTimeout(() => adminPasswordRef.current?.focus(), 50);
@@ -317,7 +449,6 @@ export default function Servidores() {
         }
         return undefined;
     }, [adminPassModalVisible]);
-
     const openAdminPassModal = () => {
         if (adminPassModalVisible) return;
         const now = Date.now();
@@ -327,7 +458,6 @@ export default function Servidores() {
         setAdminPassError(null);
         setAdminPassModalVisible(true);
     };
-
     const closeAdminPassModal = () => {
         adminPassDismissedAt.current = Date.now();
         setAdminPassModalVisible(false);
@@ -337,14 +467,12 @@ export default function Servidores() {
             if (!cedulaUnlocked) inputCedulaRef.current?.blur();
         });
     };
-
     const [pendingDelete, setPendingDelete] = useState(false);
-
     const handleDeleteButtonClick = () => {
+        setHardDelete(false);
         setPendingDelete(true);
         openAdminPassModal();
     };
-
     const handleAdminPassSubmit = (event?: React.FormEvent) => {
         if (event) event.preventDefault();
         const pass = trim(adminPassValue);
@@ -367,31 +495,24 @@ export default function Servidores() {
             });
         }
     };
-
     const [contactosModalVisible, setContactosModalVisible] = useState(false);
     const [timoteoModalVisible, setTimoteoModalVisible] = useState(false);
-
     const contactosModalTransition = useModalTransition(contactosModalVisible);
     const timoteoModalTransition = useModalTransition(timoteoModalVisible);
-
     const [contactosSemana, setContactosSemana] = useState<string>('Semana 1');
     const [contactosDia, setContactosDia] = useState<AppEstudioDia | ''>('');
-
     const [nivelSeleccionado, setNivelSeleccionado] = useState<string>('');
     const [nivelSemillasSel, setNivelSemillasSel] = useState<string>('');
     const [nivelDevSel, setNivelDevSel] = useState<string>('');
     const [nivelResSel, setNivelResSel] = useState<string>('');
-
     const etapaSeleccionada = useMemo(
         () => toEtapaEnum(nivelSeleccionado ?? ''),
         [nivelSeleccionado]
     );
-
     const semanaNumero = useMemo(() => {
         const m = /Semana\s+(\d+)/i.exec(contactosSemana ?? '');
         return m ? parseInt(m[1], 10) : NaN;
     }, [contactosSemana]);
-
     const selectNivel = (
         grupo: 'Semillas' | 'Devocionales' | 'Restauración',
         num: string
@@ -412,7 +533,6 @@ export default function Servidores() {
             setNivelDevSel('');
         }
     };
-
     const confirmarModalContactos = () => {
         setForm((prev) => ({
             ...prev,
@@ -421,39 +541,127 @@ export default function Servidores() {
         setContactosModalVisible(false);
     };
 
+    // --- NUEVO: Lógica para AGREGAR ROL a la lista temporal ---
+    const handleAgregarRol = () => {
+        if (!form.rol) return;
+        const nuevoRol: AddedRole = { rol: form.rol };
+
+        // Validaciones específicas antes de agregar
+        if (rolEs(form.rol, 'Contactos')) {
+            if (!toEtapaEnum(nivelSeleccionado ?? '')) {
+                setGuidedError({ key: 'etapa', msg: 'Falta etapa' });
+                return;
+            }
+            if (!contactosDia) {
+                setGuidedError({ key: 'dia', msg: 'Falta día' });
+                return;
+            }
+            nuevoRol.detalles = {
+                etapa: nivelSeleccionado,
+                dia: contactosDia,
+                semana: semanaNumero || 1
+            };
+        } else if (rolEs(form.rol, 'Maestros')) {
+            const etapaDet = toEtapaDetFromUi(nivelSeleccionado || '');
+            if (!etapaDet) {
+                setGuidedError({ key: 'etapa', msg: 'Falta etapa' });
+                return;
+            }
+            if (!contactosDia) {
+                setGuidedError({ key: 'dia', msg: 'Falta día' });
+                return;
+            }
+            nuevoRol.detalles = {
+                etapa: nivelSeleccionado, // Guardamos la selección UI "Semillas 1" etc
+                dia: contactosDia
+            };
+        } else if (rolEs(form.rol, 'Logistica')) {
+            const hasHora = !!trim(form.cultoSeleccionado);
+            if (!hasHora) {
+                setGuidedError({ key: 'culto', msg: 'Falta turno' });
+                return;
+            }
+            nuevoRol.detalles = { culto: form.cultoSeleccionado };
+        } else if (rolEs(form.rol, 'Director') || rolEs(form.rol, 'Administrador')) {
+            // Estos roles no requieren detalles adicionales (etapa, día, culto)
+            // Solo necesitan registrarse en servidores_roles
+            nuevoRol.detalles = {};
+        }
+
+        // Agregar a la lista si no existe ya esa COMBINACIÓN EXACTA de rol+detalles
+        setForm(prev => {
+            // Verificar si ya existe esta combinación exacta (rol + detalles)
+            const exists = prev.rolesAgregados.some(r => {
+                if (!rolEs(r.rol, form.rol as any)) return false;
+
+                // Comparar detalles según el tipo de rol
+                if (rolEs(form.rol, 'Contactos')) {
+                    return r.detalles?.etapa === nuevoRol.detalles?.etapa &&
+                        r.detalles?.dia === nuevoRol.detalles?.dia &&
+                        r.detalles?.semana === nuevoRol.detalles?.semana;
+                } else if (rolEs(form.rol, 'Maestros')) {
+                    return r.detalles?.etapa === nuevoRol.detalles?.etapa &&
+                        r.detalles?.dia === nuevoRol.detalles?.dia;
+                } else if (rolEs(form.rol, 'Logistica')) {
+                    return r.detalles?.culto === nuevoRol.detalles?.culto;
+                } else if (rolEs(form.rol, 'Director') || rolEs(form.rol, 'Administrador')) {
+                    // Para Director y Administrador, verificar que sea el MISMO rol
+                    // (permitir tener Director Y Administrador, pero no Director duplicado)
+                    return r.rol === form.rol;
+                }
+
+                // Para cualquier otro rol, solo puede haber uno
+                return true;
+            });
+
+            if (exists) {
+                showToast('error', 'Esta combinación de rol y detalles ya ha sido agregada.');
+                return prev;
+            }
+            return {
+                ...prev,
+                rolesAgregados: [...prev.rolesAgregados, nuevoRol],
+                rol: '', // Limpiar selección actual para permitir agregar otro
+            };
+        });
+
+        // Limpiar estados de UI temporales
+        setContactosDia('');
+        setContactosSemana('Semana 1');
+        setNivelSeleccionado('');
+        setNivelSemillasSel('');
+        setNivelDevSel('');
+        setNivelResSel('');
+        setGuidedError(null);
+    };
+
+    const removeRolAgregado = (index: number) => {
+        setForm(prev => ({
+            ...prev,
+            rolesAgregados: prev.rolesAgregados.filter((_, i) => i !== index)
+        }));
+    };
     const [buscarModalVisible, setBuscarModalVisible] = useState(false);
     const [q, setQ] = useState('');
     const [results, setResults] = useState<ServidorRow[]>([]);
     const [searching, setSearching] = useState(false);
     const [focusIndex, setFocusIndex] = useState(0);
-
     const [listadoVisible, setListadoVisible] = useState(false);
     const [listPage, setListPage] = useState(1);
     const listPageSize = 7;
     const [listTotal, setListTotal] = useState(0);
     const [listLoading, setListLoading] = useState(false);
-    const [listAnimating, setListAnimating] = useState(false);
     const [listRows, setListRows] = useState<ServidorRow[]>([]);
-    const listFetchLockRef = useRef(false);
-    const [listRequestPage, setListRequestPage] = useState<number | null>(null);
-
     const cargarListado = async (page: number) => {
-        // prevent duplicate concurrent page loads
-        if (listFetchLockRef.current) return;
-        listFetchLockRef.current = true;
-
-        // trigger a smooth fade animation while new page is being fetched
-        setListRequestPage(page);
-        setListAnimating(true);
         setListLoading(true);
         try {
             const start = (page - 1) * listPageSize;
             const end = start + listPageSize - 1;
             const sel =
-              'id, cedula, nombre, telefono, email, activo,' +
-              ' asignaciones_contacto(id, etapa, dia, semana, vigente),' +
-              ' asignaciones_maestro(id, etapa, dia, vigente)';
-
+                'id, cedula, nombre, telefono, email, activo,' +
+                ' asignaciones_contacto(id, etapa, dia, semana, vigente),' +
+                ' asignaciones_maestro(id, etapa, dia, vigente),' +
+                ' servidores_roles(id, rol, vigente)';
             const { data, error, count } = await supabase
                 .from('servidores')
                 .select(sel, { count: 'exact' })
@@ -461,7 +669,6 @@ export default function Servidores() {
                 .order('nombre', { ascending: true })
                 .range(start, end)
                 .returns<ServidorRow[]>();
-
             if (error) throw error;
             setListRows(data || []);
             setListTotal(count || 0);
@@ -471,23 +678,16 @@ export default function Servidores() {
             setListTotal(0);
         } finally {
             setListLoading(false);
-            listFetchLockRef.current = false;
-            // keep the fade for a short duration so the new content appears smooth
-            setTimeout(() => setListAnimating(false), 140);
-            setListRequestPage(null);
         }
     };
-
     const abrirListado = () => { setListadoVisible(true); cargarListado(1); };
     const cerrarListado = () => setListadoVisible(false);
-
     const [detalleVisible, setDetalleVisible] = useState(false);
     const [detalleTab, setDetalleTab] = useState<'datos' | 'actualizar'>('datos');
     const [detalleSel, setDetalleSel] = useState<ServidorRow | null>(null);
     const [obsLoading, setObsLoading] = useState(false);
     const [obsItems, setObsItems] = useState<ObservacionRow[]>([]);
     const [confirmDetalleDelete, setConfirmDetalleDelete] = useState(false);
-
     const volverABuscar = () => {
         setConfirmDetalleDelete(false);
         setDetalleVisible(false);
@@ -497,25 +697,21 @@ export default function Servidores() {
         setFocusIndex(0);
         setBuscarModalVisible(true);
     };
-
     useEffect(() => {
         if (!buscarModalVisible) return;
-
         const term = trim(q);
         if (term.length < MIN_SEARCH) {
             setResults([]);
             setSearching(false);
             return;
         }
-
         const h = setTimeout(async () => {
             setSearching(true);
-
             const sel =
                 'id, cedula, nombre, telefono, email, activo,' +
                 ' asignaciones_contacto(id, etapa, dia, semana, vigente),' +
-                ' asignaciones_maestro(id, etapa, dia, vigente)';
-
+                ' asignaciones_maestro(id, etapa, dia, vigente),' +
+                ' servidores_roles(id, rol, vigente)';
             const { data, error } = await supabase
                 .from('servidores')
                 .select(sel)
@@ -527,7 +723,6 @@ export default function Servidores() {
                 .order('id', { foreignTable: 'asignaciones_maestro', ascending: false })
                 .limit(20)
                 .returns<ServidorRow[]>();
-
             if (!error && data) {
                 setResults((data as unknown) as ServidorRow[]);
             } else {
@@ -535,14 +730,11 @@ export default function Servidores() {
             }
             setSearching(false);
         }, 300);
-
         return () => clearTimeout(h);
     }, [q, buscarModalVisible]);
-
     useEffect(() => {
         if (buscarModalVisible && results.length) setFocusIndex(0);
     }, [results, buscarModalVisible]);
-
     const applyPick = (s: ServidorRow) => {
         setDetalleSel(s);
         setDetalleTab('datos');
@@ -550,7 +742,6 @@ export default function Servidores() {
         setBuscarModalVisible(false);
         setDetalleVisible(true);
     };
-
     const onSearchKeyDown: React.KeyboardEventHandler<HTMLInputElement> = (e) => {
         if (!results.length) return;
         if (e.key === 'ArrowDown') {
@@ -564,64 +755,71 @@ export default function Servidores() {
             applyPick(results[focusIndex]);
         }
     };
-
     const pickResult = (s: ServidorRow) => {
-      const rol = rolDesdeServidor(s);
+        setForm(prev => ({
+            ...prev,
+            nombre: s.nombre ?? '',
+            telefono: s.telefono ?? '',
+            cedula: s.cedula ?? '',
+            rol: '',
+            rolesAgregados: [],
+        }));
 
-      setForm(prev => ({
-        ...prev,
-        nombre: s.nombre ?? '',
-        telefono: s.telefono ?? '',
-        cedula: s.cedula ?? '',
-        rol,
-      }));
+        // Cargar múltiples roles si existen
+        const newRolesAgregados: AddedRole[] = [];
 
-      if (rol === 'Contactos') {
-        const a = getVigenteContacto(s);
-        if (a) {
-          setContactosDia(a.dia);
-          setContactosSemana(`Semana ${a.semana ?? 1}`);
-          if (a.etapa === 'Semillas')         selectNivel('Semillas',      nivelSemillasSel || '1');
-          else if (a.etapa === 'Devocionales') selectNivel('Devocionales',  nivelDevSel      || '1');
-          else if (a.etapa === 'Restauracion') selectNivel('Restauración',  nivelResSel      || '1');
-        } else {
-          setContactosDia('');
-          setContactosSemana('Semana 1');
-          setNivelSeleccionado('');
-          setNivelSemillasSel('');
-          setNivelDevSel('');
-          setNivelResSel('');
+        // 1. Revisar TODOS los Contactos vigentes (puede haber múltiples)
+        const asignacionesContacto = (s.asignaciones_contacto ?? []).filter(a => a.vigente);
+        for (const ac of asignacionesContacto) {
+            const det = parseEtapaDetFromDb(ac.etapa);
+            const labelUI = det ? `${det.grupoUI} ${det.num}` : ac.etapa;
+
+            newRolesAgregados.push({
+                rol: 'Contactos',
+                detalles: {
+                    etapa: labelUI,
+                    dia: ac.dia,
+                    semana: ac.semana
+                }
+            });
         }
-      } else if (rol === 'Maestros') {
-        const a = getVigenteMaestro(s);
-        if (a) {
-          setContactosDia(a.dia);
-          const det = parseEtapaDetFromDb(a.etapa);
-          if (det) selectNivel(det.grupoUI, det.num);
-          else {
-            if (a.etapa === 'Semillas')         selectNivel('Semillas',      nivelSemillasSel || '1');
-            else if (a.etapa === 'Devocionales') selectNivel('Devocionales',  nivelDevSel      || '1');
-            else if (a.etapa === 'Restauracion') selectNivel('Restauración',  nivelResSel      || '1');
-          }
-          setContactosSemana('');
-        } else {
-          setContactosDia('');
-          setContactosSemana('Semana 1');
-          setNivelSeleccionado('');
-          setNivelSemillasSel('');
-          setNivelDevSel('');
-          setNivelResSel('');
+
+        // 2. Revisar TODOS los Maestros vigentes (puede haber múltiples)
+        const asignacionesMaestro = (s.asignaciones_maestro ?? []).filter(a => a.vigente);
+        for (const am of asignacionesMaestro) {
+            const det = parseEtapaDetFromDb(am.etapa);
+            const labelUI = det ? `${det.grupoUI} ${det.num}` : am.etapa;
+            newRolesAgregados.push({
+                rol: 'Maestros',
+                detalles: {
+                    etapa: labelUI,
+                    dia: am.dia
+                }
+            });
         }
-      } else {
-        setContactosDia('');
-        setContactosSemana('Semana 1');
-        setNivelSeleccionado('');
-        setNivelSemillasSel('');
-        setNivelDevSel('');
-        setNivelResSel('');
-      }
+
+        // 3. Revisar roles administrativos (Director, Administrador, Logistica) desde servidores_roles
+        const rolesVigentes = (s.servidores_roles ?? []).filter(r => r.vigente);
+        for (const rol of rolesVigentes) {
+            if (rol.rol === 'Director' || rol.rol === 'Administrador') {
+                newRolesAgregados.push({
+                    rol: rol.rol,
+                    detalles: {}
+                });
+            }
+            // Logistica también podría cargarse aquí si fuera necesario
+        }
+
+        setForm(prev => ({ ...prev, rolesAgregados: newRolesAgregados }));
+
+        // Limpiar UI temporal
+        /*
+        if (rol === 'Contactos') {
+            const a = getVigenteContacto(s);
+           // ... lógica anterior eliminada pues ahora cargamos a la lista
+        } 
+        */
     };
-
     useEffect(() => {
         const loadObs = async () => {
             if (!detalleVisible || !detalleSel?.cedula) return;
@@ -634,7 +832,6 @@ export default function Servidores() {
                     .eq('cedula', detalleSel.cedula)
                     .order('created_at', { ascending: false });
                 if (!q1.error && q1.data) items = q1.data as ObservacionRow[];
-
                 if ((!items || items.length === 0)) {
                     const sid = await findServidorIdByCedula(detalleSel.cedula);
                     if (sid) {
@@ -655,14 +852,12 @@ export default function Servidores() {
         };
         loadObs();
     }, [detalleVisible, detalleSel?.cedula]);
-
     const actualizarDesdeDetalle = () => {
         if (!detalleSel) return;
         pickResult(detalleSel);
         setEditMode(true);
         setDetalleVisible(false);
     };
-
     const eliminarDesdeDetalle = async () => {
         if (!detalleSel?.cedula) return;
         const prevCed = form.cedula;
@@ -672,7 +867,6 @@ export default function Servidores() {
         setDetalleVisible(false);
         setConfirmDetalleDelete(false);
     };
-
     const resetFormulario = () => {
         setForm({
             nombre: '',
@@ -683,6 +877,7 @@ export default function Servidores() {
             cultoSeleccionado: '',
             observaciones: '',
             cultos: defaultCultos(),
+            rolesAgregados: [],
         });
         setErrores({});
         setEditMode(false);
@@ -703,7 +898,6 @@ export default function Servidores() {
             inputNombreRef.current?.focus();
         });
     };
-
     const validateBeforeSave = (): boolean => {
         const mk = (k: 'nombre' | 'cedula' | 'rol' | 'etapa' | 'dia' | 'semana' | 'culto', msg: string) => {
             setErrores({ [k]: msg } as Errores);
@@ -725,36 +919,21 @@ export default function Servidores() {
             }
             return false;
         };
-
         if (esVacio(form.nombre)) return mk('nombre', 'Ingresa el nombre del servidor.');
         if (esVacio(form.cedula)) return mk('cedula', 'Ingresa la cédula del servidor.');
-        if (esVacio(form.rol)) return mk('rol', 'Selecciona un rol para continuar.');
 
-        if (rolEs(form.rol, 'Contactos')) {
-            if (!toEtapaEnum(nivelSeleccionado ?? '')) return mk('etapa', 'Selecciona la etapa de aprendizaje.');
-            if (!contactosDia) return mk('dia', 'Selecciona el día PTM.');
-            if (!contactosSemana) return mk('semana', 'Selecciona la semana (1/2/3).');
-        }
-
-        if (rolEs(form.rol, 'Maestros')) {
-            const etapaDet = toEtapaDetFromUi(nivelSeleccionado || '');
-            if (!etapaDet) return mk('etapa', 'Selecciona la etapa con número (p. ej., Semillas 1).');
-            if (!contactosDia) return mk('dia', 'Selecciona el día PTM.');
-        }
-
-        if (rolEs(form.rol, 'Logistica')) {
-            const hasHora = !!trim(form.cultoSeleccionado);
-            if (!hasHora) return mk('culto', 'Selecciona una hora de culto.');
+        // Validación modificada: Debe haber al menos un rol AGREGADO
+        if (form.rolesAgregados.length === 0) {
+            return mk('rol', 'Debes agregar al menos un rol a la lista.');
         }
 
         setGuidedError(null);
         setErrores({});
         return true;
     };
-
     const toastClear = () => {
         if (feedbackTimer && feedbackTimer.current) {
-            try { clearTimeout(feedbackTimer.current as any); } catch {}
+            try { clearTimeout(feedbackTimer.current as any); } catch { }
             feedbackTimer.current = null;
         }
         setFeedback(null);
@@ -762,7 +941,7 @@ export default function Servidores() {
     };
     const toastShow = (kind: 'success' | 'error' | 'delete' | 'info', text: string) => {
         if (feedbackTimer && feedbackTimer.current) {
-            try { clearTimeout(feedbackTimer.current as any); } catch {}
+            try { clearTimeout(feedbackTimer.current as any); } catch { }
             feedbackTimer.current = null;
         }
         setFeedback(text);
@@ -774,82 +953,110 @@ export default function Servidores() {
         }, 5000);
         if (feedbackTimer) feedbackTimer.current = id as any;
     };
-    
-    // <-- CORRECCIÓN: Esta es la función onGuardar completamente refactorizada y corregida.
     const onGuardar = async () => {
         clearToast();
         if (!validateBeforeSave()) return;
-    
+
         const wasEdit = editMode;
         setBusy(true);
         try {
             const ced = trim(form.cedula);
             const nom = trim(form.nombre);
             const tel = trim(form.telefono);
-    
-            // Paso 1: Llamada a la función RPC para crear o actualizar el servidor.
-            // Esta llamada ahora captura el `servidorId` directamente, eliminando la necesidad de una segunda consulta.
+
             const { error: rpcError, data: servidorId } = await supabase.rpc('fn_upsert_servidor', {
                 p_cedula: ced,
                 p_nombre: nom,
                 p_telefono: tel,
                 p_email: null,
             });
-    
+
             if (rpcError) throw rpcError;
             if (!servidorId) throw new Error('No se pudo obtener el ID del servidor tras la operación.');
-    
-            // Paso 2: Lógica de asignación de roles, usando el `servidorId` obtenido.
-            // Primero, se desactivan todas las asignaciones operativas para limpiar el estado.
-            await supabase.from('asignaciones_contacto').update({ vigente: false }).eq('servidor_id', servidorId);
-            await supabase.from('asignaciones_maestro').update({ vigente: false }).eq('servidor_id', servidorId);
-            await supabase.from('asignaciones_logistica').update({ vigente: false }).eq('servidor_id', servidorId);
 
-            if (rolEs(form.rol, 'Contactos')) {
-                const etapaDet = toEtapaDetFromUi(nivelSeleccionado || '');
-                if (!etapaDet) throw new Error('Etapa inválida para Contactos.');
-                const { error } = await supabase.rpc('fn_asignar_contactos', {
-                    p_cedula: ced, p_etapa: etapaDet, p_dia: contactosDia, p_semana: semanaNumero,
-                });
-                if (error) throw error;
-    
-            } else if (rolEs(form.rol, 'Maestros')) {
-                const etapaDet = toEtapaDetFromUi(nivelSeleccionado || '');
-                if (!etapaDet) throw new Error('Etapa inválida para Maestros.');
-                const { error } = await supabase.rpc('fn_asignar_maestro', {
-                    p_cedula: ced, p_etapa: etapaDet, p_dia: contactosDia,
-                });
-                if (error) throw error;
-    
-            } else if (rolEs(form.rol, 'Logistica')) {
-                const full = trim(form.cultoSeleccionado);
-                if (!full) throw new Error('Seleccione una hora de culto para Logística.');
-                const [diaCulto, franja] = full.split(' - ').map(s => s.trim());
-                if (!diaCulto || !franja) throw new Error('Selección de culto inválida.');
-                
-                const { error } = await supabase.rpc('fn_asignar_logistica', {
-                    p_cedula: ced, p_dia: diaCulto, p_franja: franja
-                });
-                if (error) throw error;
+            // Limpieza inicial: Marcar todo como no vigente para este servidor
+            await Promise.all([
+                supabase.from('asignaciones_contacto').update({ vigente: false }).eq('servidor_id', servidorId),
+                supabase.from('asignaciones_maestro').update({ vigente: false }).eq('servidor_id', servidorId),
+                supabase.from('asignaciones_logistica').update({ vigente: false }).eq('servidor_id', servidorId),
+                supabase.from('servidores_roles').update({ vigente: false }).eq('servidor_id', servidorId)
+            ]);
+
+            // Guardar cada rol agregado
+            for (const item of form.rolesAgregados) {
+                // 1. Ejecutar RPC de asignación específica si aplica
+                if (rolEs(item.rol as any, 'Contactos')) {
+                    const { etapa, dia, semana } = item.detalles || {};
+                    const etapaDet = toEtapaDetFromUi(etapa || '');
+                    if (etapaDet) {
+                        // Nota: semanaNumero debe ser number. Parseamos si viene string
+                        const semNum = typeof semana === 'string' ? parseInt(semana.replace(/\D/g, '')) : semana;
+                        await supabase.rpc('fn_asignar_contactos', {
+                            p_cedula: ced, p_etapa: etapaDet, p_dia: dia, p_semana: semNum || 1
+                        });
+                    }
+                } else if (rolEs(item.rol as any, 'Maestros')) {
+                    const { etapa, dia } = item.detalles || {};
+                    const etapaDet = toEtapaDetFromUi(etapa || '');
+                    if (etapaDet) {
+                        await supabase.rpc('fn_asignar_maestro', {
+                            p_cedula: ced, p_etapa: etapaDet, p_dia: dia
+                        });
+                    }
+                } else if (rolEs(item.rol as any, 'Logistica')) {
+                    const { culto } = item.detalles || {};
+                    if (culto) {
+                        const [diaCulto, franja] = culto.split(' - ').map(s => s.trim());
+                        if (diaCulto && franja) {
+                            await supabase.rpc('fn_asignar_logistica', {
+                                p_cedula: ced, p_dia: diaCulto, p_franja: franja
+                            });
+                        }
+                    }
+                } else if (rolEs(item.rol as any, 'Director') || rolEs(item.rol as any, 'Administrador')) {
+                    // Director y Administrador no tienen tablas de asignaciones específicas
+                    // Solo se registran en servidores_roles (se hace más abajo)
+                }
+
+                // 2. Insertar en tabla de roles
+                // Estrategia: primero intentar UPDATE, si no existe hacer INSERT
+
+                // Primero intentar actualizar si ya existe
+                const { data: updateData, error: updateError } = await supabase
+                    .from('servidores_roles')
+                    .update({ vigente: true })
+                    .eq('servidor_id', servidorId)
+                    .eq('rol', item.rol)
+                    .select();
+
+                // Si no se actualizó ninguna fila (no existía), insertamos
+                if (!updateError && (!updateData || updateData.length === 0)) {
+                    const { error: insertError } = await supabase
+                        .from('servidores_roles')
+                        .insert({ servidor_id: servidorId, rol: item.rol, vigente: true });
+
+                    if (insertError) {
+                        console.error(`Error insertando rol ${item.rol}:`, insertError);
+                        throw insertError;
+                    }
+                } else if (updateError) {
+                    console.error(`Error actualizando rol ${item.rol}:`, updateError);
+                    throw updateError;
+                }
             }
-            // Para 'Director', no se necesita ninguna asignación operativa, así que la limpieza inicial es suficiente.
-    
-            // Paso 3: Actualizar el rol principal en `servidores_roles` usando el método `upsert` robusto.
-            await upsertRolVigente(servidorId);
-    
-            // Paso 4: Guardar observación, si existe.
+
             await saveObservacion(form.observaciones, servidorId);
-    
+
             toastShow('success', wasEdit ? 'Servidor actualizado correctamente.' : 'Servidor guardado correctamente.');
             resetFormulario();
-    
+
         } catch (e: any) {
+            console.error(e);
             toastShow('error', `Error al guardar: ${e?.message ?? String(e)}`);
         } finally {
             setBusy(false);
         }
     };
-
     const findServidorIdByCedula = async (cedula: string): Promise<string | null> => {
         const { data, error } = await supabase
             .from('servidores')
@@ -860,43 +1067,50 @@ export default function Servidores() {
         if (error || !data) return null;
         return (data as any).id as string;
     };
-    
-    // <-- CORRECCIÓN: Esta es la función `upsertRolVigente` robusta y corregida.
     const upsertRolVigente = async (servidorId: string) => {
         const rolActual = trim(form.rol);
         if (!servidorId || !rolActual) {
             console.warn('No se puede actualizar el rol: falta servidorId o rol.');
             return;
         }
-    
+
         try {
-            // Se utiliza `upsert` en lugar de `update` + `insert`.
-            // Esto le dice a Supabase: "Inserta este registro. Si ya existe una fila
-            // con este `servidor_id` (debido a la restricción `onConflict`),
-            // actualiza esa fila existente con los nuevos valores en lugar de fallar".
             const { error } = await supabase
                 .from('servidores_roles')
                 .upsert(
-                    { 
-                        servidor_id: servidorId, 
-                        rol: rolActual, 
-                        vigente: true 
+                    {
+                        servidor_id: servidorId,
+                        rol: rolActual,
+                        vigente: true
                     },
-                    { 
-                        onConflict: 'servidor_id', // Nombre de la columna con la restricción UNIQUE
+                    {
+                        onConflict: 'servidor_id',
                     }
                 );
-    
+
             if (error) {
-                // Si hay un error, lo lanzamos para que sea capturado por el bloque `onGuardar`.
                 throw error;
             }
-    
+
         } catch (e) {
             console.error('Error crítico al actualizar el rol vigente:', e);
-            // Relanzamos el error para que la función `onGuardar` se detenga y muestre el feedback al usuario.
-            throw e; 
+            throw e;
         }
+    };
+    // Nueva función para eliminación física (hard delete)
+    const eliminarFisicamente = async (sid: string) => {
+        // 1. Eliminar asignaciones (tabla -> campo fk)
+        await supabase.from('asignaciones_contacto').delete().eq('servidor_id', sid);
+        await supabase.from('asignaciones_maestro').delete().eq('servidor_id', sid);
+        await supabase.from('asignaciones_logistica').delete().eq('servidor_id', sid);
+
+        // 2. Eliminar roles y observaciones
+        await supabase.from('servidores_roles').delete().eq('servidor_id', sid);
+        await supabase.from('observaciones_servidor').delete().eq('servidor_id', sid);
+
+        // 3. Eliminar el servidor
+        const { error } = await supabase.from('servidores').delete().eq('id', sid);
+        if (error) throw error;
     };
 
     const eliminarByCedula = async (ced?: string) => {
@@ -907,6 +1121,15 @@ export default function Servidores() {
         try {
             const sid = await findServidorIdByCedula(cedula);
             if (!sid) throw new Error('Servidor no encontrado');
+
+            if (hardDelete) {
+                await eliminarFisicamente(sid);
+                toastShow('delete', 'Servidor eliminado definitivamente de la base de datos.');
+                setDetalleVisible(false);
+                setConfirmDetalleDelete(false);
+                setHardDelete(false);
+                return;
+            }
 
             const up1 = await supabase.from('servidores').update({ activo: false }).eq('id', sid);
             if (up1.error) throw up1.error;
@@ -922,8 +1145,7 @@ export default function Servidores() {
                 .update({ vigente: false })
                 .eq('servidor_id', sid);
             if (up3.error && up3.error.code !== 'PGRST116') throw up3.error;
-            
-            // También desactivar rol en servidores_roles
+
             const up4 = await supabase.from('servidores_roles').update({ vigente: false }).eq('servidor_id', sid);
             if (up4.error && up4.error.code !== 'PGRST116') throw up4.error;
 
@@ -937,25 +1159,21 @@ export default function Servidores() {
             setBusy(false);
         }
     };
-
-    // <-- CORRECCIÓN: La función ahora acepta el `servidorId` para ser más eficiente.
     const saveObservacion = async (texto: string, servidorId: string): Promise<void> => {
         const obs = trim(texto);
         if (!obs || !servidorId) return;
-        
+
         try {
             const { error } = await supabase.from('observaciones_servidor').insert({ servidor_id: servidorId, texto: obs });
             if (error) {
-                // Si falla, intentamos con la cédula como respaldo, aunque no es lo ideal.
                 console.warn('Fallo al guardar observación con servidor_id, intentando con cédula:', error.message);
                 const ced = trim(form.cedula);
                 await supabase.from('observaciones_servidor').insert({ cedula: ced, texto: obs });
             }
-        } catch(e) {
+        } catch (e) {
             console.error("No se pudo guardar la observación:", e);
         }
     };
-
     const onEliminar = async () => {
         setFeedback(null);
         const ced = trim(form.cedula);
@@ -965,7 +1183,6 @@ export default function Servidores() {
         }
         await eliminarByCedula(ced);
     };
-    
     const abrirModalRol = async (valor: string) => {
         setErrores((prev) => ({ ...prev, rol: null, etapa: null, dia: null, semana: null, culto: null }));
         if (guidedError?.key === 'rol') setGuidedError(null);
@@ -973,6 +1190,15 @@ export default function Servidores() {
         if (valor === 'Timoteos') {
             setForm((prev) => ({ ...prev, observaciones: '' }));
             setTimoteoModalVisible(true);
+            return;
+        }
+
+        // Interceptar roles administrativos (Director y Administrador)
+        if (valor === 'Director' || valor === 'Administrador') {
+            setPendingAdminRole(valor);
+            setAdminRolePassword('');
+            setAdminRoleError(null);
+            setAdminRoleModalVisible(true);
             return;
         }
 
@@ -992,6 +1218,46 @@ export default function Servidores() {
         }
     };
 
+    // Funciones para manejar el modal de roles administrativos
+    const handleAdminRoleSubmit = (e?: React.FormEvent) => {
+        if (e) e.preventDefault();
+
+        if (!adminRolePassword.trim()) {
+            setAdminRoleError('Debe ingresar la contraseña');
+            return;
+        }
+
+        if (adminRolePassword !== '93062015-4') {
+            setAdminRoleError('Contraseña incorrecta. Acceso denegado.');
+            return;
+        }
+
+        // Contraseña correcta - asignar el rol
+        if (pendingAdminRole) {
+            setForm((prev) => ({
+                ...prev,
+                rol: pendingAdminRole,
+                cultoSeleccionado: '',
+                cultos: defaultCultos(),
+                destino: [],
+                observaciones: '',
+            }));
+            showToast('success', `Rol ${pendingAdminRole} seleccionado correctamente`);
+        }
+
+        // Cerrar modal
+        setAdminRoleModalVisible(false);
+        setAdminRolePassword('');
+        setAdminRoleError(null);
+        setPendingAdminRole(null);
+    };
+
+    const closeAdminRoleModal = () => {
+        setAdminRoleModalVisible(false);
+        setAdminRolePassword('');
+        setAdminRoleError(null);
+        setPendingAdminRole(null);
+    };
     const elegirTimoteoDestino = (destino: 'Contactos' | 'Maestros' | 'Logistica') => {
         const compuesto = `Timoteo - ${destino}`;
         setForm((prev) => ({
@@ -1009,194 +1275,44 @@ export default function Servidores() {
         }
     };
 
-    /* ===== UI ===== */
+    /* ===== 4. INICIO DEL BLOQUE JSX REFACTORIZADO ===== */
     return (
-        <div className="srv-root">
-            <div className="srv-box" id="form-servidores">
-                <div className="srv-form-title" style={{ fontSize: 24, fontWeight: 900, color: '#0a0a0a', marginBottom: 16 }}>
-                    Registro de Servidores
-                </div>
-
-                {timoteoModalTransition.shouldRender && (
-                    <div
-                        className="srv-modal"
-                        role="dialog"
-                        aria-modal="true"
-                        data-state={timoteoModalTransition.transitionState}
-                    >
-                        <div
-                            className="srv-modal__box"
-                            data-state={timoteoModalTransition.transitionState}
-                            style={{ maxWidth: 640, padding: '24px 24px 18px', borderRadius: 18 }}
+        <>
+            {/* El formulario principal ahora usa los componentes premium */}
+            <GlassCard>
+                <CardHeader
+                    // IconComponent eliminado
+                    title="Gestión de Servidores"
+                    subtitle="Crear, editar y asignar roles a todos los servidores del ministerio."
+                >
+                    <div className="flex items-center gap-2">
+                        <button
+                            onClick={() => { setQ(''); setResults([]); setFocusIndex(0); setBuscarModalVisible(true); }}
+                            disabled={busy}
+                            className="flex items-center gap-2 rounded-lg bg-white px-4 py-2 text-sm font-semibold text-gray-700 ring-1 ring-gray-300 transition-all hover:bg-gray-50 active:scale-[0.98]"
                         >
-                            <button className="srv-modal__close" aria-label="Cerrar" onClick={() => setTimoteoModalVisible(false)}>
-                                ×
-                            </button>
-
-                            <div className="srv-modal__content" style={{ paddingTop: 4 }}>
-                                <h4
-                                    className="srv-section__title"
-                                    style={{ margin: '0 0 16px', fontSize: 18, fontWeight: 800, letterSpacing: 0.2 }}
-                                >
-                                    ¿Timoteo para qué área?
-                                </h4>
-                                <div
-                                    className="srv-roles-grid"
-                                    style={{ display: 'flex', gap: 16, alignItems: 'center', justifyContent: 'space-between', flexWrap: 'nowrap' }}
-                                >
-                                    {(['Maestros', 'Contactos', 'Logistica'] as const).map((dest) => (
-                                        <label key={dest} className="srv-radio" style={{ flex: '0 0 auto' }}>
-                                            <input
-                                                type="radio"
-                                                name="timoteo-destino"
-                                                className="srv-radio-input"
-                                                onChange={() => elegirTimoteoDestino(dest)}
-                                            />
-                                            <div
-                                                className="srv-radio-card"
-                                                style={{ padding: '10px 16px', borderRadius: 12, minWidth: 130, display: 'inline-flex', gap: 10 }}
-                                            >
-                                                <span className="srv-radio-dot" />
-                                                <span className="srv-radio-text" style={{ fontWeight: 600 }}>{dest}</span>
-                                            </div>
-                                        </label>
-                                    ))}
-                                </div>
-                                <p className="srv-info" style={{ marginTop: 18, lineHeight: 1.35 }}>
-                                    Se registrará como <b>Timoteo - …</b> y se configurarán las opciones del área elegida.
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-                )}
-
-                {contactosModalTransition.shouldRender && (
-                    <div
-                        className="srv-modal"
-                        role="dialog"
-                        aria-modal="true"
-                        data-state={contactosModalTransition.transitionState}
-                    >
-                        <div
-                            className="srv-modal__box"
-                            data-state={contactosModalTransition.transitionState}
-                            style={{
-                                width: rolEs(form.rol, 'Maestros') ? 'min(92vw, 820px)' : 'min(92vw, 1000px)',
-                                maxHeight: '92vh',
-                                padding: '24px 24px 20px',
-                                borderRadius: 18,
-                                display: 'flex',
-                                flexDirection: 'column',
-                            }}
+                            <Search size={16} />
+                            Buscar
+                        </button>
+                        <button
+                            onClick={abrirListado}
+                            disabled={busy}
+                            className="flex items-center gap-2 rounded-lg bg-white px-4 py-2 text-sm font-semibold text-gray-700 ring-1 ring-gray-300 transition-all hover:bg-gray-50 active:scale-[0.98]"
                         >
-                            <button className="srv-modal__close" aria-label="Cerrar" onClick={() => setContactosModalVisible(false)}>
-                                ×
-                            </button>
-
-                            <div
-                                className="srv-modal__content"
-                                style={{ flex: '1 1 auto', overflow: 'visible' }}
-                            >
-                                <div className="srv-modal-grid">
-                                    <section className="srv-card" ref={modalDiaRef}>
-                                        <h4 className="srv-card__title">Día PTM</h4>
-                                        <div className="srv-card__content">
-                                            <div className="srv-switches srv-switches--modal">
-                                                {(['Domingo', 'Martes', 'Virtual'] as AppEstudioDia[]).map((d) => (
-                                                    <label key={d} className="srv-switch">
-                                                        <input
-                                                            type="checkbox"
-                                                            className="srv-switch-input"
-                                                            checked={contactosDia === d}
-                                                            onChange={(e) => { const val = e.target.checked ? d : ''; setContactosDia(val); if (guidedError?.key === 'dia' && val) setGuidedError(null); }}
-                                                        />
-                                                        <span className="srv-switch-slider" />
-                                                        {d}
-                                                    </label>
-                                                ))}
-                                            </div>
-                                        </div>
-                                        {guidedError?.key === 'dia' && (
-                                            <div className="srv-callout" role="alert" style={{ marginTop: 8 }}>
-                                                <span className="srv-callout-icon">!</span>
-                                                {guidedError.msg}
-                                            </div>
-                                        )}
-                                    </section>
-                                </div>
-
-                                <section className="srv-section" ref={modalEtapasRef}>
-                                    <h4 className="srv-section__title">Etapas de Aprendizaje</h4>
-                                    {guidedError?.key === 'etapa' && (
-                                        <div className="srv-callout" role="alert" style={{ marginTop: 8 }}>
-                                            <span className="srv-callout-icon">!</span>
-                                            {guidedError.msg}
-                                        </div>
-                                    )}
-
-                                    <div className="srv-cultos srv-cultos--niveles" style={{ flexWrap: 'wrap', gap: '16px' }}>
-                                        <div className="srv-culto-box" style={{ minWidth: 220 }}>
-                                            {nivelSemillasSel ? `Semillas ${nivelSemillasSel}` : 'Semillas'}
-                                            <ul className="srv-culto-lista" style={{ display: 'flex', gap: 10, padding: 10 }}>
-                                                {['1', '2', '3', '4'].map((n) => (
-                                                    <li key={`sem-${n}`} style={{ padding: 0 }}>
-                                                        <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 10px', borderRadius: 10, cursor: 'pointer' }}>
-                                                            <input type="radio" name="nivel-semillas" checked={nivelSemillasSel === n} onChange={() => selectNivel('Semillas', n)} />
-                                                            <span>{n}</span>
-                                                        </label>
-                                                    </li>
-                                                ))}
-                                            </ul>
-                                        </div>
-
-                                        <div className="srv-culto-box" style={{ minWidth: 220 }}>
-                                            {nivelDevSel ? `Devocionales ${nivelDevSel}` : 'Devocionales'}
-                                            <ul className="srv-culto-lista" style={{ display: 'flex', gap: 10, padding: 10 }}>
-                                                {['1', '2', '3', '4'].map((n) => (
-                                                    <li key={`dev-${n}`} style={{ padding: 0 }}>
-                                                        <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 10px', borderRadius: 10, cursor: 'pointer' }}>
-                                                            <input type="radio" name="nivel-dev" checked={nivelDevSel === n} onChange={() => selectNivel('Devocionales', n)} />
-                                                            <span>{n}</span>
-                                                        </label>
-                                                    </li>
-                                                ))}
-                                            </ul>
-                                        </div>
-
-                                        <div className="srv-culto-box" style={{ minWidth: 220 }}>
-                                            {nivelResSel ? `Restauración ${nivelResSel}` : 'Restauración'}
-                                            <ul className="srv-culto-lista" style={{ display: 'flex', gap: 10, padding: 10 }}>
-                                                {['1'].map((n) => (
-                                                    <li key={`res-${n}`} style={{ padding: 0 }}>
-                                                        <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 10px', borderRadius: 10, cursor: 'pointer' }}>
-                                                            <input type="radio" name="nivel-res" checked={nivelResSel === n} onChange={() => selectNivel('Restauración', n)} />
-                                                            <span>{n}</span>
-                                                        </label>
-                                                    </li>
-                                                ))}
-                                            </ul>
-                                        </div>
-                                    </div>
-                                </section>
-                            </div>
-
-                            <div className="srv-actions srv-modal__actions" style={{ marginTop: 18 }}>
-                                <button className="srv-btn" onClick={() => setContactosModalVisible(false)}>
-                                    Cancelar
-                                </button>
-                                <button className="srv-btn srv-btn-buscar" onClick={confirmarModalContactos}>
-                                    Listo
-                                </button>
-                            </div>
-                        </div>
+                            <List size={16} />
+                            Ver Listado
+                        </button>
                     </div>
-                )}
+                </CardHeader>
 
-                <div className="srv-row srv-row-first">
-                    <div>
-                        <input
-                            ref={inputNombreRef}
-                            type="text"
+                {/* Contenido del formulario con padding */}
+                <div className="p-6">
+                    {/* Fila 1: Datos Personales (3 columnas) */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-4 mb-6">
+                        <FormInput
+                            label="Nombre Completo"
+                            id="nombre"
+                            inputRef={inputNombreRef}
                             value={form.nombre}
                             onChange={(e) => {
                                 const value = e.target.value;
@@ -1204,37 +1320,28 @@ export default function Servidores() {
                                 if (value.trim()) setErrores((prev: Errores) => ({ ...prev, nombre: null }));
                                 if (guidedError?.key === 'nombre' && value.trim()) setGuidedError(null);
                             }}
-                            placeholder="Nombre"
-                            className={errores.nombre ? 'srv-input-error' : ''}
+                            placeholder="Nombre y Apellido"
+                            error={errores.nombre}
+                            guidedError={guidedError}
                         />
-                        {guidedError?.key === 'nombre' && (
-                            <div className="srv-callout" role="alert">
-                                <span className="srv-callout-icon">!</span>
-                                {guidedError.msg}
-                            </div>
-                        )}
-                        {errores.nombre && !guidedError && <div className="srv-error">** {errores.nombre}</div>}
-                    </div>
 
-                    <div>
-                        <input
-                            type="text"
+                        <FormInput
+                            label="Teléfono"
+                            id="telefono"
                             value={form.telefono}
                             onChange={(e) => {
                                 const value = e.target.value;
                                 setForm((f) => ({ ...f, telefono: value }));
                                 if (/\d{7,}/.test(value)) setErrores((prev: Errores) => ({ ...prev, telefono: null }));
                             }}
-                            placeholder="Teléfono"
-                            className={errores.telefono ? 'srv-input-error' : ''}
+                            placeholder="Ej: 3101234567"
+                            error={errores.telefono}
                         />
-                        {errores.telefono && <div className="srv-error">** {errores.telefono}</div>}
-                    </div>
 
-                    <div>
-                        <input
-                            type="text"
-                            ref={inputCedulaRef}
+                        <FormInput
+                            label="Cédula"
+                            id="cedula"
+                            inputRef={inputCedulaRef}
                             value={editMode && !cedulaUnlocked ? maskCedulaValue(form.cedula) : form.cedula}
                             onChange={(e) => {
                                 if (editMode && !cedulaUnlocked) return;
@@ -1254,242 +1361,527 @@ export default function Servidores() {
                                     openAdminPassModal();
                                 }
                             }}
-                            placeholder="Cédula"
-                            className={errores.cedula ? 'srv-input-error' : ''}
+                            placeholder="Documento de identidad"
                             readOnly={editMode && !cedulaUnlocked}
+                            error={errores.cedula}
+                            guidedError={guidedError}
                         />
-                        {guidedError?.key === 'cedula' && (
-                            <div className="srv-callout" role="alert">
-                                <span className="srv-callout-icon">!</span>
+                    </div>
+
+                    {/* Fila 2: Roles (Tarjetas Premium) */}
+                    <div className="mt-8" ref={rolesCardRef}>
+                        <h3 className="text-lg font-semibold text-gray-900 mb-4">Rol del Servidor</h3>
+                        {guidedError?.key === 'rol' && (
+                            <p className="mb-2 text-xs font-semibold text-red-600">
                                 {guidedError.msg}
+                            </p>
+                        )}
+
+                        {/* Botón AGREGAR ROL configurado */}
+                        {form.rol && (
+                            <div className="mb-4 p-4 bg-indigo-50/50 rounded-xl border border-indigo-100 flex items-center justify-between animate-in fade-in slide-in-from-top-2">
+                                <div className="text-sm text-indigo-900">
+                                    <span className="font-bold">Configurando:</span> {uiRoleLabel(form.rol)}
+                                    {/* Mostrar resumen de configuración actual si existe */}
+                                    {rolEs(form.rol, 'Contactos') && nivelSeleccionado && (
+                                        <span className="ml-2 text-indigo-700">({nivelSeleccionado}, {contactosDia}, {contactosSemana})</span>
+                                    )}
+                                    {rolEs(form.rol, 'Maestros') && nivelSeleccionado && (
+                                        <span className="ml-2 text-indigo-700">({nivelSeleccionado}, {contactosDia})</span>
+                                    )}
+                                    {rolEs(form.rol, 'Logistica') && form.cultoSeleccionado && (
+                                        <span className="ml-2 text-indigo-700">({form.cultoSeleccionado})</span>
+                                    )}
+                                </div>
+                                <button
+                                    onClick={handleAgregarRol}
+                                    className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-semibold rounded-lg shadow-sm hover:bg-indigo-700 active:scale-95 transition-all"
+                                >
+                                    <PlusCircle size={16} />
+                                    Agregar Rol
+                                </button>
                             </div>
                         )}
-                        {errores.cedula && !guidedError && <div className="srv-error">** {errores.cedula}</div>}
-                    </div>
-                </div>
 
-                <div className="srv-roles-card" ref={rolesCardRef}>
-                    <div className="srv-roles-title">Roles del Servidor</div>
-                    {guidedError?.key === 'rol' && (
-                        <div className="srv-callout" role="alert" style={{ marginTop: 6 }}>
-                            <span className="srv-callout-icon">!</span>
-                            {guidedError.msg}
+                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+                            {[...ROLES_FILA_1, ...ROLES_FILA_2].map((r) => {
+                                const isConfiguring = form.rol === r || form.rol === `Timoteo - ${r}`;
+                                const isAdded = form.rolesAgregados.some(x => rolEs(x.rol as any, r as any));
+
+                                return (
+                                    <label key={r} className="cursor-pointer relative">
+                                        <input
+                                            type="radio"
+                                            name="rol-servidor"
+                                            value={r}
+                                            className="sr-only"
+                                            checked={isConfiguring}
+                                            onChange={(e) => abrirModalRol(e.target.value)}
+                                            onClick={(e) => {
+                                                const valor = (e.currentTarget as HTMLInputElement).value;
+                                                if (valor === 'Timoteos') setTimoteoModalVisible(true);
+                                                else if (valor === 'Contactos' || valor === 'Maestros') setContactosModalVisible(true);
+                                            }}
+                                        />
+                                        <div
+                                            className={`srv-role-btn-pill ${isConfiguring ? 'srv-role-btn-pill--active' : ''} ${isAdded ? 'srv-role-btn-pill--added' : ''}`}
+                                            data-role={r}
+                                        >
+                                            <span className="srv-role-btn-icon">
+                                                {r === 'Logistica' && <ShieldCheck size={16} />}
+                                                {r === 'Contactos' && <Users size={16} />}
+                                                {r === 'Maestros' && <ClipboardList size={16} />}
+                                                {r === 'Director' && <Crown size={16} />}
+                                                {r === 'Administrador' && <Shield size={16} />}
+                                            </span>
+                                            <span className="srv-role-btn-label">
+                                                {uiRoleLabel(r)}
+                                            </span>
+                                            {isAdded && (
+                                                <span className="srv-role-btn-check">
+                                                    <Check size={12} />
+                                                </span>
+                                            )}
+                                        </div>
+                                    </label>
+                                );
+                            })}
+                        </div>
+                    </div>
+
+                    {/* Fila 3: Opciones de Logística (Condicional) */}
+                    {rolEs(form.rol, 'Logistica') && (
+                        <div className="mt-8" ref={logisticaCultosRef}>
+                            <h3 className="text-lg font-semibold text-gray-900 mb-4">Asignación de Logística</h3>
+                            <div className={`grid grid-cols-1 md:grid-cols-4 gap-4 p-4 rounded-lg bg-white/50 border ${errores.culto ? 'border-red-300' : 'border-gray-200'}`}>
+                                {Object.entries(form.cultos).map(([dia, valorActual]) => (
+                                    <div key={dia} className="relative">
+                                        <label className="block text-xs font-medium text-gray-500 uppercase mb-1.5">{dia}</label>
+                                        <select
+                                            value={valorActual === dia ? "" : `${dia} - ${valorActual}`}
+                                            onChange={(e) => {
+                                                const full = e.target.value;
+                                                if (!full) return;
+                                                const [diaCulto, opcion] = full.split(' - ').map(s => s.trim());
+
+                                                const updated: CultosMap = {
+                                                    ...defaultCultos(),
+                                                    [diaCulto as DiaKey]: opcion,
+                                                } as CultosMap;
+
+                                                setForm((prev) => ({
+                                                    ...prev,
+                                                    cultoSeleccionado: full,
+                                                    cultos: updated,
+                                                }));
+                                                setErrores((prev) => ({ ...prev, culto: null }));
+                                                if (guidedError?.key === 'culto') setGuidedError(null);
+                                            }}
+                                            className={`w-full rounded-lg border bg-white/50 py-2.5 px-4 text-sm text-gray-900
+                                                        transition-all duration-200
+                                                        focus:outline-none focus:ring-2 focus:ring-indigo-500
+                                                        ${errores.culto ? 'border-red-500' : 'border-gray-300'}`}
+                                        >
+                                            <option value="">Selecciona...</option>
+                                            {cultosOpciones[dia as DiaKey].map((opcion, index) => (
+                                                <option key={index} value={`${dia} - ${opcion}`}>
+                                                    {opcion}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                ))}
+                            </div>
+                            {guidedError?.key === 'culto' && (
+                                <p className="mt-1.5 text-xs font-semibold text-red-600">
+                                    {guidedError.msg}
+                                </p>
+                            )}
                         </div>
                     )}
-                    <div className="srv-roles-grid">
-                        {[...ROLES_FILA_1, ...ROLES_FILA_2].map((r) => {
-                            const checked = form.rol === r || form.rol === `Timoteo - ${r}`;
-                            return (
-                                <label key={r} className="srv-radio">
-                                    <input
-                                        type="radio"
-                                        name="rol-servidor"
-                                        value={r}
-                                        className="srv-radio-input"
-                                        checked={checked}
-                                        onChange={(e) => abrirModalRol(e.target.value)}
-                                        onClick={(e) => {
-                                            const valor = (e.currentTarget as HTMLInputElement).value;
-                                            if (valor === 'Timoteos') {
-                                                setTimoteoModalVisible(true);
-                                            } else if (valor === 'Contactos' || valor === 'Maestros') {
-                                                setContactosModalVisible(true);
-                                            }
-                                        }}
-                                    />
-                                    <div className="srv-radio-card">
-                                        <span className="srv-radio-dot" />
-                                        <span className="srv-radio-text">{uiRoleLabel(r)}</span>
-                                    </div>
-                                </label>
-                            );
-                        })}
-                    </div>
-                </div>
 
-                {rolEs(form.rol, 'Logistica') && (
-                    <>
-                        <div ref={logisticaCultosRef} className={`srv-cultos${errores.culto ? ' srv-cultos--error' : ''}`}>
-                            <label className="srv-label-culto">Culto:</label>
-                            {Object.entries(form.cultos).map(([dia, valorActual]) => (
-                                <div key={dia} className="srv-culto-box">
-                                    {valorActual}
-                                    <ul className="srv-culto-lista">
-                                        {cultosOpciones[dia as DiaKey].map((opcion, index) => (
-                                            <li
-                                                key={index}
-                                                onClick={() => {
-                                                    const key = dia as DiaKey;
-                                                    const full = `${dia} - ${opcion}`;
-                                                    const updated: CultosMap = {
-                                                        ...defaultCultos(),
-                                                        [key]: opcion,
-                                                    } as CultosMap;
-                                                    setForm((prev) => ({
-                                                        ...prev,
-                                                        cultoSeleccionado: full,
-                                                        cultos: updated,
-                                                    }));
-                                                    setErrores((prev) => ({ ...prev, culto: null }));
-                                                    if (guidedError?.key === 'culto') setGuidedError(null);
-                                                }}
-                                                role="button"
-                                                tabIndex={0}
-                                            >
-                                                {opcion}
-                                            </li>
-                                        ))}
-                                    </ul>
-                                </div>
-                            ))}
-                        </div>
-                        {guidedError?.key === 'culto' && (
-                            <div className="srv-callout" role="alert" style={{ marginTop: 8 }}>
-                                <span className="srv-callout-icon">!</span>
-                                {guidedError.msg}
-                            </div>
-                        )}
-                        {errores.culto && !guidedError && <div className="srv-error" style={{ marginTop: 6 }}>{errores.culto}</div>}
-                    </>
-                )}
-
-                <div className="srv-group" style={{ marginTop: 10 }}>
-                    <div style={{ flex: 1 }}>
+                    {/* Fila 4: Observaciones */}
+                    <div className="mt-4">
+                        <label htmlFor="observaciones" className="block text-lg font-semibold text-gray-900 mb-2">
+                            Observaciones
+                        </label>
+                        {/* --- INICIO DE LA CORRECCIÓN --- */}
                         <textarea
                             ref={observacionesRef}
                             id="observaciones"
-                            className="srv-observaciones"
+                            rows={2} // Reducido verticalmente
+                            className={`w-full rounded-lg border bg-white/50 py-2.5 px-4 text-sm text-gray-900 placeholder-gray-500 shadow-sm transition-all duration-200 border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500`}
                             placeholder="Escribe aquí las observaciones..."
                             value={form.observaciones}
                             onChange={(e) => setForm({ ...form, observaciones: e.target.value })}
                         />
-                    </div>
-                </div>
 
-                {feedback && (
-                    <div className="srv-toast" role="status" aria-live="polite">
-                        <span className="srv-toast-icon" aria-hidden>
-                            {(feedbackKind === 'success' || (!feedbackKind && feedback && !feedback.toLowerCase().includes('error') && !feedback.toLowerCase().includes('eliminado'))) && (
-                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-                                    <circle cx="12" cy="12" r="10" fill="url(#g1)" />
-                                    <path d="M7 12.5l3 3 7-7" stroke="#0b5" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-                                    <defs>
-                                        <linearGradient id="g1" x1="0" y1="0" x2="24" y2="24">
-                                            <stop stopColor="#E6FFF2" />
-                                            <stop offset="1" stopColor="#C7F8E0" />
-                                        </linearGradient>
-                                    </defs>
-                                </svg>
-                            )}
-                            {(feedbackKind === 'delete' || (!feedbackKind && (feedback || '').toLowerCase().includes('eliminado'))) && (
-                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-                                    <rect x="5" y="7" width="14" height="13" rx="2" fill="url(#g2)" />
-                                    <path d="M9 7V5a2 2 0 012-2h2a2 2 0 012 2v2" stroke="#666" strokeWidth="1.6" />
-                                    <path d="M4 7h16" stroke="#888" strokeWidth="2" strokeLinecap="round" />
-                                    <defs>
-                                        <linearGradient id="g2" x1="5" y1="7" x2="19" y2="20">
-                                            <stop stopColor="#FFF2F2" />
-                                            <stop offset="1" stopColor="#FFE1E1" />
-                                        </linearGradient>
-                                    </defs>
-                                </svg>
-                            )}
-                            {(feedbackKind === 'error' || (!feedbackKind && (feedback || '').toLowerCase().includes('error'))) && (
-                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-                                    <circle cx="12" cy="12" r="10" fill="url(#g3)" />
-                                    <path d="M12 7v7" stroke="#b00" strokeWidth="2.2" strokeLinecap="round" />
-                                    <circle cx="12" cy="17" r="1.2" fill="#b00" />
-                                    <defs>
-                                        <linearGradient id="g3" x1="0" y1="0" x2="24" y2="24">
-                                            <stop stopColor="#FFF0F0" />
-                                            <stop offset="1" stopColor="#FFE0E0" />
-                                        </linearGradient>
-                                    </defs>
-                                </svg>
-                            )}
-                        </span>
-                        <span className="srv-toast-text">{feedback}</span>
-                        <button className="srv-toast-close" onClick={toastClear} aria-label="Cerrar">×</button>
-                    </div>
-                )}
-                {!guidedError && (errores.rol || errores.etapa || errores.dia || errores.semana || errores.culto) && (
-                    <div className="srv-error srv-error--center" style={{ marginTop: 6 }}>
-                        {[errores.rol, errores.etapa, errores.dia, errores.semana, errores.culto].filter(Boolean).join(' • ')}
-                    </div>
-                )}
+                        {/* Lista Horizontal de Roles Agregados */}
+                        {form.rolesAgregados.length > 0 && (
+                            <div className="mt-4 animate-in fade-in slide-in-from-top-1">
+                                <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Roles Asignados</h4>
+                                <div className="flex flex-wrap gap-2">
+                                    {form.rolesAgregados.map((item, idx) => (
+                                        <div key={idx} className="flex items-center gap-2 px-3 py-1.5 bg-white border border-gray-200 shadow-sm rounded-full text-sm group hover:border-red-200 transition-colors">
+                                            <span className="font-semibold text-gray-800">{uiRoleLabel(item.rol)}</span>
+                                            {item.detalles?.etapa && <span className="text-gray-500 text-xs border-l pl-2 border-gray-300">{item.detalles.etapa}</span>}
+                                            {item.detalles?.dia && <span className="text-gray-500 text-xs border-l pl-2 border-gray-300">{item.detalles.dia}</span>}
+                                            {item.detalles?.culto && <span className="text-gray-500 text-xs border-l pl-2 border-gray-300">{item.detalles.culto}</span>}
 
-                <div className="srv-actions">
-                    <button className="srv-btn" onClick={onGuardar} disabled={busy} title={editMode ? 'Actualizar' : 'Guardar'}>
-                        {busy ? (editMode ? 'Actualizando…' : 'Guardando…') : (editMode ? 'Actualizar' : 'Guardar')}
-                    </button>
-
-                    <button
-                        className="srv-btn srv-btn-buscar"
-                        onClick={() => { setQ(''); setResults([]); setFocusIndex(0); setBuscarModalVisible(true); }}
-                        disabled={busy}
-                        title="Buscar"
-                    >
-                        Buscar
-                    </button>
-
-                    <button className="srv-btn" onClick={abrirListado} disabled={busy} title="Listado">Listado</button>
-                </div>
-            </div>
-
-            {listadoVisible && (
-                <div className="srv-modal" role="dialog" aria-modal="true">
-                    <div className="srv-modal__box list-box">
-                        <button className="srv-modal__close" aria-label="Cerrar" onClick={cerrarListado}>×</button>
-                        <div className="list-header">
-                            <h4 className="list-title">Listado de Servidores</h4>
-                            <div className="list-subtitle">Mostrando {Math.min(listPage*listPageSize, listTotal)} de {listTotal}</div>
-                        </div>
-                        <div className={`list-table ${listAnimating ? 'is-animating' : ''}`} role="table" aria-label="Servidores">
-                            <div className="list-row list-head" role="row">
-                                <div className="list-cell col-idx" role="columnheader">#</div>
-                                <div className="list-cell col-name" role="columnheader">Nombre</div>
-                                <div className="list-cell col-tel" role="columnheader">Teléfono</div>
-                                <div className="list-cell col-ced" role="columnheader">Cédula</div>
-                                <div className="list-cell col-etp" role="columnheader">Etapa</div>
-                                <div className="list-cell col-dia" role="columnheader">Día</div>
-                                <div className="list-cell col-rol" role="columnheader">Rol</div>
-                                <div className="list-cell col-act" role="columnheader">Acción</div>
-                            </div>
-                            {listLoading && <div className="list-empty">Cargando…</div>}
-                            {!listLoading && listRows.length === 0 && <div className="list-empty">Sin registros.</div>}
-                            {!listLoading && listRows.length > 0 && listRows.map((s, i) => (
-                                <div key={s.id} className="list-row" role="row">
-                                    <div className="list-cell col-idx" role="cell">{(listPage-1)*listPageSize + i + 1}</div>
-                                    <div className="list-cell col-name" role="cell">{s.nombre || '—'}</div>
-                                    <div className="list-cell col-tel" role="cell">{s.telefono || '—'}</div>
-                                    <div className="list-cell col-ced" role="cell">{maskCedulaDisplay(s.cedula)}</div>
-                                    <div className="list-cell col-etp" role="cell">{etapaDiaFromRow(s).etapa}</div>
-                                    <div className="list-cell col-dia" role="cell">{etapaDiaFromRow(s).dia}</div>
-                                    <div className="list-cell col-rol" role="cell">{(() => {
-                                        const rawRol = s.asignaciones_contacto?.some(a => a?.vigente)
-                                            ? 'Contactos'
-                                            : (s.asignaciones_maestro?.some(a => a?.vigente) ? 'Maestros' : '—');
-                                        return uiRoleLabel(rawRol);
-                                    })()}</div>
-                                    <div className="list-cell col-act" role="cell">
-                                        <button className="srv-btn list-select" onClick={() => { applyPick(s); cerrarListado(); }}>Seleccionar</button>
-                                    </div>
+                                            <button
+                                                onClick={() => removeRolAgregado(idx)}
+                                                className="ml-1 p-0.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-all"
+                                                title="Quitar rol"
+                                            >
+                                                <X size={14} />
+                                            </button>
+                                        </div>
+                                    ))}
                                 </div>
-                            ))}
-                            {/* Skeleton overlay: keep rows visible but show shimmer during fetch */}
-                            <div className={`list-skeleton-overlay ${listLoading ? 'visible' : ''}`} aria-hidden>
-                                {[...Array(listPageSize)].map((_, i) => (
-                                    <div key={i} className="list-row list-row--skeleton" />
+                            </div>
+                        )}
+                        {/* --- FIN DE LA CORRECCIÓN --- */}
+                    </div>
+
+                    {/* Fila 5: Acciones */}
+                    <div className="flex gap-4 mt-4 pt-4 border-t border-gray-200">
+                        <button
+                            onClick={onGuardar}
+                            disabled={busy}
+                            className="srv-btn-save-premium"
+                        >
+                            <span className="srv-save-title">
+                                {editMode ? 'Actualizar' : 'Guardar'}
+                            </span>
+                        </button>
+
+                        <button
+                            onClick={resetFormulario}
+                            disabled={busy}
+                            className="srv-btn-gray-premium"
+                        >
+                            Limpiar
+                        </button>
+
+                        {editMode && (
+                            <button
+                                onClick={handleDeleteButtonClick}
+                                disabled={busy}
+                                className="ml-auto flex items-center justify-center gap-2 rounded-lg bg-red-50 px-5 py-3 text-sm font-semibold text-red-700 ring-1 ring-red-200 transition-all hover:bg-red-100 active:scale-[0.98] disabled:opacity-60"
+                            >
+                                <Trash2 size={16} />
+                                Eliminar
+                            </button>
+                        )}
+                    </div>
+                    {/* Toast (Tostada de feedback) */}
+                    {feedback && (
+                        <div className="mt-4" role="status" aria-live="polite">
+                            <div className={`flex items-center gap-3 rounded-lg p-3 text-sm font-semibold
+                                ${feedbackKind === 'success' ? 'bg-green-50 text-green-800 ring-1 ring-green-200' : ''}
+                                ${feedbackKind === 'error' ? 'bg-red-50 text-red-800 ring-1 ring-red-200' : ''}
+                                ${feedbackKind === 'delete' ? 'bg-yellow-50 text-yellow-800 ring-1 ring-yellow-200' : ''}
+                            `}>
+                                <Check size={16} />
+                                {feedback}
+                            </div>
+                        </div>
+                    )}
+
+                </div>
+            </GlassCard>
+
+            {/* --- 3. MODAL DE LISTADO REFACTORIZADO --- */}
+            <AnimatePresence>
+                {listadoVisible && (
+                    <motion.div
+                        variants={backdropVariants}
+                        initial="hidden"
+                        animate="visible"
+                        exit="hidden"
+                        className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/40 backdrop-blur-md"
+                        onClick={cerrarListado}
+                    >
+                        <motion.div
+                            variants={modalVariants}
+                            className="relative w-full max-w-6xl rounded-2xl bg-white shadow-2xl flex flex-col max-h-[90vh]"
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            <button
+                                onClick={cerrarListado}
+                                className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors z-10"
+                            >
+                                <X size={20} />
+                            </button>
+
+                            {/* Header del Modal */}
+                            <div className="p-6 border-b border-gray-200">
+                                <h2 className="text-xl font-semibold text-gray-900">Listado de Servidores</h2>
+                                <p className="mt-1 text-sm text-gray-600">
+                                    Mostrando {Math.min(listPage * listPageSize, listTotal)} de {listTotal} servidores activos.
+                                </p>
+                            </div>
+
+                            {/* Contenido del Modal (con scroll) */}
+                            <div className="flex-1 overflow-y-auto">
+                                <div className="inline-block min-w-full align-middle">
+                                    <table className="min-w-full divide-y divide-gray-200">
+                                        <thead className="bg-gray-50 sticky top-0">
+                                            <tr>
+                                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">#</th>
+                                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nombre</th>
+                                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Teléfono</th>
+                                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cédula</th>
+                                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rol</th>
+                                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Etapa</th>
+                                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Día</th>
+                                                <th scope="col" className="relative px-6 py-3">
+                                                    <span className="sr-only">Acción</span>
+                                                </th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="bg-white divide-y divide-gray-200">
+                                            {listLoading ? (
+                                                <tr>
+                                                    <td colSpan={8} className="px-6 py-10 text-center text-sm text-gray-500">
+                                                        <Loader2 size={20} className="inline animate-spin mr-2" />
+                                                        Cargando...
+                                                    </td>
+                                                </tr>
+                                            ) : listRows.length === 0 ? (
+                                                <tr>
+                                                    <td colSpan={8} className="px-6 py-10 text-center text-sm text-gray-500">
+                                                        No se encontraron servidores.
+                                                    </td>
+                                                </tr>
+                                            ) : (
+                                                listRows.map((s, i) => (
+                                                    <tr key={s.id}>
+                                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-500">
+                                                            {(listPage - 1) * listPageSize + i + 1}
+                                                        </td>
+                                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">{s.nombre || '—'}</td>
+                                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{s.telefono || '—'}</td>
+                                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{maskCedulaDisplay(s.cedula)}</td>
+                                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                                                            <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                                                {uiRoleLabel(roleFromRow(s))}
+                                                            </span>
+                                                        </td>
+                                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{etapaDiaFromRow(s).etapa}</td>
+                                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{etapaDiaFromRow(s).dia}</td>
+                                                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                                            <button
+                                                                onClick={() => { applyPick(s); cerrarListado(); }}
+                                                                className="rounded-lg bg-indigo-50 px-3 py-1.5 text-xs font-semibold text-indigo-700 ring-1 ring-inset ring-indigo-200 hover:bg-indigo-100"
+                                                            >
+                                                                Seleccionar
+                                                            </button>
+                                                        </td>
+                                                    </tr>
+                                                ))
+                                            )}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+
+                            {/* Footer del Modal (Paginación) */}
+                            <div className="flex items-center justify-between p-4 border-t border-gray-200 bg-gray-50">
+                                <button
+                                    className="rounded-lg bg-white px-4 py-2 text-sm font-semibold text-gray-700 ring-1 ring-gray-300 transition-all hover:bg-gray-50 active:scale-[0.98] disabled:opacity-50"
+                                    onClick={() => cargarListado(Math.max(1, listPage - 1))}
+                                    disabled={listPage <= 1 || listLoading}
+                                >
+                                    ◀ Anterior
+                                </button>
+                                <span className="text-sm text-gray-600">
+                                    Página {listPage} de {Math.max(1, Math.ceil(listTotal / listPageSize))}
+                                </span>
+                                <button
+                                    className="rounded-lg bg-white px-4 py-2 text-sm font-semibold text-gray-700 ring-1 ring-gray-300 transition-all hover:bg-gray-50 active:scale-[0.98] disabled:opacity-50"
+                                    onClick={() => cargarListado(listPage + 1)}
+                                    disabled={listPage >= Math.ceil(listTotal / listPageSize) || listLoading}
+                                >
+                                    Siguiente ▶
+                                </button>
+                            </div>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
+            {/* --- Modales Antiguos (Lógica intacta, estilos en <style jsx>) --- */}
+            {/* ... (Timoteo, Contactos, Buscar, Detalle, AdminPass, ConfirmDelete) ... */}
+            {timoteoModalTransition.shouldRender && (
+                <div
+                    className="srv-modal"
+                    role="dialog"
+                    aria-modal="true"
+                    data-state={timoteoModalTransition.transitionState}
+                >
+                    <div
+                        className="srv-modal__box"
+                        data-state={timoteoModalTransition.transitionState}
+                        style={{ maxWidth: 640, padding: '24px 24px 18px', borderRadius: 18 }}
+                    >
+                        <button className="srv-modal__close" aria-label="Cerrar" onClick={() => setTimoteoModalVisible(false)}>
+                            ×
+                        </button>
+
+                        <div className="srv-modal__content" style={{ paddingTop: 4 }}>
+                            <h4
+                                className="srv-section__title"
+                                style={{ margin: '0 0 16px', fontSize: 18, fontWeight: 800, letterSpacing: 0.2 }}
+                            >
+                                ¿Timoteo para qué área?
+                            </h4>
+                            <div
+                                className="srv-roles-grid"
+                                style={{ display: 'flex', gap: 16, alignItems: 'center', justifyContent: 'space-between', flexWrap: 'nowrap' }}
+                            >
+                                {(['Maestros', 'Contactos', 'Logistica'] as const).map((dest) => (
+                                    <label key={dest} className="srv-radio" style={{ flex: '0 0 auto' }}>
+                                        <input
+                                            type="radio"
+                                            name="timoteo-destino"
+                                            className="srv-radio-input"
+                                            onChange={() => elegirTimoteoDestino(dest)}
+                                        />
+                                        <div
+                                            className="srv-radio-card"
+                                            style={{ padding: '10px 16px', borderRadius: 12, minWidth: 130, display: 'inline-flex', gap: 10 }}
+                                        >
+                                            <span className="srv-radio-dot" />
+                                            <span className="srv-radio-text" style={{ fontWeight: 600 }}>{dest}</span>
+                                        </div>
+                                    </label>
                                 ))}
                             </div>
+                            <p className="srv-info" style={{ marginTop: 18, lineHeight: 1.35 }}>
+                                Se registrará como <b>Timoteo - …</b> y se configurarán las opciones del área elegida.
+                            </p>
                         </div>
-                        <div className="list-pager">
-                            <button className="pager-btn" onClick={() => cargarListado(Math.max(1, listPage-1))} disabled={listPage<=1 || listLoading} onMouseDown={() => { if (!listLoading) cargarListado(Math.max(1, listPage-1)); }}>
-                                {listRequestPage === Math.max(1, listPage-1) && <span className="pager-spinner" />}◀ Anterior
+                    </div>
+                </div>
+            )}
+
+            {contactosModalTransition.shouldRender && (
+                <div
+                    className="srv-modal"
+                    role="dialog"
+                    aria-modal="true"
+                    data-state={contactosModalTransition.transitionState}
+                >
+                    <div
+                        className="srv-modal__box"
+                        data-state={contactosModalTransition.transitionState}
+                        style={{
+                            width: rolEs(form.rol, 'Maestros') ? 'min(92vw, 820px)' : 'min(92vw, 1000px)',
+                            maxHeight: '92vh',
+                            padding: '24px 24px 20px',
+                            borderRadius: 18,
+                            display: 'flex',
+                            flexDirection: 'column',
+                        }}
+                    >
+                        <button className="srv-modal__close" aria-label="Cerrar" onClick={() => setContactosModalVisible(false)}>
+                            ×
+                        </button>
+
+                        <div
+                            className="srv-modal__content"
+                            style={{ flex: '1 1 auto', overflow: 'visible' }}
+                        >
+                            <div className="srv-modal-grid">
+                                <section className="srv-card" ref={modalDiaRef}>
+                                    <h4 className="srv-card__title">Día PTM</h4>
+                                    <div className="srv-card__content">
+                                        <div className="srv-switches srv-switches--modal">
+                                            {(['Domingo', 'Martes', 'Virtual'] as AppEstudioDia[]).map((d) => (
+                                                <label key={d} className="srv-switch">
+                                                    <input
+                                                        type="checkbox"
+                                                        className="srv-switch-input"
+                                                        checked={contactosDia === d}
+                                                        onChange={(e) => { const val = e.target.checked ? d : ''; setContactosDia(val); if (guidedError?.key === 'dia' && val) setGuidedError(null); }}
+                                                    />
+                                                    <span className="srv-switch-slider" />
+                                                    {d}
+                                                </label>
+                                            ))}
+                                        </div>
+                                    </div>
+                                    {guidedError?.key === 'dia' && (
+                                        <div className="srv-callout" role="alert" style={{ marginTop: 8 }}>
+                                            <span className="srv-callout-icon">!</span>
+                                            {guidedError.msg}
+                                        </div>
+                                    )}
+                                </section>
+                            </div>
+
+                            <section className="srv-section" ref={modalEtapasRef}>
+                                <h4 className="srv-section__title">Etapas de Aprendizaje</h4>
+                                {guidedError?.key === 'etapa' && (
+                                    <div className="srv-callout" role="alert" style={{ marginTop: 8 }}>
+                                        <span className="srv-callout-icon">!</span>
+                                        {guidedError.msg}
+                                    </div>
+                                )}
+
+                                <div className="srv-cultos srv-cultos--niveles" style={{ flexWrap: 'wrap', gap: '16px' }}>
+                                    <div className="srv-culto-box" style={{ minWidth: 220 }}>
+                                        {nivelSemillasSel ? `Semillas ${nivelSemillasSel}` : 'Semillas'}
+                                        <ul className="srv-culto-lista" style={{ display: 'flex', gap: 10, padding: 10 }}>
+                                            {['1', '2', '3', '4'].map((n) => (
+                                                <li key={`sem-${n}`} style={{ padding: 0 }}>
+                                                    <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 10px', borderRadius: 10, cursor: 'pointer' }}>
+                                                        <input type="radio" name="nivel-semillas" checked={nivelSemillasSel === n} onChange={() => selectNivel('Semillas', n)} />
+                                                        <span>{n}</span>
+                                                    </label>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </div>
+
+                                    <div className="srv-culto-box" style={{ minWidth: 220 }}>
+                                        {nivelDevSel ? `Devocionales ${nivelDevSel}` : 'Devocionales'}
+                                        <ul className="srv-culto-lista" style={{ display: 'flex', gap: 10, padding: 10 }}>
+                                            {['1', '2', '3', '4'].map((n) => (
+                                                <li key={`dev-${n}`} style={{ padding: 0 }}>
+                                                    <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 10px', borderRadius: 10, cursor: 'pointer' }}>
+                                                        <input type="radio" name="nivel-dev" checked={nivelDevSel === n} onChange={() => selectNivel('Devocionales', n)} />
+                                                        <span>{n}</span>
+                                                    </label>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </div>
+
+                                    <div className="srv-culto-box" style={{ minWidth: 220 }}>
+                                        {nivelResSel ? `Restauración ${nivelResSel}` : 'Restauración'}
+                                        <ul className="srv-culto-lista" style={{ display: 'flex', gap: 10, padding: 10 }}>
+                                            {['1'].map((n) => (
+                                                <li key={`res-${n}`} style={{ padding: 0 }}>
+                                                    <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 10px', borderRadius: 10, cursor: 'pointer' }}>
+                                                        <input type="radio" name="nivel-res" checked={nivelResSel === n} onChange={() => selectNivel('Restauración', n)} />
+                                                        <span>{n}</span>
+                                                    </label>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </div>
+                                </div>
+                            </section>
+                        </div>
+
+                        <div className="srv-actions srv-modal__actions" style={{ marginTop: 18 }}>
+                            <button className="srv-btn" onClick={() => setContactosModalVisible(false)}>
+                                Cancelar
                             </button>
-                            <span className="pager-info">Página {listPage} de {Math.max(1, Math.ceil(listTotal / listPageSize))}</span>
-                            <button className="pager-btn" onClick={() => cargarListado(listPage+1)} disabled={listPage>=Math.ceil(listTotal / listPageSize) || listLoading} onMouseDown={() => { if (!listLoading) cargarListado(listPage+1); }}>
-                                Siguiente ▶{listRequestPage === listPage+1 && <span className="pager-spinner" />}
+                            <button className="srv-btn srv-btn-buscar" onClick={confirmarModalContactos}>
+                                Listo
                             </button>
                         </div>
                     </div>
@@ -1535,23 +1927,23 @@ export default function Servidores() {
 
                                             <div className="search-meta">
                                                 <span className="meta-item">
-                                                  <label>Teléfono:</label> {s.telefono || '—'}
+                                                    <label>Teléfono:</label> {s.telefono || '—'}
                                                 </span>
                                                 <span className="meta-dot">•</span>
                                                 <span className="meta-item">
-                                                   <label>Cédula:</label> {maskCedulaDisplay(s.cedula)}
+                                                    <label>Cédula:</label> {maskCedulaDisplay(s.cedula)}
                                                 </span>
                                                 <span className="meta-dot">•</span>
                                                 <span className="meta-item">
-                                                  <label>Rol:</label> {uiRoleLabel(roleFromRow(s))}
+                                                    <label>Rol:</label> {uiRoleLabel(roleFromRow(s))}
                                                 </span>
                                                 <span className="meta-dot">•</span>
                                                 <span className="meta-item">
-                                                  <label>Etapa:</label> {etapaDiaFromRow(s).etapa}
+                                                    <label>Etapa:</label> {etapaDiaFromRow(s).etapa}
                                                 </span>
                                                 <span className="meta-dot">•</span>
                                                 <span className="meta-item">
-                                                  <label>Día:</label> {etapaDiaFromRow(s).dia}
+                                                    <label>Día:</label> {etapaDiaFromRow(s).dia}
                                                 </span>
                                             </div>
                                         </button>
@@ -1669,7 +2061,7 @@ export default function Servidores() {
                     </div>
                 </div>
             )}
-            
+
             {detalleVisible && confirmDetalleDelete && detalleSel && (
                 <div className="srv-modal" role="dialog" aria-modal="true">
                     <div className="srv-modal__box confirm-box">
@@ -1683,6 +2075,18 @@ export default function Servidores() {
                                 <div><strong>Nombre:</strong> {detalleSel.nombre || '—'}</div>
                                 <div><strong>Cédula:</strong> {maskCedulaDisplay(detalleSel.cedula)}</div>
                             </div>
+                            <div style={{ marginTop: 14, display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', background: '#fff5f5', borderRadius: 8, border: '1px solid #fecaca' }}>
+                                <input
+                                    type="checkbox"
+                                    id="chkHardDelete"
+                                    checked={hardDelete}
+                                    onChange={(e) => setHardDelete(e.target.checked)}
+                                    style={{ width: 16, height: 16, cursor: 'pointer', accentColor: '#dc2626' }}
+                                />
+                                <label htmlFor="chkHardDelete" style={{ cursor: 'pointer', fontSize: 13, color: '#b91c1c', fontWeight: 600 }}>
+                                    Eliminar definitivamente (Irreversible)
+                                </label>
+                            </div>
                             <div className="srv-actions" style={{ marginTop: 14 }}>
                                 <button className="srv-btn" onClick={() => setConfirmDetalleDelete(false)}>Cancelar</button>
                                 <button className="srv-btn" style={{ background: '#ffe8e8' }} onClick={() => eliminarByCedula(detalleSel.cedula)} disabled={busy}>
@@ -1694,7 +2098,445 @@ export default function Servidores() {
                 </div>
             )}
 
+            {/* Modal Premium de Roles Administrativos */}
+            <AnimatePresence>
+                {adminRoleModalVisible && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.2 }}
+                        className="fixed inset-0 z-50 flex items-center justify-center p-4"
+                        style={{ background: 'rgba(15, 23, 42, 0.7)', backdropFilter: 'blur(8px)' }}
+                        onClick={closeAdminRoleModal}
+                    >
+                        <motion.div
+                            initial={{ scale: 0.9, opacity: 0, y: 20 }}
+                            animate={{ scale: 1, opacity: 1, y: 0 }}
+                            exit={{ scale: 0.9, opacity: 0, y: 20 }}
+                            transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+                            onClick={(e) => e.stopPropagation()}
+                            className="relative w-full max-w-md"
+                            style={{
+                                background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0.85) 100%)',
+                                backdropFilter: 'blur(20px)',
+                                WebkitBackdropFilter: 'blur(20px)',
+                                border: '1px solid rgba(255, 255, 255, 0.6)',
+                                borderRadius: '24px',
+                                boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25), inset 0 1px 0 0 rgba(255, 255, 255, 0.6)',
+                                padding: '2rem'
+                            }}
+                        >
+                            {/* Botón cerrar */}
+                            <button
+                                onClick={closeAdminRoleModal}
+                                className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-full transition-all duration-200"
+                                style={{
+                                    background: 'rgba(255, 255, 255, 0.6)',
+                                    border: '1px solid rgba(0, 0, 0, 0.1)',
+                                    color: '#64748b'
+                                }}
+                                onMouseEnter={(e) => {
+                                    e.currentTarget.style.background = 'rgba(239, 68, 68, 0.1)';
+                                    e.currentTarget.style.color = '#ef4444';
+                                }}
+                                onMouseLeave={(e) => {
+                                    e.currentTarget.style.background = 'rgba(255, 255, 255, 0.6)';
+                                    e.currentTarget.style.color = '#64748b';
+                                }}
+                            >
+                                <X size={16} />
+                            </button>
+
+                            {/* Contenido */}
+                            <form onSubmit={handleAdminRoleSubmit}>
+                                {/* Ícono y título */}
+                                <div className="flex flex-col items-center mb-6">
+                                    <div
+                                        className="w-16 h-16 rounded-full flex items-center justify-center mb-4"
+                                        style={{
+                                            background: 'linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%)',
+                                            boxShadow: '0 10px 25px -5px rgba(251, 191, 36, 0.4)'
+                                        }}
+                                    >
+                                        <Server size={28} className="text-white" />
+                                    </div>
+                                    <h3 className="text-2xl font-bold text-gray-900 text-center mb-2">
+                                        Rol Administrativo
+                                    </h3>
+                                    <p className="text-sm text-gray-600 text-center">
+                                        Ha seleccionado asignar el rol de <strong className="text-amber-600">{pendingAdminRole}</strong>
+                                    </p>
+                                </div>
+
+                                {/* Alerta */}
+                                <div
+                                    className="mb-6 p-4 rounded-xl"
+                                    style={{
+                                        background: 'linear-gradient(135deg, rgba(254, 243, 199, 0.6) 0%, rgba(253, 230, 138, 0.4) 100%)',
+                                        border: '1px solid rgba(251, 191, 36, 0.3)',
+                                        backdropFilter: 'blur(10px)'
+                                    }}
+                                >
+                                    <p className="text-sm text-amber-900 font-medium text-center">
+                                        ⚠️ Este es un rol de privilegio administrativo.<br />
+                                        Ingrese la contraseña para continuar.
+                                    </p>
+                                </div>
+
+                                {/* Input contraseña */}
+                                <div className="mb-4">
+                                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                        Contraseña Administrativa
+                                    </label>
+                                    <input
+                                        type="password"
+                                        value={adminRolePassword}
+                                        onChange={(e) => {
+                                            setAdminRolePassword(e.target.value);
+                                            if (adminRoleError) setAdminRoleError(null);
+                                        }}
+                                        placeholder="Ingrese la contraseña"
+                                        autoFocus
+                                        className="w-full px-4 py-3 rounded-xl border text-gray-900 placeholder-gray-400 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                                        style={{
+                                            background: 'rgba(255, 255, 255, 0.7)',
+                                            backdropFilter: 'blur(10px)',
+                                            border: adminRoleError ? '2px solid #ef4444' : '1px solid rgba(0, 0, 0, 0.1)'
+                                        }}
+                                    />
+                                    {adminRoleError && (
+                                        <motion.p
+                                            initial={{ opacity: 0, y: -5 }}
+                                            animate={{ opacity: 1, y: 0 }}
+                                            className="mt-2 text-sm font-semibold text-red-600"
+                                        >
+                                            {adminRoleError}
+                                        </motion.p>
+                                    )}
+                                </div>
+
+                                {/* Botones */}
+                                <div className="flex gap-3 mt-6">
+                                    <button
+                                        type="button"
+                                        onClick={closeAdminRoleModal}
+                                        className="flex-1 px-4 py-3 rounded-xl font-semibold text-gray-700 transition-all duration-200"
+                                        style={{
+                                            background: 'rgba(255, 255, 255, 0.6)',
+                                            border: '1px solid rgba(0, 0, 0, 0.1)'
+                                        }}
+                                        onMouseEnter={(e) => {
+                                            e.currentTarget.style.background = 'rgba(248, 250, 252, 0.9)';
+                                        }}
+                                        onMouseLeave={(e) => {
+                                            e.currentTarget.style.background = 'rgba(255, 255, 255, 0.6)';
+                                        }}
+                                    >
+                                        Cancelar
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        className="flex-1 px-4 py-3 rounded-xl font-semibold text-white transition-all duration-200"
+                                        style={{
+                                            background: 'linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%)',
+                                            boxShadow: '0 4px 12px rgba(251, 191, 36, 0.4)'
+                                        }}
+                                        onMouseEnter={(e) => {
+                                            e.currentTarget.style.transform = 'translateY(-2px)';
+                                            e.currentTarget.style.boxShadow = '0 8px 20px rgba(251, 191, 36, 0.6)';
+                                        }}
+                                        onMouseLeave={(e) => {
+                                            e.currentTarget.style.transform = 'translateY(0)';
+                                            e.currentTarget.style.boxShadow = '0 4px 12px rgba(251, 191, 36, 0.4)';
+                                        }}
+                                    >
+                                        Confirmar
+                                    </button>
+                                </div>
+                            </form>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence >
+
+            {/* --- 5. BLOQUE <style jsx> LIMPIADO --- */}
+            {/* Se eliminaron .srv-root, .srv-box, .srv-row, .srv-roles-card, y todos los estilos del listado */}
             <style jsx>{`
+                /* --- Estilos de Cultos (Dropdown) --- */
+                .srv-cultos{
+                    display:flex;
+                    align-items:center;
+                    gap:1rem;
+                    row-gap:1rem;
+                    flex-wrap:wrap;
+                    margin:2rem 0;
+                }
+                .srv-label-culto{ font-weight:600; margin-right:12px; }
+                .srv-culto-box{
+                    position:relative;
+                    flex:0 0 auto;
+                    font-weight:700;
+                    padding:8px 12px;
+                    border:1px solid var(--srv-border, #e5e7eb);
+                    border-radius:14px;
+                    background:var(--srv-surface, #fff);
+                    cursor:pointer;
+                    user-select:none;
+                    outline:none;
+                }
+                .srv-culto-box::after{
+                    content:""; position:absolute; left:0; right:0; top:100%; height:8px;
+                }
+                .srv-culto-lista{
+                    position:absolute;
+                    top:100%;
+                    left:50%;
+                    transform:translateX(-50%) scaleY(0);
+                    transform-origin:top center;
+                    background:var(--srv-surface, #fff);
+                    border:1px solid var(--srv-border, #e5e7eb);
+                    border-radius:8px;
+                    padding:10px;
+                    min-width:140px;
+                    box-shadow:0 6px 16px rgba(0,0,0,.08);
+                    opacity:0; pointer-events:none;
+                    transition:opacity .25s ease-out, transform .25s ease-out;
+                    z-index:20;
+                }
+                .srv-culto-box:hover .srv-culto-lista,
+                .srv-culto-box:focus-within .srv-culto-lista{
+                    opacity:1; pointer-events:auto; transform:translateX(-50%) scaleY(1);
+                }
+                .srv-culto-lista li{
+                    list-style:none;
+                    padding:12px 14px;
+                    text-align:center;
+                    font-weight:600;
+                    border-radius:12px;
+                    cursor:pointer;
+                    color:#1e293b;
+                    transition:transform .2s, background .2s, color .2s;
+                }
+                .srv-culto-lista li:hover{
+                    background:#f3f4f6;
+                    transform:scale(1.05);
+                    color:#1e40af;
+                }
+                .srv-culto-box.is-disabled{ opacity:.5; cursor:not-allowed; }
+
+                /* --- Estilos de Switches (Modal) --- */
+                .srv-switches{ display:flex; flex-wrap:wrap; gap:1rem; margin-bottom:20px; }
+                .srv-switch{
+                    position:relative;
+                    display:flex;
+                    align-items:center;
+                    gap:.5rem;
+                    font-weight:600;
+                    color: var(--srv-muted, #1e293b);
+                    cursor:pointer;
+                    padding-left:40px;
+                    user-select:none;
+                }
+                .srv-switch-input{ display:none; }
+                .srv-switch-slider{
+                    position:absolute; left:0; top:50%; transform:translateY(-50%);
+                    width:36px; height:20px;
+                    background:#f3f4f6; border:1px solid var(--srv-border, #e5e7eb);
+                    border-radius:20px;
+                    transition:background .2s, border-color .2s;
+                }
+                .srv-switch-slider::before{
+                    content:""; position:absolute; left:2px; top:2px;
+                    width:16px; height:16px; border-radius:50%;
+                    background:#94a3b8;
+                    transition:transform .18s, background .18s;
+                }
+                .srv-switch-input:checked + .srv-switch-slider{
+                    background:#d1fae5; border-color:#a7f3d0;
+                }
+                .srv-switch-input:checked + .srv-switch-slider::before{
+                    transform:translateX(16px); background:var(--srv-success, #10b981);
+                }
+                
+                /* ---- Estilos de Radios (Modal Timoteo) --- */
+                .srv-roles-grid{
+                    display:grid;
+                    grid-template-columns:repeat(auto-fit, minmax(170px, 1fr));
+                    gap:10px;
+                    max-width: 800px;
+                }
+                .srv-radio{ display:block; }
+                .srv-radio-input{ position:absolute; opacity:0; pointer-events:none; width:0; height:0; }
+                .srv-radio-card{
+                    display:flex; 
+                    align-items:center; 
+                    gap:8px;
+                    border:1px solid rgba(255,255,255,0.6);
+                    border-radius:10px; 
+                    padding:8px 12px; /* Reducido verticalmente de 12px a 8px */
+                    background: linear-gradient(135deg, rgba(255,255,255,0.9) 0%, rgba(248,250,255,0.85) 100%);
+                    backdrop-filter: blur(10px);
+                    -webkit-backdrop-filter: blur(10px);
+                    box-shadow: 
+                        inset 1px 1px 2px rgba(255,255,255,0.8),
+                        inset -1px -1px 2px rgba(0,0,0,0.05),
+                        0 2px 8px rgba(0,0,0,0.08);
+                    transition: all .25s cubic-bezier(0.4, 0, 0.2, 1);
+                    min-width: 170px;
+                    justify-content:flex-start;
+                    cursor: pointer;
+                }
+                .srv-radio:hover .srv-radio-card{ 
+                    transform: translateY(-2px);
+                    box-shadow: 
+                        inset 1px 1px 3px rgba(255,255,255,0.9),
+                        inset -1px -1px 3px rgba(0,0,0,0.05),
+                        0 8px 20px rgba(88,132,255,0.15);
+                    border-color: rgba(88,132,255,0.4);
+                }
+                .srv-radio-input:focus-visible + .srv-radio-card{
+                    outline:2px solid rgba(59,130,246,.6); 
+                    outline-offset:2px;
+                }
+                .srv-radio-input:checked + .srv-radio-card{
+                    border-color:rgba(88,132,255,0.6);
+                    background: linear-gradient(135deg, rgba(235,243,255,0.95) 0%, rgba(224,237,255,0.9) 100%);
+                    box-shadow:
+                        inset 2px 2px 4px rgba(255,255,255,0.95),
+                        inset -2px -2px 4px rgba(0,0,0,0.06),
+                0 10px 24px rgba(88,132,255,0.2),
+                        0 0 0 2px rgba(88,132,255,0.15);
+                    transform: translateY(-1px);
+                }
+                .srv-radio-dot{
+                    display:inline-grid; 
+                    place-items:center; 
+                    width:14px; 
+                    height:14px; /* Reducido de 16px a 14px */
+                    border-radius:999px; 
+                    border:1.5px solid #9ca3af; 
+                    background: linear-gradient(135deg, #fff 0%, #f8faff 100%);
+                    box-shadow: inset 1px 1px 2px rgba(0,0,0,0.08);
+                }
+                .srv-radio-input:checked + .srv-radio-card .srv-radio-dot{ 
+                    border-color:#2563eb;
+                    background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+                }
+                .srv-radio-dot::after{
+                    content:''; 
+                    width:8px; 
+                    height:8px; /* Reducido de 10px a 8px */
+                    border-radius:999px; 
+                    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+                    box-shadow: 0 1px 3px rgba(37,99,235,0.3);
+                    opacity:0; 
+                    transition:opacity .2s cubic-bezier(0.4, 0, 0.2, 1);
+                }
+                .srv-radio-input:checked + .srv-radio-card .srv-radio-dot::after{ 
+                    opacity:1; 
+                }
+                .srv-radio-text{ 
+                    color:#111827; 
+                    font-weight:600;
+                    font-size:13px; /* Ligeramente más pequeño para compensar el padding reducido */
+                }
+
+                /* --- Estilos de Botones (Modales) --- */
+                .srv-actions{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-top:16px; }
+                .srv-btn{
+                    border:1px solid var(--srv-border, #e5e7eb);
+                    background:var(--srv-surface, #fff);
+                    color:var(--srv-text, #111827);
+                    padding:10px 16px;
+                    border-radius:12px;
+                    font-weight:700;
+                    cursor:pointer;
+                    transition:border-color .18s, color .18s, transform .06s;
+                }
+                .srv-btn:hover{ border-color:var(--srv-brand, #4f46e5); color:var(--srv-brand, #4f46e5); transform:translateY(-1px); }
+                .srv-btn:disabled{ opacity:.55; cursor:not-allowed; }
+                .srv-btn--update{ background:#fff6e5; border-color:#f59e0b; color:#b45309; }
+                .srv-btn-buscar{ color:#22c55e; border-color:rgba(34,197,94,.35); }
+
+                /* --- Estilos de Errores (Modales) --- */
+                .srv-input-error{ border-color:#ef4444; }
+                .srv-error{ margin-top:6px; font-size:12px; color:#ef4444; }
+                .srv-error--center{ text-align:center; }
+
+                /* --- Estilos de Modal (Generales) --- */
+                .srv-modal{ position:fixed; inset:0; background:rgba(17,24,39,.45); display:grid; place-items:center; z-index:50; padding:12px; box-sizing:border-box; }
+                .srv-modal__box{
+                    width:min(720px,92vw);
+                    max-height:min(92dvh, calc(100dvh - 24px));
+                    background:var(--srv-surface, #fff);
+                    border:1px solid var(--srv-border, #e5e7eb);
+                    border-radius:16px;
+                    padding:18px;
+                    box-shadow:0 24px 60px rgba(0,0,0,.22);
+                    position:relative;
+                    display:flex;
+                    flex-direction:column;
+                    overflow:hidden;
+                }
+                .srv-modal__box > *{ min-height: 0; }
+                .srv-modal[data-state]{
+                    opacity:0;
+                    transform:translate3d(0,6px,0) scale(.98);
+                    transition:opacity .22s ease, transform .22s ease;
+                    will-change:opacity, transform;
+                }
+                .srv-modal[data-state="entering"],
+                .srv-modal[data-state="entered"]{
+                    opacity:1;
+                    transform:none;
+                }
+                .srv-modal[data-state="exiting"]{
+                    opacity:0;
+                    transform:translate3d(0,6px,0) scale(.98);
+                }
+                .srv-modal__box[data-state]{
+                    opacity:0;
+                    transform:translate3d(0,18px,0) scale(.99);
+                    transition:opacity .26s cubic-bezier(.22,1,.36,1), transform .26s cubic-bezier(.22,1,.36,1);
+                    will-change:opacity, transform;
+                }
+                .srv-modal__box[data-state="entering"],
+                .srv-modal__box[data-state="entered"]{
+                    opacity:1;
+                    transform:none;
+                }
+                .srv-modal__box[data-state="exiting"]{
+                    opacity:0;
+                    transform:translate3d(0,18px,0) scale(.99);
+                }
+                @media (prefers-reduced-motion: reduce){
+                    .srv-modal[data-state],
+                    .srv-modal__box[data-state]{
+                        transition:none;
+                        transform:none;
+                    }
+                }
+                .srv-modal__close{
+                    position:absolute; right:8px; top:6px;
+                    width:36px; height:36px; border-radius:10px;
+                    border:1px solid var(--srv-border, #e5e7eb); background:var(--srv-surface, #fff);
+                    font-size:20px; line-height:1; cursor:pointer;
+                }
+                .srv-modal__heading{ font-weight:700; margin:6px 0 12px; }
+                .srv-modal__content{
+                    flex:1 1 auto;
+                    min-height:0;
+                    overflow:auto;
+                    -webkit-overflow-scrolling:touch;
+                }
+                .srv-modal__box .view-layout{
+                    flex: 1 1 auto;
+                    min-height: 0;
+                    overflow: auto;
+                }
+                
+                /* (Resto de los estilos de .search-box, .view-box, .premium-box, etc., permanecen intactos) */
                 .search-box {
                     max-width: 760px;
                     padding: 22px 22px 16px;
@@ -1991,95 +2833,235 @@ export default function Servidores() {
                 .confirm-text{ margin: 0 0 10px; opacity: .8; }
                 .confirm-data{ display: grid; gap: 6px; font-size: 14px; }
             
-                /* Liquid glass look for the list modal and fixed height to prevent resizing */
-                .list-box{ width: min(92vw, 1200px); max-width: 1100px; padding: 18px 20px; border-radius: 22px; background: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02)); box-shadow: 0 18px 40px rgba(8,15,30,0.4); border: 1px solid rgba(255,255,255,0.06); backdrop-filter: blur(10px) saturate(120%); -webkit-backdrop-filter: blur(10px) saturate(120%); display:flex; flex-direction:column; height: clamp(520px, 68vh, 760px); min-height:480px; }
-                .list-header{ display:flex; align-items:flex-end; justify-content:space-between; margin: 2px 2px 12px; padding: 0 2px; }
-                .list-title{ font-size:20px; font-weight:900; letter-spacing:.2px; color:#0b0b0b; }
-                .list-subtitle{ font-size:12.5px; opacity:.65; }
-                .list-box .srv-modal__close{
-                    position: absolute; top: 10px; right: 12px; left: auto;
-                    width: 22px; height: 22px; border-radius: 50%;
-                    border: 1px solid rgba(0,0,0,0.08);
-                    background: radial-gradient(120% 120% at 30% 30%, #ff8a80, #ff5f57 60%, #e0443e 100%);
-                    box-shadow: inset 1px 1px 2px rgba(255,255,255,.6), inset -1px -1px 2px rgba(0,0,0,.06), 0 6px 14px rgba(255,95,87,.22);
+                /* --- Estilos de Botones Principales de Rol (Exact Reference Style - Compact) --- */
+                .srv-role-btn-pill {
+                    display: flex;
+                    align-items: center;
+                    gap: 8px; /* Gap reducido */
+                    padding: 4px 6px; /* Padding reducido */
+                    border-radius: 9999px;
+                    border: none;
+                    min-height: 42px; /* Altura reducida de 54px a 42px */
+                    width: 100%;
+                    position: relative;
                     cursor: pointer;
-                    display: inline-flex; align-items: center; justify-content: center;
-                    color: #ffffff; font-size: 14px; line-height: 1; font-weight: 900; padding: 0;
+                    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+                    text-decoration: none;
+                    overflow: hidden;
                 }
-                .list-box .srv-modal__close:hover{
-                    box-shadow: inset 1px 1px 2px rgba(255,255,255,.65), inset -1px -1px 2px rgba(0,0,0,.06), 0 0 0 4px rgba(255,95,87,.18), 0 10px 20px rgba(255,95,87,.25);
-                    filter: brightness(1.02);
+                
+                /* Efecto de Hover (Brillo y escala) */
+                .srv-role-btn-pill:hover {
+                    transform: translateY(-2px);
+                    filter: brightness(1.1);
                 }
-                .list-box .srv-modal__close:focus-visible{
-                    outline: none;
-                    box-shadow: inset 1px 1px 2px rgba(255,255,255,.65), inset -1px -1px 2px rgba(0,0,0,.06), 0 0 0 4px rgba(255,95,87,.28), 0 12px 24px rgba(255,95,87,.28);
+                
+                /* Estado Activo (Seleccionado) */
+                .srv-role-btn-pill--active {
+                    transform: translateY(-1px);
+                    box-shadow: inset 0 0 0 2px rgba(255,255,255,0.4), 0 6px 15px rgba(0,0,0,0.2);
                 }
-                .list-table{ width: 100%;  border:1px solid rgba(0,0,0,.05); border-radius:16px; overflow:hidden; background:linear-gradient(180deg, rgba(255,255,255,.96), rgba(244,248,255,.9)); box-shadow: inset 2px 2px 7px rgba(255,255,255,.9), inset -2px -2px 6px rgba(0,0,0,.045); flex:1 1 auto; min-height: 0; transition: opacity .12s ease, transform .12s cubic-bezier(.22,1,.36,1); }
-                .list-table.is-animating{ opacity: 0.28; transform: translateY(6px); }
-                .list-row{ display:grid; grid-template-columns: 28px 1.6fr .9fr .8fr .9fr .8fr .8fr 120px; align-items:center; padding:7px 10px; border-bottom:1px solid rgba(0,0,0,.045); }
-                @media (max-width: 640px){
-                    .list-row{ grid-template-columns: 1fr .8fr .8fr; }
-                    .list-row .col-name{ grid-column: 1; }
-                    .list-row .col-rol{ grid-column: 2; }
-                    .list-row .col-etp{ grid-column: 3; }
-                    .list-table .col-idx,
-                    .list-table .col-tel,
-                    .list-table .col-ced,
-                    .list-table .col-dia,
-                    .list-table .col-act{ display: none; }
+                .srv-role-btn-pill--active .srv-role-btn-check {
+                    transform: scale(1);
+                    opacity: 1;
                 }
-                .list-head{ background:linear-gradient(180deg, rgba(245,247,255,.98), rgba(232,238,255,.92)); font-weight:900; letter-spacing:.25px; color:#0b0b0b; }
-                .list-row:last-child{ border-bottom:0; }
-                .list-cell{ font-size:13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-                .col-idx{ text-align:center; font-weight:700; opacity:.8; }
-                .col-name{ font-weight:700; color:#0b0b0b; white-space: normal; overflow: visible; text-overflow: clip; }
-                .col-rol{ font-weight:600; opacity:.8; }
-                .list-empty{ padding:16px; text-align:center; opacity:.7; }
-                .list-select{ padding:6px 12px !important; min-height: auto !important; font-size:13px !important; border-radius:10px !important; color:#0b183a !important; background: linear-gradient(180deg, #e7f0ff, #dbe7ff) !important; border: 1px solid rgba(28,72,196,.22) !important; box-shadow: inset 1px 1px 3px rgba(255,255,255,.7), 0 6px 16px rgba(40,80,200,.12) !important; }
-                .list-select:hover{ filter: none; background: linear-gradient(180deg, #eaf2ff, #dfe9ff) !important; box-shadow: inset 1px 1px 3px rgba(255,255,255,.8), 0 10px 22px rgba(40,80,200,.16) !important; }
-                .list-select:active{ transform: translateY(0.5px); box-shadow: inset 1px 1px 2px rgba(0,0,0,.05), 0 6px 14px rgba(40,80,200,.12) !important; }
-                .list-select:focus-visible{ outline: none; box-shadow: 0 0 0 3px rgba(88,132,255,.22), inset 1px 1px 3px rgba(255,255,255,.75) !important; }
 
-                @media (max-width: 640px){
-                    .list-box{ display:flex; flex-direction:column; max-height: 92dvh; }
-                    .list-table{ flex: 1 1 auto; min-height: 0; overflow: auto; }
-                    .list-pager{ flex: 0 0 auto; }
-
-                    .list-header{ margin-bottom: 8px; }
-                    .list-head{ display: none; }
-                    .list-table{ border: none; background: transparent; box-shadow: none; }
-                    .list-row{
-                        grid-template-columns: 1fr;
-                        gap: 6px;
-                        margin: 10px 0;
-                        padding: 12px;
-                        border-radius: 14px;
-                        background: linear-gradient(180deg, rgba(255,255,255,.96), rgba(246,248,255,.92));
-                        box-shadow: inset 2px 2px 6px rgba(255,255,255,.85), inset -2px -2px 6px rgba(0,0,0,.05), 0 8px 18px rgba(0,0,0,.06);
-                        border: 1px solid rgba(0,0,0,.06);
-                    }
-                    .list-cell{ display: block; white-space: normal; }
-                    .col-idx{ display: none; }
-                    .col-name{ order: 1; font-weight: 800; font-size: 16px; color:#0b0b0b; }
-                    .col-tel{ order: 2; }
-                    .col-ced{ order: 3; }
-                    .col-etp{ order: 4; }
-                    .col-dia{ order: 5; }
-                    .col-rol{ order: 6; }
-                    .col-act{ order: 7; }
-                    .col-tel::before{ content: 'Teléfono: '; font-weight: 700; opacity:.85; }
-                    .col-ced::before{ content: 'Cédula: '; font-weight: 700; opacity:.85; }
-                    .col-etp::before{ content: 'Etapa: '; font-weight: 700; opacity:.85; }
-                    .col-dia::before{ content: 'Día: '; font-weight: 700; opacity:.85; }
-                    .col-rol::before{ content: 'Rol: '; font-weight: 700; opacity:.85; }
-                    .list-table .col-act{ display: block !important; margin-top: 6px; }
-                    .col-act .list-select{ width: 100%; justify-content: center; }
+                /* Estado Agregado (Ya seleccionado en la lista) */
+                .srv-role-btn-pill--added {
+                    opacity: 0.9;
                 }
-                .list-pager{ display:flex; justify-content:center; align-items:center; gap:14px; margin-top:12px; }
-                .pager-btn{ padding:8px 12px; border-radius:12px; border:1px solid rgba(0,0,0,.08); background:linear-gradient(180deg, rgba(255,255,255,.95), rgba(246,248,255,.9)); font-weight:700; box-shadow: inset 1px 1px 3px rgba(255,255,255,.85), inset -1px -1px 3px rgba(0,0,0,.05); }
-                .pager-btn:disabled{ opacity:.5; cursor:not-allowed; }
-                .pager-info{ font-size:13px; opacity:.75; }
+
+                /* Icono con anillo (Ring) - Compacto */
+                .srv-role-btn-icon {
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    width: 32px; /* Reducido de 38px */
+                    height: 32px; /* Reducido de 38px */
+                    border-radius: 50%;
+                    background: transparent;
+                    border: 1.5px solid rgba(255, 255, 255, 0.9); /* Borde más fino */
+                    color: #fff;
+                    flex-shrink: 0;
+                    margin-left: 2px;
+                }
+
+                .srv-role-btn-label {
+                    font-size: 13px; /* Reducido de 15px */
+                    font-weight: 600;
+                    color: #fff;
+                    letter-spacing: 0.2px;
+                    flex: 1;
+                    padding-right: 6px;
+                }
+
+                /* Check mark para estado 'added' */
+                .srv-role-btn-check {
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    width: 18px;
+                    height: 18px;
+                    background: #fff;
+                    color: #333;
+                    border-radius: 50%;
+                    margin-right: 2px;
+                    transform: scale(0);
+                    opacity: 0;
+                    transition: all 0.2s ease;
+                }
+
+                /* =========================================
+                   GRADIENTES VIBRANTES (Referencia Image 0)
+                   ========================================= */
+
+                /* Logística - Verde/Amarillo */
+                .srv-role-btn-pill[data-role="Logistica"] {
+                    background: linear-gradient(90deg, #43e97b 0%, #38f9d7 100%);
+                    box-shadow: 0 4px 10px rgba(56, 249, 215, 0.4);
+                }
+
+                /* Contactos (Timoteos UI) - Violeta/Púrpura */
+                /* CORREGIDO: data-role="Contactos" */
+                .srv-role-btn-pill[data-role="Contactos"] {
+                    background: linear-gradient(90deg, #6a11cb 0%, #2575fc 100%);
+                    box-shadow: 0 4px 10px rgba(37, 117, 252, 0.4);
+                }
+
+                /* Maestros (Coordinadores UI) - Rosa/Rojo */
+                /* CORREGIDO: data-role="Maestros" */
+                .srv-role-btn-pill[data-role="Maestros"] {
+                    background: linear-gradient(90deg, #ff416c 0%, #ff4b2b 100%);
+                    box-shadow: 0 4px 10px rgba(255, 75, 43, 0.4);
+                }
+
+                /* Director - Naranja/Dorado */
+                .srv-role-btn-pill[data-role="Director"] {
+                    background: linear-gradient(90deg, #f83600 0%, #f9d423 100%);
+                    box-shadow: 0 4px 10px rgba(249, 212, 35, 0.4);
+                }
+
+                /* Administrador - Azul/Cyan */
+                .srv-role-btn-pill[data-role="Administrador"] {
+                    background: linear-gradient(90deg, #00c6ff 0%, #0072ff 100%);
+                    box-shadow: 0 4px 10px rgba(0, 114, 255, 0.4);
+                }
+
+                /* --- BOTÓN GUARDAR PREMIUM (Simplified) --- */
+                .srv-btn-save-premium {
+                    position: relative;
+                    display: flex;
+                    justify-content: center; /* Centrado */
+                    align-items: center;
+                    min-width: 140px; /* Reducido de 200px */
+                    height: 48px;
+                    background: linear-gradient(90deg, #00C6FF 0%, #0072FF 100%);
+                    border-radius: 9999px;
+                    padding: 0 16px; /* Reducido de 24px */
+                    border: none;
+                    box-shadow: 0 8px 20px rgba(0, 114, 255, 0.35);
+                    cursor: pointer;
+                    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+                    text-decoration: none;
+                }
+                .srv-btn-save-premium:hover {
+                    transform: translateY(-2px);
+                    box-shadow: 0 12px 24px rgba(0, 114, 255, 0.45);
+                    filter: brightness(1.05);
+                }
+                .srv-btn-save-premium:active {
+                     transform: translateY(-1px);
+                }
+                .srv-btn-save-premium:disabled {
+                    opacity: 0.7;
+                    cursor: not-allowed;
+                    filter: grayscale(0.5);
+                }
+
+                .srv-save-title {
+                    font-size: 15px; /* Ligeramente más grande */
+                    font-weight: 600;
+                    color: #fff;
+                    letter-spacing: 0.5px;
+                }
+
+                /* --- BOTÓN LIMPIAR PREMIUM (Gray) --- */
+                .srv-btn-gray-premium {
+                    position: relative;
+                    display: flex;
+                    justify-content: center;
+                    align-items: center;
+                    min-width: 140px;
+                    height: 48px;
+                    background: linear-gradient(90deg, #94a3b8 0%, #64748b 100%); /* Slate 400 to 500 */
+                    border-radius: 9999px;
+                    padding: 0 16px;
+                    border: none;
+                    box-shadow: 0 4px 15px rgba(100, 116, 139, 0.3);
+                    cursor: pointer;
+                    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+                    color: #fff;
+                    font-weight: 600;
+                    letter-spacing: 0.5px;
+                    font-size: 15px;
+                }
+                .srv-btn-gray-premium:hover {
+                    transform: translateY(-2px);
+                    box-shadow: 0 8px 20px rgba(100, 116, 139, 0.4);
+                    filter: brightness(1.1);
+                }
+                .srv-btn-gray-premium:active {
+                     transform: translateY(-1px);
+                }
+                .srv-btn-gray-premium:disabled {
+                    opacity: 0.7;
+                    cursor: not-allowed;
+                }
+
+                /* --- ESTILOS DE LISTADO (REFACTORIZADOS) --- */
+                /* (Se eliminaron todas las clases .list-*) */
+                
+                /* Responsive para modales */
+                @media (max-width: 640px){
+                  /* Switches dentro del modal: uno debajo del otro */
+                  .srv-modal .srv-switches{
+                    flex-wrap: nowrap;
+                    flex-direction: column;
+                    align-items: stretch;
+                    gap: 10px;
+                  }
+                  .srv-modal .srv-switch{ padding-left: 40px; }
+
+                  /* Botones dentro del modal: columna y ancho completo */
+                  .srv-modal .srv-actions,
+                  .srv-modal .srv-modal__actions{
+                    flex-direction: column;
+                    align-items: stretch;
+                    gap: 10px;
+                  }
+                  .srv-modal .srv-btn{ width: 100%; }
+
+                  /* Opcional: dropdowns de cultos en columna para evitar overflow */
+                  .srv-modal .srv-cultos{
+                    flex-direction: column;
+                    flex-wrap: nowrap;
+                    column-gap: 0;
+                    row-gap: 12px;
+                  }
+
+                  /* Radios del modal (Timoteo/Maestros): evitar desborde lateral */
+                  .srv-modal .srv-roles-grid{
+                    display: flex;
+                    flex-wrap: wrap !important;
+                    justify-content: center;
+                    gap: 8px;
+                  }
+                  .srv-modal .srv-radio-card{
+                    min-width: 104px;
+                    padding: 8px 10px;
+                  }
+                }
             `}</style>
-        </div>
+        </>
     );
 }

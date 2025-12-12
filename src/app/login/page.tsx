@@ -25,9 +25,9 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const pendingRef = useRef(false); // evita doble submit rápido
-  
+
   // ESTADO PREMIUM: Controla la visibilidad del campo (text vs password)
-  const [showPassword, setShowPassword] = useState(false); 
+  const [showPassword, setShowPassword] = useState(false);
 
   const togglePasswordVisibility = () => {
     setShowPassword(prev => !prev);
@@ -79,10 +79,9 @@ export default function LoginPage() {
   };
 
   return (
-    <main className="relative min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-white to-sky-100 overflow-hidden">
-      {/* Fondos decorativos */}
-      <div className="pointer-events-none absolute -top-40 -left-40 w-[440px] h-[440px] rounded-full bg-sky-300/45 blur-3xl animate-pulse" />
-      <div className="pointer-events-none absolute -bottom-40 -right-40 w-[440px] h-[440px] rounded-full bg-indigo-300/40 blur-3xl animate-pulse" />
+    <main className="min-h-screen relative flex flex-col items-center justify-center p-6 bg-[url('/portal-bg-new.jpg')] bg-cover bg-center bg-no-repeat overflow-hidden">
+      {/* Overlay for better text readability */}
+      <div className="absolute inset-0 bg-black/30 pointer-events-none" />
 
       {/* Tarjeta principal */}
       <div className="relative z-10 w-full max-w-md bg-white/20 backdrop-blur-2xl border border-white/30 rounded-3xl shadow-[0_20px_60px_rgba(0,0,0,0.15)] p-7 sm:p-9">
@@ -90,12 +89,12 @@ export default function LoginPage() {
           <h1 className="text-3xl sm:text-4xl font-extrabold text-slate-800 tracking-tight">
             Bienvenido
           </h1>
-          <div className="w-12 h-12 rounded-full bg-white shadow-inner ring-1 ring-slate-200/70 grid place-items-center">
+          <div className="w-24 h-24 rounded-full bg-white shadow-xl ring-4 ring-white/50 grid place-items-center transform hover:scale-105 transition-transform duration-300">
             <Image
               src="/asp-logo.png"
               alt="Logo ASP"
-              width={36}
-              height={36}
+              width={72} /* Aumentado */
+              height={72}
               className="object-contain"
               priority
             />
@@ -135,7 +134,7 @@ export default function LoginPage() {
               // Oculta visualmente los caracteres en navegadores WebKit/Blink
               style={{ WebkitTextSecurity: showPassword ? 'none' : 'disc' } as React.CSSProperties}
             />
-            
+
             {/* BOTÓN DE TOGGLE DE VISIBILIDAD (LA 'LUPITA') */}
             {/* Solo se muestra si el campo tiene contenido para alternar */}
             {cedula.length > 0 && (
