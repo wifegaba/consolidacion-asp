@@ -2,7 +2,6 @@
 
 import { motion, AnimatePresence } from 'framer-motion';
 import { useEffect, useState } from 'react';
-import Image from 'next/image';
 
 export default function SplashScreen() {
     const [isVisible, setIsVisible] = useState(true);
@@ -126,12 +125,10 @@ export default function SplashScreen() {
                                 transition={{ delay: 0.5, duration: 0.8 }}
                                 className="relative w-48 h-48 sm:w-56 sm:h-56 md:w-64 md:h-64 drop-shadow-2xl flex items-center justify-center"
                             >
-                                <Image
+                                <img
                                     src="/asp-logo.png"
                                     alt="ASP Logo"
-                                    fill
-                                    className="object-contain"
-                                    priority
+                                    className="w-full h-full object-contain"
                                 />
                             </motion.div>
                         </motion.div>
