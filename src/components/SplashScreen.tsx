@@ -29,7 +29,6 @@ export default function SplashScreen() {
                 >
                     {/* Efectos de fondo animados */}
                     <div className="absolute inset-0 overflow-hidden">
-                        {/* Círculos animados de fondo */}
                         <motion.div
                             animate={{
                                 scale: [1, 1.2, 1],
@@ -57,26 +56,9 @@ export default function SplashScreen() {
                         />
                     </div>
 
-                    {/* Logo con animaciones */}
+                    {/* Contenedor principal del logo */}
                     <div className="relative z-10">
-                        {/* Anillo exterior giratorio - desaparece después de 2 vueltas */}
-                        <motion.div
-                            animate={{ rotate: 720 }} // 2 vueltas completas
-                            transition={{
-                                duration: 6, // 3 segundos por vuelta × 2
-                                ease: "linear"
-                            }}
-                            initial={{ opacity: 1 }}
-                            className="absolute inset-0 -m-16"
-                        >
-                            <motion.div
-                                animate={{ opacity: [1, 1, 0] }}
-                                transition={{ duration: 6 }}
-                                className="w-full h-full rounded-full border-2 border-t-blue-400 border-r-transparent border-b-purple-400 border-l-transparent"
-                            />
-                        </motion.div>
-
-                        {/* Contenedor del logo */}
+                        {/* Efectos de resplandor y logo */}
                         <motion.div
                             initial={{ scale: 0, rotate: -180 }}
                             animate={{ scale: 1, rotate: 0 }}
@@ -87,8 +69,9 @@ export default function SplashScreen() {
                                 duration: 1
                             }}
                             className="relative"
+                            style={{ willChange: 'transform' }}
                         >
-                            {/* Resplandor blanco para contraste con letras oscuras */}
+                            {/* Resplandor blanco - base */}
                             <motion.div
                                 initial={{ opacity: 0 }}
                                 animate={{
@@ -101,10 +84,16 @@ export default function SplashScreen() {
                                     ease: "easeInOut",
                                     delay: 0.5
                                 }}
-                                className="absolute inset-0 -m-12 rounded-full bg-white/60 blur-3xl"
+                                className="absolute inset-0 -m-12 rounded-full bg-white/60"
+                                style={{
+                                    willChange: 'opacity, transform',
+                                    filter: 'blur(48px)',
+                                    backfaceVisibility: 'hidden',
+                                    transform: 'translateZ(0)'
+                                }}
                             />
 
-                            {/* Glow effect detrás del logo */}
+                            {/* Glow effect de colores */}
                             <motion.div
                                 animate={{
                                     opacity: [0.4, 0.7, 0.4],
@@ -115,7 +104,13 @@ export default function SplashScreen() {
                                     repeat: Infinity,
                                     ease: "easeInOut"
                                 }}
-                                className="absolute inset-0 -m-8 rounded-full bg-gradient-to-r from-blue-400 to-purple-400 blur-3xl opacity-50"
+                                className="absolute inset-0 -m-8 rounded-full bg-gradient-to-r from-blue-400 to-purple-400 opacity-50"
+                                style={{
+                                    willChange: 'opacity, transform',
+                                    filter: 'blur(48px)',
+                                    backfaceVisibility: 'hidden',
+                                    transform: 'translateZ(0)'
+                                }}
                             />
 
                             {/* Logo */}
@@ -124,13 +119,47 @@ export default function SplashScreen() {
                                 animate={{ opacity: 1 }}
                                 transition={{ delay: 0.5, duration: 0.8 }}
                                 className="relative w-48 h-48 sm:w-56 sm:h-56 md:w-64 md:h-64 drop-shadow-2xl flex items-center justify-center"
+                                style={{
+                                    backfaceVisibility: 'hidden',
+                                    transform: 'translateZ(0)'
+                                }}
                             >
                                 <img
                                     src="/asp-logo.png"
                                     alt="ASP Logo"
                                     className="w-full h-full object-contain"
+                                    style={{
+                                        backfaceVisibility: 'hidden',
+                                        transform: 'translateZ(0)'
+                                    }}
                                 />
                             </motion.div>
+                        </motion.div>
+
+                        {/* Anillo giratorio - completamente separado */}
+                        <motion.div
+                            animate={{ rotate: 720 }}
+                            transition={{
+                                duration: 6,
+                                ease: "linear"
+                            }}
+                            initial={{ opacity: 1 }}
+                            className="absolute inset-0 -m-16 pointer-events-none"
+                            style={{
+                                willChange: 'transform',
+                                backfaceVisibility: 'hidden',
+                                transform: 'translateZ(0)'
+                            }}
+                        >
+                            <motion.div
+                                animate={{ opacity: [1, 1, 0] }}
+                                transition={{ duration: 6 }}
+                                className="w-full h-full rounded-full border-2 border-t-blue-400 border-r-transparent border-b-purple-400 border-l-transparent"
+                                style={{
+                                    backfaceVisibility: 'hidden',
+                                    transform: 'translateZ(0)'
+                                }}
+                            />
                         </motion.div>
 
                         {/* Texto animado */}
