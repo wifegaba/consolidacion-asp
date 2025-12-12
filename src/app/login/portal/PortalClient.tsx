@@ -48,7 +48,7 @@ const DirectorIcon = () => (
     <div className="relative w-24 h-24 flex items-center justify-center">
         <div className="absolute inset-0 flex items-center justify-center" style={{ transform: 'scale(2.8)', pointerEvents: 'none' }}>
             <Image
-                src="/consolidacion-biblia.png?v=3"
+                src="/consolidacion-biblia.png"
                 alt="Consolidación"
                 width={150}
                 height={150}
@@ -63,7 +63,7 @@ const AdminIcon = () => (
     <div className="relative w-24 h-24 flex items-center justify-center">
         <div className="absolute inset-0 flex items-center justify-center" style={{ transform: 'scale(5.2)', pointerEvents: 'none' }}>
             <Image
-                src="/gestor-academico.png?v=7"
+                src="/gestor-academico.png"
                 alt="Gestor Académico"
                 width={150}
                 height={150}
