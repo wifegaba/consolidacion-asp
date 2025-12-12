@@ -17,20 +17,17 @@ export default function SplashScreenWrapper({ children }: { children: React.Reac
         } else {
             // Marcar que ya se mostró el splash en esta sesión
             sessionStorage.setItem('splashShown', 'true');
-
-            // Ocultar el splash después de 4 segundos
-            const timer = setTimeout(() => {
-                setShowSplash(false);
-            }, 4000);
-
-            return () => clearTimeout(timer);
         }
     }, []);
 
+    if (!isFirstLoad || !showSplash) return <>{children}</>;
+
     return (
         <>
-            {isFirstLoad && showSplash && <SplashScreen />}
+            <SplashScreen onFinish={() => setShowSplash(false)} />
             {children}
         </>
     );
 }
+
+

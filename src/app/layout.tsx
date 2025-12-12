@@ -6,7 +6,7 @@ import { ToastProvider } from "@/components/ToastProvider";
 import SplashScreenWrapper from "@/components/SplashScreenWrapper";
 
 export const metadata: Metadata = {
-  title: "Consolidación ASP",
+  title: "CRM Ministerial",
   description: "Sistema de gestión de servidores, estudiantes y asistencias",
   manifest: "/manifest.json",
   themeColor: "#0f172a",
@@ -20,7 +20,7 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "Consolidación"
+    title: "CRM Ministerial"
   },
   icons: {
     icon: [

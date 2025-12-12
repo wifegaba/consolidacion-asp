@@ -14,7 +14,8 @@ import { motion, AnimatePresence, Variants } from 'framer-motion';
 import {
   Users, UserPlus, Server, Search, Plus, X, Loader2, Check,
   Edit2, Trash2, BookOpen, MessageSquarePlus, type LucideIcon,
-  ChevronDown, AlertTriangle, ClipboardList, UserX, UserCheck2
+  ChevronDown, AlertTriangle, ClipboardList, UserX, UserCheck2,
+  Phone, MessageCircle
 } from 'lucide-react';
 import ServidoresPage from '../panel/servidores/page';
 
@@ -36,10 +37,21 @@ type Curso = { id: number; nombre: string; color: string; orden?: number };
 type AsignacionMaestro = { id: string; servidor_id: string; curso_id: number; cursos: Pick<Curso, 'nombre' | 'color'> | null; };
 type MaestroDataRaw = Maestro & { asignaciones: AsignacionMaestro[]; observaciones_count: { count: number }[]; servidores_roles: { rol: string }[]; };
 type MaestroConCursos = Maestro & { asignaciones: AsignacionMaestro[]; obs_count: number; rol: string | null; };
-type Estudiante = { id: string; nombre: string; cedula: string; };
+type Estudiante = { id: string; nombre: string; cedula: string; foto_path?: string | null; };
 type Inscripcion = { entrevista_id: string; curso_id: number; servidor_id: string | null; cursos?: Pick<Curso, 'nombre' | 'color'> | null; };
 type EstudianteInscrito = Estudiante & { maestro: MaestroConCursos | null; curso: Curso | null; inscripcion_id: string | null; };
 type AdminTab = 'matricular' | 'maestros' | 'servidores' | 'consultar';
+
+// --- HELPERS ---
+function bustUrl(u?: string | null) {
+  if (!u) return u ?? null;
+  const sep = u.includes("?") ? "&" : "?";
+  return `${u}${sep}v=${Date.now()}`;
+}
+function generateAvatar(name: string): string {
+  const initials = (name || 'NN').split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+  return `https://placehold.co/100x100/AED6F1/4A4A4A?text=${initials}`;
+}
 
 // --- VARIANTES DE ANIMACIÓN ---
 const fadeTransition: Variants = {
@@ -61,6 +73,7 @@ export default function AdminPage() {
   const [cursos, setCursos] = useState<Curso[]>([]);
   const [estudiantes, setEstudiantes] = useState<Estudiante[]>([]);
   const [inscripciones, setInscripciones] = useState<Inscripcion[]>([]);
+  const [fotoUrls, setFotoUrls] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(true);
 
   // Modales
@@ -75,7 +88,7 @@ export default function AdminPage() {
       const [{ data: mData }, { data: cData }, { data: eData }, { data: iData }] = await Promise.all([
         supabase.from('servidores').select(`id, nombre, cedula, telefono, email, activo, asignaciones:asignaciones_academia (id, servidor_id, curso_id, cursos ( nombre, color )), observaciones_count:servidores_observaciones!servidor_id(count), servidores_roles ( rol )`).order('nombre', { ascending: true }),
         supabase.from('cursos').select('id, nombre, color, orden').order('orden', { ascending: true }),
-        supabase.from('entrevistas').select('id, nombre, cedula').order('nombre', { ascending: true }),
+        supabase.from('entrevistas').select('id, nombre, cedula, foto_path').order('nombre', { ascending: true }),
         supabase.from('inscripciones').select('entrevista_id, curso_id, servidor_id').eq('estado', 'activo')
       ]);
 
@@ -89,10 +102,23 @@ export default function AdminPage() {
       setCursos((cData as Curso[]) || []);
       setEstudiantes((eData as Estudiante[]) || []);
       setInscripciones((iData as Inscripcion[]) || []);
+
+      // Cargar fotos en background
+      const eList = (eData as Estudiante[]) || [];
+      const paths = eList.map(e => e.foto_path).filter(Boolean) as string[];
+      if (paths.length > 0) {
+        supabase.storage.from("entrevistas-fotos").createSignedUrls(paths, 3600).then(({ data }) => {
+          if (data) {
+            const map: Record<string, string> = {};
+            data.forEach(d => { if (d.path && d.signedUrl) map[d.path] = bustUrl(d.signedUrl)!; });
+            setFotoUrls(p => ({ ...p, ...map }));
+          }
+        });
+      }
     } catch (err) { console.error(err); } finally { setIsLoading(false); }
   }, []);
 
-  useEffect(() => { if (activeTab !== 'servidores') loadData(); }, [loadData, activeTab]);
+  useEffect(() => { loadData(); }, [loadData]);
   const onDataUpdated = () => loadData();
 
   const estudiantesPendientesCount = useMemo(() => {
@@ -119,7 +145,7 @@ export default function AdminPage() {
               <TabButton Icon={Server} label="Servidores" isActive={activeTab === 'servidores'} onClick={() => setActiveTab('servidores')} />
               <TabButton Icon={Users} label="Maestros" isActive={activeTab === 'maestros'} onClick={() => setActiveTab('maestros')} />
               <TabButton Icon={UserPlus} label="Matricular" isActive={activeTab === 'matricular'} onClick={() => setActiveTab('matricular')} badge={estudiantesPendientesCount} />
-              <TabButton Icon={ClipboardList} label="Consultar" isActive={activeTab === 'consultar'} onClick={() => setActiveTab('consultar')} />
+              <TabButton Icon={ClipboardList} label="Estudiantes" isActive={activeTab === 'consultar'} onClick={() => setActiveTab('consultar')} />
             </nav>
             <div className="mt-auto border-t border-white/30 pt-4 px-2">
               <div className="flex items-center gap-3">
@@ -144,7 +170,8 @@ export default function AdminPage() {
                   {activeTab === 'servidores' && <ServidoresPage />}
                   {activeTab === 'matricular' && <PanelMatricular maestros={maestros} cursos={cursos} estudiantes={estudiantes} inscripciones={inscripciones} onMatriculaExitosa={onDataUpdated} loading={isLoading} />}
                   {activeTab === 'maestros' && <PanelGestionarMaestros maestros={maestros.filter(m => m.rol === 'Maestro Ptm')} loading={isLoading} onCrear={() => setModalMaestro('new')} onEditar={(m) => setModalMaestro(m)} onAsignar={(m) => setModalAsignar(m)} onObs={(m) => setModalObservacion(m)} onDesactivar={(m) => setModalDesactivar(m)} />}
-                  {activeTab === 'consultar' && <PanelConsultarEstudiantes maestros={maestros} cursos={cursos} estudiantes={estudiantes} inscripciones={inscripciones} loading={isLoading} />}
+
+                  {activeTab === 'consultar' && <PanelConsultarEstudiantes maestros={maestros} cursos={cursos} estudiantes={estudiantes} inscripciones={inscripciones} loading={isLoading} fotoUrls={fotoUrls} />}
                 </motion.div>
               </AnimatePresence>
             </div>
@@ -154,7 +181,7 @@ export default function AdminPage() {
               <MobileTab Icon={Server} label="Servidores" isActive={activeTab === 'servidores'} onClick={() => setActiveTab('servidores')} />
               <MobileTab Icon={Users} label="Maestros" isActive={activeTab === 'maestros'} onClick={() => setActiveTab('maestros')} />
               <MobileTab Icon={UserPlus} label="Matricular" isActive={activeTab === 'matricular'} onClick={() => setActiveTab('matricular')} badge={estudiantesPendientesCount} />
-              <MobileTab Icon={ClipboardList} label="Consultar" isActive={activeTab === 'consultar'} onClick={() => setActiveTab('consultar')} />
+              <MobileTab Icon={ClipboardList} label="Estudiantes" isActive={activeTab === 'consultar'} onClick={() => setActiveTab('consultar')} />
             </div>
           </main>
         </div>
@@ -201,7 +228,7 @@ function MobileTab({ Icon, label, isActive, onClick, badge }: MobileTabProps) {
     <button onClick={onClick} className="relative flex flex-col items-center justify-center p-2 rounded-lg w-16 active:scale-95 transition-transform">
       <div className={`p-1 rounded-lg transition-colors ${isActive ? 'bg-indigo-100/50 text-indigo-700' : 'text-gray-600'}`}><Icon size={18} /></div>
       <span className="text-[10px] font-medium mt-0.5 text-gray-600">{label}</span>
-      {badge !== undefined && badge > 0 && <span className="absolute top-1 right-2 h-2 w-2 rounded-full bg-rose-500 ring-2 ring-white" />}
+      {badge !== undefined && badge > 0 && <span className="absolute top-0 right-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-rose-500 px-0.5 text-[9px] font-bold text-white shadow-sm ring-1 ring-white">{badge}</span>}
     </button>
   );
 }
@@ -227,10 +254,11 @@ function CardHeader({ Icon, title, subtitle, children }: { Icon: LucideIcon, tit
    ==========================================================================
 */
 
-interface PanelConsultarProps { maestros: MaestroConCursos[]; cursos: Curso[]; estudiantes: Estudiante[]; inscripciones: Inscripcion[]; loading: boolean; }
-function PanelConsultarEstudiantes({ maestros, cursos, estudiantes, inscripciones, loading }: PanelConsultarProps) {
+interface PanelConsultarProps { maestros: MaestroConCursos[]; cursos: Curso[]; estudiantes: Estudiante[]; inscripciones: Inscripcion[]; loading: boolean; fotoUrls: Record<string, string>; }
+function PanelConsultarEstudiantes({ maestros, cursos, estudiantes, inscripciones, loading, fotoUrls }: PanelConsultarProps) {
   const [search, setSearch] = useState('');
   const [selectedMaestroId, setSelectedMaestroId] = useState('');
+
 
   const procesados = useMemo(() => {
     const mSet = new Map<string, MaestroConCursos>(maestros.map(m => [m.id, m]));
@@ -257,9 +285,11 @@ function PanelConsultarEstudiantes({ maestros, cursos, estudiantes, inscripcione
     };
   }, [procesados, search, selectedMaestroId]);
 
+
+
   return (
     <GlassCard className="h-full flex flex-col">
-      <CardHeader Icon={ClipboardList} title="Consultar Estudiantes" subtitle="Base de datos de matrículas." />
+      <CardHeader Icon={ClipboardList} title="Estudiantes" subtitle="Base de datos de matrículas." />
 
       <div className="p-4 md:p-6 grid grid-cols-1 md:grid-cols-2 gap-4 shrink-0">
         <div className="relative">
@@ -272,37 +302,35 @@ function PanelConsultarEstudiantes({ maestros, cursos, estudiantes, inscripcione
         </FormSelect>
       </div>
 
-      {/* CONTENEDOR DE LISTAS CON SCROLL INDEPENDIENTE EN MÓVIL Y DESKTOP */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 px-4 pb-4 md:px-6 md:pb-6 flex-1 min-h-0 overflow-hidden">
-
-        {/* COLUMNA PENDIENTES */}
         <div className="flex flex-col h-full min-h-0">
           <div className="mb-2 flex items-center gap-2 text-rose-700 font-semibold shrink-0"><UserX size={18} /> Pendientes ({pendientes.length})</div>
-          {/* FIX: h-auto en movil con max-height o flex-1 si el contenedor padre lo permite. Usamos h-full con overflow. */}
           <div className={`flex-1 overflow-y-auto rounded-xl ${GLASS_STYLES.input} p-0 border-2 border-white/50`}>
             {loading ? <div className="p-4 text-center">Cargando...</div> : pendientes.length === 0 ? <div className="p-8 text-center text-gray-500">No hay pendientes</div> : pendientes.map(e => <EstudianteRow key={e.id} e={e} />)}
           </div>
         </div>
 
-        {/* COLUMNA MATRICULADOS */}
         <div className="flex flex-col h-full min-h-0">
           <div className="mb-2 flex items-center gap-2 text-blue-700 font-semibold shrink-0"><UserCheck2 size={18} /> Matriculados ({matriculados.length})</div>
           <div className={`flex-1 overflow-y-auto rounded-xl ${GLASS_STYLES.input} p-0 border-2 border-white/50`}>
-            {loading ? <div className="p-4 text-center">Cargando...</div> : matriculados.length === 0 ? <div className="p-8 text-center text-gray-500">No hay matriculados</div> : matriculados.map(e => <EstudianteRow key={e.id} e={e} matriculado />)}
+            {loading ? <div className="p-4 text-center">Cargando...</div> : matriculados.length === 0 ? <div className="p-8 text-center text-gray-500">No hay matriculados</div> : matriculados.map(e => <EstudianteRow key={e.id} e={e} matriculado fotoUrl={e.foto_path ? fotoUrls[e.foto_path] : undefined} />)}
           </div>
         </div>
-
       </div>
     </GlassCard>
   );
 }
 
-function EstudianteRow({ e, matriculado }: { e: EstudianteInscrito, matriculado?: boolean }) {
+function EstudianteRow({ e, matriculado, fotoUrl }: { e: EstudianteInscrito, matriculado?: boolean, fotoUrl?: string }) {
+  const avatar = fotoUrl || generateAvatar(e.nombre);
   return (
     <div className={`p-3 flex justify-between items-center ${GLASS_STYLES.listItem}`}>
-      <div>
-        <p className="font-medium text-gray-900 text-sm">{e.nombre}</p>
-        <p className="text-xs text-gray-500">{e.cedula}</p>
+      <div className="flex items-center gap-3">
+        {matriculado && <img src={avatar} alt={e.nombre} className="h-10 w-10 rounded-full object-cover border border-white/60 shadow-sm bg-gray-200" />}
+        <div>
+          <p className="font-medium text-gray-900 text-sm">{e.nombre}</p>
+          <p className="text-xs text-gray-500">{e.cedula}</p>
+        </div>
       </div>
       {matriculado ? (
         <div className="text-right">
@@ -417,7 +445,15 @@ function PanelGestionarMaestros({ maestros, loading, onCrear, onEditar, onAsigna
                 <div className="flex items-center gap-3">
                   <div className="h-10 w-10 rounded-full bg-white/50 flex items-center justify-center text-indigo-800 font-bold shadow-sm">{m.nombre.charAt(0)}</div>
                   <div>
-                    <p className="font-bold text-gray-900">{m.nombre}</p>
+                    <div className="flex items-center gap-4 flex-wrap">
+                      <p className="font-bold text-gray-900 text-[16px]">{m.nombre}</p>
+                      {m.telefono && (
+                        <div className="flex items-center gap-3">
+                          <button onClick={(e) => { e.stopPropagation(); window.location.href = `tel:${m.telefono!.replace(/\s+/g, '')}`; }} className="h-10 w-10 rounded-full bg-white/70 flex items-center justify-center text-sky-600 hover:bg-white hover:scale-110 hover:shadow-md transition-all shadow-sm border border-sky-100"><Phone size={20} /></button>
+                          <button onClick={(e) => { e.stopPropagation(); window.open(`https://wa.me/${m.telefono!.replace(/\D/g, '')}`, '_blank'); }} className="h-10 w-10 rounded-full bg-white/70 flex items-center justify-center text-emerald-600 hover:bg-white hover:scale-110 hover:shadow-md transition-all shadow-sm border border-emerald-100"><MessageCircle size={20} /></button>
+                        </div>
+                      )}
+                    </div>
                     <p className="text-xs text-gray-600 flex items-center gap-2">
                       {m.cedula}
                       {m.rol && <span className="bg-gray-100/60 px-2 py-0.5 rounded text-gray-700">{m.rol}</span>}
@@ -428,6 +464,7 @@ function PanelGestionarMaestros({ maestros, loading, onCrear, onEditar, onAsigna
                   {m.asignaciones.map((a, idx) => <span key={`${a.id}-${idx}`} className="text-[10px] bg-blue-50/80 text-blue-800 px-2 py-1 rounded border border-blue-100">{a.cursos?.nombre}</span>)}
                 </div>
                 <div className="flex gap-2 mt-2 md:mt-0">
+
                   <button onClick={() => onObs(m)} className={`${GLASS_STYLES.buttonSecondary} px-3 py-1.5 rounded-lg text-xs relative`}><MessageSquarePlus size={16} /> {m.obs_count > 0 && <span className="absolute -top-1 -right-1 h-2 w-2 bg-rose-500 rounded-full" />}</button>
                   <button onClick={() => onAsignar(m)} className={`${GLASS_STYLES.buttonSecondary} px-3 py-1.5 rounded-lg text-xs flex gap-1`}><BookOpen size={16} /> <span className="hidden md:inline">Cursos</span></button>
                   <button onClick={() => onEditar(m)} className={`${GLASS_STYLES.buttonSecondary} px-3 py-1.5 rounded-lg text-xs flex gap-1`}><Edit2 size={16} /> <span className="hidden md:inline">Editar</span></button>
@@ -486,12 +523,12 @@ function FormSelect({ label, value, onChange, children, disabled }: SelectProps)
   );
 }
 
-interface InputProps { id: string; label: string; value: string; onChange: (v: string) => void; type?: string; disabled?: boolean; }
-function FormInput({ id, label, value, onChange, type = "text", disabled }: InputProps) {
+interface InputProps { id: string; label: string; value: string; onChange: (v: string) => void; type?: string; disabled?: boolean; placeholder?: string; }
+function FormInput({ id, label, value, onChange, type = "text", disabled, placeholder }: InputProps) {
   return (
     <div>
       <label htmlFor={id} className="block text-xs font-bold text-gray-600 uppercase mb-1">{label}</label>
-      <input id={id} type={type} value={value} onChange={e => onChange(e.target.value)} disabled={disabled} className={`w-full rounded-lg px-3 py-2 ${GLASS_STYLES.input}`} />
+      <input id={id} type={type} value={value} onChange={e => onChange(e.target.value)} disabled={disabled} placeholder={placeholder} className={`w-full rounded-lg px-3 py-2 ${GLASS_STYLES.input}`} />
     </div>
   );
 }
@@ -519,6 +556,7 @@ function ModalCrearEditarMaestro({ maestroInicial, onClose, onSuccess }: { maest
   const isEdit = !!maestroInicial;
   const [nom, setNom] = useState(maestroInicial?.nombre || '');
   const [ced, setCed] = useState(maestroInicial?.cedula || '');
+  const [tel, setTel] = useState(maestroInicial?.telefono || '');
   const [rol, setRol] = useState(maestroInicial?.rol || 'Maestro Ptm');
   const [loading, setLoading] = useState(false);
 
@@ -531,7 +569,7 @@ function ModalCrearEditarMaestro({ maestroInicial, onClose, onSuccess }: { maest
       const { data: sid, error: err1 } = await supabase.rpc('fn_upsert_servidor', {
         p_cedula: ced.trim(),
         p_nombre: nom.trim(),
-        p_telefono: null,
+        p_telefono: tel.trim() || null,
         p_email: null
       });
       if (err1) throw err1;
@@ -575,10 +613,8 @@ function ModalCrearEditarMaestro({ maestroInicial, onClose, onSuccess }: { maest
       <form onSubmit={save} className="p-6 space-y-4 flex-1 overflow-y-auto">
         <FormInput id="n" label="Nombre" value={nom} onChange={setNom} />
         <FormInput id="c" label="Cédula" value={ced} onChange={setCed} disabled={isEdit} />
-        <FormSelect label="Rol" value={rol} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setRol(e.target.value)}>
-          <option value="Maestro Ptm">Maestro Ptm</option>
-          {['Coordinador', 'Timoteo', 'Logistica', 'Director', 'Administrador'].map(r => <option key={r} value={r}>{r}</option>)}
-        </FormSelect>
+        <FormInput id="t" label="Teléfono" value={tel} onChange={setTel} placeholder="Ej: 3001234567" />
+        <FormInput id="rol-display" label="Rol" value="Maestro Proceso Transformacional" onChange={() => { }} disabled />
         <div className="pt-4 flex justify-end gap-2">
           <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg text-gray-600 hover:bg-white/50 text-sm font-medium">Cancelar</button>
           <button disabled={loading} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-lg shadow-blue-500/30">

@@ -1,6 +1,6 @@
 {
-    "name": "Sistema de Consolidación ASP",
-    "short_name": "Consolidación",
+    "name": "CRM Ministerial",
+    "short_name": "CRM Ministerial",
     "description": "Sistema de gestión de servidores, estudiantes y asistencias",
     "start_url": "/login",
     "display": "standalone",

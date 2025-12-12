@@ -3,25 +3,25 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { useEffect, useState } from 'react';
 
-export default function SplashScreen() {
+export default function SplashScreen({ onFinish }: { onFinish?: () => void }) {
     const [isVisible, setIsVisible] = useState(true);
 
     useEffect(() => {
-        // Ocultar el splash después de 4 segundos
+        // Ocultar el splash después de 3.5 segundos (un poco menos para dar tiempo a la transición)
         const timer = setTimeout(() => {
             setIsVisible(false);
-        }, 4000);
+        }, 3500);
 
         return () => clearTimeout(timer);
     }, []);
 
     return (
-        <AnimatePresence>
+        <AnimatePresence onExitComplete={onFinish}>
             {isVisible && (
                 <motion.div
-                    initial={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    transition={{ duration: 0.5 }}
+                    initial={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 1.05, filter: 'blur(10px)' }}
+                    transition={{ duration: 0.8, ease: "easeInOut" }}
                     className="fixed inset-0 z-[9999] flex items-center justify-center overflow-hidden"
                     style={{
                         background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%)'
