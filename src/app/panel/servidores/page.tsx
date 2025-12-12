@@ -600,6 +600,7 @@ export default function GestionServidores() {
                         r.detalles?.dia === nuevoRol.detalles?.dia &&
                         r.detalles?.semana === nuevoRol.detalles?.semana;
                 } else if (rolEs(form.rol, 'Maestros')) {
+                    // Solo es duplicado si AMBOS (etapa Y día) son iguales
                     return r.detalles?.etapa === nuevoRol.detalles?.etapa &&
                         r.detalles?.dia === nuevoRol.detalles?.dia;
                 } else if (rolEs(form.rol, 'Logistica')) {
@@ -625,7 +626,7 @@ export default function GestionServidores() {
             };
         });
 
-        // Limpiar estados de UI temporales
+        // Limpiar estados de UI temporales ANTES de salir
         setContactosDia('');
         setContactosSemana('Semana 1');
         setNivelSeleccionado('');
@@ -633,6 +634,9 @@ export default function GestionServidores() {
         setNivelDevSel('');
         setNivelResSel('');
         setGuidedError(null);
+
+        // Mostrar mensaje de éxito
+        showToast('success', `Rol ${uiRoleLabel(form.rol)} agregado correctamente.`);
     };
 
     const removeRolAgregado = (index: number) => {
@@ -988,20 +992,33 @@ export default function GestionServidores() {
                 if (rolEs(item.rol as any, 'Contactos')) {
                     const { etapa, dia, semana } = item.detalles || {};
                     const etapaDet = toEtapaDetFromUi(etapa || '');
-                    if (etapaDet) {
-                        // Nota: semanaNumero debe ser number. Parseamos si viene string
-                        const semNum = typeof semana === 'string' ? parseInt(semana.replace(/\D/g, '')) : semana;
-                        await supabase.rpc('fn_asignar_contactos', {
-                            p_cedula: ced, p_etapa: etapaDet, p_dia: dia, p_semana: semNum || 1
-                        });
+                    if (etapaDet && dia && semana) {
+                        // Upsert: actualiza vigente=true si existe, inserta si no
+                        await supabase.from('asignaciones_contacto')
+                            .upsert({
+                                servidor_id: servidorId,
+                                etapa: etapaDet,
+                                dia: dia,
+                                semana: semana,
+                                vigente: true
+                            }, {
+                                onConflict: 'servidor_id,etapa,dia,semana'
+                            });
                     }
                 } else if (rolEs(item.rol as any, 'Maestros')) {
                     const { etapa, dia } = item.detalles || {};
                     const etapaDet = toEtapaDetFromUi(etapa || '');
-                    if (etapaDet) {
-                        await supabase.rpc('fn_asignar_maestro', {
-                            p_cedula: ced, p_etapa: etapaDet, p_dia: dia
-                        });
+                    if (etapaDet && dia) {
+                        // Upsert: actualiza vigente=true si existe, inserta si no
+                        await supabase.from('asignaciones_maestro')
+                            .upsert({
+                                servidor_id: servidorId,
+                                etapa: etapaDet,
+                                dia: dia,
+                                vigente: true
+                            }, {
+                                onConflict: 'servidor_id,etapa,dia'
+                            });
                     }
                 } else if (rolEs(item.rol as any, 'Logistica')) {
                     const { culto } = item.detalles || {};
@@ -1277,7 +1294,7 @@ export default function GestionServidores() {
 
     /* ===== 4. INICIO DEL BLOQUE JSX REFACTORIZADO ===== */
     return (
-        <>
+        <div className="h-full overflow-y-auto">
             {/* El formulario principal ahora usa los componentes premium */}
             <GlassCard>
                 <CardHeader
@@ -3062,6 +3079,6 @@ export default function GestionServidores() {
                   }
                 }
             `}</style>
-        </>
+        </div>
     );
 }

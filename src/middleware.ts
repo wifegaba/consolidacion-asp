@@ -16,6 +16,11 @@ interface JwtPayload {
 export async function middleware(req: NextRequest) {
   const { pathname, origin } = req.nextUrl;
 
+  // Redirigir la ruta raíz "/" a "/login"
+  if (pathname === '/') {
+    return NextResponse.redirect(new URL('/login', origin));
+  }
+
   // Si no tenemos una clave secreta configurada, no podemos verificar nada.
   // Es mejor bloquear el acceso por seguridad.
   if (!JWT_SECRET) {
@@ -46,7 +51,7 @@ export async function middleware(req: NextRequest) {
     // --- CAMBIO AQUÍ ---
     // 4. Comprobar si el rol es 'Director', 'Administrador' O 'Maestro Ptm'
     if (
-      payload.rol === 'Director' || 
+      payload.rol === 'Director' ||
       payload.rol === 'Administrador' ||
       payload.rol === 'Maestro Ptm' // <-- AÑADIDO
     ) {
@@ -62,7 +67,7 @@ export async function middleware(req: NextRequest) {
     console.warn('Fallo de verificación en middleware:', (err as Error).message);
     const loginUrl = new URL('/login', origin);
     loginUrl.searchParams.set('redirectTo', pathname);
-    
+
     // Borramos la cookie inválida para evitar bucles de redirección
     const response = NextResponse.redirect(loginUrl);
     response.cookies.set(COOKIE_NAME, '', { maxAge: 0, path: '/' });
@@ -74,11 +79,12 @@ export async function middleware(req: NextRequest) {
 // Añadimos la nueva ruta a proteger.
 export const config = {
   matcher: [
-    '/panel/:path*', 
+    '/',  // Ruta raíz para redirección
+    '/panel/:path*',
     '/panel',
     '/admin/:path*',
     '/admin',
-    '/restauracion/estudiante/:path*', // <-- AÑADIDO
-    '/restauracion/estudiante'         // <-- AÑADIDO
+    '/restauracion/estudiante/:path*',
+    '/restauracion/estudiante'
   ],
 };
