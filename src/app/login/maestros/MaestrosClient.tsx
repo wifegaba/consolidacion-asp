@@ -368,6 +368,23 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
   const rtDebug = (params?.get('rtlog') === '1') || (params?.get('debug') === '1');
   const rtLog = useCallback((...args: any[]) => { if (rtDebug) console.log('[RT maestros]', ...args); }, [rtDebug]);
 
+  // Interceptar el botón "atrás" del navegador para redirigir a /login
+  useEffect(() => {
+    // Agregar un estado ficticio al historial
+    window.history.pushState(null, '', window.location.href);
+
+    const handlePopState = () => {
+      // Cuando el usuario presiona "atrás", redirigir a /login
+      router.replace('/login');
+    };
+
+    window.addEventListener('popstate', handlePopState);
+
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, [router]);
+
   const [nombre, setNombre] = useState('');
   const [asig, setAsig] = useState<MaestroAsignacion | null>(null);
 

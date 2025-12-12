@@ -14,9 +14,9 @@ import { motion, AnimatePresence, Variants } from 'framer-motion';
 import {
   Users, UserPlus, Server, Search, Plus, X, Loader2, Check,
   Edit2, Trash2, BookOpen, MessageSquarePlus, type LucideIcon,
-  ChevronDown, AlertTriangle, ClipboardList, UserX, UserCheck2, Settings
+  ChevronDown, AlertTriangle, ClipboardList, UserX, UserCheck2
 } from 'lucide-react';
-import GestionServidores from './components/GestionServidores';
+import ServidoresPage from '../panel/servidores/page';
 
 // --- CONSTANTES DE ESTILO ---
 const GLASS_STYLES = {
@@ -56,7 +56,7 @@ const modalVariants: Variants = {
 
 // --- COMPONENTE PRINCIPAL ---
 export default function AdminPage() {
-  const [activeTab, setActiveTab] = useState<AdminTab>('maestros');
+  const [activeTab, setActiveTab] = useState<AdminTab>('servidores');
   const [maestros, setMaestros] = useState<MaestroConCursos[]>([]);
   const [cursos, setCursos] = useState<Curso[]>([]);
   const [estudiantes, setEstudiantes] = useState<Estudiante[]>([]);
@@ -116,7 +116,7 @@ export default function AdminPage() {
           {/* SIDEBAR (Desktop) */}
           <aside className="hidden md:flex w-64 flex-col border-r border-white/40 bg-white/20 p-4">
             <nav className="flex flex-col gap-2 flex-1">
-
+              <TabButton Icon={Server} label="Servidores" isActive={activeTab === 'servidores'} onClick={() => setActiveTab('servidores')} />
               <TabButton Icon={Users} label="Maestros" isActive={activeTab === 'maestros'} onClick={() => setActiveTab('maestros')} />
               <TabButton Icon={UserPlus} label="Matricular" isActive={activeTab === 'matricular'} onClick={() => setActiveTab('matricular')} badge={estudiantesPendientesCount} />
               <TabButton Icon={ClipboardList} label="Consultar" isActive={activeTab === 'consultar'} onClick={() => setActiveTab('consultar')} />
@@ -141,7 +141,7 @@ export default function AdminPage() {
             <div className="flex-1 overflow-y-auto p-2 md:p-8 scroll-smooth">
               <AnimatePresence mode="wait">
                 <motion.div key={activeTab} variants={fadeTransition} initial="hidden" animate="visible" exit="exit" className="h-full flex flex-col">
-
+                  {activeTab === 'servidores' && <ServidoresPage />}
                   {activeTab === 'matricular' && <PanelMatricular maestros={maestros} cursos={cursos} estudiantes={estudiantes} inscripciones={inscripciones} onMatriculaExitosa={onDataUpdated} loading={isLoading} />}
                   {activeTab === 'maestros' && <PanelGestionarMaestros maestros={maestros.filter(m => m.rol === 'Maestro Ptm')} loading={isLoading} onCrear={() => setModalMaestro('new')} onEditar={(m) => setModalMaestro(m)} onAsignar={(m) => setModalAsignar(m)} onObs={(m) => setModalObservacion(m)} onDesactivar={(m) => setModalDesactivar(m)} />}
                   {activeTab === 'consultar' && <PanelConsultarEstudiantes maestros={maestros} cursos={cursos} estudiantes={estudiantes} inscripciones={inscripciones} loading={isLoading} />}
@@ -151,7 +151,7 @@ export default function AdminPage() {
 
             {/* Barra de Navegación Móvil (Sticky Bottom) */}
             <div className="md:hidden border-t border-white/40 bg-white/40 backdrop-blur-xl flex justify-around p-2 pb-safe shrink-0 z-30">
-
+              <MobileTab Icon={Server} label="Servidores" isActive={activeTab === 'servidores'} onClick={() => setActiveTab('servidores')} />
               <MobileTab Icon={Users} label="Maestros" isActive={activeTab === 'maestros'} onClick={() => setActiveTab('maestros')} />
               <MobileTab Icon={UserPlus} label="Matricular" isActive={activeTab === 'matricular'} onClick={() => setActiveTab('matricular')} badge={estudiantesPendientesCount} />
               <MobileTab Icon={ClipboardList} label="Consultar" isActive={activeTab === 'consultar'} onClick={() => setActiveTab('consultar')} />

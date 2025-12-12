@@ -79,9 +79,9 @@ export default function LoginPage() {
   };
 
   return (
-    <main className="min-h-screen relative flex flex-col items-center justify-center p-6 bg-[url('/portal-bg-new.jpg')] bg-cover bg-center bg-no-repeat overflow-hidden">
-      {/* Overlay for better text readability */}
-      <div className="absolute inset-0 bg-black/30 pointer-events-none" />
+    <main className="min-h-screen relative flex flex-col items-center justify-center p-6 bg-[url('/fondo-login.jpg')] bg-cover bg-center bg-no-repeat overflow-hidden">
+      {/* Overlay suave para mejor legibilidad (opcional, más claro) */}
+      <div className="absolute inset-0 bg-white/10 pointer-events-none" />
 
       {/* Tarjeta principal */}
       <div className="relative z-10 w-full max-w-md bg-white/20 backdrop-blur-2xl border border-white/30 rounded-3xl shadow-[0_20px_60px_rgba(0,0,0,0.15)] p-7 sm:p-9">

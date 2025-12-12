@@ -315,6 +315,23 @@ export default function Contactos1Client(
   const rtDebug = false;
   const rtLog = useCallback((...args: any[]) => { if (rtDebug) console.log('[RT contactos1]', ...args); }, []);
 
+  // Interceptar el botón "atrás" del navegador para redirigir a /login
+  useEffect(() => {
+    // Agregar un estado ficticio al historial
+    window.history.pushState(null, '', window.location.href);
+
+    const handlePopState = () => {
+      // Cuando el usuario presiona "atrás", redirigir a /login
+      router.replace('/login');
+    };
+
+    window.addEventListener('popstate', handlePopState);
+
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, [router]);
+
   const [nombre, setNombre] = useState('');
   const [asig, setAsig] = useState<MaestroAsignacion | null>(null);
 
