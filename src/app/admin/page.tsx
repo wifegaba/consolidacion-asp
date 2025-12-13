@@ -18,9 +18,13 @@ import {
   Phone, MessageCircle
 } from 'lucide-react';
 import ServidoresPage from '../panel/servidores/page';
+import PanelMatricular from './components/PanelMatricular';
+import PanelConsultarEstudiantes from './components/PanelConsultarEstudiantes';
+import { PresenceToast, type Toast } from './components/PresenceToast';
+import { usePresence } from '../../hooks/usePresence';
 
 // --- CONSTANTES DE ESTILO ---
-const GLASS_STYLES = {
+export const GLASS_STYLES = {
   // En móvil (rounded-none, border-0) para que parezca app nativa, en desktop (rounded-3xl)
   container: "bg-white/25 backdrop-blur-xl md:border md:border-white/40 md:shadow-2xl",
   panel: "bg-white/30 backdrop-blur-xl border border-white/50 shadow-sm",
@@ -31,16 +35,16 @@ const GLASS_STYLES = {
 };
 
 // --- TIPOS DE DATOS ---
-type Observacion = { id: string; observacion: string; created_at: string; creador: { nombre: string; } | null; };
-type Maestro = { id: string; nombre: string; cedula: string; telefono: string | null; email: string | null; activo: boolean; };
-type Curso = { id: number; nombre: string; color: string; orden?: number };
-type AsignacionMaestro = { id: string; servidor_id: string; curso_id: number; cursos: Pick<Curso, 'nombre' | 'color'> | null; };
-type MaestroDataRaw = Maestro & { asignaciones: AsignacionMaestro[]; observaciones_count: { count: number }[]; servidores_roles: { rol: string }[]; };
-type MaestroConCursos = Maestro & { asignaciones: AsignacionMaestro[]; obs_count: number; rol: string | null; };
-type Estudiante = { id: string; nombre: string; cedula: string; foto_path?: string | null; };
-type Inscripcion = { entrevista_id: string; curso_id: number; servidor_id: string | null; cursos?: Pick<Curso, 'nombre' | 'color'> | null; };
-type EstudianteInscrito = Estudiante & { maestro: MaestroConCursos | null; curso: Curso | null; inscripcion_id: string | null; };
-type AdminTab = 'matricular' | 'maestros' | 'servidores' | 'consultar';
+export type Observacion = { id: string; observacion: string; created_at: string; creador: { nombre: string; } | null; };
+export type Maestro = { id: string; nombre: string; cedula: string; telefono: string | null; email: string | null; activo: boolean; };
+export type Curso = { id: number; nombre: string; color: string; orden?: number };
+export type AsignacionMaestro = { id: string; servidor_id: string; curso_id: number; cursos: Pick<Curso, 'nombre' | 'color'> | null; };
+export type MaestroDataRaw = Maestro & { asignaciones: AsignacionMaestro[]; observaciones_count: { count: number }[]; servidores_roles: { rol: string }[]; };
+export type MaestroConCursos = Maestro & { asignaciones: AsignacionMaestro[]; obs_count: number; rol: string | null; };
+export type Estudiante = { id: string; nombre: string; cedula: string; telefono?: string | null; foto_path?: string | null; };
+export type Inscripcion = { entrevista_id: string; curso_id: number; servidor_id: string | null; cursos?: Pick<Curso, 'nombre' | 'color'> | null; };
+export type EstudianteInscrito = Estudiante & { maestro: MaestroConCursos | null; curso: Curso | null; inscripcion_id: string | null; };
+export type AdminTab = 'matricular' | 'maestros' | 'servidores' | 'consultar';
 
 // --- HELPERS ---
 function bustUrl(u?: string | null) {
@@ -48,10 +52,7 @@ function bustUrl(u?: string | null) {
   const sep = u.includes("?") ? "&" : "?";
   return `${u}${sep}v=${Date.now()}`;
 }
-function generateAvatar(name: string): string {
-  const initials = (name || 'NN').split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
-  return `https://placehold.co/100x100/AED6F1/4A4A4A?text=${initials}`;
-}
+
 
 // --- VARIANTES DE ANIMACIÓN ---
 const fadeTransition: Variants = {
@@ -60,7 +61,7 @@ const fadeTransition: Variants = {
   exit: { opacity: 0, x: 20, transition: { duration: 0.2 } }
 };
 
-const modalVariants: Variants = {
+export const modalVariants: Variants = {
   hidden: { scale: 0.95, opacity: 0 },
   visible: { scale: 1, opacity: 1, transition: { type: 'spring', stiffness: 300, damping: 30 } },
   exit: { scale: 0.95, opacity: 0 },
@@ -82,13 +83,68 @@ export default function AdminPage() {
   const [modalObservacion, setModalObservacion] = useState<MaestroConCursos | null>(null);
   const [modalDesactivar, setModalDesactivar] = useState<MaestroConCursos | null>(null);
 
+  // Usuario Logueado
+  const [currentUser, setCurrentUser] = useState<{ name: string; initials: string; id: string }>({ name: 'Administrador', initials: 'AD', id: '' });
+
+  // Presence Notifications
+  const [toasts, setToasts] = useState<Toast[]>([]);
+
+  useEffect(() => {
+    // Obtener información del usuario desde el JWT
+    const fetchUserProfile = async () => {
+      try {
+        const res = await fetch('/api/me');
+        if (res.ok) {
+          const data = await res.json();
+          // data incluye: cedula, servidorId, etc
+
+          if (data.servidorId) {
+            // Buscar el nombre usando servidorId
+            const { data: servidor } = await supabase
+              .from('servidores')
+              .select('nombre')
+              .eq('id', data.servidorId)
+              .maybeSingle();
+
+            if (servidor && servidor.nombre) {
+              setCurrentUser({
+                name: servidor.nombre,
+                initials: servidor.nombre.substring(0, 2).toUpperCase(),
+                id: data.servidorId
+              });
+            }
+          } else if (data.cedula) {
+            // Fallback: buscar por cédula
+            const { data: servidor } = await supabase
+              .from('servidores')
+              .select('nombre, id')
+              .eq('cedula', data.cedula)
+              .maybeSingle();
+
+            if (servidor && servidor.nombre) {
+              setCurrentUser({
+                name: servidor.nombre,
+                initials: servidor.nombre.substring(0, 2).toUpperCase(),
+                id: servidor.id
+              });
+            }
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching user profile:", error);
+      }
+    };
+
+    fetchUserProfile();
+  }, []);
+
   const loadData = useCallback(async () => {
     setIsLoading(true);
     try {
       const [{ data: mData }, { data: cData }, { data: eData }, { data: iData }] = await Promise.all([
         supabase.from('servidores').select(`id, nombre, cedula, telefono, email, activo, asignaciones:asignaciones_academia (id, servidor_id, curso_id, cursos ( nombre, color )), observaciones_count:servidores_observaciones!servidor_id(count), servidores_roles ( rol )`).order('nombre', { ascending: true }),
         supabase.from('cursos').select('id, nombre, color, orden').order('orden', { ascending: true }),
-        supabase.from('entrevistas').select('id, nombre, cedula, foto_path').order('nombre', { ascending: true }),
+        supabase.from('entrevistas').select('id, nombre, cedula, telefono, foto_path').order('nombre', { ascending: true }),
         supabase.from('inscripciones').select('entrevista_id, curso_id, servidor_id').eq('estado', 'activo')
       ]);
 
@@ -126,6 +182,24 @@ export default function AdminPage() {
     return estudiantes.filter(e => !inscritosSet.has(e.id)).length;
   }, [estudiantes, inscripciones]);
 
+  // Presence Hook - Solo activar cuando tenemos el usuario
+  usePresence(
+    currentUser.name,
+    currentUser.id,
+    (user) => {
+      // Agregar toast cuando alguien se conecta
+      const newToast: Toast = {
+        id: `${user.user_id}-${Date.now()}`,
+        userName: user.name
+      };
+      setToasts(prev => [...prev, newToast].slice(-3)); // Máximo 3 toasts
+    }
+  );
+
+  const handleDismissToast = useCallback((id: string) => {
+    setToasts(prev => prev.filter(t => t.id !== id));
+  }, []);
+
   return (
     <div className="relative h-[100dvh] w-full overflow-hidden bg-slate-100 text-gray-900 font-sans">
       {/* FONDO ESTATICO */}
@@ -149,9 +223,9 @@ export default function AdminPage() {
             </nav>
             <div className="mt-auto border-t border-white/30 pt-4 px-2">
               <div className="flex items-center gap-3">
-                <div className="h-8 w-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold text-xs">AD</div>
+                <div className="h-8 w-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold text-xs">{currentUser.initials}</div>
                 <div className="flex flex-col">
-                  <span className="text-xs font-bold text-indigo-900">Administrador</span>
+                  <span className="text-xs font-bold text-indigo-900">{currentUser.name}</span>
                   <span className="text-[10px] text-indigo-700/70">En línea</span>
                 </div>
               </div>
@@ -171,7 +245,7 @@ export default function AdminPage() {
                   {activeTab === 'matricular' && <PanelMatricular maestros={maestros} cursos={cursos} estudiantes={estudiantes} inscripciones={inscripciones} onMatriculaExitosa={onDataUpdated} loading={isLoading} />}
                   {activeTab === 'maestros' && <PanelGestionarMaestros maestros={maestros.filter(m => m.rol === 'Maestro Ptm')} loading={isLoading} onCrear={() => setModalMaestro('new')} onEditar={(m) => setModalMaestro(m)} onAsignar={(m) => setModalAsignar(m)} onObs={(m) => setModalObservacion(m)} onDesactivar={(m) => setModalDesactivar(m)} />}
 
-                  {activeTab === 'consultar' && <PanelConsultarEstudiantes maestros={maestros} cursos={cursos} estudiantes={estudiantes} inscripciones={inscripciones} loading={isLoading} fotoUrls={fotoUrls} />}
+                  {activeTab === 'consultar' && <PanelConsultarEstudiantes maestros={maestros} cursos={cursos} estudiantes={estudiantes} inscripciones={inscripciones} loading={isLoading} fotoUrls={fotoUrls} onDataUpdated={onDataUpdated} />}
                 </motion.div>
               </AnimatePresence>
             </div>
@@ -202,6 +276,9 @@ export default function AdminPage() {
           <ModalConfirmarDesactivar key="modal-del" maestro={modalDesactivar} onClose={() => setModalDesactivar(null)} onSuccess={() => { setModalDesactivar(null); onDataUpdated(); }} />
         )}
       </AnimatePresence>
+
+      {/* PRESENCE TOAST NOTIFICATIONS */}
+      <PresenceToast toasts={toasts} onDismiss={handleDismissToast} />
     </div>
   );
 }
@@ -233,11 +310,11 @@ function MobileTab({ Icon, label, isActive, onClick, badge }: MobileTabProps) {
   );
 }
 
-function GlassCard({ children, className = "" }: { children: React.ReactNode, className?: string }) {
+export function GlassCard({ children, className = "" }: { children: React.ReactNode, className?: string }) {
   return <div className={`${GLASS_STYLES.panel} rounded-2xl overflow-hidden flex flex-col h-full ${className}`}>{children}</div>;
 }
 
-function CardHeader({ Icon, title, subtitle, children }: { Icon: LucideIcon, title: string, subtitle: string, children?: React.ReactNode }) {
+export function CardHeader({ Icon, title, subtitle, children }: { Icon: LucideIcon, title: string, subtitle: string, children?: React.ReactNode }) {
   return (
     <div className={`flex flex-col md:flex-row items-start md:items-center justify-between gap-4 p-5 ${GLASS_STYLES.headerGradient}`}>
       <div className="flex items-center gap-4">
@@ -254,167 +331,9 @@ function CardHeader({ Icon, title, subtitle, children }: { Icon: LucideIcon, tit
    ==========================================================================
 */
 
-interface PanelConsultarProps { maestros: MaestroConCursos[]; cursos: Curso[]; estudiantes: Estudiante[]; inscripciones: Inscripcion[]; loading: boolean; fotoUrls: Record<string, string>; }
-function PanelConsultarEstudiantes({ maestros, cursos, estudiantes, inscripciones, loading, fotoUrls }: PanelConsultarProps) {
-  const [search, setSearch] = useState('');
-  const [selectedMaestroId, setSelectedMaestroId] = useState('');
-
-
-  const procesados = useMemo(() => {
-    const mSet = new Map<string, MaestroConCursos>(maestros.map(m => [m.id, m]));
-    const cSet = new Map<number, Curso>(cursos.map(c => [c.id, c]));
-    const iSet = new Map<string, Inscripcion>(inscripciones.map(i => [i.entrevista_id, i]));
-
-    return estudiantes.map(e => {
-      const ins = iSet.get(e.id);
-      return {
-        ...e,
-        maestro: (ins && ins.servidor_id) ? mSet.get(ins.servidor_id) || null : null,
-        curso: (ins && ins.curso_id) ? cSet.get(ins.curso_id) || null : null,
-        inscripcion_id: ins ? ins.entrevista_id : null
-      };
-    });
-  }, [estudiantes, inscripciones, maestros, cursos]);
-
-  const { pendientes, matriculados } = useMemo(() => {
-    const q = search.toLowerCase();
-    const match = (e: Estudiante) => !q || e.nombre.toLowerCase().includes(q) || e.cedula?.includes(q);
-    return {
-      pendientes: procesados.filter(e => !e.inscripcion_id && match(e)),
-      matriculados: procesados.filter(e => e.inscripcion_id && (!selectedMaestroId || e.maestro?.id === selectedMaestroId) && match(e))
-    };
-  }, [procesados, search, selectedMaestroId]);
 
 
 
-  return (
-    <GlassCard className="h-full flex flex-col">
-      <CardHeader Icon={ClipboardList} title="Estudiantes" subtitle="Base de datos de matrículas." />
-
-      <div className="p-4 md:p-6 grid grid-cols-1 md:grid-cols-2 gap-4 shrink-0">
-        <div className="relative">
-          <input type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar estudiante..." className={`w-full rounded-lg px-4 py-2.5 pl-10 ${GLASS_STYLES.input}`} />
-          <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
-        </div>
-        <FormSelect value={selectedMaestroId} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setSelectedMaestroId(e.target.value)} label="">
-          <option value="">Todos los Maestros</option>
-          {maestros.filter(m => m.rol === 'Maestro Ptm').map(m => <option key={m.id} value={m.id}>{m.nombre}</option>)}
-        </FormSelect>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 px-4 pb-4 md:px-6 md:pb-6 flex-1 min-h-0 overflow-hidden">
-        <div className="flex flex-col h-full min-h-0">
-          <div className="mb-2 flex items-center gap-2 text-rose-700 font-semibold shrink-0"><UserX size={18} /> Pendientes ({pendientes.length})</div>
-          <div className={`flex-1 overflow-y-auto rounded-xl ${GLASS_STYLES.input} p-0 border-2 border-white/50`}>
-            {loading ? <div className="p-4 text-center">Cargando...</div> : pendientes.length === 0 ? <div className="p-8 text-center text-gray-500">No hay pendientes</div> : pendientes.map(e => <EstudianteRow key={e.id} e={e} />)}
-          </div>
-        </div>
-
-        <div className="flex flex-col h-full min-h-0">
-          <div className="mb-2 flex items-center gap-2 text-blue-700 font-semibold shrink-0"><UserCheck2 size={18} /> Matriculados ({matriculados.length})</div>
-          <div className={`flex-1 overflow-y-auto rounded-xl ${GLASS_STYLES.input} p-0 border-2 border-white/50`}>
-            {loading ? <div className="p-4 text-center">Cargando...</div> : matriculados.length === 0 ? <div className="p-8 text-center text-gray-500">No hay matriculados</div> : matriculados.map(e => <EstudianteRow key={e.id} e={e} matriculado fotoUrl={e.foto_path ? fotoUrls[e.foto_path] : undefined} />)}
-          </div>
-        </div>
-      </div>
-    </GlassCard>
-  );
-}
-
-function EstudianteRow({ e, matriculado, fotoUrl }: { e: EstudianteInscrito, matriculado?: boolean, fotoUrl?: string }) {
-  const avatar = fotoUrl || generateAvatar(e.nombre);
-  return (
-    <div className={`p-3 flex justify-between items-center ${GLASS_STYLES.listItem}`}>
-      <div className="flex items-center gap-3">
-        {matriculado && <img src={avatar} alt={e.nombre} className="h-10 w-10 rounded-full object-cover border border-white/60 shadow-sm bg-gray-200" />}
-        <div>
-          <p className="font-medium text-gray-900 text-sm">{e.nombre}</p>
-          <p className="text-xs text-gray-500">{e.cedula}</p>
-        </div>
-      </div>
-      {matriculado ? (
-        <div className="text-right">
-          <span className="block text-xs font-bold text-blue-700 bg-blue-100/50 px-2 py-0.5 rounded-full truncate max-w-[120px]">{e.curso?.nombre}</span>
-          <span className="text-[10px] text-gray-500">{e.maestro?.nombre}</span>
-        </div>
-      ) : (
-        <span className="text-xs font-medium text-amber-700 bg-amber-100/50 px-2 py-0.5 rounded-full">Pendiente</span>
-      )}
-    </div>
-  );
-}
-
-interface PanelMatricularProps { maestros: MaestroConCursos[]; cursos: Curso[]; estudiantes: Estudiante[]; inscripciones: Inscripcion[]; onMatriculaExitosa: () => void; loading: boolean; }
-function PanelMatricular({ maestros, cursos, estudiantes, inscripciones, onMatriculaExitosa, loading }: PanelMatricularProps) {
-  const [cursoId, setCursoId] = useState('');
-  const [maestroId, setMaestroId] = useState('');
-  const [selectedIds, setSelectedIds] = useState<Record<string, boolean>>({});
-  const [isSaving, setIsSaving] = useState(false);
-  const [search, setSearch] = useState('');
-
-  useEffect(() => {
-    const c = cursos.find(c => c.nombre === 'Restauración 1');
-    if (c) setCursoId(String(c.id));
-  }, [cursos]);
-
-  const mDisponibles = useMemo(() => !cursoId ? [] : maestros.filter(m => m.rol === 'Maestro Ptm' && m.asignaciones.some(a => a.curso_id === parseInt(cursoId))), [cursoId, maestros]);
-  const eDisponibles = useMemo(() => {
-    if (!cursoId) return [];
-    const inscritos = new Set(inscripciones.map(i => i.entrevista_id));
-    return estudiantes.filter(e => !inscritos.has(e.id) && (!search || e.nombre.toLowerCase().includes(search.toLowerCase())));
-  }, [cursoId, estudiantes, inscripciones, search]);
-
-  const handleMatricular = async () => {
-    setIsSaving(true);
-    const ids = Object.keys(selectedIds).filter(k => selectedIds[k]);
-    try {
-      const { data, error } = await supabase.from('inscripciones').insert(ids.map(id => ({ entrevista_id: id, curso_id: parseInt(cursoId), servidor_id: maestroId, estado: 'activo' }))).select('id');
-      if (error) throw error;
-      if (data) await supabase.from('asistencias_academia').insert(data.map((d: { id: number }) => ({ inscripcion_id: d.id, asistencias: '{}' })));
-      alert("Matrícula exitosa"); setSelectedIds({}); onMatriculaExitosa();
-    } catch (e: any) { alert(e.message); } finally { setIsSaving(false); }
-  };
-
-  return (
-    <GlassCard className="h-full flex flex-col">
-      <CardHeader Icon={UserPlus} title="Matricular Estudiantes" subtitle="Asignación de cursos y maestros." />
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 p-6 flex-1 min-h-0 overflow-hidden">
-        <div className="space-y-4 overflow-visible md:overflow-y-auto md:max-h-full">
-          <div className="space-y-2">
-            <label className="text-xs font-bold text-gray-600 uppercase tracking-wider">Configuración</label>
-            <FormSelect label="Curso" value={cursoId} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => { setCursoId(e.target.value); setMaestroId(''); }}>
-              {cursos.filter(c => c.nombre === 'Restauración 1').map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
-            </FormSelect>
-            <FormSelect label="Maestro" value={maestroId} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setMaestroId(e.target.value)} disabled={!cursoId}>
-              <option value="">Seleccionar...</option>
-              {mDisponibles.map(m => <option key={m.id} value={m.id}>{m.nombre}</option>)}
-            </FormSelect>
-          </div>
-          <button onClick={handleMatricular} disabled={isSaving || !maestroId || Object.keys(selectedIds).length === 0} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl shadow-lg shadow-blue-500/30 transition-all disabled:opacity-50">
-            {isSaving ? "Procesando..." : "Confirmar Matrícula"}
-          </button>
-        </div>
-
-        <div className="md:col-span-2 flex flex-col min-h-0 h-full">
-          <div className="mb-2 relative shrink-0">
-            <input type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder="Filtrar estudiantes..." className={`w-full rounded-lg pl-9 py-2 ${GLASS_STYLES.input}`} />
-            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
-          </div>
-          <div className={`flex-1 overflow-y-auto rounded-xl ${GLASS_STYLES.input} p-0 border-2 border-white/50`}>
-            {eDisponibles.length === 0 ? <div className="p-6 text-center text-gray-500">No hay estudiantes disponibles</div> : eDisponibles.map(e => (
-              <div key={e.id} onClick={() => setSelectedIds(p => ({ ...p, [e.id]: !p[e.id] }))} className={`flex items-center gap-3 p-3 cursor-pointer ${GLASS_STYLES.listItem} ${selectedIds[e.id] ? 'bg-blue-50/60' : ''}`}>
-                <div className={`h-5 w-5 rounded border flex items-center justify-center ${selectedIds[e.id] ? 'bg-blue-500 border-blue-500' : 'border-gray-400'}`}>
-                  {selectedIds[e.id] && <Check size={12} className="text-white" />}
-                </div>
-                <div><p className="text-sm font-medium">{e.nombre}</p><p className="text-xs text-gray-500">{e.cedula}</p></div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    </GlassCard>
-  );
-}
 
 interface PanelMaestrosProps {
   maestros: MaestroConCursos[];
@@ -485,7 +404,7 @@ function PanelGestionarMaestros({ maestros, loading, onCrear, onEditar, onAsigna
 */
 
 interface SelectProps { label: string; value: string; onChange: (e: React.ChangeEvent<HTMLSelectElement>) => void; children: React.ReactNode; disabled?: boolean; }
-function FormSelect({ label, value, onChange, children, disabled }: SelectProps) {
+export function FormSelect({ label, value, onChange, children, disabled }: SelectProps) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement | null>(null);
 
@@ -524,7 +443,7 @@ function FormSelect({ label, value, onChange, children, disabled }: SelectProps)
 }
 
 interface InputProps { id: string; label: string; value: string; onChange: (v: string) => void; type?: string; disabled?: boolean; placeholder?: string; }
-function FormInput({ id, label, value, onChange, type = "text", disabled, placeholder }: InputProps) {
+export function FormInput({ id, label, value, onChange, type = "text", disabled, placeholder }: InputProps) {
   return (
     <div>
       <label htmlFor={id} className="block text-xs font-bold text-gray-600 uppercase mb-1">{label}</label>
@@ -538,7 +457,7 @@ function FormInput({ id, label, value, onChange, type = "text", disabled, placeh
    ==========================================================================
 */
 
-function ModalTemplate({ children, onClose, title }: { children: React.ReactNode, onClose: () => void, title: string }) {
+export function ModalTemplate({ children, onClose, title }: { children: React.ReactNode, onClose: () => void, title: string }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/30 backdrop-blur-sm" onClick={onClose}>
       <motion.div variants={modalVariants} initial="hidden" animate="visible" exit="exit" onClick={e => e.stopPropagation()} className={`relative w-full max-w-lg rounded-2xl overflow-hidden flex flex-col max-h-[92vh] ${GLASS_STYLES.container} bg-white/80`}>

@@ -4,6 +4,9 @@ import { useCallback, useEffect, useRef, useTransition } from 'react';
 import type { RealtimeChannel, RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
+import { useAuth } from '@/hooks/useAuth';
+import { GlobalPresenceProvider } from '@/components/GlobalPresenceProvider';
+import { useState } from 'react';
 
 /**
  * Watcher de Realtime para el Dashboard:
@@ -19,6 +22,19 @@ export default function RtDashboardWatch() {
   const [, startTransition] = useTransition();
   const tRef = useRef<number | null>(null);
   const channelRef = useRef<RealtimeChannel | null>(null);
+
+  // Presence logic
+  const { user } = useAuth();
+  const [userName, setUserName] = useState('');
+
+  useEffect(() => {
+    if (user?.servidorId) {
+      supabase.from('servidores').select('nombre').eq('id', user.servidorId).maybeSingle()
+        .then(({ data }) => {
+          if (data && data.nombre) setUserName(data.nombre);
+        });
+    }
+  }, [user?.servidorId]);
 
   const log = useCallback((...args: unknown[]) => {
     if (rtDebug) console.log('[RT dashboard]', ...args);
@@ -43,15 +59,15 @@ export default function RtDashboardWatch() {
     channelRef.current = channel;
 
     const tables = [
-  "persona",              // Contactos
-  "servidores",           // Servidores
-  "asistencia",           // Asistencias
-  "progreso",             // Agendados
-  "llamada_intento",      // Cambios de estado
-  "transition_log",       // Avances de módulo/semana
-  "asignaciones_contacto",
-  "asignaciones_maestro",
-] as const;
+      "persona",              // Contactos
+      "servidores",           // Servidores
+      "asistencia",           // Asistencias
+      "progreso",             // Agendados
+      "llamada_intento",      // Cambios de estado
+      "transition_log",       // Avances de módulo/semana
+      "asignaciones_contacto",
+      "asignaciones_maestro",
+    ] as const;
 
     const getRefId = (payload: RealtimePostgresChangesPayload<Record<string, unknown>>) => {
       const next = payload.new;
@@ -95,5 +111,9 @@ export default function RtDashboardWatch() {
     };
   }, [log, scheduleRefresh]);
 
-  return null;
+  return (
+    <GlobalPresenceProvider userName={userName} userId={user?.servidorId || ''}>
+      <div />
+    </GlobalPresenceProvider>
+  );
 }

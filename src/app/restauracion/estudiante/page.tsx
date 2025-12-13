@@ -14,10 +14,10 @@ import {
   Phone,
   MessageCircle,
   Loader2,
-  Lock, 
+  Lock,
 } from 'lucide-react';
 import { supabase } from '../../../lib/supabaseClient';
-import { useToast } from '../../../components/ToastProvider'; 
+import { useToast } from '../../../components/ToastProvider';
 import { useAuth } from '../../../hooks/useAuth';
 
 import {
@@ -35,10 +35,11 @@ import {
 } from './components/academia.utils';
 
 import { HojaDeVidaPanel } from './components/HojaDeVidaPanel';
-import { 
-  WelcomePanel as WelcomePanelBase, 
-  CourseWelcomeMessage 
+import {
+  WelcomePanel as WelcomePanelBase,
+  CourseWelcomeMessage
 } from './components/PanelesBienvenida';
+import { GlobalPresenceProvider } from '../../../components/GlobalPresenceProvider';
 
 // --- Memoización de Componentes ---
 const WelcomePanel = memo(WelcomePanelBase);
@@ -55,42 +56,42 @@ function createDefaultGradePlaceholders(count = 5): GradePlaceholder[] {
 const initialCourseTopics: CourseTopic[] = [
   { id: 1, title: 'Asistencia', grades: createDefaultGradePlaceholders(12) },
 ];
-const TAB_INDICES: Record<ActiveTab, number> = { hojaDeVida: 1, grades: 2, reports: 3 }; 
+const TAB_INDICES: Record<ActiveTab, number> = { hojaDeVida: 1, grades: 2, reports: 3 };
 const STATE_LEVELS: Record<MainPanelState, number> = { 'welcome': 0, 'courseWelcome': 1, 'creating': 2, 'viewing': 2 };
 const fixedContentBg = 'bg-[radial-gradient(1300px_900px_at_95%_5%,rgba(59,130,246,0.35),transparent_70%)]';
 
 /** Página — Panel del Maestro Ptm */
 export default function EstudiantePage() {
   const { user, loading: authLoading, error: authError } = useAuth();
-  const toast = useToast(); 
-  
+  const toast = useToast();
+
   // --- Estados ---
   const [activeTab, setActiveTab] = useState<ActiveTab>('hojaDeVida');
   const [prevTab, setPrevTab] = useState<ActiveTab>('hojaDeVida');
-  
-  const [courses, setCourses] = useState<Course[]>([]); 
-  const [students, setStudents] = useState<EstudianteInscrito[]>([]); 
+
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [students, setStudents] = useState<EstudianteInscrito[]>([]);
   const [loadingStudents, setLoadingStudents] = useState(false);
   const [loadingCourses, setLoadingCourses] = useState(true);
-  
+
   const [selectedInscripcionId, setSelectedInscripcionId] = useState<string | null>(null);
   const [selectedStudent, setSelectedStudent] = useState<EstudianteInscrito | null>(null);
-  
+
   const [mainState, setMainState] = useState<MainPanelState>('welcome');
   const [prevMainState, setPrevMainState] = useState<MainPanelState>('welcome');
-  const [selectedCourse, setSelectedCourse] = useState<Course | null>(null); 
-  
+  const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
+
   const [courseTopics, setCourseTopics] = useState<CourseTopic[]>([]);
   const [studentGrades, setStudentGrades] = useState<StudentGrades>({});
-  
+
   // Control de imágenes y caché
   const [signedUrl, setSignedUrl] = useState<string | null>(null);
   const [fotoUrls, setFotoUrls] = useState<Record<string, string>>({});
-  
+
   // Control de guardado (Debounce y Dirty Check)
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const isGradesDirty = useRef(false); 
-  
+  const isGradesDirty = useRef(false);
+
   // Estados de Asistencia (Attendance Mode)
   const [isAttendanceModalOpen, setIsAttendanceModalOpen] = useState(false);
   const [isAttendanceModeActive, setIsAttendanceModeActive] = useState(false);
@@ -98,6 +99,18 @@ export default function EstudiantePage() {
   const [isAttendanceCompleted, setIsAttendanceCompleted] = useState(false);
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [showAttendanceAlreadyTakenModal, setShowAttendanceAlreadyTakenModal] = useState(false);
+
+
+  const [currentUserName, setCurrentUserName] = useState('');
+
+  useEffect(() => {
+    if (user?.servidorId) {
+      supabase.from('servidores').select('nombre').eq('id', user.servidorId).maybeSingle()
+        .then(({ data }) => {
+          if (data && data.nombre) setCurrentUserName(data.nombre);
+        });
+    }
+  }, [user?.servidorId]);
 
   // --- Callbacks de Navegación ---
   const handleTabClick = useCallback((newTab: ActiveTab) => {
@@ -112,29 +125,29 @@ export default function EstudiantePage() {
 
   const handleGoBackToWelcome = useCallback(() => {
     if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
-    setPrevMainState(current => current); 
+    setPrevMainState(current => current);
     setMainState('welcome');
     setSelectedCourse(null);
     setSelectedInscripcionId(null);
     setSelectedStudent(null);
     setCourseTopics([]);
     setStudentGrades({});
-    setStudents([]); 
-    setSignedUrl(null); 
+    setStudents([]);
+    setSignedUrl(null);
   }, []);
 
   const handleGoBackToStudentList = useCallback(() => {
     if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
-    setPrevMainState(current => current); 
+    setPrevMainState(current => current);
     setMainState('courseWelcome');
     setSelectedInscripcionId(null);
     setSelectedStudent(null);
-    setSignedUrl(null); 
+    setSignedUrl(null);
   }, []);
 
   // --- Carga Inicial de Cursos ---
   useEffect(() => {
-    if (authLoading || !user) return; 
+    if (authLoading || !user) return;
 
     async function loadCourses() {
       setLoadingCourses(true);
@@ -144,13 +157,13 @@ export default function EstudiantePage() {
         .select(`curso_id, curso:cursos ( id, nombre, color, orden )`)
         .eq('servidor_id', servidorId)
         .eq('vigente', true);
-        
+
       if (error) {
         toast.error("Error al cargar tus cursos.");
         setLoadingCourses(false);
         return;
       }
-      
+
       const asignaciones = (data as any[]) || [];
       const cursosRaw = asignaciones.map(a => a?.curso).filter(Boolean) as Array<{
         id: number; nombre: string; color?: string | null; orden?: number | null;
@@ -160,7 +173,7 @@ export default function EstudiantePage() {
         .slice()
         .sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
         .map(curso => ({ id: curso.id, title: curso.nombre, color: curso.color || 'blue' }));
-        
+
       setCourses(loadedCourses);
       setLoadingCourses(false);
     }
@@ -178,28 +191,28 @@ export default function EstudiantePage() {
     setStudents([]);
     setSelectedInscripcionId(null);
     setSelectedStudent(null);
-    setFotoUrls({}); 
-  
+    setFotoUrls({});
+
     try {
       const { data, error } = await supabase
         .from('inscripciones')
-        .select(`id, estado, entrevistas ( * )`) 
+        .select(`id, estado, entrevistas ( * )`)
         .eq('curso_id', course.id)
-        .eq('servidor_id', servidorId) 
-        .order('created_at', { ascending: true }); 
+        .eq('servidor_id', servidorId)
+        .order('created_at', { ascending: true });
 
       if (error) throw error;
-      
+
       const loadedStudents: EstudianteInscrito[] = data
-        .filter(item => item.entrevistas) 
+        .filter(item => item.entrevistas)
         .map(item => ({
-        ...(item.entrevistas as unknown as Entrevista),
-        inscripcion_id: item.id, 
-        estado_inscripcion: item.estado,
-      }));
-      
-      setStudents(loadedStudents); 
-  
+          ...(item.entrevistas as unknown as Entrevista),
+          inscripcion_id: item.id,
+          estado_inscripcion: item.estado,
+        }));
+
+      setStudents(loadedStudents);
+
       if (loadedStudents.length > 0) {
         const fotoPaths = [...new Set(loadedStudents.map((s) => s.foto_path).filter(Boolean) as string[])];
         if (fotoPaths.length > 0) {
@@ -209,12 +222,12 @@ export default function EstudiantePage() {
 
           if (signedUrlsData) {
             const urlMap = signedUrlsData.reduce((acc, item) => {
-                if (item.signedUrl && item.path) {
-                  const url = bustUrl(item.signedUrl);
-                  if (url) acc[item.path] = url;
-                }
-                return acc;
-              }, {} as Record<string, string>);
+              if (item.signedUrl && item.path) {
+                const url = bustUrl(item.signedUrl);
+                if (url) acc[item.path] = url;
+              }
+              return acc;
+            }, {} as Record<string, string>);
             setFotoUrls(urlMap);
           }
         }
@@ -227,85 +240,85 @@ export default function EstudiantePage() {
   }, [user, toast]);
 
   const handleSelectCourse = useCallback(async (course: Course) => {
-    setPrevMainState(s => s); 
-    setSelectedCourse(course); 
+    setPrevMainState(s => s);
+    setSelectedCourse(course);
     setMainState('courseWelcome');
     setSelectedInscripcionId(null);
     setSelectedStudent(null);
-    
+
     setCourseTopics(JSON.parse(JSON.stringify(initialCourseTopics)));
     setStudentGrades({});
-    
-    await loadStudents(course); 
+
+    await loadStudents(course);
   }, [loadStudents]);
 
   // --- Selección de Estudiante ---
-  const handleSelectStudent = useCallback(async (student: EstudianteInscrito) => { 
+  const handleSelectStudent = useCallback(async (student: EstudianteInscrito) => {
     if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
-    isGradesDirty.current = false; 
+    isGradesDirty.current = false;
 
-    setPrevMainState(current => current); 
-    setSelectedInscripcionId(student.inscripcion_id); 
-    setSelectedStudent(student); 
+    setPrevMainState(current => current);
+    setSelectedInscripcionId(student.inscripcion_id);
+    setSelectedStudent(student);
     setMainState('viewing');
     setActiveTab('hojaDeVida');
     setPrevTab('hojaDeVida');
-    
+
     // Uso de caché para foto instantánea
     setSignedUrl(null);
     if (student.foto_path) {
-       if (fotoUrls[student.foto_path]) {
-          setSignedUrl(fotoUrls[student.foto_path]);
-       } else {
-          supabase.storage.from("entrevistas-fotos").createSignedUrl(student.foto_path, 60 * 60).then(({data}) => {
-             if(data?.signedUrl) setSignedUrl(bustUrl(data.signedUrl));
-          });
-       }
+      if (fotoUrls[student.foto_path]) {
+        setSignedUrl(fotoUrls[student.foto_path]);
+      } else {
+        supabase.storage.from("entrevistas-fotos").createSignedUrl(student.foto_path, 60 * 60).then(({ data }) => {
+          if (data?.signedUrl) setSignedUrl(bustUrl(data.signedUrl));
+        });
+      }
     }
 
     const { data: asistenciaData } = await supabase
-      .from('asistencias_academia') 
+      .from('asistencias_academia')
       .select('asistencias')
-      .eq('inscripcion_id', student.inscripcion_id) 
+      .eq('inscripcion_id', student.inscripcion_id)
       .single();
 
     const savedGrades = (asistenciaData?.asistencias as StudentGrades) || {};
-    
+
     const initialGrades: StudentGrades = {};
-    initialCourseTopics.forEach(topic => { 
+    initialCourseTopics.forEach(topic => {
       initialGrades[topic.id] = {};
       const savedTopicGrades = savedGrades[topic.id] || {};
       topic.grades.forEach(g => {
         initialGrades[topic.id][g.id] = savedTopicGrades[g.id] || '';
       });
     });
-    
+
     setStudentGrades(initialGrades);
-  }, [fotoUrls]); 
+  }, [fotoUrls]);
 
   // --- Actualizaciones de Hoja de Vida ---
   const onUpdated = useCallback((r: Entrevista & { _tempPreview?: string | null }) => {
     setStudents((xs) => xs.map((x) => (x.id === r.id ? { ...x, ...r } : x)));
     setSelectedStudent(prev => prev ? { ...prev, ...r } : null);
-    
+
     if (r._tempPreview) {
       setSignedUrl(r._tempPreview);
     } else if (r.foto_path) {
-       supabase.storage.from("entrevistas-fotos").createSignedUrl(r.foto_path, 60 * 60).then(({ data }) => {
-          if (data?.signedUrl) {
-             const url = bustUrl(data.signedUrl);
-             if (url) {
-                setFotoUrls(prev => ({ ...prev, [r.foto_path!]: url }));
-                setSignedUrl(url);
-             }
+      supabase.storage.from("entrevistas-fotos").createSignedUrl(r.foto_path, 60 * 60).then(({ data }) => {
+        if (data?.signedUrl) {
+          const url = bustUrl(data.signedUrl);
+          if (url) {
+            setFotoUrls(prev => ({ ...prev, [r.foto_path!]: url }));
+            setSignedUrl(url);
           }
-       });
+        }
+      });
     }
   }, []);
 
   const handleHojaDeVidaDelete = useCallback((id: string) => {
     setStudents((xs) => xs.filter((x) => x.id !== id));
-    setPrevMainState(current => current); 
+    setPrevMainState(current => current);
     setMainState('courseWelcome');
     setSelectedInscripcionId(null);
     setSelectedStudent(null);
@@ -322,8 +335,8 @@ export default function EstudiantePage() {
           asistencias: gradesToSave,
           updated_at: new Date().toISOString()
         }, { onConflict: 'inscripcion_id' });
-      
-      isGradesDirty.current = false; 
+
+      isGradesDirty.current = false;
       toast.success("Asistencia guardada");
     } catch (error: any) {
       toast.error("Error de autoguardado: " + error.message);
@@ -331,7 +344,7 @@ export default function EstudiantePage() {
   }, [toast]);
 
   const handleGradeChange = useCallback((topicId: number, gradeId: number, value: string) => {
-    isGradesDirty.current = true; 
+    isGradesDirty.current = true;
 
     setStudentGrades(prev => {
       const newTopicGrades = { ...(prev[topicId] || {}), [gradeId]: value };
@@ -344,17 +357,17 @@ export default function EstudiantePage() {
     if (!selectedInscripcionId || !isGradesDirty.current) return;
 
     if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
-    
+
     debounceTimerRef.current = setTimeout(() => {
-        saveGradesToDb(studentGrades, selectedInscripcionId);
+      saveGradesToDb(studentGrades, selectedInscripcionId);
     }, 1000);
 
-    return () => { if(debounceTimerRef.current) clearTimeout(debounceTimerRef.current); };
+    return () => { if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current); };
   }, [studentGrades, selectedInscripcionId, saveGradesToDb]);
-  
+
   // --- Lógica de Asistencia Masiva (CORREGIDA) ---
   const handleMarkAttendanceDB = useCallback(async (inscripcion_id: string, status: 'si' | 'no') => {
-    const topicId = 1; 
+    const topicId = 1;
     if (!attendanceClassId) throw new Error("Clase no seleccionada");
 
     try {
@@ -364,7 +377,7 @@ export default function EstudiantePage() {
         .select('asistencias')
         .eq('inscripcion_id', inscripcion_id)
         .single();
-      
+
       const currentGrades = (currentData?.asistencias as StudentGrades) || {};
       const newTopicGrades = { ...(currentGrades[topicId] || {}), [attendanceClassId]: status };
       const newStudentGrades = { ...currentGrades, [topicId]: newTopicGrades };
@@ -410,7 +423,7 @@ export default function EstudiantePage() {
     cancelAttendanceMode();
     setIsAttendanceCompleted(true);
   }, [cancelAttendanceMode, toast]);
-  
+
   // --- Helpers Visuales ---
   const getTabPanelClasses = (tabName: ActiveTab) => {
     const base = 'w-full h-full flex flex-col min-h-0 transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] [grid-area:1/1]';
@@ -428,13 +441,13 @@ export default function EstudiantePage() {
   };
 
   const getContentPanelClasses = (activeStates: MainPanelState | MainPanelState[]) => {
-    const base = 'transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)]'; 
+    const base = 'transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)]';
     const statesArray = Array.isArray(activeStates) ? activeStates : [activeStates];
     const isActive = statesArray.includes(mainState);
-    const wasActive = statesArray.includes(prevMainState); 
+    const wasActive = statesArray.includes(prevMainState);
     const currentLevel = STATE_LEVELS[mainState];
     const prevLevel = STATE_LEVELS[prevMainState];
-    const myLevel = statesArray.length > 0 ? STATE_LEVELS[statesArray[0]] : -1; 
+    const myLevel = statesArray.length > 0 ? STATE_LEVELS[statesArray[0]] : -1;
 
     if (isActive) return `${base} opacity-100 translate-x-0 scale-100 pointer-events-auto`;
     if (wasActive && mainState !== prevMainState) {
@@ -446,128 +459,130 @@ export default function EstudiantePage() {
   };
 
   const isDetailView = mainState === 'creating' || mainState === 'viewing';
-  
+
   if (authLoading) return <LoadingScreen text="Verificando sesión..." />;
   if (authError || !user) return <ErrorScreen message={authError || "No estás autenticado."} />;
 
   return (
-    <main className="relative flex h-screen w-full items-stretch justify-stretch p-0 text-gray-900 selection:bg-indigo-300/40 selection:text-gray-900 bg-[conic-gradient(from_210deg_at_50%_0%,#EEF2FF_0%,#FAF5FF_40%,#F9FAFB_85%)]">
-      <StyleDefinitions />
-      <div className="pointer-events-none absolute inset-0 opacity-[0.06] [background:radial-gradient(circle,_#000_1px,_transparent_1px)] [background-size:22px_22px]" />
+    <GlobalPresenceProvider userName={currentUserName} userId={user?.servidorId || ''}>
+      <main className="relative flex h-screen w-full items-stretch justify-stretch p-0 text-gray-900 selection:bg-indigo-300/40 selection:text-gray-900 bg-[conic-gradient(from_210deg_at_50%_0%,#EEF2FF_0%,#FAF5FF_40%,#F9FAFB_85%)]">
+        <StyleDefinitions />
+        <div className="pointer-events-none absolute inset-0 opacity-[0.06] [background:radial-gradient(circle,_#000_1px,_transparent_1px)] [background-size:22px_22px]" />
 
-      <div className="relative flex w-full min-h-0 overflow-hidden rounded-none border-none bg-white/40 backdrop-blur-2xl ring-0 shadow-none bg-[linear-gradient(145deg,rgba(99,102,241,0.08),rgba(255,255,255,0.07))] md:flex-row">
-        
-        {/* SIDEBAR MEMOIZADA */}
-        {selectedCourse !== null && (
-          <MemoizedStudentSidebar
-            className="md:animate-slide-in-left"
-            students={students} 
-            loading={loadingStudents}
-            selectedStudentId={selectedStudent?.id || null} 
-            mainState={mainState}
-            courseName={selectedCourse.title} 
-            onSelectStudent={handleSelectStudent} 
-            onGoBackToWelcome={handleGoBackToWelcome}
-            fotoUrls={fotoUrls}
-            isAttendanceModeActive={isAttendanceModeActive}
-            onStartAttendance={() => isAttendanceCompleted ? setShowAttendanceAlreadyTakenModal(true) : setIsAttendanceModalOpen(true)}
-            onMarkAttendanceDB={handleMarkAttendanceDB}
-            onCancelAttendance={cancelAttendanceMode}
-            onCompleteAttendance={completeAttendanceMode}
-            isAttendanceCompleted={isAttendanceCompleted}
-            showConfirmation={showConfirmation}
-            setShowConfirmation={setShowConfirmation}
-          />
-        )}
+        <div className="relative flex w-full min-h-0 overflow-hidden rounded-none border-none bg-white/40 backdrop-blur-2xl ring-0 shadow-none bg-[linear-gradient(145deg,rgba(99,102,241,0.08),rgba(255,255,255,0.07))] md:flex-row">
 
-        <div className={`absolute inset-0 md:relative w-full h-full md:h-auto flex flex-1 flex-col min-w-0 min-h-0 ${fixedContentBg} transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] ${isDetailView || mainState === 'welcome' ? 'translate-x-0' : 'translate-x-full'} md:translate-x-0`}>
-          
-          {/* Topbar */}
-          <div className="sticky top-0 z-10 flex items-end justify-start gap-4 border-b border-white/60 bg-gradient-to-b from-white/70 to-white/40 px-6 pt-3 backdrop-blur-xl">
-            {isDetailView && (
-              <button type="button" onClick={handleGoBackToStudentList} className="flex md:hidden items-center justify-center gap-1.5 p-2 rounded-full border border-white/70 bg-white/25 backdrop-blur-2xl text-gray-700 shadow-[0_4px_12px_-4px_rgba(2,6,23,0.2)] active:scale-95 transition-transform" aria-label="Volver">
-                <ArrowLeft size={18} />
-              </button>
-            )}
-            {(mainState === 'viewing') && (
-              <nav className="flex items-center gap-1.5 p-1 rounded-full border border-white/70 bg-white/25 backdrop-blur-2xl shadow-[0_8px_28px_-10px_rgba(2,6,23,0.28),inset_0_1px_0_rgba(255,255,255,0.65)]">
-                <TabButton icon={<FileText className="h-4 w-4" />} label="Hoja de Vida" isActive={activeTab === 'hojaDeVida'} onClick={() => handleTabClick('hojaDeVida')} />
-                <TabButton icon={<UserCheck className="h-4 w-4" />} label="Asistencias" isActive={activeTab === 'grades'} onClick={() => handleTabClick('grades')} />
-                <TabButton icon={<BarChart3 className="h-4 w-4" />} label="Reportes" isActive={activeTab === 'reports'} onClick={() => handleTabClick('reports')} />
-              </nav>
-            )}
-          </div>
-
-          {/* Body */}
-          <div className="flex-1 min-h-0 grid grid-cols-1 [grid-template-areas:'stack'] overflow-hidden">
-            <WelcomePanel 
-              onSelectCourse={handleSelectCourse} 
-              className={getContentPanelClasses('welcome')}
-              isActive={mainState === 'welcome'}
-              courses={courses}
-              loading={loadingCourses || authLoading} 
+          {/* SIDEBAR MEMOIZADA */}
+          {selectedCourse !== null && (
+            <MemoizedStudentSidebar
+              className="md:animate-slide-in-left"
+              students={students}
+              loading={loadingStudents}
+              selectedStudentId={selectedStudent?.id || null}
+              mainState={mainState}
+              courseName={selectedCourse.title}
+              onSelectStudent={handleSelectStudent}
+              onGoBackToWelcome={handleGoBackToWelcome}
+              fotoUrls={fotoUrls}
+              isAttendanceModeActive={isAttendanceModeActive}
+              onStartAttendance={() => isAttendanceCompleted ? setShowAttendanceAlreadyTakenModal(true) : setIsAttendanceModalOpen(true)}
+              onMarkAttendanceDB={handleMarkAttendanceDB}
+              onCancelAttendance={cancelAttendanceMode}
+              onCompleteAttendance={completeAttendanceMode}
+              isAttendanceCompleted={isAttendanceCompleted}
+              showConfirmation={showConfirmation}
+              setShowConfirmation={setShowConfirmation}
             />
+          )}
 
-            {mainState === 'courseWelcome' && (
-              <div className="md:hidden flex items-center justify-center p-8 text-center text-gray-500 [grid-area:stack]">Selecciona un estudiante.</div>
-            )}
-            
-            {mainState === 'courseWelcome' && (
-              <CourseWelcomeMessage courseName={selectedCourse?.title || 'Curso'} className={getContentPanelClasses('courseWelcome')} />
-            )}
+          <div className={`absolute inset-0 md:relative w-full h-full md:h-auto flex flex-1 flex-col min-w-0 min-h-0 ${fixedContentBg} transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] ${isDetailView || mainState === 'welcome' ? 'translate-x-0' : 'translate-x-full'} md:translate-x-0`}>
 
-            {(mainState === 'viewing') && (
-              <div className={`[grid-area:stack] w-full h-full grid grid-cols-1 [grid-template-areas:'stack'] overflow-hidden ${getContentPanelClasses(['creating', 'viewing'])}`}>
-                
-                {/* Pestaña Notas: MEMOIZADA */}
-                <div className={getTabPanelClasses('grades')}>
-                   <MemoizedGradesTabContent 
+            {/* Topbar */}
+            <div className="sticky top-0 z-10 flex items-end justify-start gap-4 border-b border-white/60 bg-gradient-to-b from-white/70 to-white/40 px-6 pt-3 backdrop-blur-xl">
+              {isDetailView && (
+                <button type="button" onClick={handleGoBackToStudentList} className="flex md:hidden items-center justify-center gap-1.5 p-2 rounded-full border border-white/70 bg-white/25 backdrop-blur-2xl text-gray-700 shadow-[0_4px_12px_-4px_rgba(2,6,23,0.2)] active:scale-95 transition-transform" aria-label="Volver">
+                  <ArrowLeft size={18} />
+                </button>
+              )}
+              {(mainState === 'viewing') && (
+                <nav className="flex items-center gap-1.5 p-1 rounded-full border border-white/70 bg-white/25 backdrop-blur-2xl shadow-[0_8px_28px_-10px_rgba(2,6,23,0.28),inset_0_1px_0_rgba(255,255,255,0.65)]">
+                  <TabButton icon={<FileText className="h-4 w-4" />} label="Hoja de Vida" isActive={activeTab === 'hojaDeVida'} onClick={() => handleTabClick('hojaDeVida')} />
+                  <TabButton icon={<UserCheck className="h-4 w-4" />} label="Asistencias" isActive={activeTab === 'grades'} onClick={() => handleTabClick('grades')} />
+                  <TabButton icon={<BarChart3 className="h-4 w-4" />} label="Reportes" isActive={activeTab === 'reports'} onClick={() => handleTabClick('reports')} />
+                </nav>
+              )}
+            </div>
+
+            {/* Body */}
+            <div className="flex-1 min-h-0 grid grid-cols-1 [grid-template-areas:'stack'] overflow-hidden">
+              <WelcomePanel
+                onSelectCourse={handleSelectCourse}
+                className={getContentPanelClasses('welcome')}
+                isActive={mainState === 'welcome'}
+                courses={courses}
+                loading={loadingCourses || authLoading}
+              />
+
+              {mainState === 'courseWelcome' && (
+                <div className="md:hidden flex items-center justify-center p-8 text-center text-gray-500 [grid-area:stack]">Selecciona un estudiante.</div>
+              )}
+
+              {mainState === 'courseWelcome' && (
+                <CourseWelcomeMessage courseName={selectedCourse?.title || 'Curso'} className={getContentPanelClasses('courseWelcome')} />
+              )}
+
+              {(mainState === 'viewing') && (
+                <div className={`[grid-area:stack] w-full h-full grid grid-cols-1 [grid-template-areas:'stack'] overflow-hidden ${getContentPanelClasses(['creating', 'viewing'])}`}>
+
+                  {/* Pestaña Notas: MEMOIZADA */}
+                  <div className={getTabPanelClasses('grades')}>
+                    <MemoizedGradesTabContent
                       selectedStudent={selectedStudent}
                       courseTopics={courseTopics}
                       studentGrades={studentGrades}
                       onGradeChange={handleGradeChange}
-                   />
-                </div>
+                    />
+                  </div>
 
-                {/* Pestaña Hoja de Vida */}
-                <div className={getTabPanelClasses('hojaDeVida')}>
-                  {selectedStudent ? (
-                    <MemoizedHojaDeVida key={selectedStudent.id} row={selectedStudent} signedUrl={signedUrl} onUpdated={onUpdated} onDeleted={handleHojaDeVidaDelete} className="animate-slideIn" />
-                  ) : (
-                    <div className="p-6 text-center text-gray-600">No seleccionado.</div>
-                  )}
-                </div>
+                  {/* Pestaña Hoja de Vida */}
+                  <div className={getTabPanelClasses('hojaDeVida')}>
+                    {selectedStudent ? (
+                      <MemoizedHojaDeVida key={selectedStudent.id} row={selectedStudent} signedUrl={signedUrl} onUpdated={onUpdated} onDeleted={handleHojaDeVidaDelete} className="animate-slideIn" />
+                    ) : (
+                      <div className="p-6 text-center text-gray-600">No seleccionado.</div>
+                    )}
+                  </div>
 
-                {/* Pestaña Reportes */}
-                <div className={getTabPanelClasses('reports')}>
-                  <section className="p-6 md:p-8 overflow-y-auto flex-1 min-h-0">
-                    <CardSection title="Reportes de Estudiantes">
-                      <p className="text-gray-700 text-[15px]">Próximamente.</p>
-                    </CardSection>
-                  </section>
+                  {/* Pestaña Reportes */}
+                  <div className={getTabPanelClasses('reports')}>
+                    <section className="p-6 md:p-8 overflow-y-auto flex-1 min-h-0">
+                      <CardSection title="Reportes de Estudiantes">
+                        <p className="text-gray-700 text-[15px]">Próximamente.</p>
+                      </CardSection>
+                    </section>
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         </div>
-      </div>
-      
-      {isAttendanceModalOpen && (
-        <ModalTomarAsistencia topics={courseTopics} onClose={() => setIsAttendanceModalOpen(false)} onSelectClass={(classId: number) => { setIsAttendanceModalOpen(false); setIsAttendanceModeActive(true); setAttendanceClassId(classId); }} />
-      )}
-      {showConfirmation && <CupertinoConfirmationDialog onConfirm={() => window.location.reload()} onCancel={() => setShowConfirmation(false)} />}
-      {showAttendanceAlreadyTakenModal && <CupertinoAlertDialog title="Asistencia Registrada" message="Ya has registrado la asistencia para esta clase." onConfirm={() => setShowAttendanceAlreadyTakenModal(false)} />}
-    </main>
+
+        {isAttendanceModalOpen && (
+          <ModalTomarAsistencia topics={courseTopics} onClose={() => setIsAttendanceModalOpen(false)} onSelectClass={(classId: number) => { setIsAttendanceModalOpen(false); setIsAttendanceModeActive(true); setAttendanceClassId(classId); }} />
+        )}
+        {showConfirmation && <CupertinoConfirmationDialog onConfirm={() => window.location.reload()} onCancel={() => setShowConfirmation(false)} />}
+        {showAttendanceAlreadyTakenModal && <CupertinoAlertDialog title="Asistencia Registrada" message="Ya has registrado la asistencia para esta clase." onConfirm={() => setShowAttendanceAlreadyTakenModal(false)} />}
+      </main>
+    </GlobalPresenceProvider>
   );
 }
 
 // ======================= COMPONENTES AUXILIARES OPTIMIZADOS =======================
 
-const MemoizedGradesTabContent = memo(({ 
-  selectedStudent, 
-  courseTopics, 
-  studentGrades, 
-  onGradeChange 
+const MemoizedGradesTabContent = memo(({
+  selectedStudent,
+  courseTopics,
+  studentGrades,
+  onGradeChange
 }: {
   selectedStudent: EstudianteInscrito | null;
   courseTopics: CourseTopic[];
@@ -590,7 +605,7 @@ const MemoizedGradesTabContent = memo(({
       <div className="relative rounded-[22px] border border-white/80 bg-white/25 backdrop-blur-[22px] shadow-[0_30px_80px_-35px_rgba(2,6,23,0.45),inset_0_1px_0_0_#fff] ring-1 ring-black/5 p-5 md:p-7">
         <div className="pointer-events-none absolute -top-16 -left-16 h-44 w-44 rounded-full bg-gradient-to-br from-indigo-500/12 to-white/12 blur-3xl" />
         <div className="pointer-events-none absolute -bottom-10 -right-10 h-40 w-40 rounded-full bg-gradient-to-tl from-indigo-400/15 to-gray-200/20 blur-3xl" />
-      
+
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-[20px] md:text-[22px] font-semibold text-gray-900 tracking-[-0.015em] flex flex-col md:flex-row md:items-center">
             <span>Asistencias del Estudiante:</span>
@@ -628,9 +643,9 @@ const MemoizedStudentSidebar = memo(StudentSidebar);
 
 function StudentSidebar({
   students,
-  selectedStudentId, 
+  selectedStudentId,
   mainState,
-  onSelectStudent, 
+  onSelectStudent,
   className = '',
   onGoBackToWelcome,
   courseName,
@@ -643,10 +658,10 @@ function StudentSidebar({
   onMarkAttendanceDB,
   isAttendanceCompleted,
 }: {
-  students: EstudianteInscrito[]; 
+  students: EstudianteInscrito[];
   selectedStudentId: string | null;
   mainState: MainPanelState;
-  onSelectStudent: (student: EstudianteInscrito) => void; 
+  onSelectStudent: (student: EstudianteInscrito) => void;
   className?: string;
   onGoBackToWelcome: () => void;
   courseName?: string;
@@ -665,14 +680,14 @@ function StudentSidebar({
   const [currentAttendanceStudentIndex, setCurrentAttendanceStudentIndex] = useState(0);
   const [isMarkingStudentId, setIsMarkingStudentId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  
+
   useEffect(() => {
     if (isAttendanceModeActive) {
       setCurrentAttendanceStudentIndex(0);
       setIsMarkingStudentId(null);
     }
   }, [isAttendanceModeActive]);
-  
+
   const filteredStudents = useMemo(() => {
     if (!searchQuery) return students;
     const q = searchQuery.toLowerCase();
@@ -728,7 +743,7 @@ function StudentSidebar({
           ))
         )}
       </nav>
-      
+
       <div className="flex-shrink-0 p-4 border-t border-white/60 min-h-[90px] flex flex-col items-center justify-center gap-3">
         <button onClick={onStartAttendance} className="flex w-full items-center justify-center gap-2 rounded-2xl border py-3 text-sm font-medium backdrop-blur-sm transition-all border-emerald-300/50 bg-gradient-to-br from-emerald-100 via-white to-teal-100 text-emerald-900 shadow-lg hover:shadow-[0_15px_35px_-15px_rgba(16,185,129,0.5)] disabled:opacity-50 disabled:cursor-not-allowed">
           <UserCheck size={18} />
@@ -741,7 +756,7 @@ function StudentSidebar({
 
 function StudentSidebarItem({ student, fotoUrls, isActive, isAttendanceModeActive, isCurrentAttendanceTarget, isCompleted, isLoading, onMarkAttendance, onSelectStudent }: any) {
   const gradientClasses = ['bg-gradient-to-br from-teal-100/95 to-emerald-100/95 shadow shadow-teal-200/50 hover:shadow-md', 'bg-gradient-to-br from-orange-100/95 to-amber-100/95 shadow shadow-orange-200/50 hover:shadow-md', 'bg-gradient-to-br from-pink-100/95 to-rose-100/95 shadow shadow-pink-200/50 hover:shadow-md', 'bg-gradient-to-br from-sky-100/95 to-cyan-100/95 shadow shadow-sky-200/50 hover:shadow-md'];
-  const gradientStyle = gradientClasses[Number(student.id.replace(/\D/g,'')) % gradientClasses.length];
+  const gradientStyle = gradientClasses[Number(student.id.replace(/\D/g, '')) % gradientClasses.length];
   const containerClasses = ['group relative flex items-center gap-4 md:gap-3 rounded-2xl p-4 md:p-3 transition-all border overflow-hidden'];
 
   if (isAttendanceModeActive) {
@@ -754,7 +769,7 @@ function StudentSidebarItem({ student, fotoUrls, isActive, isAttendanceModeActiv
   }
 
   return (
-    <div onClick={(e) => { if (!isAttendanceModeActive) { e.preventDefault(); onSelectStudent(student); }}} className={classNames(...containerClasses)}>
+    <div onClick={(e) => { if (!isAttendanceModeActive) { e.preventDefault(); onSelectStudent(student); } }} className={classNames(...containerClasses)}>
       <StudentAvatar fotoPath={student.foto_path} nombre={student.nombre} fotoUrls={fotoUrls} />
       <div className="flex-1">
         <span className="block text-base md:text-[13.5px] font-semibold leading-tight tracking-[-0.01em]">{student.nombre ?? 'Sin Nombre'}</span>
@@ -816,7 +831,7 @@ function PremiumAttendanceButton({ noteNumber, value, onChange }: any) {
   let icon = null;
   if (value === 'si') { stateClasses = 'border-blue-300/50 bg-gradient-to-br from-blue-100 via-white to-indigo-100 text-indigo-900 shadow-md'; icon = <Check size={20} />; }
   else if (value === 'no') { stateClasses = 'border-white/60 bg-gradient-to-br from-gray-500 to-gray-600 text-white shadow-md'; icon = <X size={20} />; }
-  
+
   return (
     <button type="button" onClick={handleClick} className={`relative group flex flex-col items-center justify-center h-16 rounded-[18px] border ring-1 ring-black/5 shadow-sm transition-all hover:-translate-y-[2px] active:scale-95 p-2 overflow-hidden cursor-pointer ${stateClasses}`}>
       <div className="pointer-events-none absolute inset-0 rounded-[18px] opacity-70 bg-[radial-gradient(140px_90px_at_8%_-8%,rgba(99,102,241,0.18),transparent)]" />
