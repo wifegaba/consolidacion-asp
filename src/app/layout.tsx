@@ -23,6 +23,7 @@ export const metadata: Metadata = {
     title: "CRM Ministerial"
   },
   icons: {
+    shortcut: "/favicon.ico",
     icon: [
       { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
       { url: "/icon-512.png", sizes: "512x512", type: "image/png" }
