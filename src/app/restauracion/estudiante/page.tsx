@@ -537,7 +537,7 @@ export default function EstudiantePage() {
                 </button>
               )}
               {(mainState === 'viewing') && (
-                <nav className="flex items-center gap-1.5 p-1 rounded-full border border-white/70 bg-white/25 backdrop-blur-2xl shadow-[0_8px_28px_-10px_rgba(2,6,23,0.28),inset_0_1px_0_rgba(255,255,255,0.65)]">
+                <nav className="flex items-center p-1.5 rounded-[2rem] border border-slate-200/60 bg-white/40 backdrop-blur-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] ring-1 ring-white/80">
                   <TabButton icon={<FileText className="h-4 w-4" />} label="Hoja de Vida" isActive={activeTab === 'hojaDeVida'} onClick={() => handleTabClick('hojaDeVida')} />
                   <TabButton icon={<UserCheck className="h-4 w-4" />} label="Asistencias" isActive={activeTab === 'grades'} onClick={() => handleTabClick('grades')} />
                   <TabButton icon={<BarChart3 className="h-4 w-4" />} label="Reportes" isActive={activeTab === 'reports'} onClick={() => handleTabClick('reports')} />
@@ -776,7 +776,7 @@ function StudentSidebar({
   }, [students, searchQuery]);
 
   return (
-    <aside className={`absolute inset-0 md:relative w-full h-full md:h-full md:w-1/3 lg:w-1/4 flex-shrink-0 flex flex-col border-b md:border-b-0 md:border-r border-white/60 bg-[linear-gradient(180deg,rgba(255,255,255,0.72),rgba(255,255,255,0.56))] backdrop-blur-2xl [box-shadow:inset_0_1px_0_rgba(255,255,255,0.9),0_20px_60px_-30px_rgba(2,6,23,0.25)] before:content-[''] before:absolute before:inset-y-0 before:-left-20 before:w-60 before:bg-[radial-gradient(160px_220px_at_10%_20%,rgba(99,102,241,0.18),transparent_60%)] before:pointer-events-none after:content-[''] after:absolute after:inset-0 after:-z-10 after:opacity-20 after:[background:radial-gradient(circle,_rgba(199,210,254,0.3)_1px,_transparent_1px)] after:[background-size:18px_18px] transition-transform duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] ${isDetailView ? 'translate-x-[-100%] md:translate-x-0' : 'translate-x-0'} ${className}`}>
+    <aside className={`absolute inset-0 md:relative w-full h-full md:h-full md:w-1/3 lg:w-1/4 flex-shrink-0 flex flex-col border-b md:border-b-0 md:border-r border-white/60 bg-[#C2DEF2] backdrop-blur-2xl [box-shadow:inset_0_1px_0_rgba(255,255,255,0.9),0_20px_60px_-30px_rgba(2,6,23,0.25)] transition-transform duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] ${isDetailView ? 'translate-x-[-100%] md:translate-x-0' : 'translate-x-0'} ${className}`}>
       <div className="flex-shrink-0 p-3 pb-2 border-b border-white/60 bg-white/60 backdrop-blur-xl shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]">
         <button type="button" onClick={onGoBackToWelcome} className="flex items-center gap-1.5 px-2 py-1 text-sm font-medium text-gray-700 hover:text-indigo-600 rounded-lg hover:bg-white/70 transition-colors duration-150">
           <ArrowLeft size={16} />
@@ -798,11 +798,16 @@ function StudentSidebar({
         </div>
       )}
 
-      <nav className="flex-1 overflow-y-auto px-4 py-2 space-y-2 min-h-0 pb-28 md:pb-4 custom-scrollbar">
+      <motion.nav
+        className="flex-1 overflow-y-auto px-4 py-2 space-y-2 min-h-0 pb-28 md:pb-4 custom-scrollbar"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.3 }}
+      >
         {loading ? (
           <div className="flex justify-center p-8"><span className="loader"></span></div>
         ) : filteredStudents.length === 0 ? (
-          <div className="text-center p-8 text-gray-500 text-sm">No se encontraron estudiantes.</div>
+          <div className="text-center p-8 text-gray-700 text-sm font-medium">No se encontraron estudiantes.</div>
         ) : (
           filteredStudents.map((student, index) => (
             <StudentSidebarItem
@@ -828,7 +833,7 @@ function StudentSidebar({
             />
           ))
         )}
-      </nav>
+      </motion.nav>
 
       <div className="flex-shrink-0 p-4 border-t border-white/60 min-h-[90px] flex flex-col items-center justify-center gap-3 bg-white/60 backdrop-blur-xl absolute bottom-0 left-0 right-0 z-20 md:relative md:bg-transparent md:backdrop-filter-none">
         <button onClick={onStartAttendance} className="flex w-full items-center justify-center gap-2 rounded-2xl border py-3 text-sm font-medium backdrop-blur-sm transition-all border-emerald-300/50 bg-gradient-to-br from-emerald-100 via-white to-teal-100 text-emerald-900 shadow-lg hover:shadow-[0_15px_35px_-15px_rgba(16,185,129,0.5)] disabled:opacity-50 disabled:cursor-not-allowed active:scale-95">
@@ -863,7 +868,19 @@ function StudentSidebarItem({ student, fotoUrls, isActive, isAttendanceModeActiv
   }
 
   return (
-    <div onClick={(e) => { if (!isAttendanceModeActive) { e.preventDefault(); onSelectStudent(student); } }} className={classNames(...containerClasses)}>
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{
+        duration: 0.3,
+        delay: index * 0.05,
+        type: "spring",
+        stiffness: 260,
+        damping: 20
+      }}
+      onClick={(e) => { if (!isAttendanceModeActive) { e.preventDefault(); onSelectStudent(student); } }}
+      className={classNames(...containerClasses)}
+    >
       <StudentAvatar fotoPath={student.foto_path} nombre={student.nombre} fotoUrls={fotoUrls} />
       <div className="flex-1">
         <span className="block text-base md:text-[13.5px] font-semibold leading-tight tracking-[-0.01em]">{student.nombre ?? 'Sin Nombre'}</span>
@@ -886,7 +903,7 @@ function StudentSidebarItem({ student, fotoUrls, isActive, isAttendanceModeActiv
           </>
         )}
       </div>
-    </div>
+    </motion.div>
   );
 }
 
@@ -896,9 +913,28 @@ function StudentAvatar({ fotoPath, nombre, fotoUrls }: any) {
 }
 
 function TabButton({ icon, label, isActive, onClick }: any) {
+  // Estilo Premium "Apple 2025" - Segmented Control Refinado
   return (
-    <button type="button" onClick={onClick} className={['inline-flex items-center justify-center rounded-full p-2 md:px-4 md:py-2 md:gap-2 text-sm font-medium transition-all duration-200 focus:outline-none', isActive ? 'bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.5),0_8px_24px_-10px_rgba(76,29,149,0.45)]' : 'text-gray-700 bg-white/28 hover:bg-white/40 backdrop-blur-xl border border-white/70 shadow-[inset_0_1px_0_rgba(255,255,255,0.6)]'].join(' ')}>
-      {icon} <span className="hidden md:inline">{label}</span>
+    <button
+      type="button"
+      onClick={onClick}
+      className={classNames(
+        "relative group flex items-center justify-center rounded-3xl px-5 py-2 text-[13px] font-semibold tracking-wide transition-all duration-300 ease-out select-none focus:outline-none",
+        "gap-2.5", // Espaciado elegante
+        isActive
+          ? "bg-gradient-to-br from-indigo-500 via-violet-500 to-purple-600 text-white shadow-[0_6px_20px_-6px_rgba(99,102,241,0.4),inset_0_1px_0_rgba(255,255,255,0.3)] ring-1 ring-white/20 scale-[1.02]"
+          : "text-slate-500 hover:text-slate-700 hover:bg-slate-100/50 active:scale-95 bg-transparent"
+      )}
+    >
+      {/* Icono con micro-interacción */}
+      <span className={classNames("transition-transform duration-300", isActive ? "scale-110 drop-shadow-sm" : "group-hover:scale-110 opacity-70")}>
+        {icon}
+      </span>
+
+      {/* Texto */}
+      <span className="hidden md:block">
+        {label}
+      </span>
     </button>
   );
 }
