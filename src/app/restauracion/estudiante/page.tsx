@@ -16,6 +16,7 @@ import {
   Loader2,
   Lock,
 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../../../lib/supabaseClient';
 import { useToast } from '../../../components/ToastProvider';
 import { useAuth } from '../../../hooks/useAuth';
@@ -32,6 +33,7 @@ import {
   bustUrl,
   generateAvatar,
   chunkArray,
+  getNextCourse
 } from './components/academia.utils';
 
 import { HojaDeVidaPanel } from './components/HojaDeVidaPanel';
@@ -199,6 +201,7 @@ export default function EstudiantePage() {
         .select(`id, estado, entrevistas ( * )`)
         .eq('curso_id', course.id)
         .eq('servidor_id', servidorId)
+        .eq('estado', 'activo') // <-- FIX: Only show active students (exclude suspended and finalized)
         .order('created_at', { ascending: true });
 
       if (error) throw error;
@@ -413,6 +416,36 @@ export default function EstudiantePage() {
     }
   }, [attendanceClassId, selectedInscripcionId, toast]);
 
+  const handlePromoteStudent = useCallback(async () => {
+    if (!selectedStudent || !selectedCourse) return;
+
+    const nextCourse = getNextCourse(selectedCourse.id);
+    if (!nextCourse) {
+      toast.error("No hay siguiente nivel definido.");
+      return;
+    }
+
+    if (!confirm(`¿Estás seguro de promover a ${selectedStudent.nombre} a ${nextCourse.name}?`)) return;
+
+    try {
+      const { error } = await supabase
+        .from('inscripciones')
+        .update({ estado: 'promovido' })
+        .eq('id', selectedStudent.inscripcion_id);
+
+      if (error) throw error;
+
+      toast.success(`Promovido a ${nextCourse.name}`);
+
+      // Actualizar estado local
+      setStudents(prev => prev.map(s => s.id === selectedStudent.id ? { ...s, estado_inscripcion: 'promovido' } : s));
+      setSelectedStudent(prev => prev ? { ...prev, estado_inscripcion: 'promovido' } : null);
+
+    } catch (e: any) {
+      toast.error("Error al promover: " + e.message);
+    }
+  }, [selectedStudent, selectedCourse, toast]);
+
   const cancelAttendanceMode = useCallback(() => {
     setIsAttendanceModeActive(false);
     setAttendanceClassId(null);
@@ -540,6 +573,8 @@ export default function EstudiantePage() {
                       courseTopics={courseTopics}
                       studentGrades={studentGrades}
                       onGradeChange={handleGradeChange}
+                      selectedCourse={selectedCourse}
+                      onPromote={handlePromoteStudent}
                     />
                   </div>
 
@@ -566,11 +601,19 @@ export default function EstudiantePage() {
           </div>
         </div>
 
-        {isAttendanceModalOpen && (
-          <ModalTomarAsistencia topics={courseTopics} onClose={() => setIsAttendanceModalOpen(false)} onSelectClass={(classId: number) => { setIsAttendanceModalOpen(false); setIsAttendanceModeActive(true); setAttendanceClassId(classId); }} />
-        )}
-        {showConfirmation && <CupertinoConfirmationDialog onConfirm={() => window.location.reload()} onCancel={() => setShowConfirmation(false)} />}
-        {showAttendanceAlreadyTakenModal && <CupertinoAlertDialog title="Asistencia Registrada" message="Ya has registrado la asistencia para esta clase." onConfirm={() => setShowAttendanceAlreadyTakenModal(false)} />}
+        <AnimatePresence>
+          {isAttendanceModalOpen && (
+            <ModalTomarAsistencia topics={courseTopics} onClose={() => setIsAttendanceModalOpen(false)} onSelectClass={(classId: number) => { setIsAttendanceModalOpen(false); setIsAttendanceModeActive(true); setAttendanceClassId(classId); }} />
+          )}
+        </AnimatePresence>
+        <AnimatePresence>
+          {showConfirmation && <CupertinoConfirmationDialog onConfirm={() => window.location.reload()} onCancel={() => setShowConfirmation(false)} />}
+        </AnimatePresence>
+        <AnimatePresence>
+          {showAttendanceAlreadyTakenModal && <CupertinoAlertDialog title="Asistencia Registrada" message="Ya has registrado la asistencia para esta clase." onConfirm={() => setShowAttendanceAlreadyTakenModal(false)} />}
+        </AnimatePresence>
+
+
       </main>
     </GlobalPresenceProvider>
   );
@@ -582,12 +625,16 @@ const MemoizedGradesTabContent = memo(({
   selectedStudent,
   courseTopics,
   studentGrades,
-  onGradeChange
+  onGradeChange,
+  selectedCourse,
+  onPromote
 }: {
   selectedStudent: EstudianteInscrito | null;
   courseTopics: CourseTopic[];
   studentGrades: StudentGrades;
   onGradeChange: (t: number, g: number, v: string) => void;
+  selectedCourse: Course | null;
+  onPromote: () => void;
 }) => {
   const asistenciasPendientes = useMemo(() => {
     let count = 0;
@@ -620,6 +667,40 @@ const MemoizedGradesTabContent = memo(({
             </span>
           </div>
         </div>
+
+        {/* PROMOTION BANNER */}
+        {asistenciasPendientes === 0 && selectedCourse && selectedStudent?.estado_inscripcion !== 'promovido' && (
+          <div className="mb-6 p-4 rounded-xl bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-100 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4 animate-in fade-in slide-in-from-top-2">
+            <div>
+              <h3 className="text-emerald-900 font-bold text-lg flex items-center gap-2">
+                🎉 ¡Felicitaciones!
+              </h3>
+              <p className="text-emerald-800 text-sm mt-1">
+                {selectedStudent?.nombre} ha completado todas las asistencias.
+              </p>
+            </div>
+            {getNextCourse(selectedCourse.id) && (
+              <div className="flex flex-col items-end gap-1 w-full md:w-auto">
+                <span className="text-xs font-semibold uppercase tracking-wider text-emerald-700/80 mr-1">
+                  Promover a
+                </span>
+                <button
+                  onClick={onPromote}
+                  className="w-full md:w-auto px-5 py-2 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-bold rounded-lg shadow-md transition-all active:scale-95 border border-emerald-400/20"
+                >
+                  {getNextCourse(selectedCourse.id)?.name}
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {selectedStudent?.estado_inscripcion === 'promovido' && (
+          <div className="mb-6 p-4 rounded-xl bg-gradient-to-r from-emerald-100 to-green-100 border border-emerald-200 shadow-sm text-center">
+            <h3 className="text-emerald-900 font-bold text-lg">✅ Estudiante Promovido</h3>
+            <p className="text-emerald-800 text-sm">Esperando matrícula en el siguiente nivel.</p>
+          </div>
+        )}
 
         <div className="space-y-6">
           {courseTopics.length === 0 && <p className="text-sm text-gray-700 text-center py-4">No hay temas.</p>}
@@ -717,17 +798,22 @@ function StudentSidebar({
         </div>
       )}
 
-      <nav className="overflow-y-auto p-3 space-y-2 max-h-80 md:flex-1 md:max-h-none [scrollbar-width:thin] [scrollbar-color:rgba(0,0,0,.15)_transparent]">
-        {loading ? <div className="p-4 text-center text-gray-600">Cargando...</div> : filteredStudents.length === 0 ? <div className="p-4 text-center text-gray-600">Vacío.</div> : (
+      <nav className="flex-1 overflow-y-auto px-4 py-2 space-y-2 min-h-0 pb-28 md:pb-4 custom-scrollbar">
+        {loading ? (
+          <div className="flex justify-center p-8"><span className="loader"></span></div>
+        ) : filteredStudents.length === 0 ? (
+          <div className="text-center p-8 text-gray-500 text-sm">No se encontraron estudiantes.</div>
+        ) : (
           filteredStudents.map((student, index) => (
             <StudentSidebarItem
-              key={student.inscripcion_id}
+              index={index}
+              key={student.id}
               student={student}
               fotoUrls={fotoUrls}
-              isActive={selectedStudentId === student.id && !isAttendanceModeActive}
+              isActive={selectedStudentId === student.id}
               isAttendanceModeActive={isAttendanceModeActive}
-              isCurrentAttendanceTarget={index === currentAttendanceStudentIndex}
-              isCompleted={index < currentAttendanceStudentIndex}
+              isCurrentAttendanceTarget={isAttendanceModeActive && filteredStudents[currentAttendanceStudentIndex]?.id === student.id}
+              isCompleted={false}
               isLoading={isMarkingStudentId === student.inscripcion_id}
               onMarkAttendance={async (status: 'si' | 'no') => {
                 setIsMarkingStudentId(student.inscripcion_id);
@@ -744,8 +830,8 @@ function StudentSidebar({
         )}
       </nav>
 
-      <div className="flex-shrink-0 p-4 border-t border-white/60 min-h-[90px] flex flex-col items-center justify-center gap-3">
-        <button onClick={onStartAttendance} className="flex w-full items-center justify-center gap-2 rounded-2xl border py-3 text-sm font-medium backdrop-blur-sm transition-all border-emerald-300/50 bg-gradient-to-br from-emerald-100 via-white to-teal-100 text-emerald-900 shadow-lg hover:shadow-[0_15px_35px_-15px_rgba(16,185,129,0.5)] disabled:opacity-50 disabled:cursor-not-allowed">
+      <div className="flex-shrink-0 p-4 border-t border-white/60 min-h-[90px] flex flex-col items-center justify-center gap-3 bg-white/60 backdrop-blur-xl absolute bottom-0 left-0 right-0 z-20 md:relative md:bg-transparent md:backdrop-filter-none">
+        <button onClick={onStartAttendance} className="flex w-full items-center justify-center gap-2 rounded-2xl border py-3 text-sm font-medium backdrop-blur-sm transition-all border-emerald-300/50 bg-gradient-to-br from-emerald-100 via-white to-teal-100 text-emerald-900 shadow-lg hover:shadow-[0_15px_35px_-15px_rgba(16,185,129,0.5)] disabled:opacity-50 disabled:cursor-not-allowed active:scale-95">
           <UserCheck size={18} />
           <span>{isAttendanceCompleted ? "Asistencia Tomada" : "Tomar Asistencia"}</span>
         </button>
@@ -754,9 +840,17 @@ function StudentSidebar({
   );
 }
 
-function StudentSidebarItem({ student, fotoUrls, isActive, isAttendanceModeActive, isCurrentAttendanceTarget, isCompleted, isLoading, onMarkAttendance, onSelectStudent }: any) {
-  const gradientClasses = ['bg-gradient-to-br from-teal-100/95 to-emerald-100/95 shadow shadow-teal-200/50 hover:shadow-md', 'bg-gradient-to-br from-orange-100/95 to-amber-100/95 shadow shadow-orange-200/50 hover:shadow-md', 'bg-gradient-to-br from-pink-100/95 to-rose-100/95 shadow shadow-pink-200/50 hover:shadow-md', 'bg-gradient-to-br from-sky-100/95 to-cyan-100/95 shadow shadow-sky-200/50 hover:shadow-md'];
-  const gradientStyle = gradientClasses[Number(student.id.replace(/\D/g, '')) % gradientClasses.length];
+function StudentSidebarItem({ student, fotoUrls, isActive, isAttendanceModeActive, isCurrentAttendanceTarget, isCompleted, isLoading, onMarkAttendance, onSelectStudent, index = 0 }: any) {
+  const gradientClasses = [
+    'bg-gradient-to-br from-teal-50 to-emerald-100/80 shadow shadow-emerald-100 hover:shadow-md',
+    'bg-gradient-to-br from-sky-50 to-cyan-100/80 shadow shadow-cyan-100 hover:shadow-md',
+    'bg-gradient-to-br from-purple-50 to-violet-100/80 shadow shadow-violet-100 hover:shadow-md',
+    'bg-gradient-to-br from-rose-50 to-pink-100/80 shadow shadow-pink-100 hover:shadow-md',
+    'bg-gradient-to-br from-amber-50 to-orange-100/80 shadow shadow-orange-100 hover:shadow-md',
+    'bg-gradient-to-br from-lime-50 to-green-100/80 shadow shadow-green-100 hover:shadow-md',
+    'bg-gradient-to-br from-indigo-50 to-blue-100/80 shadow shadow-indigo-100 hover:shadow-md'
+  ];
+  const gradientStyle = gradientClasses[index % gradientClasses.length];
   const containerClasses = ['group relative flex items-center gap-4 md:gap-3 rounded-2xl p-4 md:p-3 transition-all border overflow-hidden'];
 
   if (isAttendanceModeActive) {
@@ -844,18 +938,18 @@ function PremiumAttendanceButton({ noteNumber, value, onChange }: any) {
 function ModalTomarAsistencia({ topics, onClose, onSelectClass }: any) {
   const clases = topics.find((t: any) => t.id === 1)?.grades || [];
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4" onClick={onClose}>
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[100] flex items-center justify-center p-4" onClick={onClose}>
       <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" />
-      <div className="relative w-full max-w-lg flex flex-col rounded-3xl border border-white/70 bg-white/70 backdrop-blur-2xl shadow-2xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
+      <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} transition={{ duration: 0.2 }} className="relative w-full max-w-lg flex flex-col rounded-3xl border border-white/70 bg-white/70 backdrop-blur-2xl shadow-2xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
         <div className="flex-shrink-0 p-5 border-b border-white/60"><h2 className="text-xl font-semibold text-gray-900">Tomar Asistencia</h2><p className="text-sm text-gray-700">Selecciona la clase:</p></div>
         <div className="flex-1 overflow-y-auto max-h-[50vh] p-4"><div className="grid grid-cols-4 gap-3">{clases.map((clase: any, index: number) => (<button key={clase.id} onClick={() => onSelectClass(clase.id)} className="flex items-center justify-center h-16 rounded-2xl bg-white/70 text-indigo-700 font-semibold shadow-md ring-1 ring-black/5 hover:bg-white active:scale-95">Clase #{index + 1}</button>))}</div></div>
         <div className="flex-shrink-0 p-4 border-t border-white/60 bg-white/40 flex justify-end"><button onClick={onClose} className="px-4 py-2 text-sm font-semibold text-gray-700 bg-white/70 rounded-lg hover:bg-white">Cancelar</button></div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 }
-function CupertinoConfirmationDialog({ onConfirm, onCancel }: any) { return (<div className="fixed inset-0 z-[100] flex items-center justify-center p-4"><div className="absolute inset-0 bg-black/30 backdrop-blur-sm" /><div className="relative w-full max-w-sm flex flex-col rounded-3xl border border-white/70 bg-white/70 backdrop-blur-2xl shadow-2xl overflow-hidden"><div className="p-6 text-center"><h3 className="text-lg font-semibold text-gray-900">Asistencia ya registrada</h3><p className="mt-2 text-sm text-gray-700">¿Desea tomarla de nuevo?</p></div><div className="grid grid-cols-2 border-t border-white/60"><button onClick={onCancel} className="p-4 text-sm font-semibold text-blue-600 hover:bg-white/20">Cancelar</button><button onClick={onConfirm} className="p-4 text-sm font-semibold text-blue-600 border-l border-white/60 hover:bg-white/20">Tomar de nuevo</button></div></div></div>); }
-function CupertinoAlertDialog({ title, message, onConfirm }: any) { return (<div className="fixed inset-0 z-[100] flex items-center justify-center p-4"><div className="absolute inset-0 bg-black/30 backdrop-blur-sm" /><div className="relative w-full max-w-sm flex flex-col rounded-3xl border border-white/70 bg-white/70 backdrop-blur-2xl shadow-2xl overflow-hidden"><div className="p-6 text-center"><h3 className="text-lg font-semibold text-gray-900">{title}</h3><p className="mt-2 text-sm text-gray-700">{message}</p></div><div className="grid grid-cols-1 border-t border-white/60"><button onClick={onConfirm} className="p-4 text-sm font-semibold text-blue-600 hover:bg-white/20">Entendido</button></div></div></div>); }
+function CupertinoConfirmationDialog({ onConfirm, onCancel }: any) { return (<motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[100] flex items-center justify-center p-4"><div className="absolute inset-0 bg-black/30 backdrop-blur-sm" /><motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} className="relative w-full max-w-sm flex flex-col rounded-3xl border border-white/70 bg-white/70 backdrop-blur-2xl shadow-2xl overflow-hidden"><div className="p-6 text-center"><h3 className="text-lg font-semibold text-gray-900">Asistencia ya registrada</h3><p className="mt-2 text-sm text-gray-700">¿Desea tomarla de nuevo?</p></div><div className="grid grid-cols-2 border-t border-white/60"><button onClick={onCancel} className="p-4 text-sm font-semibold text-blue-600 hover:bg-white/20">Cancelar</button><button onClick={onConfirm} className="p-4 text-sm font-semibold text-blue-600 border-l border-white/60 hover:bg-white/20">Tomar de nuevo</button></div></motion.div></motion.div>); }
+function CupertinoAlertDialog({ title, message, onConfirm }: any) { return (<motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[100] flex items-center justify-center p-4"><div className="absolute inset-0 bg-black/30 backdrop-blur-sm" /><motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} className="relative w-full max-w-sm flex flex-col rounded-3xl border border-white/70 bg-white/70 backdrop-blur-2xl shadow-2xl overflow-hidden"><div className="p-6 text-center"><h3 className="text-lg font-semibold text-gray-900">{title}</h3><p className="mt-2 text-sm text-gray-700">{message}</p></div><div className="grid grid-cols-1 border-t border-white/60"><button onClick={onConfirm} className="p-4 text-sm font-semibold text-blue-600 hover:bg-white/20">Entendido</button></div></motion.div></motion.div>); }
 function LoadingScreen({ text }: { text: string }) { return (<main className="flex h-screen w-full items-center justify-center bg-gray-100"><Loader2 size={32} className="animate-spin text-indigo-600" /><span className="ml-3 text-lg font-medium text-gray-700">{text}</span></main>); }
 function ErrorScreen({ message }: { message: string }) { return (<main className="flex h-screen w-full items-center justify-center bg-gray-100"><div className="flex flex-col items-center gap-4 p-8 bg-white rounded-lg shadow-xl"><Lock size={32} className="text-red-500" /><h1 className="text-lg font-semibold text-gray-800">Acceso Denegado</h1><p className="text-gray-600">{message}</p><a href="/login" className="px-4 py-2 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700">Ir al Login</a></div></main>); }
 function CardSection({ title, children }: any) { return (<section className="relative overflow-hidden rounded-3xl border border-white/70 bg-white/30 p-5 md:p-6 shadow-sm backdrop-blur-xl"><div className="mb-4 -mx-5 -mt-5 p-3 bg-gradient-to-r from-blue-100 to-indigo-100"><h3 className="text-base md:text-[17px] font-semibold tracking-tight text-indigo-900">{title}</h3></div>{children}</section>); }

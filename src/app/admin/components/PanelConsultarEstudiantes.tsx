@@ -17,7 +17,7 @@ interface PanelConsultarProps {
     maestros: MaestroConCursos[];
     cursos: Curso[];
     estudiantes: Estudiante[];
-    inscripciones: Inscripcion[];
+    inscripciones: (Inscripcion & { estado?: string })[]; // Fix type error: estado is optional in base type but present in query
     loading: boolean;
     fotoUrls: Record<string, string>;
     onDataUpdated: () => void;
@@ -26,20 +26,29 @@ interface PanelConsultarProps {
 export default function PanelConsultarEstudiantes({ maestros, cursos, estudiantes, inscripciones, loading, fotoUrls, onDataUpdated }: PanelConsultarProps) {
     const [search, setSearch] = useState('');
     const [selectedMaestroId, setSelectedMaestroId] = useState('');
+    const [selectedCourseId, setSelectedCourseId] = useState('');
     const [selectedStudent, setSelectedStudent] = useState<EstudianteInscrito | null>(null);
 
     const procesados = useMemo(() => {
         const mSet = new Map<string, MaestroConCursos>(maestros.map(m => [m.id, m]));
         const cSet = new Map<number, Curso>(cursos.map(c => [c.id, c]));
-        const iSet = new Map<string, Inscripcion>(inscripciones.map(i => [i.entrevista_id, i]));
+        // We want ONLY active inscriptions to verify "Matriculado" status
+        // But we want to know if there's an inactive one to show history in Pendientes.
+
+        const iSet = new Map<string, Inscripcion & { estado?: string }>(inscripciones.map(i => [i.entrevista_id, i]));
 
         return estudiantes.map(e => {
             const ins = iSet.get(e.id);
+            // If status is 'inactivo', treat as NOT matriculado (so it goes to Pendientes),
+            // but keep the suspended course info.
+            const isActive = ins && ins.estado === 'activo';
+
             return {
                 ...e,
-                maestro: (ins && ins.servidor_id) ? mSet.get(ins.servidor_id) || null : null,
+                maestro: (isActive && ins.servidor_id) ? mSet.get(ins.servidor_id) || null : null,
                 curso: (ins && ins.curso_id) ? cSet.get(ins.curso_id) || null : null,
-                inscripcion_id: ins ? ins.entrevista_id : null
+                inscripcion_id: isActive ? ins.entrevista_id : null,
+                suspended_course: (!isActive && ins && ins.estado === 'inactivo') ? cSet.get(ins.curso_id) || null : null
             };
         });
     }, [estudiantes, inscripciones, maestros, cursos]);
@@ -49,19 +58,28 @@ export default function PanelConsultarEstudiantes({ maestros, cursos, estudiante
         const match = (e: Estudiante) => !q || e.nombre.toLowerCase().includes(q) || e.cedula?.includes(q);
         return {
             pendientes: procesados.filter(e => !e.inscripcion_id && match(e)),
-            matriculados: procesados.filter(e => e.inscripcion_id && (!selectedMaestroId || e.maestro?.id === selectedMaestroId) && match(e))
+            matriculados: procesados.filter(e =>
+                e.inscripcion_id &&
+                (!selectedMaestroId || e.maestro?.id === selectedMaestroId) &&
+                (!selectedCourseId || e.curso?.id === parseInt(selectedCourseId)) &&
+                match(e)
+            )
         };
-    }, [procesados, search, selectedMaestroId]);
+    }, [procesados, search, selectedMaestroId, selectedCourseId]);
 
     return (
         <GlassCard className="h-full flex flex-col relative">
             <CardHeader Icon={ClipboardList} title="Estudiantes" subtitle="Base de datos de matrículas." />
 
-            <div className="p-4 md:p-6 grid grid-cols-1 md:grid-cols-2 gap-4 shrink-0">
-                <div className="relative">
+            <div className="p-4 md:p-6 grid grid-cols-1 md:grid-cols-4 gap-4 shrink-0">
+                <div className="relative md:col-span-2">
                     <input type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar estudiante..." className={`w-full rounded-lg px-4 py-2.5 pl-10 ${GLASS_STYLES.input}`} />
                     <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
                 </div>
+                <FormSelect value={selectedCourseId} onChange={(e: any) => setSelectedCourseId(e.target.value)} label="">
+                    <option value="">Todos los Niveles</option>
+                    {cursos.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+                </FormSelect>
                 <FormSelect value={selectedMaestroId} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setSelectedMaestroId(e.target.value)} label="">
                     <option value="">Todos los Maestros</option>
                     {maestros.filter(m => m.rol === 'Maestro Ptm').map(m => <option key={m.id} value={m.id}>{m.nombre}</option>)}
@@ -100,14 +118,22 @@ export default function PanelConsultarEstudiantes({ maestros, cursos, estudiante
     );
 }
 
-function EstudianteRow({ e, matriculado, fotoUrl, onClick }: { e: EstudianteInscrito, matriculado?: boolean, fotoUrl?: string, onClick: () => void }) {
+// Update EstudianteRow to show suspended tag
+function EstudianteRow({ e, matriculado, fotoUrl, onClick }: { e: EstudianteInscrito & { suspended_course?: Curso | null }, matriculado?: boolean, fotoUrl?: string, onClick: () => void }) {
     const avatar = fotoUrl || generateAvatar(e.nombre);
     return (
         <div onClick={onClick} className={`p-3 flex justify-between items-center cursor-pointer ${GLASS_STYLES.listItem}`}>
             <div className="flex items-center gap-3">
                 {matriculado && <img src={avatar} alt={e.nombre} className="h-10 w-10 rounded-full object-cover border border-white/60 shadow-sm bg-gray-200" />}
                 <div>
-                    <p className="font-medium text-gray-900 text-sm">{e.nombre}</p>
+                    <p className="font-medium text-gray-900 text-sm flex items-center gap-2">
+                        {e.nombre}
+                        {!matriculado && e.suspended_course && (
+                            <span className="text-[9px] uppercase tracking-wider font-bold bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded border border-amber-200">
+                                Susp. {e.suspended_course.nombre}
+                            </span>
+                        )}
+                    </p>
                     <p className="text-xs text-gray-500">{e.telefono || e.cedula}</p>
                 </div>
             </div>
@@ -143,7 +169,7 @@ function ModalDetalleEstudiante({ estudiante, maestros, fotoUrl, onClose, onSucc
                 onConfirm: async () => {
                     setLoading(true);
                     try {
-                        const { error } = await supabase.from('inscripciones').update({ estado: 'inactivo' }).eq('entrevista_id', estudiante.id);
+                        const { error } = await supabase.from('inscripciones').update({ estado: 'inactivo' }).eq('id', estudiante.inscripcion_id!);
                         if (error) throw error;
                         setIsActiveState(false);
                         onSuccess();
@@ -168,7 +194,7 @@ function ModalDetalleEstudiante({ estudiante, maestros, fotoUrl, onClose, onSucc
             const { error } = await supabase
                 .from('inscripciones')
                 .update({ servidor_id: selectedMaestro || null })
-                .eq('entrevista_id', estudiante.id);
+                .eq('id', estudiante.inscripcion_id!);
 
             if (error) throw error;
             onSuccess();

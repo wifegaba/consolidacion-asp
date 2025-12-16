@@ -24,14 +24,14 @@ export type Entrevista = {
   escolaridad?: string | null;
   se_congrega?: "si" | "no" | null;
   dia_congrega?:
-    | "Domingo"
-    | "Lunes"
-    | "Martes"
-    | "Miércoles"
-    | "Jueves"
-    | "Viernes"
-    | "Sábado"
-    | null;
+  | "Domingo"
+  | "Lunes"
+  | "Martes"
+  | "Miércoles"
+  | "Jueves"
+  | "Viernes"
+  | "Sábado"
+  | null;
   tiempo_iglesia?: string | null;
   invito?: string | null;
   pastor?: string | null;
@@ -64,7 +64,7 @@ export type Entrevista = {
   desempeno_clase?: string | null;
   maestro_encargado?: string | null;
   _tempPreview?: string | null;
-  };
+};
 
 // --- Tipos que faltaban por exportar (CORREGIDO) ---
 export type GradePlaceholder = { id: number };
@@ -95,15 +95,15 @@ export type Course = {
   id: number; // <-- AÑADIDO: Coincide con la BD
   title: string;
   color: string; // <-- Cambiado a string genérico para aceptar 'blue', 'indigo', etc.
-  hasSpecialBadge?: boolean; 
+  hasSpecialBadge?: boolean;
   // 'onSelect' se elimina de aquí. Es una prop del componente, no parte del modelo.
 };
 // --- FIN MODIFICACIÓN ---
 
 
 // --- 2. CONSTANTES ---
-export const DIAS: ("Domingo" | "Lunes" | "Martes" | "Miércoles" | "Jueves" | "Viernes" | "Sábado")[] = ["Domingo","Lunes","Martes","Miércoles","Jueves","Viernes","Sábado"];
-export const ESTADOS: ("soltero" | "casado" | "union" | "viudo")[] = ["soltero","casado","union","viudo"];
+export const DIAS: ("Domingo" | "Lunes" | "Martes" | "Miércoles" | "Jueves" | "Viernes" | "Sábado")[] = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
+export const ESTADOS: ("soltero" | "casado" | "union" | "viudo")[] = ["soltero", "casado", "union", "viudo"];
 export const TIEMPO_ORACION = ["Menos de 15 min", "15-30 min", "30-60 min", "Más de 1 hora", "No oro"];
 export const LECTURA_BIBLIA = ["Diariamente", "Varias veces por semana", "Semanalmente", "Ocasionalmente", "Casi nunca"];
 export const CONVIVENCIA = ["solo", "pareja", "hijos", "padres", "otro"];
@@ -151,52 +151,108 @@ export function bustUrl(u?: string | null) {
   return `${u}${sep}v=${Date.now()}`;
 }
 
-export function downscaleImage(file: File, maxSide = 720, quality = 0.82): Promise<File> {
-  return new Promise((resolve) => {
-    const img = new Image();
-    const url = URL.createObjectURL(file);
-    img.onload = () => {
-      // (Lógica de downscale)
-      const { width, height } = img;
-      let w = width;
-      let h = height;
-      if (w > h && w > maxSide) {
+export async function downscaleImage(file: File, maxSide = 800, quality = 0.8): Promise<File> {
+  if (!file.type.startsWith("image/")) return file;
+
+  try {
+    // Intentar usar createImageBitmap (Moderno, rápido, maneja orientación EXIF automáticamente en muchos casos)
+    const bitmap = await createImageBitmap(file);
+    const { width, height } = bitmap;
+
+    let w = width;
+    let h = height;
+
+    if (w > maxSide || h > maxSide) {
+      if (w > h) {
         h = Math.round((h * maxSide) / w);
         w = maxSide;
-      } else if (h >= w && h > maxSide) {
+      } else {
         w = Math.round((w * maxSide) / h);
         h = maxSide;
       }
-      const canvas = document.createElement("canvas");
-      canvas.width = w;
-      canvas.height = h;
-      const ctx = canvas.getContext("2d");
-      if (!ctx) {
-        URL.revokeObjectURL(url);
-        resolve(file);
-        return;
-      }
-      ctx.drawImage(img, 0, 0, w, h);
+    } else {
+      // Si es más pequeña que el máximo, no redimensionar, pero sí comprimir (retornar canvas blob)
+      // O devolver original si es muy pequeño? Mejor estandarizar a JPG.
+    }
+
+    const canvas = document.createElement("canvas");
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return file;
+
+    // Draw bitmap
+    ctx.drawImage(bitmap, 0, 0, w, h);
+    bitmap.close(); // Liberar memoria
+
+    return new Promise((resolve) => {
       canvas.toBlob(
         (blob) => {
-          URL.revokeObjectURL(url);
           if (!blob) return resolve(file);
-          const f = new File([blob], file.name.replace(/\.\w+$/, ".webp"), {
-            type: "image/webp",
+          // Convertir a File
+          const f = new File([blob], file.name.replace(/\.\w+$/, ".jpg"), {
+            type: "image/jpeg",
             lastModified: Date.now(),
           });
           resolve(f);
         },
-        "image/webp",
+        "image/jpeg",
         quality
       );
-    };
-    img.onerror = () => {
-      URL.revokeObjectURL(url);
-      resolve(file);
-    };
-    img.src = url;
-  });
+    });
+
+  } catch (error) {
+    console.warn("createImageBitmap failed, falling back to FileReader", error);
+    // Fallback clásico si createImageBitmap falla (ej. Safari antiguos u otros problemas)
+    return new Promise((resolve) => {
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+      img.onload = () => {
+        const { width, height } = img;
+        let w = width;
+        let h = height;
+
+        if (w > maxSide || h > maxSide) {
+          if (w > h) {
+            h = Math.round((h * maxSide) / w);
+            w = maxSide;
+          } else {
+            w = Math.round((w * maxSide) / h);
+            h = maxSide;
+          }
+        }
+
+        const canvas = document.createElement("canvas");
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+          URL.revokeObjectURL(url);
+          resolve(file);
+          return;
+        }
+        ctx.drawImage(img, 0, 0, w, h);
+        canvas.toBlob(
+          (blob) => {
+            URL.revokeObjectURL(url);
+            if (!blob) return resolve(file);
+            const f = new File([blob], file.name.replace(/\.\w+$/, ".jpg"), {
+              type: "image/jpeg",
+              lastModified: Date.now(),
+            });
+            resolve(f);
+          },
+          "image/jpeg",
+          quality
+        );
+      };
+      img.onerror = () => {
+        URL.revokeObjectURL(url);
+        resolve(file); // Retorna original si falla todo
+      };
+      img.src = url;
+    });
+  }
 }
 
 export async function toWhiteBackground(file: File): Promise<File> {
@@ -229,6 +285,16 @@ export function chunkArray<T>(array: T[], size: number): T[][] {
   const chunks: T[][] = [];
   for (let i = 0; i < array.length; i += size) chunks.push(array.slice(i, i + size));
   return chunks;
+}
+
+export function getNextCourse(currentId: number): { id: number; name: string } | null {
+  const map: Record<number, { id: number; name: string }> = {
+    1: { id: 2, name: 'Fundamentos 1' },
+    2: { id: 3, name: 'Fundamentos 2' },
+    3: { id: 4, name: 'Restauración 2' },
+    4: { id: 5, name: 'Escuela de Siervos' },
+  };
+  return map[currentId] || null;
 }
 
 

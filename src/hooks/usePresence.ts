@@ -26,7 +26,7 @@ export function usePresence(
     useEffect(() => {
         // Skip if no user ID
         if (!currentUserId || !currentUserName) {
-            console.log('⏭️ Skipping presence - no user info');
+            // console.log('⏭️ Skipping presence - no user info');
             return;
         }
 
@@ -44,22 +44,22 @@ export function usePresence(
         channel
             // Event 'sync' se dispara cuando se completa la sincronización inicial
             .on('presence', { event: 'sync' }, () => {
-                console.log('🔄 Initial presence sync complete');
+                // console.log('🔄 Initial presence sync complete');
                 initialSyncComplete.current = true;
             })
             .on('presence', { event: 'join' }, ({ key, newPresences }) => {
                 // Ignorar eventos JOIN hasta que se complete el sync inicial
                 if (!initialSyncComplete.current) {
-                    console.log('⏭️ Skipping initial presence users');
+                    // console.log('⏭️ Skipping initial presence users');
                     return;
                 }
 
-                console.log('🟢 Presence JOIN detected:', newPresences);
+                // console.log('🟢 Presence JOIN detected:', newPresences);
                 // Solo notificar si no es el usuario actual
                 newPresences.forEach((presence: any) => {
-                    console.log('Checking user:', presence.user_id, 'vs current:', currentUserId);
+                    // console.log('Checking user:', presence.user_id, 'vs current:', currentUserId);
                     if (presence.user_id !== currentUserId && onUserJoinRef.current) {
-                        console.log('✅ Showing toast for:', presence.name);
+                        // console.log('✅ Showing toast for:', presence.name);
                         onUserJoinRef.current({
                             user_id: presence.user_id,
                             name: presence.name,
@@ -69,9 +69,9 @@ export function usePresence(
                 });
             })
             .subscribe(async (status) => {
-                console.log('📡 Presence channel status:', status);
+                // console.log('📡 Presence channel status:', status);
                 if (status === 'SUBSCRIBED') {
-                    console.log('✅ Tracking presence for:', currentUserName, 'ID:', currentUserId);
+                    // console.log('✅ Tracking presence for:', currentUserName, 'ID:', currentUserId);
                     // Registrar presencia del usuario actual
                     await channel.track({
                         user_id: currentUserId,
@@ -82,7 +82,7 @@ export function usePresence(
             });
 
         return () => {
-            console.log('🔌 Unsubscribing from presence channel');
+            // console.log('🔌 Unsubscribing from presence channel');
             initialSyncComplete.current = false;
             channel.unsubscribe();
         };

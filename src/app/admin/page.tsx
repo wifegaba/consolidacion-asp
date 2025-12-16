@@ -15,11 +15,13 @@ import {
   Users, UserPlus, Server, Search, Plus, X, Loader2, Check,
   Edit2, Trash2, BookOpen, MessageSquarePlus, type LucideIcon,
   ChevronDown, AlertTriangle, ClipboardList, UserX, UserCheck2,
-  Phone, MessageCircle
+  Phone, MessageCircle, GraduationCap
 } from 'lucide-react';
 import ServidoresPage from '../panel/servidores/page';
+import ComponenteGestionarMaestros from './components/GestionServidores'; // Asumo que este es el nombre real o similar
 import PanelMatricular from './components/PanelMatricular';
 import PanelConsultarEstudiantes from './components/PanelConsultarEstudiantes';
+import PanelPromovidos from './components/PanelPromovidos';
 import { PresenceToast, type Toast } from './components/PresenceToast';
 import { usePresence } from '../../hooks/usePresence';
 
@@ -44,7 +46,7 @@ export type MaestroConCursos = Maestro & { asignaciones: AsignacionMaestro[]; ob
 export type Estudiante = { id: string; nombre: string; cedula: string; telefono?: string | null; foto_path?: string | null; };
 export type Inscripcion = { entrevista_id: string; curso_id: number; servidor_id: string | null; cursos?: Pick<Curso, 'nombre' | 'color'> | null; };
 export type EstudianteInscrito = Estudiante & { maestro: MaestroConCursos | null; curso: Curso | null; inscripcion_id: string | null; };
-export type AdminTab = 'matricular' | 'maestros' | 'servidores' | 'consultar';
+export type AdminTab = 'matricular' | 'maestros' | 'servidores' | 'consultar' | 'promovidos';
 
 // --- HELPERS ---
 function bustUrl(u?: string | null) {
@@ -145,7 +147,7 @@ export default function AdminPage() {
         supabase.from('servidores').select(`id, nombre, cedula, telefono, email, activo, asignaciones:asignaciones_academia (id, servidor_id, curso_id, cursos ( nombre, color )), observaciones_count:servidores_observaciones!servidor_id(count), servidores_roles ( rol )`).order('nombre', { ascending: true }),
         supabase.from('cursos').select('id, nombre, color, orden').order('orden', { ascending: true }),
         supabase.from('entrevistas').select('id, nombre, cedula, telefono, foto_path').order('nombre', { ascending: true }),
-        supabase.from('inscripciones').select('entrevista_id, curso_id, servidor_id').eq('estado', 'activo')
+        supabase.from('inscripciones').select('id, entrevista_id, curso_id, servidor_id, estado')
       ]);
 
       const processedMaestros = (mData as unknown as MaestroDataRaw[] || []).map(m => ({
@@ -178,9 +180,18 @@ export default function AdminPage() {
   const onDataUpdated = () => loadData();
 
   const estudiantesPendientesCount = useMemo(() => {
-    const inscritosSet = new Set(inscripciones.map(i => i.entrevista_id));
-    return estudiantes.filter(e => !inscritosSet.has(e.id)).length;
+    // Count students that either have no inscription OR have inactive/suspended status
+    const activeIds = new Set(
+      inscripciones
+        .filter(i => (i as any).estado === 'activo' || (i as any).estado === 'promovido')
+        .map(i => i.entrevista_id)
+    );
+    return estudiantes.filter(e => !activeIds.has(e.id)).length;
   }, [estudiantes, inscripciones]);
+
+  const promovidosCount = useMemo(() => {
+    return inscripciones.filter(i => (i as any).estado === 'promovido').length;
+  }, [inscripciones]);
 
   // Presence Hook - Solo activar cuando tenemos el usuario
   usePresence(
@@ -219,6 +230,7 @@ export default function AdminPage() {
               <TabButton Icon={Server} label="Servidores" isActive={activeTab === 'servidores'} onClick={() => setActiveTab('servidores')} />
               <TabButton Icon={Users} label="Maestros" isActive={activeTab === 'maestros'} onClick={() => setActiveTab('maestros')} />
               <TabButton Icon={UserPlus} label="Matricular" isActive={activeTab === 'matricular'} onClick={() => setActiveTab('matricular')} badge={estudiantesPendientesCount} />
+              <TabButton Icon={GraduationCap} label="Promovidos" isActive={activeTab === 'promovidos'} onClick={() => setActiveTab('promovidos')} badge={promovidosCount} />
               <TabButton Icon={ClipboardList} label="Estudiantes" isActive={activeTab === 'consultar'} onClick={() => setActiveTab('consultar')} />
             </nav>
             <div className="mt-auto border-t border-white/30 pt-4 px-2">
@@ -244,7 +256,7 @@ export default function AdminPage() {
                   {activeTab === 'servidores' && <ServidoresPage />}
                   {activeTab === 'matricular' && <PanelMatricular maestros={maestros} cursos={cursos} estudiantes={estudiantes} inscripciones={inscripciones} onMatriculaExitosa={onDataUpdated} loading={isLoading} />}
                   {activeTab === 'maestros' && <PanelGestionarMaestros maestros={maestros.filter(m => m.rol === 'Maestro Ptm')} loading={isLoading} onCrear={() => setModalMaestro('new')} onEditar={(m) => setModalMaestro(m)} onAsignar={(m) => setModalAsignar(m)} onObs={(m) => setModalObservacion(m)} onDesactivar={(m) => setModalDesactivar(m)} />}
-
+                  {activeTab === 'promovidos' && <PanelPromovidos maestros={maestros} cursos={cursos} estudiantes={estudiantes} onDataUpdated={onDataUpdated} loading={isLoading} />}
                   {activeTab === 'consultar' && <PanelConsultarEstudiantes maestros={maestros} cursos={cursos} estudiantes={estudiantes} inscripciones={inscripciones} loading={isLoading} fotoUrls={fotoUrls} onDataUpdated={onDataUpdated} />}
                 </motion.div>
               </AnimatePresence>
@@ -255,6 +267,7 @@ export default function AdminPage() {
               <MobileTab Icon={Server} label="Servidores" isActive={activeTab === 'servidores'} onClick={() => setActiveTab('servidores')} />
               <MobileTab Icon={Users} label="Maestros" isActive={activeTab === 'maestros'} onClick={() => setActiveTab('maestros')} />
               <MobileTab Icon={UserPlus} label="Matricular" isActive={activeTab === 'matricular'} onClick={() => setActiveTab('matricular')} badge={estudiantesPendientesCount} />
+              <MobileTab Icon={GraduationCap} label="Prom." isActive={activeTab === 'promovidos'} onClick={() => setActiveTab('promovidos')} badge={promovidosCount} />
               <MobileTab Icon={ClipboardList} label="Estudiantes" isActive={activeTab === 'consultar'} onClick={() => setActiveTab('consultar')} />
             </div>
           </main>

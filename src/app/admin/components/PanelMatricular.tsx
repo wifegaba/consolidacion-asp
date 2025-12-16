@@ -22,20 +22,116 @@ export default function PanelMatricular({ maestros, cursos, estudiantes, inscrip
     const [maestroId, setMaestroId] = useState('');
     const [selectedIds, setSelectedIds] = useState<Record<string, boolean>>({});
     const [isSaving, setIsSaving] = useState(false);
-    const [alertData, setAlertData] = useState<{ isOpen: boolean; title: string; message: string; type: 'error' | 'info' | 'success' } | null>(null);
+    const [alertData, setAlertData] = useState<{ isOpen: boolean; title: string; message: string; type: 'error' | 'info' | 'success' | 'warning' } | null>(null);
     const [search, setSearch] = useState('');
 
+    // No longer auto-select a default course, course will be set when student is selected
     useEffect(() => {
-        const c = cursos.find(c => c.nombre === 'Restauración 1');
-        if (c) setCursoId(String(c.id));
-    }, [cursos]);
+        // If no students selected yet and cursoId is empty, default to Restauración 1
+        if (Object.keys(selectedIds).length === 0 && !cursoId && cursos.length > 0) {
+            const c = cursos.find(c => c.nombre === 'Restauración 1');
+            if (c) setCursoId(String(c.id));
+        }
+    }, [cursos, cursoId, selectedIds]);
 
     const mDisponibles = useMemo(() => !cursoId ? [] : maestros.filter(m => m.rol === 'Maestro Ptm' && m.asignaciones.some(a => a.curso_id === parseInt(cursoId))), [cursoId, maestros]);
+
+    // Enhanced student data with suspension info
+    const estudiantesConMetadata = useMemo(() => {
+        const activeIds = new Set(inscripciones.filter(i => (i as any).estado === 'activo' || (i as any).estado === 'promovido').map(i => i.entrevista_id));
+        const suspendedMap = new Map<string, number>();
+
+        inscripciones.forEach(i => {
+            if ((i as any).estado === 'inactivo') {
+                suspendedMap.set(i.entrevista_id, i.curso_id);
+            }
+        });
+
+        return estudiantes.map(e => ({
+            ...e,
+            isActive: activeIds.has(e.id),
+            suspendedCourseId: suspendedMap.get(e.id)
+        }));
+    }, [estudiantes, inscripciones]);
+
     const eDisponibles = useMemo(() => {
-        if (!cursoId) return [];
-        const inscritos = new Set(inscripciones.map(i => i.entrevista_id));
-        return estudiantes.filter(e => !inscritos.has(e.id) && (!search || e.nombre.toLowerCase().includes(search.toLowerCase())));
-    }, [cursoId, estudiantes, inscripciones, search]);
+        // Show ALL students that are not currently active (this includes suspended and never-enrolled)
+        return estudiantesConMetadata.filter(e =>
+            !e.isActive && (!search || e.nombre.toLowerCase().includes(search.toLowerCase()))
+        );
+    }, [estudiantesConMetadata, search]);
+
+    // Get allowed courses for selected students
+    const cursosPermitidos = useMemo(() => {
+        const selectedStudents = eDisponibles.filter(e => selectedIds[e.id]);
+        if (selectedStudents.length === 0) {
+            // No students selected, allow all courses (default behavior)
+            return cursos;
+        }
+
+        // Check if all selected students have the same restriction
+        const suspendedCourses = selectedStudents.map(s => s.suspendedCourseId).filter(Boolean);
+
+        if (suspendedCourses.length === 0) {
+            // No suspended students, default to Restauración 1 only
+            return cursos.filter(c => c.nombre === 'Restauración 1');
+        }
+
+        // If all have same suspended course, show only that one
+        const uniqueCourses = [...new Set(suspendedCourses)];
+        if (uniqueCourses.length === 1) {
+            const courseId = uniqueCourses[0];
+            return cursos.filter(c => c.id === courseId);
+        }
+
+        // Mixed: some suspended from different courses - show warning or allow admin choice
+        return cursos.filter(c => suspendedCourses.includes(c.id));
+    }, [selectedIds, eDisponibles, cursos]);
+
+    // Auto-select course when students are selected
+    useEffect(() => {
+        if (cursosPermitidos.length === 1 && cursosPermitidos[0].id !== parseInt(cursoId)) {
+            setCursoId(String(cursosPermitidos[0].id));
+            setMaestroId(''); // Reset maestro when course changes
+        }
+    }, [cursosPermitidos, cursoId]);
+
+    // Check for level conflicts when selecting students
+    const handleStudentToggle = (studentId: string) => {
+        const newSelectedIds = { ...selectedIds, [studentId]: !selectedIds[studentId] };
+
+        // Filter only truly selected ones
+        const selectedStudents = eDisponibles.filter(e => newSelectedIds[e.id]);
+
+        if (selectedStudents.length <= 1) {
+            setSelectedIds(newSelectedIds);
+            return;
+        }
+
+        // Identify target course for each student
+        // If suspended -> suspendedCourseId
+        // If new -> Restauración 1 ID
+        const rest1 = cursos.find(c => c.nombre === 'Restauración 1');
+        const rest1Id = rest1 ? rest1.id : -1;
+
+        const targetCourses = selectedStudents.map(s => s.suspendedCourseId || rest1Id);
+        const uniqueTargets = [...new Set(targetCourses)];
+
+        // If multiple different courses, show warning
+        if (uniqueTargets.length > 1) {
+            const courseNames = uniqueTargets.map(id => cursos.find(c => c.id === id)?.nombre || 'Desconocido').join(', ');
+
+            setAlertData({
+                isOpen: true,
+                title: '⚠️ Niveles Incompatibles',
+                message: `No puedes matricular estudiantes de diferentes niveles simultáneamente.\n\nNiveles detectados: ${courseNames}.\n\nPor favor, selecciona estudiantes que vayan al mismo nivel.`,
+                type: 'warning'
+            });
+            return; // Block selection
+        }
+
+        setSelectedIds(newSelectedIds);
+    };
 
     const handleMatricular = async () => {
         setIsSaving(true);
@@ -108,7 +204,16 @@ export default function PanelMatricular({ maestros, cursos, estudiantes, inscrip
                     <div className="space-y-2">
                         <label className="text-xs font-bold text-gray-600 uppercase tracking-wider">Configuración</label>
                         <FormSelect label="Curso" value={cursoId} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => { setCursoId(e.target.value); setMaestroId(''); }}>
-                            {cursos.filter(c => c.nombre === 'Restauración 1').map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+                            {cursosPermitidos.length === 0 ? (
+                                <option value="">Seleccione estudiantes...</option>
+                            ) : cursosPermitidos.length === 1 ? (
+                                <option value={cursosPermitidos[0].id}>{cursosPermitidos[0].nombre}</option>
+                            ) : (
+                                <>
+                                    <option value="">Seleccionar Curso...</option>
+                                    {cursosPermitidos.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+                                </>
+                            )}
                         </FormSelect>
                         <FormSelect label="Maestro" value={maestroId} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setMaestroId(e.target.value)} disabled={!cursoId}>
                             <option value="">Seleccionar...</option>
@@ -127,11 +232,21 @@ export default function PanelMatricular({ maestros, cursos, estudiantes, inscrip
                     </div>
                     <div className={`flex-1 overflow-y-auto rounded-xl ${GLASS_STYLES.input} p-0 border-2 border-white/50`}>
                         {eDisponibles.length === 0 ? <div className="p-6 text-center text-gray-500">No hay estudiantes disponibles</div> : eDisponibles.map(e => (
-                            <div key={e.id} onClick={() => setSelectedIds(p => ({ ...p, [e.id]: !p[e.id] }))} className={`flex items-center gap-3 p-3 cursor-pointer ${GLASS_STYLES.listItem} ${selectedIds[e.id] ? 'bg-blue-50/60' : ''}`}>
+                            <div key={e.id} onClick={() => handleStudentToggle(e.id)} className={`flex items-center gap-3 p-3 cursor-pointer ${GLASS_STYLES.listItem} ${selectedIds[e.id] ? 'bg-blue-50/60' : ''}`}>
                                 <div className={`h-5 w-5 rounded border flex items-center justify-center ${selectedIds[e.id] ? 'bg-blue-500 border-blue-500' : 'border-gray-400'}`}>
                                     {selectedIds[e.id] && <Check size={12} className="text-white" />}
                                 </div>
-                                <div><p className="text-sm font-medium">{e.nombre}</p><p className="text-xs text-gray-500">{e.cedula}</p></div>
+                                <div className="flex-1">
+                                    <div className="flex items-center gap-2">
+                                        <p className="text-sm font-medium">{e.nombre}</p>
+                                        {e.suspendedCourseId && (
+                                            <span className="text-[9px] uppercase tracking-wider font-bold bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded border border-amber-200">
+                                                Susp. {cursos.find(c => c.id === e.suspendedCourseId)?.nombre}
+                                            </span>
+                                        )}
+                                    </div>
+                                    <p className="text-xs text-gray-500">{e.cedula}</p>
+                                </div>
                             </div>
                         ))}
                     </div>
@@ -153,15 +268,16 @@ export default function PanelMatricular({ maestros, cursos, estudiantes, inscrip
     );
 }
 
-function ModalAlert({ title, message, type, onClose }: { title: string, message: string, type: 'error' | 'info' | 'success', onClose: () => void }) {
+function ModalAlert({ title, message, type, onClose }: { title: string, message: string, type: 'error' | 'info' | 'success' | 'warning', onClose: () => void }) {
     const isError = type === 'error';
     const isSuccess = type === 'success';
+    const isWarning = type === 'warning';
 
     return (
         <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
             <div className="w-full max-w-sm bg-white/90 backdrop-blur-xl rounded-2xl shadow-2xl overflow-hidden border border-white/50 animate-in fade-in zoom-in duration-200">
                 <div className="p-6 text-center">
-                    <div className={`mx-auto w-12 h-12 rounded-full flex items-center justify-center mb-4 shadow-sm ${isError ? 'bg-red-100 text-red-600' : isSuccess ? 'bg-green-100 text-green-600' : 'bg-blue-100 text-blue-600'}`}>
+                    <div className={`mx-auto w-12 h-12 rounded-full flex items-center justify-center mb-4 shadow-sm ${isError ? 'bg-red-100 text-red-600' : isSuccess ? 'bg-green-100 text-green-600' : isWarning ? 'bg-amber-100 text-amber-600' : 'bg-blue-100 text-blue-600'}`}>
                         {isError ? <AlertTriangle size={24} /> : <Check size={24} />}
                     </div>
                     <h3 className="text-lg font-bold text-gray-900 mb-2">{title}</h3>

@@ -105,7 +105,7 @@ export function HojaDeVidaPanel({
     if (!file.type.startsWith('image/')) return;
     setUploadingFoto(true);
     try {
-      const compact = await downscaleImage(file, 100, 0.82);
+      const compact = await downscaleImage(file, 500, 0.8);
       const tempUrl = URL.createObjectURL(compact);
       setLocalSignedUrl(tempUrl);
       const path = `fotos/${row.id}-${Date.now()}${extFromMime(compact.type)}`;
@@ -123,37 +123,37 @@ export function HojaDeVidaPanel({
   return (
     <div className={classNames(
       "flex flex-col h-full w-full overflow-hidden rounded-2xl shadow-2xl relative isolate",
-      "border border-white/10",
-      // FONDO GENERAL: Más sobrio y profesional (Slate profundo)
-      "bg-slate-950",
+      "border border-white/20",
+      // FONDO PREMIUM: Gradiente suave azul/lavanda
+      "bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50",
       className
     )}>
 
-      {/* Luces de fondo ambientales (Más sutiles y elegantes) */}
+      {/* Luces de fondo ambientales premium */}
       <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-[-10%] right-[-5%] w-[600px] h-[600px] bg-blue-900/10 rounded-full blur-[100px] opacity-40"></div>
-        <div className="absolute bottom-[-10%] left-[-10%] w-[500px] h-[500px] bg-indigo-900/10 rounded-full blur-[80px] opacity-30"></div>
+        <div className="absolute top-[-10%] right-[-5%] w-[600px] h-[600px] bg-blue-400/20 rounded-full blur-[120px]"></div>
+        <div className="absolute bottom-[-10%] left-[-10%] w-[500px] h-[500px] bg-purple-400/15 rounded-full blur-[100px]"></div>
       </div>
 
       <div className="flex flex-1 h-full relative z-10 flex-col md:flex-row backdrop-blur-[2px]">
 
         {/* === PANEL IZQUIERDO: PERFIL (Diseño limpio) === */}
-        <aside className="w-full md:w-[320px] flex-shrink-0 border-r border-white/5 flex flex-col bg-[#0B1120]/80 backdrop-blur-xl">
+        <aside className="w-full md:w-[320px] flex-shrink-0 border-r border-white/20 flex flex-col bg-white/40 backdrop-blur-xl">
 
           {/* Header Perfil */}
-          <div className="px-4 pt-4 pb-6 flex flex-col items-center text-center border-b border-white/5 relative">
+          <div className="px-4 pt-4 pb-6 flex flex-col items-center text-center border-b border-white/20 relative">
 
             {/* Botones en modo responsive - Superior izquierda (solo iconos) */}
             <div className="absolute top-4 left-4 flex gap-2 md:hidden">
               <button onClick={handleUpdate} disabled={saving} className={classNames(
                 "p-2 rounded-lg transition-all duration-300 border",
                 edit
-                  ? "bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border-emerald-500/50 shadow-[0_0_20px_rgba(16,185,129,0.2)]"
-                  : "bg-blue-600 hover:bg-blue-500 text-white border-transparent shadow-[0_0_25px_rgba(37,99,235,0.4)] hover:shadow-[0_0_35px_rgba(37,99,235,0.6)]"
+                  ? "bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-700 border-emerald-500/50 shadow-lg"
+                  : "bg-blue-600 hover:bg-blue-500 text-white border-transparent shadow-lg hover:shadow-xl"
               )}>
                 {edit ? (saving ? <Save size={14} className="animate-pulse" /> : <Save size={14} />) : <SquarePen size={14} />}
               </button>
-              <button onClick={handleDelete} className="p-2 rounded-lg bg-white/5 text-slate-400 hover:bg-red-500 hover:text-white border border-white/10 hover:border-red-500 hover:shadow-[0_0_15px_rgba(239,68,68,0.4)] transition-all">
+              <button onClick={handleDelete} className="p-2 rounded-lg bg-white/50 text-slate-600 hover:bg-red-500 hover:text-white border border-white/30 hover:border-red-500 hover:shadow-lg transition-all">
                 <Trash2 size={14} />
               </button>
             </div>
@@ -161,11 +161,11 @@ export function HojaDeVidaPanel({
             {/* Avatar Premium Refinado */}
             <div className="relative group mb-5">
               <div className={classNames(
-                "w-28 h-28 rounded-full p-[2px] shadow-lg transition-all duration-500",
-                "bg-gradient-to-b from-white/20 to-white/5", // Borde sutil metálico
+                "w-28 h-28 rounded-full p-[3px] shadow-xl transition-all duration-500",
+                "bg-gradient-to-br from-blue-400 via-purple-400 to-pink-400",
                 uploadingFoto && "animate-pulse"
               )}>
-                <div className="w-full h-full rounded-full overflow-hidden bg-slate-900 relative border border-black/50">
+                <div className="w-full h-full rounded-full overflow-hidden bg-white relative border border-white/50">
                   <img src={localSignedUrl ?? PLACEHOLDER_SVG} alt="Avatar" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
                   {/* Overlay de edición */}
                   <div onClick={() => inputFotoRef.current?.click()} className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center cursor-pointer transition-all duration-300 backdrop-blur-[1px]">
@@ -181,13 +181,13 @@ export function HojaDeVidaPanel({
               {edit ? (
                 <CEField value={form.nombre} edit={true} onInput={onCE('nombre')} placeholder="Tu Nombre" className="text-2xl font-bold text-white block border-b border-blue-500/50 text-center bg-transparent tracking-tight" />
               ) : (
-                <h2 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-white to-blue-100 tracking-tight drop-shadow-md">{form.nombre || 'Sin Nombre'}</h2>
+                <h2 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-slate-800 to-blue-600 tracking-tight">{form.nombre || 'Sin Nombre'}</h2>
               )}
 
               {edit ? (
                 <CEField value={form.ocupacion} edit={true} onInput={onCE('ocupacion')} placeholder="Profesión" className="text-sm text-blue-300 block border-b border-blue-500/30 text-center bg-transparent" />
               ) : (
-                <p className="text-sm text-blue-300 font-medium tracking-wide uppercase opacity-90">{form.ocupacion || 'Sin Ocupación'}</p>
+                <p className="text-sm text-blue-600 font-medium tracking-wide uppercase">{form.ocupacion || 'Sin Ocupación'}</p>
               )}
             </div>
 
@@ -196,59 +196,47 @@ export function HojaDeVidaPanel({
               <button onClick={handleUpdate} disabled={saving} className={classNames(
                 "flex items-center justify-center gap-2 px-6 py-2 rounded-full text-[11px] font-semibold uppercase tracking-wider transition-all duration-200",
                 edit
-                  ? "bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
-                  : "bg-white/5 hover:bg-white/10 text-white border border-white/10 hover:border-white/20"
+                  ? "bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-700 border border-emerald-500/40"
+                  : "bg-white/60 hover:bg-white/80 text-slate-700 border border-white/40 hover:border-white/60"
               )}>
                 {edit ? (saving ? "Guardando..." : <><Save size={14} /> Guardar</>) : <><SquarePen size={14} /> Editar</>}
               </button>
-              <button onClick={handleDelete} className="p-2 rounded-full bg-transparent text-slate-500 hover:text-red-400 hover:bg-red-500/10 transition-all" title="Eliminar">
+              <button onClick={handleDelete} className="p-2 rounded-full bg-white/40 text-slate-600 hover:text-red-600 hover:bg-red-500/20 transition-all" title="Eliminar">
                 <Trash2 size={16} />
               </button>
             </div>
           </div>
 
-          {/* Lista de Contacto y Estatus - Responsive Grid */}
-          <div className="px-4 py-4 overflow-y-auto custom-scrollbar">
-            <div className="grid grid-cols-2 md:grid-cols-1 gap-4">
-
-              {/* Columna 1: Contacto */}
-              <div className="space-y-3">
-                <h3 className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.25em] border-b border-white/5 pb-1 mb-2">Contacto</h3>
-                <ContactRow icon={<IdCard size={16} />} label="Cédula" value={form.cedula} edit={edit} onInput={onCE('cedula')} />
-                <ContactRow icon={<Phone size={16} />} label="Teléfono" value={form.telefono} edit={edit} onInput={onCE('telefono')} color="text-cyan-400" />
-              </div>
-
-              {/* Columna 2: Estatus */}
-              <div className="space-y-3">
-                <h3 className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.25em] border-b border-white/5 pb-1 mb-2">Estatus</h3>
-                <div className="flex justify-between items-center">
-                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em]">Promovido</span>
-                  <DarkRowBool value={form.promovido} edit={edit} onChange={onBoolString('promovido')} />
-                </div>
-                <div className={classNames(
-                  "text-xs text-center py-1.5 rounded-lg font-semibold border transition-all",
-                  form.promovido === 'si'
-                    ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
-                    : "bg-white/5 text-slate-500 border-white/5"
-                )}>
-                  {form.promovido === 'si' ? "PROMOVIDO" : "NO PROMOVIDO"}
-                </div>
-                <ContactRow icon={<Mail size={16} />} label="Email" value={form.email} edit={edit} onInput={onCE('email')} color="text-blue-400" />
-              </div>
-
+          {/* Lista de Contacto */}
+          <div className="hidden md:block px-4 py-4 overflow-y-auto custom-scrollbar">
+            <div className="space-y-3">
+              <h3 className="text-[10px] font-bold text-slate-600 uppercase tracking-[0.25em] border-b border-slate-300 pb-1 mb-2">Contacto</h3>
+              <ContactRow icon={<IdCard size={16} />} label="Cédula" value={form.cedula} edit={edit} onInput={onCE('cedula')} />
+              <ContactRow icon={<Phone size={16} />} label="Teléfono" value={form.telefono} edit={edit} onInput={onCE('telefono')} color="text-cyan-400" />
+              <ContactRow icon={<Mail size={16} />} label="Email" value={form.email} edit={edit} onInput={onCE('email')} color="text-blue-400" />
             </div>
           </div>
         </aside>
 
         {/* === PANEL DERECHO: INFORMACIÓN === */}
         <main className="flex-1 overflow-y-auto custom-scrollbar p-6 md:p-10 bg-transparent">
+          {/* Mobile Contact - Scrolls with content */}
+          <div className="md:hidden block mb-6 bg-white/40 backdrop-blur-xl p-5 rounded-2xl border border-white/20 shadow-sm">
+            <div className="space-y-3">
+              <h3 className="text-[10px] font-bold text-slate-600 uppercase tracking-[0.25em] border-b border-slate-300 pb-1 mb-2">Contacto</h3>
+              <ContactRow icon={<IdCard size={16} />} label="Cédula" value={form.cedula} edit={edit} onInput={onCE('cedula')} />
+              <ContactRow icon={<Phone size={16} />} label="Teléfono" value={form.telefono} edit={edit} onInput={onCE('telefono')} color="text-cyan-400" />
+              <ContactRow icon={<Mail size={16} />} label="Email" value={form.email} edit={edit} onInput={onCE('email')} color="text-blue-400" />
+            </div>
+          </div>
+
           <div className="max-w-6xl mx-auto space-y-10">
 
             {/* Header Sección */}
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 pb-4 border-b border-white/5">
               <div>
-                <h1 className="text-2xl font-semibold text-white mb-1">Información Detallada</h1>
-                <p className="text-sm text-slate-400 font-light">
+                <h1 className="text-2xl font-semibold text-slate-800 mb-1">Información Detallada</h1>
+                <p className="text-sm text-slate-600 font-light">
                   Gestión integral del perfil académico y espiritual
                 </p>
               </div>
@@ -321,8 +309,8 @@ export function HojaDeVidaPanel({
                   <div className={classNames(
                     "w-full p-5 rounded-xl text-sm leading-relaxed transition-all",
                     edit
-                      ? "bg-white/5 border border-white/10 text-white min-h-[100px] shadow-inner"
-                      : "bg-transparent text-slate-300 italic"
+                      ? "bg-white/60 border border-slate-300 text-slate-700 min-h-[100px] shadow-inner"
+                      : "bg-transparent text-slate-600 italic"
                   )}>
                     {edit ? <CEField value={form.notas} edit={true} onInput={onCE('notas')} className="w-full block h-full" /> : (form.notas || "Sin observaciones registradas.")}
                   </div>
@@ -343,17 +331,17 @@ export function HojaDeVidaPanel({
 
 function ContactRow({ icon, label, value, edit, onInput, color = "text-slate-400" }: any) {
   return (
-    <div className="group flex items-center gap-3 p-2 rounded-xl hover:bg-white/5 transition-all border border-transparent hover:border-white/5">
+    <div className="group flex items-center gap-3 p-2 rounded-xl hover:bg-white/60 transition-all border border-transparent hover:border-white/40">
       <div className={classNames(
         "w-8 h-8 rounded-lg flex items-center justify-center transition-all shadow-lg",
-        "bg-[#0f172a] border border-white/5 group-hover:scale-110 group-hover:border-white/20",
+        "bg-white border border-slate-300 group-hover:scale-110 group-hover:border-slate-400",
         color
       )}>
         {icon}
       </div>
       <div className="flex flex-col flex-1 min-w-0">
-        <span className="text-[9px] text-slate-500 font-bold uppercase tracking-widest mb-0.5">{label}</span>
-        <div className="text-sm text-slate-200 font-medium truncate">
+        <span className="text-[9px] text-slate-600 font-bold uppercase tracking-widest mb-0.5">{label}</span>
+        <div className="text-sm text-slate-800 font-medium truncate">
           {edit ? <CEField value={value} edit={true} onInput={onInput} className="border-b border-slate-600 block w-full bg-transparent" /> : (value || '—')}
         </div>
       </div>
@@ -376,14 +364,14 @@ function GlassSection({ title, icon, color, children }: any) {
 
   return (
     <div className={classNames(
-      "relative group overflow-hidden rounded-xl border border-white/5 bg-[#0f172a]/40 transition-all duration-300",
+      "relative group overflow-hidden rounded-xl border border-white/30 bg-white/50 backdrop-blur-md transition-all duration-300 shadow-lg",
       th.border
     )}>
-      <div className="px-6 py-4 border-b border-white/5 flex items-center gap-3 bg-white/[0.01]">
+      <div className="px-6 py-4 border-b border-white/30 flex items-center gap-3 bg-white/20">
         <div className={classNames("text-slate-400", th.text)}>
           {icon}
         </div>
-        <h4 className="text-sm font-semibold text-slate-200 uppercase tracking-wide">{title}</h4>
+        <h4 className="text-sm font-semibold text-slate-700 uppercase tracking-wide">{title}</h4>
       </div>
       <div className="p-6 space-y-1">{children}</div>
     </div>
@@ -392,16 +380,16 @@ function GlassSection({ title, icon, color, children }: any) {
 
 function DarkRow({ label, value, edit, onInput, icon }: any) {
   return (
-    <div className="flex flex-col sm:flex-row sm:items-start justify-between py-3 border-b border-white/5 last:border-0 gap-2 hover:bg-white/[0.02] px-3 -mx-3 rounded-lg transition-colors">
-      <div className="flex items-center gap-2 text-xs font-medium text-slate-400 uppercase w-[160px] flex-shrink-0 tracking-wide mt-0.5">
+    <div className="flex flex-col sm:flex-row sm:items-start justify-between py-3 border-b border-slate-200 last:border-0 gap-2 hover:bg-white/40 px-3 -mx-3 rounded-lg transition-colors">
+      <div className="flex items-center gap-2 text-xs font-medium text-slate-600 uppercase w-[160px] flex-shrink-0 tracking-wide mt-0.5">
         {icon && <span className="opacity-50">{icon}</span>}
         {label}
       </div>
-      <div className="text-sm text-slate-200 font-light flex-1 sm:text-right break-words leading-relaxed">
+      <div className="text-sm text-slate-700 font-light flex-1 sm:text-right break-words leading-relaxed">
         {edit ? (
           <CEField value={value} edit={true} onInput={onInput} className="inline-block min-w-[50px] text-left sm:text-right border-b border-blue-500/50 px-1 focus:border-blue-400 transition-colors" />
         ) : (
-          value || <span className="text-slate-600 text-xs">—</span>
+          value || <span className="text-slate-400 text-xs">—</span>
         )}
       </div>
     </div>
@@ -410,15 +398,15 @@ function DarkRow({ label, value, edit, onInput, icon }: any) {
 
 function DarkRowSelect({ label, value, edit, onChange, options, disabled }: any) {
   return (
-    <div className="flex items-center justify-between py-3 border-b border-white/5 last:border-0 hover:bg-white/[0.02] px-3 -mx-3 rounded-lg transition-colors">
-      <div className="text-xs font-medium text-slate-400 uppercase tracking-wide">{label}</div>
-      <div className="text-sm text-slate-200">
+    <div className="flex items-center justify-between py-3 border-b border-slate-200 last:border-0 hover:bg-white/40 px-3 -mx-3 rounded-lg transition-colors">
+      <div className="text-xs font-medium text-slate-600 uppercase tracking-wide">{label}</div>
+      <div className="text-sm text-slate-700">
         {edit ? (
           <select
             value={value ?? ""}
             onChange={(e) => onChange(e.target.value)}
             disabled={disabled}
-            className="bg-[#0B1120] border border-slate-700 rounded-md text-xs py-1.5 px-3 text-slate-200 focus:border-blue-500 outline-none shadow-sm"
+            className="bg-white border border-slate-300 rounded-md text-xs py-1.5 px-3 text-slate-700 focus:border-blue-500 outline-none shadow-sm"
           >
             <option value="">Seleccionar</option>
             {options.map((op: string) => (
@@ -426,7 +414,7 @@ function DarkRowSelect({ label, value, edit, onChange, options, disabled }: any)
             ))}
           </select>
         ) : (
-          value || <span className="text-slate-600 text-xs">—</span>
+          value || <span className="text-slate-400 text-xs">—</span>
         )}
       </div>
     </div>
@@ -450,8 +438,8 @@ function DarkRowBool({ label, value, edit, onChange }: any) {
   if (!label) return content;
 
   return (
-    <div className="flex items-center justify-between py-3 border-b border-white/5 last:border-0 hover:bg-white/[0.02] px-3 -mx-3 rounded-lg transition-colors">
-      <div className="text-xs font-medium text-slate-400 uppercase tracking-wide">{label}</div>
+    <div className="flex items-center justify-between py-3 border-b border-slate-200 last:border-0 hover:bg-white/40 px-3 -mx-3 rounded-lg transition-colors">
+      <div className="text-xs font-medium text-slate-600 uppercase tracking-wide">{label}</div>
       <div>{content}</div>
     </div>
   );
