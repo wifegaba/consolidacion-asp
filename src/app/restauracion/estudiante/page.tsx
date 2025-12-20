@@ -203,14 +203,16 @@ export default function EstudiantePage() {
     setFotoUrls({});
 
     try {
-      const { data, error } = await supabase
+      // Query 1: Cargar inscripciones y entrevistas
+      const inscripcionesPromise = supabase
         .from('inscripciones')
         .select(`id, estado, entrevistas ( * )`)
         .eq('curso_id', course.id)
         .eq('servidor_id', servidorId)
-        .eq('estado', 'activo') // <-- FIX: Only show active students (exclude suspended and finalized)
+        .eq('estado', 'activo')
         .order('created_at', { ascending: true });
 
+      const { data, error } = await inscripcionesPromise;
       if (error) throw error;
 
       const loadedStudents: EstudianteInscrito[] = data
@@ -222,60 +224,63 @@ export default function EstudiantePage() {
           progress: 0,
         }));
 
-      // Cargar asistencias para calcular progreso masivamente
+      // OPTIMIZACIÓN: Mostrar estudiantes inmediatamente (sin fotos ni progreso)
+      setStudents(loadedStudents);
+      setLoadingStudents(false);
+
+      // Cargar asistencias y fotos EN PARALELO en segundo plano
       if (loadedStudents.length > 0) {
         const inscripcionIds = loadedStudents.map(s => s.inscripcion_id);
-        const { data: asistenciasData } = await supabase
-          .from('asistencias_academia')
-          .select('inscripcion_id, asistencias')
-          .in('inscripcion_id', inscripcionIds);
+        const fotoPaths = [...new Set(loadedStudents.map((s) => s.foto_path).filter(Boolean) as string[])];
 
-        const asistenciaMap = (asistenciasData || []).reduce((acc, curr) => {
+        // Ejecutar ambas queries en paralelo
+        const [asistenciasResult, fotosResult] = await Promise.all([
+          // Query asistencias
+          supabase
+            .from('asistencias_academia')
+            .select('inscripcion_id, asistencias')
+            .in('inscripcion_id', inscripcionIds),
+          // Query fotos (solo si hay fotos)
+          fotoPaths.length > 0
+            ? supabase.storage.from("entrevistas-fotos").createSignedUrls(fotoPaths, 60 * 60)
+            : Promise.resolve({ data: null })
+        ]);
+
+        // Procesar asistencias
+        const asistenciaMap = (asistenciasResult.data || []).reduce((acc, curr) => {
           acc[curr.inscripcion_id] = curr.asistencias;
           return acc;
         }, {} as Record<string, any>);
 
-        // Calcular progreso para cada estudiante
+        // Calcular progreso
         loadedStudents.forEach(student => {
           const grades = asistenciaMap[student.inscripcion_id] || {};
-          // Asumimos Topic ID 1 para asistencia general, o iteramos todos
-          // Por simplicidad y el requerimiento actual, contamos total de checks positivos en Topic 1
           let totalChecks = 0;
-          const topicGrades = grades['1'] || {}; // Topic ID 1 es Asistencia según initialCourseTopics
+          const topicGrades = grades['1'] || {};
           Object.values(topicGrades).forEach(val => {
             if (val === 'si') totalChecks++;
           });
-
-          // Total clases = 12
           const percentage = Math.min(100, Math.round((totalChecks / 12) * 100));
           student.progress = percentage;
         });
-      }
 
-      setStudents(loadedStudents);
-
-      if (loadedStudents.length > 0) {
-        const fotoPaths = [...new Set(loadedStudents.map((s) => s.foto_path).filter(Boolean) as string[])];
-        if (fotoPaths.length > 0) {
-          const { data: signedUrlsData } = await supabase.storage
-            .from("entrevistas-fotos")
-            .createSignedUrls(fotoPaths, 60 * 60);
-
-          if (signedUrlsData) {
-            const urlMap = signedUrlsData.reduce((acc, item) => {
-              if (item.signedUrl && item.path) {
-                const url = bustUrl(item.signedUrl);
-                if (url) acc[item.path] = url;
-              }
-              return acc;
-            }, {} as Record<string, string>);
-            setFotoUrls(urlMap);
-          }
+        // Procesar fotos
+        if (fotosResult.data) {
+          const urlMap = fotosResult.data.reduce((acc, item) => {
+            if (item.signedUrl && item.path) {
+              const url = bustUrl(item.signedUrl);
+              if (url) acc[item.path] = url;
+            }
+            return acc;
+          }, {} as Record<string, string>);
+          setFotoUrls(urlMap);
         }
+
+        // Actualizar estudiantes con progreso calculado
+        setStudents([...loadedStudents]);
       }
     } catch (error) {
       console.error("Error en loadStudents:", error);
-    } finally {
       setLoadingStudents(false);
     }
   }, [user, toast]);
@@ -884,7 +889,7 @@ function StudentSidebar({
       )}
 
       <motion.nav
-        className="flex-1 overflow-y-auto px-4 py-3 space-y-4 md:space-y-2 min-h-0 pb-28 md:pb-4 custom-scrollbar"
+        className="flex-1 overflow-y-auto px-4 py-3 space-y-4 md:space-y-3 min-h-0 pb-28 md:pb-4 custom-scrollbar"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.3 }}
@@ -931,7 +936,7 @@ function StudentSidebar({
 }
 
 function StudentSidebarItem({ student, fotoUrls, isActive, isAttendanceModeActive, isCurrentAttendanceTarget, isCompleted, isLoading, onMarkAttendance, onSelectStudent, index = 0 }: any) {
-  const containerClasses = ['group relative flex items-center gap-4 rounded-2xl py-4 md:py-2.5 pl-0 pr-4 transition-all border cursor-pointer overflow-visible'];
+  const containerClasses = ['group relative flex items-center gap-4 rounded-2xl h-16 md:h-14 pl-0 pr-4 transition-all border cursor-pointer overflow-visible'];
 
   if (isAttendanceModeActive) {
     if (isCurrentAttendanceTarget) {
@@ -1021,7 +1026,7 @@ function StudentAvatar({ fotoPath, nombre, fotoUrls }: any) {
         key={url}
         src={url}
         alt={nombre ?? 'Estudiante'}
-        className="h-16 w-16 md:h-12 md:w-12 rounded-full border-2 border-slate-500/60 ring-[3px] ring-slate-900/80 object-cover shadow-[0_8px_24px_-8px_rgba(0,0,0,0.5)]"
+        className="h-16 w-16 md:h-14 md:w-14 rounded-full border-2 border-slate-500/60 ring-[3px] ring-slate-900/80 object-cover shadow-[0_8px_24px_-8px_rgba(0,0,0,0.5)]"
         onError={(e) => { const t = e.currentTarget; const fb = generateAvatar(nombre ?? 'NN'); if (t.src !== fb) t.src = fb; }}
       />
       {/* Halo premium */}
