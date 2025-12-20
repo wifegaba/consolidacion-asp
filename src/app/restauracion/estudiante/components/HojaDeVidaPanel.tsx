@@ -161,7 +161,7 @@ export function HojaDeVidaPanel({
             {/* Avatar Premium Refinado */}
             <div className="relative group mb-5">
               <div className={classNames(
-                "w-28 h-28 rounded-full p-[3px] shadow-xl transition-all duration-500",
+                "w-44 h-44 rounded-full p-[3px] shadow-xl transition-all duration-500",
                 "bg-gradient-to-br from-blue-400 via-purple-400 to-pink-400",
                 uploadingFoto && "animate-pulse"
               )}>

@@ -884,7 +884,7 @@ function StudentSidebar({
       )}
 
       <motion.nav
-        className="flex-1 overflow-y-auto px-4 py-2 space-y-2 min-h-0 pb-28 md:pb-4 custom-scrollbar"
+        className="flex-1 overflow-y-auto px-4 py-3 space-y-4 md:space-y-2 min-h-0 pb-28 md:pb-4 custom-scrollbar"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.3 }}
@@ -931,7 +931,7 @@ function StudentSidebar({
 }
 
 function StudentSidebarItem({ student, fotoUrls, isActive, isAttendanceModeActive, isCurrentAttendanceTarget, isCompleted, isLoading, onMarkAttendance, onSelectStudent, index = 0 }: any) {
-  const containerClasses = ['group relative flex items-center gap-3 rounded-xl p-3 transition-all border cursor-pointer'];
+  const containerClasses = ['group relative flex items-center gap-4 rounded-2xl py-4 md:py-2.5 pl-0 pr-4 transition-all border cursor-pointer overflow-visible'];
 
   if (isAttendanceModeActive) {
     if (isCurrentAttendanceTarget) {
@@ -951,58 +951,63 @@ function StudentSidebarItem({ student, fotoUrls, isActive, isAttendanceModeActiv
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
+      initial={{ opacity: 0, y: 16, scale: 0.96 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
       transition={{
-        duration: 0.3,
-        delay: index * 0.05,
-        type: "spring",
-        stiffness: 260,
-        damping: 20
+        duration: 0.5,
+        delay: index * 0.06,
+        ease: [0.25, 0.46, 0.45, 0.94],
       }}
       onClick={(e) => { if (!isAttendanceModeActive) { e.preventDefault(); onSelectStudent(student); } }}
-      className={classNames(...containerClasses)}
+      className="relative pl-8 md:pl-6"
     >
-      <StudentAvatar fotoPath={student.foto_path} nombre={student.nombre} fotoUrls={fotoUrls} />
-      <div className="flex-1 min-w-0 flex flex-col justify-center gap-1.5">
-        <span className="block text-[13.5px] font-semibold leading-tight tracking-[-0.01em] truncate">{student.nombre ?? 'Sin Nombre'}</span>
-
-        {/* Barra de Progreso Elegante */}
-        <div className="w-full max-w-[120px] flex items-center gap-2">
-          <div className="flex-1 h-1.5 bg-slate-700/30 rounded-full overflow-hidden backdrop-blur-sm shadow-[inset_0_1px_2px_rgba(0,0,0,0.2)]">
-            <motion.div
-              initial={{ width: 0 }}
-              animate={{ width: `${student.progress || 0}%` }}
-              transition={{ duration: 0.8, ease: "easeOut" }}
-              className={classNames(
-                "h-full rounded-full shadow-[0_0_8px_rgba(99,102,241,0.4)] relative",
-                isActive
-                  ? "bg-gradient-to-r from-blue-300 via-indigo-300 to-white"
-                  : "bg-gradient-to-r from-blue-500 via-indigo-500 to-indigo-400"
-              )}
-            />
-          </div>
-          <span className={classNames("text-[9px] font-medium w-6 text-right tabular-nums", isActive ? "text-blue-100" : "text-slate-500")}>
-            {student.progress || 0}%
-          </span>
-        </div>
+      {/* Avatar posicionado para sobresalir */}
+      <div className="absolute left-0 top-1/2 -translate-y-1/2 z-10">
+        <StudentAvatar fotoPath={student.foto_path} nombre={student.nombre} fotoUrls={fotoUrls} />
       </div>
-      <div className="flex items-center gap-2">
-        {isAttendanceModeActive ? (
-          isCurrentAttendanceTarget ? (
-            isLoading ? <Loader2 size={24} className="text-indigo-500 animate-spin" /> : (
-              <>
-                <button type="button" onClick={() => onMarkAttendance('no')} className="flex items-center justify-center h-10 w-10 rounded-full bg-gradient-to-br from-gray-200 to-gray-300 text-gray-700 shadow-md hover:from-gray-300 active:scale-95"><X size={20} /></button>
-                <button type="button" onClick={() => onMarkAttendance('si')} className="flex items-center justify-center h-10 w-10 rounded-full bg-gradient-to-br from-green-400 to-green-600 text-white shadow-lg hover:from-green-500 active:scale-95"><Check size={20} /></button>
-              </>
-            )
-          ) : isCompleted ? <Check size={24} className="text-green-600" /> : null
-        ) : (
-          <div className="flex items-center gap-1.5 transition-opacity">
-            <button type="button" disabled={!student.telefono} onClick={(e) => { e.stopPropagation(); if (student.telefono) window.location.href = `tel:${student.telefono.replace(/\s+/g, '')}`; }} className="p-1.5 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white transition-all disabled:opacity-20"><Phone size={14} /></button>
-            <button type="button" disabled={!student.telefono} onClick={(e) => { e.stopPropagation(); if (student.telefono) window.open(`https://wa.me/${student.telefono.replace(/\D/g, '')}`, '_blank'); }} className="p-1.5 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-green-400 transition-all disabled:opacity-20"><MessageCircle size={14} /></button>
+
+      {/* Tarjeta que empieza desde el centro del avatar */}
+      <div className={classNames(...containerClasses)}>
+        <div className="flex-1 min-w-0 flex flex-col justify-center gap-2 pl-10 md:pl-8">
+          <span className="block text-[15px] md:text-[13.5px] font-semibold leading-tight tracking-[-0.01em] truncate">{student.nombre ?? 'Sin Nombre'}</span>
+
+          {/* Barra de Progreso Elegante */}
+          <div className="w-full max-w-[160px] md:max-w-[120px] flex items-center gap-2">
+            <div className="flex-1 h-2 md:h-1.5 bg-slate-700/30 rounded-full overflow-hidden backdrop-blur-sm shadow-[inset_0_1px_2px_rgba(0,0,0,0.2)]">
+              <motion.div
+                initial={{ width: 0 }}
+                animate={{ width: `${student.progress || 0}%` }}
+                transition={{ duration: 0.8, ease: "easeOut" }}
+                className={classNames(
+                  "h-full rounded-full shadow-[0_0_8px_rgba(99,102,241,0.4)] relative",
+                  isActive
+                    ? "bg-gradient-to-r from-blue-300 via-indigo-300 to-white"
+                    : "bg-gradient-to-r from-blue-500 via-indigo-500 to-indigo-400"
+                )}
+              />
+            </div>
+            <span className={classNames("text-[10px] md:text-[9px] font-medium w-7 text-right tabular-nums", isActive ? "text-blue-100" : "text-slate-500")}>
+              {student.progress || 0}%
+            </span>
           </div>
-        )}
+        </div>
+        <div className="flex items-center gap-3">
+          {isAttendanceModeActive ? (
+            isCurrentAttendanceTarget ? (
+              isLoading ? <Loader2 size={24} className="text-indigo-500 animate-spin" /> : (
+                <>
+                  <button type="button" onClick={() => onMarkAttendance('no')} className="flex items-center justify-center h-10 w-10 rounded-full bg-gradient-to-br from-gray-200 to-gray-300 text-gray-700 shadow-md hover:from-gray-300 active:scale-95"><X size={20} /></button>
+                  <button type="button" onClick={() => onMarkAttendance('si')} className="flex items-center justify-center h-10 w-10 rounded-full bg-gradient-to-br from-green-400 to-green-600 text-white shadow-lg hover:from-green-500 active:scale-95"><Check size={20} /></button>
+                </>
+              )
+            ) : isCompleted ? <Check size={24} className="text-green-600" /> : null
+          ) : (
+            <div className="flex items-center gap-3 transition-opacity">
+              <button type="button" disabled={!student.telefono} onClick={(e) => { e.stopPropagation(); if (student.telefono) window.location.href = `tel:${student.telefono.replace(/\s+/g, '')}`; }} className="p-3 md:p-2 rounded-xl bg-slate-800/80 hover:bg-blue-600 text-blue-400 hover:text-white transition-all disabled:opacity-20 active:scale-95 shadow-lg"><Phone size={20} className="md:w-4 md:h-4" /></button>
+              <button type="button" disabled={!student.telefono} onClick={(e) => { e.stopPropagation(); if (student.telefono) window.open(`https://wa.me/${student.telefono.replace(/\D/g, '')}`, '_blank'); }} className="p-3 md:p-2 rounded-xl bg-slate-800/80 hover:bg-green-600 text-green-400 hover:text-white transition-all disabled:opacity-20 active:scale-95 shadow-lg"><MessageCircle size={20} className="md:w-4 md:h-4" /></button>
+            </div>
+          )}
+        </div>
       </div>
     </motion.div>
   );
@@ -1010,7 +1015,19 @@ function StudentSidebarItem({ student, fotoUrls, isActive, isAttendanceModeActiv
 
 function StudentAvatar({ fotoPath, nombre, fotoUrls }: any) {
   const url = (fotoPath ? fotoUrls[fotoPath] : null) ?? generateAvatar(nombre ?? 'NN');
-  return <img key={url} src={url} alt={nombre ?? 'Estudiante'} className="h-9 w-9 rounded-full border border-slate-700/50 ring-2 ring-white/5 object-cover shadow-lg" onError={(e) => { const t = e.currentTarget; const fb = generateAvatar(nombre ?? 'NN'); if (t.src !== fb) t.src = fb; }} />;
+  return (
+    <div className="relative -my-4 md:-my-3 flex-shrink-0">
+      <img
+        key={url}
+        src={url}
+        alt={nombre ?? 'Estudiante'}
+        className="h-16 w-16 md:h-12 md:w-12 rounded-full border-2 border-slate-500/60 ring-[3px] ring-slate-900/80 object-cover shadow-[0_8px_24px_-8px_rgba(0,0,0,0.5)]"
+        onError={(e) => { const t = e.currentTarget; const fb = generateAvatar(nombre ?? 'NN'); if (t.src !== fb) t.src = fb; }}
+      />
+      {/* Halo premium */}
+      <div className="absolute inset-0 rounded-full ring-1 ring-blue-400/30 pointer-events-none" />
+    </div>
+  );
 }
 
 function TabButton({ icon, label, isActive, onClick }: any) {
