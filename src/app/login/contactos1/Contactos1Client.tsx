@@ -15,6 +15,7 @@ import { useToast } from '@/components/ToastProvider';
 const PersonaNueva = dynamic(() => import('@/app/panel/contactos/FormularioPersonaNueva'), { ssr: false });
 const Servidores = dynamic(() => import('@/app/panel/servidores/page'), { ssr: false });
 import { GlobalPresenceProvider } from '@/components/GlobalPresenceProvider';
+import { LogOut } from 'lucide-react';
 
 /* ================= Tipos ================= */
 type Dia = 'Domingo' | 'Martes' | 'Virtual';
@@ -139,6 +140,8 @@ const LIST_ITEM_VARIANTS = {
   initial: { opacity: 0, x: 28, y: 14, scale: 0.97 },
   animate: { opacity: 1, x: 0, y: 0, scale: 1, transition: { duration: 0.5, ease: EASE_SMOOTH } }
 };
+
+
 
 /* ================= Placeholder Component ================= */
 const EmptyRightPlaceholder = () => (
@@ -315,6 +318,13 @@ export default function Contactos1Client(
   const cedula = normalizeCedula(cedulaProp ?? '');
   const rtDebug = false;
   const rtLog = useCallback((...args: any[]) => { if (rtDebug) console.log('[RT contactos1]', ...args); }, []);
+
+  const handleLogout = useCallback(async () => {
+    await supabase.auth.signOut();
+    window.location.href = '/login';
+  }, []);
+
+
 
   // Interceptar el botón "atrás" del navegador para redirigir a /login
   useEffect(() => {
@@ -1298,6 +1308,15 @@ export default function Contactos1Client(
             </div>
           </div>
 
+          {/* Botón Flotante Móvil */}
+          <button
+            onClick={handleLogout}
+            className="fixed top-4 right-4 z-[9999] p-2 rounded-full bg-white/40 border border-white/50 text-red-600 shadow-lg backdrop-blur text-xs font-bold hover:bg-red-50 transition-colors md:hidden"
+            title="Cerrar Sesión"
+          >
+            <LogOut size={16} />
+          </button>
+
           {/* ===== Lista izquierda / Panel derecho ===== */}
           <div className="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-5 md:gap-6">
             {/* Lista */}
@@ -1310,6 +1329,14 @@ export default function Contactos1Client(
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
+                  <button
+                    onClick={handleLogout}
+                    className="hidden md:inline-flex items-center gap-1 rounded-xl bg-white/50 text-neutral-600 ring-1 ring-white/60 shadow-[0_6px_20px_rgba(0,0,0,0.05)] px-2 py-1 text-xs font-medium hover:scale-[1.02] hover:text-red-600 hover:bg-red-50 active:scale-95 transition mr-1"
+                    title="Cerrar Sesión"
+                  >
+                    <LogOut size={14} />
+                    <span className="hidden xl:inline">Salir</span>
+                  </button>
                   <button
                     onClick={downloadPDF}
                     className="inline-flex items-center gap-1 rounded-xl bg-gradient-to-r from-red-400 via-red-500 to-red-600 text-white ring-1 ring-white/50 shadow-[0_6px_20px_rgba(220,38,38,0.35)] px-2 py-1 text-xs font-medium hover:scale-[1.02] active:scale-95 transition"

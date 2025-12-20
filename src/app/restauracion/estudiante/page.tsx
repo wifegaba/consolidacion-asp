@@ -15,6 +15,7 @@ import {
   MessageCircle,
   Loader2,
   Lock,
+  LogOut,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../../../lib/supabaseClient';
@@ -145,6 +146,11 @@ export default function EstudiantePage() {
     setSelectedInscripcionId(null);
     setSelectedStudent(null);
     setSignedUrl(null);
+  }, []);
+
+  const handleLogout = useCallback(async () => {
+    await supabase.auth.signOut();
+    window.location.href = '/login';
   }, []);
 
   // --- Carga Inicial de Cursos ---
@@ -543,6 +549,10 @@ export default function EstudiantePage() {
                   <TabButton icon={<BarChart3 className="h-4 w-4" />} label="Reportes" isActive={activeTab === 'reports'} onClick={() => handleTabClick('reports')} />
                 </nav>
               )}
+              {/* Logout Button (Desktop Topbar) */}
+              <button onClick={handleLogout} className="ml-auto p-2 text-gray-500 hover:text-red-600 hover:bg-black/5 rounded-full transition-colors" title="Cerrar Sesión">
+                <LogOut size={18} />
+              </button>
             </div>
 
             {/* Body */}
@@ -762,6 +772,11 @@ function StudentSidebar({
   const [isMarkingStudentId, setIsMarkingStudentId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
 
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    window.location.href = '/login';
+  };
+
   useEffect(() => {
     if (isAttendanceModeActive) {
       setCurrentAttendanceStudentIndex(0);
@@ -782,7 +797,12 @@ function StudentSidebar({
           <ArrowLeft size={16} />
           <span className="text-[13px]">Volver a Cursos</span>
         </button>
-        {courseName && <div className="pt-2 text-center"><h2 className="text-xl font-bold tracking-[-0.03em] bg-gradient-to-r from-indigo-700 to-purple-600 bg-clip-text text-transparent">{courseName}</h2></div>}
+        {courseName && <div className="pt-2 text-center relative flex justify-center items-center">
+          <h2 className="text-xl font-bold tracking-[-0.03em] bg-gradient-to-r from-indigo-700 to-purple-600 bg-clip-text text-transparent">{courseName}</h2>
+          <button onClick={handleLogout} className="absolute right-0 top-1/2 -translate-y-1/2 p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors md:hidden">
+            <LogOut size={16} />
+          </button>
+        </div>}
       </div>
 
       <div className="flex-shrink-0 p-4 border-b border-white/60">

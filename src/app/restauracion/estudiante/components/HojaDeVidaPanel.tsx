@@ -179,13 +179,13 @@ export function HojaDeVidaPanel({
             {/* Nombre & Título */}
             <div className="w-full mt-2 space-y-1">
               {edit ? (
-                <CEField value={form.nombre} edit={true} onInput={onCE('nombre')} placeholder="Tu Nombre" className="text-2xl font-bold text-white block border-b border-blue-500/50 text-center bg-transparent tracking-tight" />
+                <CEField value={form.nombre} edit={true} onInput={onCE('nombre')} placeholder="Tu Nombre" className="text-2xl font-bold text-slate-800 block border-b border-indigo-500/50 text-center bg-transparent tracking-tight" />
               ) : (
                 <h2 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-slate-800 to-blue-600 tracking-tight">{form.nombre || 'Sin Nombre'}</h2>
               )}
 
               {edit ? (
-                <CEField value={form.ocupacion} edit={true} onInput={onCE('ocupacion')} placeholder="Profesión" className="text-sm text-blue-300 block border-b border-blue-500/30 text-center bg-transparent" />
+                <CEField value={form.ocupacion} edit={true} onInput={onCE('ocupacion')} placeholder="Profesión" className="text-sm text-blue-700 block border-b border-blue-500/30 text-center bg-transparent font-medium" />
               ) : (
                 <p className="text-sm text-blue-600 font-medium tracking-wide uppercase">{form.ocupacion || 'Sin Ocupación'}</p>
               )}

@@ -15,7 +15,7 @@ import {
   Users, UserPlus, Server, Search, Plus, X, Loader2, Check,
   Edit2, Trash2, BookOpen, MessageSquarePlus, type LucideIcon,
   ChevronDown, AlertTriangle, ClipboardList, UserX, UserCheck2,
-  Phone, MessageCircle, GraduationCap
+  Phone, MessageCircle, GraduationCap, LogOut
 } from 'lucide-react';
 import ServidoresPage from '../panel/servidores/page';
 import ComponenteGestionarMaestros from './components/GestionServidores'; // Asumo que este es el nombre real o similar
@@ -211,6 +211,11 @@ export default function AdminPage() {
     setToasts(prev => prev.filter(t => t.id !== id));
   }, []);
 
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    window.location.href = '/login';
+  };
+
   return (
     <div className="relative h-[100dvh] w-full overflow-hidden bg-slate-100 text-gray-900 font-sans">
       {/* FONDO ESTATICO */}
@@ -240,6 +245,9 @@ export default function AdminPage() {
                   <span className="text-xs font-bold text-indigo-900">{currentUser.name}</span>
                   <span className="text-[10px] text-indigo-700/70">En línea</span>
                 </div>
+                <button onClick={handleLogout} className="ml-auto p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Cerrar Sesión">
+                  <LogOut size={16} />
+                </button>
               </div>
             </div>
           </aside>
@@ -250,7 +258,15 @@ export default function AdminPage() {
             {/* Removido: Título 'Academia' */}
 
             {/* Area de Contenido con Scroll */}
-            <div className="flex-1 overflow-y-auto p-2 md:p-8 md:pb-8 scroll-smooth">
+            <div className="flex-1 overflow-y-auto p-2 md:p-8 md:pb-8 scroll-smooth relative">
+              {/* Botón Logout Flotante (Solo Móvil) */}
+              <button
+                onClick={handleLogout}
+                className="md:hidden absolute top-4 right-4 z-50 p-2 rounded-full bg-white/40 border border-white/50 text-red-600 shadow-lg backdrop-blur text-xs font-bold active:scale-95"
+              >
+                <LogOut size={16} />
+              </button>
+
               <AnimatePresence mode="wait">
                 <motion.div key={activeTab} variants={fadeTransition} initial="hidden" animate="visible" exit="exit" className="h-full flex flex-col">
                   {activeTab === 'servidores' && <ServidoresPage />}

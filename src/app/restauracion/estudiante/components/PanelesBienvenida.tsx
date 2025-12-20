@@ -2,16 +2,17 @@
 
 import React from 'react';
 // --- CAMBIO: Importar Loader2 ---
-import { BookMarked, Folder, Star, Loader2 } from 'lucide-react';
+import { BookMarked, Folder, Star, Loader2, LogOut } from 'lucide-react';
+import { supabase } from '../../../../lib/supabaseClient';
 
 // Importamos los tipos y utils que necesitamos
 import { Course, folderColors } from './academia.utils';
 
 // --- TIPO DE PROPS (MODIFICADO) ---
 interface WelcomePanelProps {
-  onSelectCourse: (course: Course) => void; 
+  onSelectCourse: (course: Course) => void;
   className?: string;
-  isActive: boolean; 
+  isActive: boolean;
   courses: readonly Course[];
   loading: boolean; // <-- CAMBIO: Prop 'loading' añadida
 }
@@ -20,48 +21,48 @@ interface WelcomePanelProps {
 export function WelcomePanel({
   onSelectCourse,
   className = '',
-  isActive, 
+  isActive,
   courses,
   loading // <-- CAMBIO: Prop 'loading' recibida
 }: WelcomePanelProps) {
   const cardDelay = 100;
   const foldersContainerDelay = cardDelay + 100; // 200ms
-  const folderStagger = 75; 
-  const animationDuration = 500; 
+  const folderStagger = 75;
+  const animationDuration = 500;
   const easing = 'cubic-bezier(0.25, 0.1, 0.25, 1)';
 
   return (
-    <div className={`flex w-full h-full flex-col items-center justify-start pt-6 pb-10 px-4 md:px-12 text-center [grid-area:stack] overflow-y-auto overflow-x-hidden ${className}`}>
+    <div className={`relative flex w-full h-full flex-col items-center justify-start pt-6 pb-10 px-4 md:px-12 text-center [grid-area:stack] overflow-y-auto overflow-x-hidden ${className}`}>
       {/* Tarjeta de Bienvenida */}
-      <div 
+      <div
         className={`
           group relative overflow-hidden rounded-3xl border border-white/70 bg-white/55 px-6 md:px-10 py-8 md:py-12 shadow-xl backdrop-blur-xl w-full max-w-md md:max-w-sm
           transition-all duration-${animationDuration} ease-[${easing}]
           ${isActive ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-4 scale-95'}
         `}
-        style={{ transitionDelay: `${isActive ? cardDelay : 0}ms` }} 
+        style={{ transitionDelay: `${isActive ? cardDelay : 0}ms` }}
       >
         <div className="absolute -top-24 -right-24 h-64 w-64 rounded-full bg-gradient-to-br from-indigo-500/25 to-white/25 blur-3xl" />
         <BookMarked className="w-14 h-14 md:w-16 md:h-16 mx-auto text-indigo-500/90" />
         <h1 className="mt-6 text-xl md:text-2xl font-semibold tracking-tight text-gray-900">Bienvenido al Gestor Académico</h1>
         <p className="mt-2 max-w-sm text-sm md:text-base text-gray-700 mx-auto">Selecciona un curso para empezar a gestionar estudiantes y registrar calificaciones.</p>
       </div>
-      
+
       {/* Título Cursos */}
-      <h2 
-         className={`
+      <h2
+        className={`
           text-lg md:text-xl font-semibold mt-8 md:mt-10 mb-6 md:mb-8 text-gray-800
           transition-all duration-${animationDuration} ease-[${easing}]
           ${isActive ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-3'}
         `}
-        style={{ transitionDelay: `${isActive ? foldersContainerDelay - 50 : 0}ms` }} 
+        style={{ transitionDelay: `${isActive ? foldersContainerDelay - 50 : 0}ms` }}
       >
         Tus Cursos Asignados
       </h2>
 
       {/* Contenedor Carpetas */}
-      <div className="w-full max-w-full md:max-w-5xl lg:max-w-7xl px-4 md:px-0"> 
-        <div 
+      <div className="w-full max-w-full md:max-w-5xl lg:max-w-7xl px-4 md:px-0">
+        <div
           className={`
             flex flex-wrap md:flex-nowrap items-center justify-center 
             gap-4 md:gap-6 w-full 
@@ -73,7 +74,7 @@ export function WelcomePanel({
           `}
           style={{ transitionDelay: `${isActive ? foldersContainerDelay : 0}ms` }}
         >
-          
+
           {/* --- CAMBIO: Lógica de carga --- */}
           {loading ? (
             <div className="flex items-center justify-center w-full h-44 text-gray-600">
@@ -86,11 +87,11 @@ export function WelcomePanel({
             </div>
           ) : (
             courses.map((course, index) => (
-              <CourseFolder 
+              <CourseFolder
                 key={course.id}
-                title={course.title} 
+                title={course.title}
                 color={course.color}
-                hasSpecialBadge={course.hasSpecialBadge} 
+                hasSpecialBadge={course.hasSpecialBadge}
                 onSelect={() => onSelectCourse(course)}
                 className={`
                   transition-all duration-300 ease-out 
@@ -117,12 +118,12 @@ export function CourseWelcomeMessage({
   className?: string;
 }) {
   const isActive = className.includes('opacity-100');
-  const animationDuration = 500; 
+  const animationDuration = 500;
   const easing = 'cubic-bezier(0.25, 0.1, 0.25, 1)';
 
   return (
     <div className={`hidden md:flex flex-col items-center justify-center p-10 text-center [grid-area:stack] overflow-y-auto h-full ${className}`}>
-      <div 
+      <div
         className={`
           group relative overflow-hidden rounded-3xl border border-white/70 bg-white/55 px-10 py-12 shadow-xl backdrop-blur-xl
           transition-all duration-${animationDuration} ease-[${easing}] delay-100 
@@ -149,20 +150,20 @@ function CourseFolder({
   color = 'blue',
   hasSpecialBadge = false,
   onSelect,
-  className = '', 
-  style = {}      
+  className = '',
+  style = {}
 }: {
   title: string;
-  color?: string; 
+  color?: string;
   hasSpecialBadge?: boolean;
   onSelect: () => void;
-  className?: string; 
-  style?: React.CSSProperties; 
+  className?: string;
+  style?: React.CSSProperties;
 }) {
   const colorKey = color in folderColors ? color as keyof typeof folderColors : 'default';
   const colorClasses = folderColors[colorKey];
   const appleEase = 'ease-[cubic-bezier(0.2,0.8,0.2,1)]';
-  const duration = 'duration-300'; 
+  const duration = 'duration-300';
 
   return (
     <button
@@ -180,20 +181,20 @@ function CourseFolder({
         flex-shrink-0 
         ${className} 
       `}
-      style={style} 
+      style={style}
     >
-      <Folder 
+      <Folder
         className={`
           w-24 h-24 md:w-28 md:h-28 mb-2 md:mb-3 ${colorClasses} 
           transition-all ${duration} ${appleEase}
           drop-shadow-md 
           group-hover:drop-shadow-lg 
           group-hover:-translate-y-1
-        `} 
-        strokeWidth={1} 
+        `}
+        strokeWidth={1}
       />
-      
-      <h4 
+
+      <h4
         className={`
           text-xs md:text-sm font-semibold text-gray-800 w-full 
           transition-colors ${duration} ease-out
@@ -202,10 +203,10 @@ function CourseFolder({
       >
         {title}
       </h4>
-      
+
       {hasSpecialBadge && (
         <div className="absolute top-8 right-8 z-10 p-1.5 rounded-full bg-white/70 border border-yellow-300 shadow-lg backdrop-blur-md">
-          <Star size={20} className="text-yellow-500 fill-yellow-400/30 drop-shadow-sm" strokeWidth={1.5}/>
+          <Star size={20} className="text-yellow-500 fill-yellow-400/30 drop-shadow-sm" strokeWidth={1.5} />
         </div>
       )}
     </button>

@@ -15,6 +15,7 @@ const PersonaNueva = dynamic(() => import('@/app/panel/contactos/FormularioPerso
 const Servidores = dynamic(() => import('@/app/panel/servidores/page'), { ssr: false });
 import { motion, AnimatePresence } from "framer-motion";
 import { GlobalPresenceProvider } from '@/components/GlobalPresenceProvider';
+import { LogOut } from 'lucide-react';
 
 /* ================= Tipos ================= */
 type Dia = 'Domingo' | 'Martes' | 'Virtual';
@@ -238,6 +239,8 @@ const LIST_ITEM_VARIANTS = {
   }
 };
 
+
+
 // MEJORA 2: Componente Memoizado para la Lista (Evita re-renders masivos)
 const PendienteItem = memo(({
   c,
@@ -368,6 +371,13 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
   const cedula = normalizeCedula(cedulaProp ?? params?.get('cedula') ?? '');
   const rtDebug = (params?.get('rtlog') === '1') || (params?.get('debug') === '1');
   const rtLog = useCallback((...args: any[]) => { if (rtDebug) console.log('[RT maestros]', ...args); }, [rtDebug]);
+
+  const handleLogout = useCallback(async () => {
+    await supabase.auth.signOut();
+    window.location.href = '/login';
+  }, []);
+
+
 
   // Interceptar el botón "atrás" del navegador para redirigir a /login
   useEffect(() => {
@@ -1344,6 +1354,15 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
             </div>
           </div>
 
+          {/* Botón Flotante Móvil */}
+          <button
+            onClick={handleLogout}
+            className="fixed top-4 right-4 z-[9999] p-2 rounded-full bg-white/40 border border-white/50 text-red-600 shadow-lg backdrop-blur text-xs font-bold hover:bg-red-50 transition-colors md:hidden"
+            title="Cerrar Sesión"
+          >
+            <LogOut size={16} />
+          </button>
+
           {/* ===== Lista izquierda / Panel derecho ===== */}
           <div className="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-5 md:gap-6">
             {/* Lista */}
@@ -1356,6 +1375,14 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
+                  <button
+                    onClick={handleLogout}
+                    className="hidden md:inline-flex items-center gap-1 rounded-xl bg-white/50 text-neutral-600 ring-1 ring-white/60 shadow-[0_6px_20px_rgba(0,0,0,0.05)] px-2 py-1 text-xs font-medium hover:scale-[1.02] hover:text-red-600 hover:bg-red-50 active:scale-95 transition mr-1"
+                    title="Cerrar Sesión"
+                  >
+                    <LogOut size={14} />
+                    <span className="hidden xl:inline">Salir</span>
+                  </button>
                   <button
                     onClick={downloadPDF}
                     className="inline-flex items-center gap-1 rounded-xl bg-gradient-to-r from-red-400 via-red-500 to-red-600 text-white ring-1 ring-white/50 shadow-[0_6px_20px_rgba(220,38,38,0.35)] px-2 py-1 text-xs font-medium hover:scale-[1.02] active:scale-95 transition"
