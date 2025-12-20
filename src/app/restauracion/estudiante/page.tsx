@@ -51,6 +51,7 @@ const MemoizedHojaDeVida = memo(HojaDeVidaPanel);
 type EstudianteInscrito = Entrevista & {
   inscripcion_id: string;
   estado_inscripcion: string;
+  progress?: number; // 0 - 100
 };
 
 function createDefaultGradePlaceholders(count = 5): GradePlaceholder[] {
@@ -218,7 +219,38 @@ export default function EstudiantePage() {
           ...(item.entrevistas as unknown as Entrevista),
           inscripcion_id: item.id,
           estado_inscripcion: item.estado,
+          progress: 0,
         }));
+
+      // Cargar asistencias para calcular progreso masivamente
+      if (loadedStudents.length > 0) {
+        const inscripcionIds = loadedStudents.map(s => s.inscripcion_id);
+        const { data: asistenciasData } = await supabase
+          .from('asistencias_academia')
+          .select('inscripcion_id, asistencias')
+          .in('inscripcion_id', inscripcionIds);
+
+        const asistenciaMap = (asistenciasData || []).reduce((acc, curr) => {
+          acc[curr.inscripcion_id] = curr.asistencias;
+          return acc;
+        }, {} as Record<string, any>);
+
+        // Calcular progreso para cada estudiante
+        loadedStudents.forEach(student => {
+          const grades = asistenciaMap[student.inscripcion_id] || {};
+          // Asumimos Topic ID 1 para asistencia general, o iteramos todos
+          // Por simplicidad y el requerimiento actual, contamos total de checks positivos en Topic 1
+          let totalChecks = 0;
+          const topicGrades = grades['1'] || {}; // Topic ID 1 es Asistencia según initialCourseTopics
+          Object.values(topicGrades).forEach(val => {
+            if (val === 'si') totalChecks++;
+          });
+
+          // Total clases = 12
+          const percentage = Math.min(100, Math.round((totalChecks / 12) * 100));
+          student.progress = percentage;
+        });
+      }
 
       setStudents(loadedStudents);
 
@@ -358,9 +390,27 @@ export default function EstudiantePage() {
     setStudentGrades(prev => {
       const newTopicGrades = { ...(prev[topicId] || {}), [gradeId]: value };
       const newState = { ...prev, [topicId]: newTopicGrades };
+
+      // Actualizar progreso en tiempo real en la lista de estudiantes (Sidebar)
+      if (selectedInscripcionId) {
+        let totalChecks = 0;
+        // Calcular sobre el topic 1 (Asistencia) del nuevo estado
+        const attendanceGrades = newState[1] || {};
+        Object.values(attendanceGrades).forEach(val => { if (val === 'si') totalChecks++; });
+        const progress = Math.min(100, Math.round((totalChecks / 12) * 100));
+
+        setStudents(currentStudents =>
+          currentStudents.map(s =>
+            s.inscripcion_id === selectedInscripcionId
+              ? { ...s, progress }
+              : s
+          )
+        );
+      }
+
       return newState;
     });
-  }, []);
+  }, [selectedInscripcionId]);
 
   useEffect(() => {
     if (!selectedInscripcionId || !isGradesDirty.current) return;
@@ -403,6 +453,14 @@ export default function EstudiantePage() {
       if (error) throw error;
 
       // 3. ACTUALIZACIÓN OPTIMISTA DEL UI (La clave de la fluidez)
+      // Recalcular progreso inmediatamente
+      let totalChecks = 0;
+      const attendanceGrades = newStudentGrades[1] || {};
+      Object.values(attendanceGrades).forEach(val => { if (val === 'si') totalChecks++; });
+      const newProgress = Math.min(100, Math.round((totalChecks / 12) * 100));
+
+      setStudents(prev => prev.map(s => s.inscripcion_id === inscripcion_id ? { ...s, progress: newProgress } : s));
+
       // Si el estudiante que estamos marcando es el que tenemos abierto en el panel principal,
       // actualizamos el estado local 'studentGrades' inmediatamente.
       if (inscripcion_id === selectedInscripcionId) {
@@ -791,24 +849,31 @@ function StudentSidebar({
   }, [students, searchQuery]);
 
   return (
-    <aside className={`absolute inset-0 md:relative w-full h-full md:h-full md:w-1/3 lg:w-1/4 flex-shrink-0 flex flex-col border-b md:border-b-0 md:border-r border-white/60 bg-[#C2DEF2] backdrop-blur-2xl [box-shadow:inset_0_1px_0_rgba(255,255,255,0.9),0_20px_60px_-30px_rgba(2,6,23,0.25)] transition-transform duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] ${isDetailView ? 'translate-x-[-100%] md:translate-x-0' : 'translate-x-0'} ${className}`}>
-      <div className="flex-shrink-0 p-3 pb-2 border-b border-white/60 bg-white/60 backdrop-blur-xl shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]">
-        <button type="button" onClick={onGoBackToWelcome} className="flex items-center gap-1.5 px-2 py-1 text-sm font-medium text-gray-700 hover:text-indigo-600 rounded-lg hover:bg-white/70 transition-colors duration-150">
+    <aside className={`absolute inset-0 md:relative w-full h-full md:h-full md:w-1/3 lg:w-1/4 flex-shrink-0 flex flex-col border-b md:border-b-0 md:border-r border-slate-800/40 bg-gradient-to-b from-[#0f172a] to-[#111827] backdrop-blur-2xl [box-shadow:inset_0_1px_0_rgba(255,255,255,0.05),0_20px_60px_-30px_rgba(2,6,23,0.5)] transition-transform duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] ${isDetailView ? 'translate-x-[-100%] md:translate-x-0' : 'translate-x-0'} ${className}`}>
+      <div className="flex-shrink-0 p-3 pb-2 border-b border-slate-800/50 bg-slate-900/40 backdrop-blur-xl">
+        <button type="button" onClick={onGoBackToWelcome} className="flex items-center gap-1.5 px-2 py-1 text-sm font-medium text-slate-400 hover:text-white rounded-lg hover:bg-white/5 transition-colors duration-150">
           <ArrowLeft size={16} />
-          <span className="text-[13px]">Volver a Cursos</span>
+          <span className="text-[13px]">Volver</span>
         </button>
         {courseName && <div className="pt-2 text-center relative flex justify-center items-center">
-          <h2 className="text-xl font-bold tracking-[-0.03em] bg-gradient-to-r from-indigo-700 to-purple-600 bg-clip-text text-transparent">{courseName}</h2>
-          <button onClick={handleLogout} className="absolute right-0 top-1/2 -translate-y-1/2 p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors md:hidden">
+          <h2 className="text-xl font-bold tracking-[-0.03em] bg-gradient-to-r from-blue-100 to-indigo-100 bg-clip-text text-transparent uppercase text-[15px]">{courseName}</h2>
+          <button onClick={handleLogout} className="absolute right-0 top-1/2 -translate-y-1/2 p-1.5 text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors md:hidden">
             <LogOut size={16} />
           </button>
         </div>}
       </div>
 
-      <div className="flex-shrink-0 p-4 border-b border-white/60">
+      <div className="flex-shrink-0 p-4 border-b border-slate-800/50">
         <div className="relative">
-          <input type="text" placeholder="Buscar estudiante…" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} disabled={isAttendanceModeActive} className="w-full rounded-2xl border border-white/70 bg-white/75 backdrop-blur-xl py-2.5 pl-10 pr-4 text-sm text-gray-900 placeholder-gray-600 shadow-[inset_0_2px_6px_rgba(0,0,0,0.03)] focus:outline-none focus:ring-4 focus:ring-indigo-400/25 focus:border-white transition disabled:opacity-70" />
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={18} />
+          <input
+            type="text"
+            placeholder="Buscar estudiante…"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            disabled={isAttendanceModeActive}
+            className="w-full rounded-xl border border-slate-800/60 bg-slate-950/40 backdrop-blur-xl py-2 px-10 text-sm text-slate-100 placeholder-slate-500 shadow-inner focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500/30 transition disabled:opacity-50"
+          />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={16} />
         </div>
       </div>
 
@@ -827,7 +892,7 @@ function StudentSidebar({
         {loading ? (
           <div className="flex justify-center p-8"><span className="loader"></span></div>
         ) : filteredStudents.length === 0 ? (
-          <div className="text-center p-8 text-gray-700 text-sm font-medium">No se encontraron estudiantes.</div>
+          <div className="text-center p-8 text-slate-500 text-sm font-medium">No se encontraron estudiantes.</div>
         ) : (
           filteredStudents.map((student, index) => (
             <StudentSidebarItem
@@ -855,8 +920,8 @@ function StudentSidebar({
         )}
       </motion.nav>
 
-      <div className="flex-shrink-0 p-4 border-t border-white/60 min-h-[90px] flex flex-col items-center justify-center gap-3 bg-white/60 backdrop-blur-xl absolute bottom-0 left-0 right-0 z-20 md:relative md:bg-transparent md:backdrop-filter-none">
-        <button onClick={onStartAttendance} className="flex w-full items-center justify-center gap-2 rounded-2xl border py-3 text-sm font-medium backdrop-blur-sm transition-all border-emerald-300/50 bg-gradient-to-br from-emerald-100 via-white to-teal-100 text-emerald-900 shadow-lg hover:shadow-[0_15px_35px_-15px_rgba(16,185,129,0.5)] disabled:opacity-50 disabled:cursor-not-allowed active:scale-95">
+      <div className="flex-shrink-0 p-4 border-t border-slate-800/50 min-h-[90px] flex flex-col items-center justify-center gap-3 bg-slate-900/60 backdrop-blur-xl absolute bottom-0 left-0 right-0 z-20 md:relative">
+        <button onClick={onStartAttendance} className="flex w-full items-center justify-center gap-2 rounded-xl border py-2.5 text-sm font-medium transition-all border-blue-500/30 bg-blue-600/10 text-blue-100 shadow-[0_4px_20px_-8px_rgba(59,130,246,0.5)] hover:bg-blue-600/20 active:scale-95 disabled:opacity-50">
           <UserCheck size={18} />
           <span>{isAttendanceCompleted ? "Asistencia Tomada" : "Tomar Asistencia"}</span>
         </button>
@@ -866,25 +931,22 @@ function StudentSidebar({
 }
 
 function StudentSidebarItem({ student, fotoUrls, isActive, isAttendanceModeActive, isCurrentAttendanceTarget, isCompleted, isLoading, onMarkAttendance, onSelectStudent, index = 0 }: any) {
-  const gradientClasses = [
-    'bg-gradient-to-br from-teal-50 to-emerald-100/80 shadow shadow-emerald-100 hover:shadow-md',
-    'bg-gradient-to-br from-sky-50 to-cyan-100/80 shadow shadow-cyan-100 hover:shadow-md',
-    'bg-gradient-to-br from-purple-50 to-violet-100/80 shadow shadow-violet-100 hover:shadow-md',
-    'bg-gradient-to-br from-rose-50 to-pink-100/80 shadow shadow-pink-100 hover:shadow-md',
-    'bg-gradient-to-br from-amber-50 to-orange-100/80 shadow shadow-orange-100 hover:shadow-md',
-    'bg-gradient-to-br from-lime-50 to-green-100/80 shadow shadow-green-100 hover:shadow-md',
-    'bg-gradient-to-br from-indigo-50 to-blue-100/80 shadow shadow-indigo-100 hover:shadow-md'
-  ];
-  const gradientStyle = gradientClasses[index % gradientClasses.length];
-  const containerClasses = ['group relative flex items-center gap-4 md:gap-3 rounded-2xl p-4 md:p-3 transition-all border overflow-hidden'];
+  const containerClasses = ['group relative flex items-center gap-3 rounded-xl p-3 transition-all border cursor-pointer'];
 
   if (isAttendanceModeActive) {
-    if (isCurrentAttendanceTarget) containerClasses.push('border-transparent text-indigo-950 bg-gradient-to-r from-white/90 to-white/70 shadow-[0_12px_28px_-18px_rgba(76,29,149,0.35)] ring-2 ring-indigo-500');
-    else if (isCompleted) containerClasses.push('border-transparent bg-gray-100/60 opacity-50');
-    else containerClasses.push(`${gradientStyle} border-transparent text-gray-900 opacity-70`);
+    if (isCurrentAttendanceTarget) {
+      containerClasses.push('border-blue-500/50 bg-blue-500/10 text-white shadow-[0_0_20px_-5px_rgba(59,130,246,0.4)] ring-1 ring-blue-500/50');
+    } else if (isCompleted) {
+      containerClasses.push('border-slate-800/30 bg-slate-900/20 opacity-40');
+    } else {
+      containerClasses.push('border-slate-800/50 bg-slate-900/40 text-slate-100 opacity-70');
+    }
   } else {
-    if (isActive) containerClasses.push('border-transparent text-indigo-950 bg-gradient-to-r from-white/90 to-white/70 shadow-[0_12px_28px_-18px_rgba(76,29,149,0.35)] ring-1 ring-indigo-500/30');
-    else containerClasses.push(`${gradientStyle} border-transparent text-gray-900 hover:brightness-105 cursor-pointer`);
+    if (isActive) {
+      containerClasses.push('border-blue-500/50 bg-blue-600/20 text-white shadow-[0_8px_25px_-10px_rgba(30,64,175,0.6)] ring-1 ring-blue-500/40');
+    } else {
+      containerClasses.push('border-slate-800/40 bg-slate-900/40 text-slate-300 hover:bg-slate-800/60 hover:text-white hover:border-slate-700/60');
+    }
   }
 
   return (
@@ -902,9 +964,28 @@ function StudentSidebarItem({ student, fotoUrls, isActive, isAttendanceModeActiv
       className={classNames(...containerClasses)}
     >
       <StudentAvatar fotoPath={student.foto_path} nombre={student.nombre} fotoUrls={fotoUrls} />
-      <div className="flex-1">
-        <span className="block text-base md:text-[13.5px] font-semibold leading-tight tracking-[-0.01em]">{student.nombre ?? 'Sin Nombre'}</span>
-        <span className={classNames("block text-sm md:text-[11.5px]", isActive && !isAttendanceModeActive ? "text-gray-600/90" : "text-gray-700/80")}>C.C {student.cedula?.startsWith('TEMP_') ? 'Pendiente' : student.cedula}</span>
+      <div className="flex-1 min-w-0 flex flex-col justify-center gap-1.5">
+        <span className="block text-[13.5px] font-semibold leading-tight tracking-[-0.01em] truncate">{student.nombre ?? 'Sin Nombre'}</span>
+
+        {/* Barra de Progreso Elegante */}
+        <div className="w-full max-w-[120px] flex items-center gap-2">
+          <div className="flex-1 h-1.5 bg-slate-700/30 rounded-full overflow-hidden backdrop-blur-sm shadow-[inset_0_1px_2px_rgba(0,0,0,0.2)]">
+            <motion.div
+              initial={{ width: 0 }}
+              animate={{ width: `${student.progress || 0}%` }}
+              transition={{ duration: 0.8, ease: "easeOut" }}
+              className={classNames(
+                "h-full rounded-full shadow-[0_0_8px_rgba(99,102,241,0.4)] relative",
+                isActive
+                  ? "bg-gradient-to-r from-blue-300 via-indigo-300 to-white"
+                  : "bg-gradient-to-r from-blue-500 via-indigo-500 to-indigo-400"
+              )}
+            />
+          </div>
+          <span className={classNames("text-[9px] font-medium w-6 text-right tabular-nums", isActive ? "text-blue-100" : "text-slate-500")}>
+            {student.progress || 0}%
+          </span>
+        </div>
       </div>
       <div className="flex items-center gap-2">
         {isAttendanceModeActive ? (
@@ -917,10 +998,10 @@ function StudentSidebarItem({ student, fotoUrls, isActive, isAttendanceModeActiv
             )
           ) : isCompleted ? <Check size={24} className="text-green-600" /> : null
         ) : (
-          <>
-            <button type="button" disabled={!student.telefono} onClick={(e) => { e.stopPropagation(); if (student.telefono) window.location.href = `tel:${student.telefono.replace(/\s+/g, '')}`; }} className="p-2 rounded-full bg-white/70 hover:bg-white text-gray-600 hover:text-indigo-600 shadow-sm transition-all disabled:opacity-50"><Phone size={18} /></button>
-            <button type="button" disabled={!student.telefono} onClick={(e) => { e.stopPropagation(); if (student.telefono) window.open(`https://wa.me/${student.telefono.replace(/\D/g, '')}`, '_blank'); }} className="p-2 rounded-full bg-white/70 hover:bg-white text-gray-600 hover:text-green-600 shadow-sm transition-all disabled:opacity-50"><MessageCircle size={18} /></button>
-          </>
+          <div className="flex items-center gap-1.5 transition-opacity">
+            <button type="button" disabled={!student.telefono} onClick={(e) => { e.stopPropagation(); if (student.telefono) window.location.href = `tel:${student.telefono.replace(/\s+/g, '')}`; }} className="p-1.5 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white transition-all disabled:opacity-20"><Phone size={14} /></button>
+            <button type="button" disabled={!student.telefono} onClick={(e) => { e.stopPropagation(); if (student.telefono) window.open(`https://wa.me/${student.telefono.replace(/\D/g, '')}`, '_blank'); }} className="p-1.5 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-green-400 transition-all disabled:opacity-20"><MessageCircle size={14} /></button>
+          </div>
         )}
       </div>
     </motion.div>
@@ -929,7 +1010,7 @@ function StudentSidebarItem({ student, fotoUrls, isActive, isAttendanceModeActiv
 
 function StudentAvatar({ fotoPath, nombre, fotoUrls }: any) {
   const url = (fotoPath ? fotoUrls[fotoPath] : null) ?? generateAvatar(nombre ?? 'NN');
-  return <img key={url} src={url} alt={nombre ?? 'Estudiante'} className="h-12 w-12 md:h-10 md:w-10 rounded-full border-2 border-white/80 ring-1 ring-black/5 object-cover shadow-[0_4px_10px_-6px_rgba(2,6,23,.35)]" onError={(e) => { const t = e.currentTarget; const fb = generateAvatar(nombre ?? 'NN'); if (t.src !== fb) t.src = fb; }} />;
+  return <img key={url} src={url} alt={nombre ?? 'Estudiante'} className="h-9 w-9 rounded-full border border-slate-700/50 ring-2 ring-white/5 object-cover shadow-lg" onError={(e) => { const t = e.currentTarget; const fb = generateAvatar(nombre ?? 'NN'); if (t.src !== fb) t.src = fb; }} />;
 }
 
 function TabButton({ icon, label, isActive, onClick }: any) {
