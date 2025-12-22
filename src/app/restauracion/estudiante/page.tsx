@@ -43,6 +43,8 @@ import {
   CourseWelcomeMessage
 } from './components/PanelesBienvenida';
 import { GlobalPresenceProvider } from '../../../components/GlobalPresenceProvider';
+import { ConfettiButton } from '../../../components/ConfettiButton';
+import { GraduationModal } from '../../../components/GraduationModal';
 
 // --- Memoización de Componentes ---
 const WelcomePanel = memo(WelcomePanelBase);
@@ -103,6 +105,10 @@ export default function EstudiantePage() {
   const [isAttendanceCompleted, setIsAttendanceCompleted] = useState(false);
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [showAttendanceAlreadyTakenModal, setShowAttendanceAlreadyTakenModal] = useState(false);
+
+  // Estado para modal de graduación
+  const [showGraduationModal, setShowGraduationModal] = useState(false);
+  const [promotionData, setPromotionData] = useState<{ studentName: string; nextCourseName: string } | null>(null);
 
 
   const [currentUserName, setCurrentUserName] = useState('');
@@ -494,7 +500,24 @@ export default function EstudiantePage() {
       return;
     }
 
-    if (!confirm(`¿Estás seguro de promover a ${selectedStudent.nombre} a ${nextCourse.name}?`)) return;
+    // Esperar un momento para que el confetti sea visible antes de mostrar el modal
+    setTimeout(() => {
+      setPromotionData({
+        studentName: selectedStudent.nombre || '',
+        nextCourseName: nextCourse.name || ''
+      });
+      setShowGraduationModal(true);
+    }, 600); // 600ms delay para que el confetti sea visible
+  }, [selectedStudent, selectedCourse, toast]);
+
+  // Función que se ejecuta cuando se confirma la promoción desde el modal
+  const confirmPromotion = useCallback(async () => {
+    if (!selectedStudent || !selectedCourse || !promotionData) return;
+
+    const nextCourse = getNextCourse(selectedCourse.id);
+    if (!nextCourse) return;
+
+    setShowGraduationModal(false);
 
     try {
       const { error } = await supabase
@@ -513,7 +536,7 @@ export default function EstudiantePage() {
     } catch (e: any) {
       toast.error("Error al promover: " + e.message);
     }
-  }, [selectedStudent, selectedCourse, toast]);
+  }, [selectedStudent, selectedCourse, promotionData, toast]);
 
   const cancelAttendanceMode = useCallback(() => {
     setIsAttendanceModeActive(false);
@@ -686,6 +709,15 @@ export default function EstudiantePage() {
           {showAttendanceAlreadyTakenModal && <CupertinoAlertDialog title="Asistencia Registrada" message="Ya has registrado la asistencia para esta clase." onConfirm={() => setShowAttendanceAlreadyTakenModal(false)} />}
         </AnimatePresence>
 
+        {/* Modal de Graduación */}
+        <GraduationModal
+          isOpen={showGraduationModal}
+          studentName={promotionData?.studentName || ''}
+          nextCourseName={promotionData?.nextCourseName || ''}
+          onConfirm={confirmPromotion}
+          onCancel={() => setShowGraduationModal(false)}
+        />
+
 
       </main>
     </GlobalPresenceProvider>
@@ -722,9 +754,10 @@ const MemoizedGradesTabContent = memo(({
 
   return (
     <section className="p-4 md:p-6 lg:p-8 overflow-y-auto flex-1 min-h-0">
-      <div className="relative rounded-[22px] border border-white/80 bg-white/25 backdrop-blur-[22px] shadow-[0_30px_80px_-35px_rgba(2,6,23,0.45),inset_0_1px_0_0_#fff] ring-1 ring-black/5 p-5 md:p-7">
-        <div className="pointer-events-none absolute -top-16 -left-16 h-44 w-44 rounded-full bg-gradient-to-br from-indigo-500/12 to-white/12 blur-3xl" />
-        <div className="pointer-events-none absolute -bottom-10 -right-10 h-40 w-40 rounded-full bg-gradient-to-tl from-indigo-400/15 to-gray-200/20 blur-3xl" />
+      <div className="relative rounded-[2rem] border border-white/90 bg-white/80 backdrop-blur-3xl shadow-[0_30px_60px_-12px_rgba(0,0,0,0.12)] ring-1 ring-white/60 p-6 md:p-8 overflow-hidden transition-all duration-300">
+        {/* Premium Decorative Elements */}
+        <div className="pointer-events-none absolute -top-32 -right-32 h-80 w-80 rounded-full bg-gradient-to-br from-indigo-100/40 to-purple-100/40 blur-[80px]" />
+        <div className="pointer-events-none absolute -bottom-32 -left-32 h-80 w-80 rounded-full bg-gradient-to-tr from-blue-100/40 to-teal-100/40 blur-[80px]" />
 
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-[20px] md:text-[22px] font-semibold text-gray-900 tracking-[-0.015em] flex flex-col md:flex-row md:items-center">
@@ -743,8 +776,12 @@ const MemoizedGradesTabContent = memo(({
 
         {/* PROMOTION BANNER */}
         {asistenciasPendientes === 0 && selectedCourse && selectedStudent?.estado_inscripcion !== 'promovido' && (
-          <div className="mb-6 p-4 rounded-xl bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-100 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4 animate-in fade-in slide-in-from-top-2">
-            <div>
+          <div className="relative mb-6 p-4 rounded-2xl bg-gradient-to-r from-emerald-50/80 via-teal-50/80 to-cyan-50/80 backdrop-blur-xl border border-emerald-200/60 shadow-lg ring-1 ring-emerald-100/50 flex flex-col md:flex-row md:items-center justify-between gap-4 animate-in fade-in slide-in-from-top-2 overflow-hidden">
+            {/* Decorative Elements */}
+            <div className="pointer-events-none absolute -top-10 -left-10 h-32 w-32 rounded-full bg-gradient-to-br from-emerald-400/10 to-teal-400/10 blur-2xl" />
+            <div className="pointer-events-none absolute -bottom-10 -right-10 h-32 w-32 rounded-full bg-gradient-to-tl from-yellow-400/10 to-amber-400/10 blur-2xl" />
+
+            <div className="relative z-10">
               <h3 className="text-emerald-900 font-bold text-lg flex items-center gap-2">
                 🎉 ¡Felicitaciones!
               </h3>
@@ -753,16 +790,25 @@ const MemoizedGradesTabContent = memo(({
               </p>
             </div>
             {getNextCourse(selectedCourse.id) && (
-              <div className="flex flex-col items-end gap-1 w-full md:w-auto">
+              <div className="relative z-10 flex flex-col items-end gap-1 w-full md:w-auto">
                 <span className="text-xs font-semibold uppercase tracking-wider text-emerald-700/80 mr-1">
                   Promover a
                 </span>
-                <button
+                <ConfettiButton
                   onClick={onPromote}
                   className="w-full md:w-auto px-5 py-2 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-bold rounded-lg shadow-md transition-all active:scale-95 border border-emerald-400/20"
+                  confettiOptions={{
+                    particleCount: 150,
+                    spread: 120,
+                    startVelocity: 35,
+                    colors: ['#10b981', '#14b8a6', '#22c55e', '#fbbf24', '#f59e0b'],
+                    shapes: ['circle', 'square'],
+                    scalar: 1.2,
+                    zIndex: 10000,
+                  }}
                 >
                   {getNextCourse(selectedCourse.id)?.name}
-                </button>
+                </ConfettiButton>
               </div>
             )}
           </div>
@@ -1080,16 +1126,48 @@ function GradeGrid({ gradePlaceholders, studentGradesForTopic, topicId, onGradeC
 
 function PremiumAttendanceButton({ noteNumber, value, onChange }: any) {
   const handleClick = () => onChange(value === 'si' ? 'no' : value === 'no' ? '' : 'si');
-  let stateClasses = 'border-white/60 bg-white/40 backdrop-blur-xl hover:bg-white/55 text-gray-600/90';
+
+  // Estados con Glassmorphism Premium
+  let stateClasses = 'border-white/40 bg-gradient-to-br from-white/60 via-slate-50/50 to-white/60 backdrop-blur-xl hover:from-white/70 hover:to-white/70 text-slate-600 shadow-[0_4px_1 2px_rgba(0,0,0,0.05)]';
   let icon = null;
-  if (value === 'si') { stateClasses = 'border-blue-300/50 bg-gradient-to-br from-blue-100 via-white to-indigo-100 text-indigo-900 shadow-md'; icon = <Check size={20} />; }
-  else if (value === 'no') { stateClasses = 'border-white/60 bg-gradient-to-br from-gray-500 to-gray-600 text-white shadow-md'; icon = <X size={20} />; }
+  let glowClass = '';
+
+  if (value === 'si') {
+    // Completada: Gradiente esmeralda con glow
+    stateClasses = 'border-emerald-400/40 bg-gradient-to-br from-emerald-50/90 via-teal-50/80 to-emerald-100/70 backdrop-blur-xl text-emerald-900 shadow-[0_8px_30px_-8px_rgba(16,185,129,0.35),0_4px_16px_-4px_rgba(20,184,166,0.25)] ring-1 ring-emerald-200/50';
+    icon = <Check size={22} className="drop-shadow-sm" />;
+    glowClass = 'from-emerald-400/20 to-teal-400/15';
+  } else if (value === 'no') {
+    // Rechazada: Gradiente gris oscuro premium
+    stateClasses = 'border-slate-400/30 bg-gradient-to-br from-slate-300/80 via-slate-400/70 to-slate-500/60 backdrop-blur-md text-white shadow-[0_6px_24px_-6px_rgba(71,85,105,0.4)] ring-1 ring-slate-300/40';
+    icon = <X size={22} className="drop-shadow-md" />;
+    glowClass = 'from-slate-600/15 to-slate-700/10';
+  }
 
   return (
-    <button type="button" onClick={handleClick} className={`relative group flex flex-col items-center justify-center h-16 rounded-[18px] border ring-1 ring-black/5 shadow-sm transition-all hover:-translate-y-[2px] active:scale-95 p-2 overflow-hidden cursor-pointer ${stateClasses}`}>
-      <div className="pointer-events-none absolute inset-0 rounded-[18px] opacity-70 bg-[radial-gradient(140px_90px_at_8%_-8%,rgba(99,102,241,0.18),transparent)]" />
-      <span className="relative text-[11px] uppercase tracking-wide select-none">Clase # {noteNumber}</span>
-      <div className="relative h-5">{icon}</div>
+    <button
+      type="button"
+      onClick={handleClick}
+      className={`group relative flex flex-col items-center justify-center h-20 md:h-18 rounded-2xl border transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_12px_40px_-8px_rgba(0,0,0,0.12)] active:scale-95 p-3 overflow-hidden cursor-pointer ${stateClasses}`}
+    >
+      {/* Fondo decorativo con gradiente radial premium */}
+      <div className={`pointer-events-none absolute inset-0 rounded-2xl opacity-60 bg-[radial-gradient(160px_120px_at_20%_-10%,${glowClass || 'rgba(148,163,184,0.12)'},transparent)] group-hover:opacity-80 transition-opacity duration-300`} />
+
+      {/* Brillo superior glassmorphism */}
+      <div className="pointer-events-none absolute top-0 left-0 right-0 h-[40%] rounded-t-2xl bg-gradient-to-b from-white/40 to-transparent opacity-50" />
+
+      {/* Número de clase */}
+      <span className="relative z-10 text-[10.5px] md:text-[10px] uppercase tracking-[0.08em] font-bold select-none mb-1.5 transition-transform group-hover:scale-105">
+        Clase # {noteNumber}
+      </span>
+
+      {/* Icono con animación */}
+      <div className="relative z-10 h-6 flex items-center justify-center transition-transform group-hover:scale-110 duration-200">
+        {icon}
+      </div>
+
+      {/* Ring de enfoque en hover */}
+      <div className="pointer-events-none absolute inset-0 rounded-2xl ring-1 ring-black/5 group-hover:ring-black/10 transition-all" />
     </button>
   );
 }
