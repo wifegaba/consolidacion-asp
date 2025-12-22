@@ -24,6 +24,7 @@ import PanelConsultarEstudiantes from './components/PanelConsultarEstudiantes';
 import PanelPromovidos from './components/PanelPromovidos';
 import { PresenceToast, type Toast } from './components/PresenceToast';
 import { usePresence } from '../../hooks/usePresence';
+import { useGlobalPresence } from '../../hooks/useGlobalPresence';
 
 // --- CONSTANTES DE ESTILO ---
 export const GLASS_STYLES = {
@@ -89,7 +90,7 @@ export default function AdminPage() {
   const [currentUser, setCurrentUser] = useState<{ name: string; initials: string; id: string }>({ name: 'Administrador', initials: 'AD', id: '' });
 
   // Presence Notifications
-  const [toasts, setToasts] = useState<Toast[]>([]);
+
 
   useEffect(() => {
     // Obtener información del usuario desde el JWT
@@ -193,23 +194,10 @@ export default function AdminPage() {
     return inscripciones.filter(i => (i as any).estado === 'promovido').length;
   }, [inscripciones]);
 
-  // Presence Hook - Solo activar cuando tenemos el usuario
-  usePresence(
-    currentUser.name,
-    currentUser.id,
-    (user) => {
-      // Agregar toast cuando alguien se conecta
-      const newToast: Toast = {
-        id: `${user.user_id}-${Date.now()}`,
-        userName: user.name
-      };
-      setToasts(prev => [...prev, newToast].slice(-3)); // Máximo 3 toasts
-    }
-  );
 
-  const handleDismissToast = useCallback((id: string) => {
-    setToasts(prev => prev.filter(t => t.id !== id));
-  }, []);
+
+  // Presence Notifications (Centralizado)
+  const { toasts, handleDismissToast } = useGlobalPresence(currentUser.name, currentUser.id);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();

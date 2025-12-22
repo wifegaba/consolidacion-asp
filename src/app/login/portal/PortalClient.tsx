@@ -119,10 +119,10 @@ export default function PortalClient({ nombre, asignaciones }: { nombre: string,
 
     const getDayColor = (dia: string) => {
         const d = dia.toLowerCase();
-        if (d.includes('domingo')) return 'bg-amber-100 text-amber-700 ring-1 ring-amber-200';
-        if (d.includes('martes')) return 'bg-indigo-100 text-indigo-700 ring-1 ring-indigo-200';
-        if (d.includes('virtual')) return 'bg-emerald-100 text-emerald-700 ring-1 ring-emerald-200';
-        return 'bg-slate-100 text-slate-700 ring-1 ring-slate-200';
+        if (d.includes('domingo')) return 'bg-gradient-to-br from-emerald-50 via-green-50 to-teal-50 text-emerald-700 ring-1 ring-emerald-200/60';
+        if (d.includes('martes')) return 'bg-gradient-to-br from-sky-50 via-blue-50 to-indigo-50 text-blue-700 ring-1 ring-blue-200/60';
+        if (d.includes('virtual')) return 'bg-gradient-to-br from-fuchsia-50 via-pink-50 to-rose-50 text-fuchsia-700 ring-1 ring-fuchsia-200/60';
+        return 'bg-gradient-to-br from-slate-50 via-gray-50 to-zinc-50 text-slate-700 ring-1 ring-slate-200/60';
     };
 
     const getTitle = (type: Asignacion['tipo']) => {
@@ -156,7 +156,12 @@ export default function PortalClient({ nombre, asignaciones }: { nombre: string,
                     </motion.div>
                 </header>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 justify-center">
+                {/* Grid ajustado: hasta 4 columnas, pero flexible */}
+                <div className={`grid gap-4 md:gap-5 justify-center ${asignaciones.length === 1 ? 'grid-cols-1 max-w-sm mx-auto' :
+                        asignaciones.length === 2 ? 'grid-cols-1 md:grid-cols-2 max-w-3xl mx-auto' :
+                            asignaciones.length === 3 ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3' :
+                                'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'
+                    }`}>
                     {asignaciones.map((a, i) => (
                         <motion.button
                             key={a.key}
@@ -167,7 +172,8 @@ export default function PortalClient({ nombre, asignaciones }: { nombre: string,
                             whileTap={!loadingKey ? { scale: 0.98 } : {}}
                             onClick={() => handleSelect(a)}
                             disabled={!!loadingKey}
-                            className={`relative group flex flex-col items-center p-8 rounded-[32px] text-center w-full h-full transition-opacity duration-300 ${loadingKey && loadingKey !== a.key ? 'opacity-50 blur-sm' : ''} ${loadingKey === a.key ? 'cursor-wait' : ''}`}
+                            className={`relative group flex flex-col items-center rounded-[28px] text-center w-full h-full transition-opacity duration-300 ${asignaciones.length <= 2 ? 'p-8' : 'p-5'
+                                } ${loadingKey && loadingKey !== a.key ? 'opacity-50 blur-sm' : ''} ${loadingKey === a.key ? 'cursor-wait' : ''}`}
                             style={{
                                 background: 'rgba(255, 255, 255, 0.65)',
                                 backdropFilter: 'blur(20px)',
@@ -184,7 +190,8 @@ export default function PortalClient({ nombre, asignaciones }: { nombre: string,
 
                             {/* Card Content */}
                             <div
-                                className="w-24 h-24 rounded-2xl mb-6 flex items-center justify-center transition-transform duration-500 group-hover:scale-110 group-hover:rotate-3"
+                                className={`rounded-2xl flex items-center justify-center transition-transform duration-500 group-hover:scale-110 group-hover:rotate-3 ${asignaciones.length <= 2 ? 'w-24 h-24 mb-6' : 'w-16 h-16 mb-4'
+                                    }`}
                                 style={{
                                     background: (a.tipo === 'administrador' || a.tipo === 'director') ? 'transparent' : getGradient(a.tipo),
                                     boxShadow: (a.tipo === 'administrador' || a.tipo === 'director') ? 'none' : '0 10px 25px -5px rgba(0,0,0,0.15)'
@@ -197,20 +204,23 @@ export default function PortalClient({ nombre, asignaciones }: { nombre: string,
                                 {a.tipo === 'administrador' && <AdminIcon />}
                             </div>
 
-                            <h3 className="text-2xl font-bold text-slate-800 mb-1 group-hover:text-blue-600 transition-colors">
+                            <h3 className={`font-bold text-slate-800 mb-1 group-hover:text-blue-600 transition-colors ${asignaciones.length <= 2 ? 'text-2xl' : 'text-lg'
+                                }`}>
                                 {getTitle(a.tipo)}
                             </h3>
 
                             {!['director', 'administrador'].includes(a.tipo) && (
-                                <p className="text-slate-500 font-medium text-sm uppercase tracking-wide mb-4">
+                                <p className={`text-slate-500 font-medium uppercase tracking-wide mb-3 ${asignaciones.length <= 2 ? 'text-sm' : 'text-xs'
+                                    }`}>
                                     {a.etapa}
                                 </p>
                             )}
 
-                            <div className="mt-auto w-full pt-4 border-t border-slate-200/60">
+                            <div className="mt-auto w-full pt-3 border-t border-slate-200/60">
                                 {a.dia && (
-                                    <div className={`flex items-center justify-center gap-2 py-2 px-4 rounded-full text-sm font-bold shadow-sm ${getDayColor(a.dia)}`}>
-                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>
+                                    <div className={`flex items-center justify-center gap-2 py-1.5 px-3 rounded-full font-semibold shadow-sm ${asignaciones.length <= 2 ? 'text-sm' : 'text-xs'
+                                        } ${getDayColor(a.dia)}`}>
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>
                                         {a.dia} {a.franja && `• ${a.franja}`}
                                     </div>
                                 )}

@@ -9,14 +9,6 @@ export const metadata: Metadata = {
   title: "CRM Ministerial",
   description: "Sistema de gestión de servidores, estudiantes y asistencias",
   manifest: "/manifest.json",
-  themeColor: "#0f172a",
-  viewport: {
-    width: "device-width",
-    initialScale: 1,
-    maximumScale: 1,
-    userScalable: false,
-    viewportFit: "cover"
-  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
@@ -32,6 +24,16 @@ export const metadata: Metadata = {
       { url: "/apple-icon.png", sizes: "192x192", type: "image/png" }
     ]
   }
+};
+
+// Viewport must be exported separately in Next.js 15+
+export const viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  viewportFit: "cover",
+  themeColor: "#0f172a"
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

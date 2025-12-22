@@ -15,7 +15,8 @@ import { useToast } from '@/components/ToastProvider';
 const PersonaNueva = dynamic(() => import('@/app/panel/contactos/FormularioPersonaNueva'), { ssr: false });
 const Servidores = dynamic(() => import('@/app/panel/servidores/page'), { ssr: false });
 import { GlobalPresenceProvider } from '@/components/GlobalPresenceProvider';
-import { LogOut } from 'lucide-react';
+import { LogOut, ArrowLeft } from 'lucide-react';
+import { getUserAssignmentsCount } from '@/lib/checkUserRoles';
 
 /* ================= Tipos ================= */
 type Dia = 'Domingo' | 'Martes' | 'Virtual';
@@ -319,10 +320,31 @@ export default function Contactos1Client(
   const rtDebug = false;
   const rtLog = useCallback((...args: any[]) => { if (rtDebug) console.log('[RT contactos1]', ...args); }, []);
 
+  const [servidorId, setServidorId] = useState<string | null>(null);
+
   const handleLogout = useCallback(async () => {
     await supabase.auth.signOut();
     window.location.href = '/login';
   }, []);
+
+  const handleGoBack = useCallback(async () => {
+    if (!servidorId) {
+      router.push('/login');
+      return;
+    }
+
+    try {
+      const count = await getUserAssignmentsCount(servidorId);
+      if (count > 1) {
+        router.push('/login/portal');
+      } else {
+        router.push('/login');
+      }
+    } catch (error) {
+      console.error('Error checking user roles:', error);
+      router.push('/login');
+    }
+  }, [servidorId, router]);
 
 
 
@@ -369,7 +391,6 @@ export default function Contactos1Client(
   const [bancoRows, setBancoRows] = useState<BancoRow[]>([]);
   const [reactivating, setReactivating] = useState<Record<string, boolean>>({});
   const [deleting, setDeleting] = useState<Record<string, boolean>>({});
-  const [servidorId, setServidorId] = useState<string | null>(null);
   const [showReactivationConfirm, setShowReactivationConfirm] = useState(false);
   const [reactivationCandidate, setReactivationCandidate] = useState<BancoRow | null>(null);
   const [bancoCount, setBancoCount] = useState<number | null>(null);
@@ -1155,7 +1176,14 @@ export default function Contactos1Client(
         />
         <div className="relative z-10 mx-auto w-full max-w-[1260px]">
           {/* ===== Título ===== */}
-          <section className="mb-6 md:mb-8">
+          <section className="mb-6 md:mb-8 flex items-center gap-4">
+            <button
+              onClick={handleGoBack}
+              className="flex items-center justify-center h-12 w-12 rounded-xl bg-white/60 ring-1 ring-white/60 backdrop-blur-md transition-all duration-200 shadow-[inset_0_1px_0_rgba(255,255,255,.9),0_8px_24px_-8px_rgba(2,6,23,.25)] hover:bg-white/80 hover:shadow-[0_0_0_3px_rgba(56,189,248,.15)] active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300/60"
+              title="Volver"
+            >
+              <ArrowLeft size={20} className="text-neutral-700" />
+            </button>
             <div className="text-[32px] md:text-[44px] font-black leading-none tracking-tight bg-gradient-to-r from-neutral-900 via-zinc-700 to-neutral-400 text-transparent bg-clip-text drop-shadow-[0_2px_16px_rgba(0,0,0,0.18)]">
               Panel Timoteos
             </div>
@@ -1329,14 +1357,6 @@ export default function Contactos1Client(
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
-                  <button
-                    onClick={handleLogout}
-                    className="hidden md:inline-flex items-center gap-1 rounded-xl bg-white/50 text-neutral-600 ring-1 ring-white/60 shadow-[0_6px_20px_rgba(0,0,0,0.05)] px-2 py-1 text-xs font-medium hover:scale-[1.02] hover:text-red-600 hover:bg-red-50 active:scale-95 transition mr-1"
-                    title="Cerrar Sesión"
-                  >
-                    <LogOut size={14} />
-                    <span className="hidden xl:inline">Salir</span>
-                  </button>
                   <button
                     onClick={downloadPDF}
                     className="inline-flex items-center gap-1 rounded-xl bg-gradient-to-r from-red-400 via-red-500 to-red-600 text-white ring-1 ring-white/50 shadow-[0_6px_20px_rgba(220,38,38,0.35)] px-2 py-1 text-xs font-medium hover:scale-[1.02] active:scale-95 transition"

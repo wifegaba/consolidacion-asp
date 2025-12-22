@@ -24,10 +24,10 @@ export async function POST(req: Request) {
 
     const supabase = getServerSupabase();
 
-    // PASO 1: Autenticación básica
+    // PASO 1: Autenticación básica (ahora incluye nombre para optimización)
     const { data: servidor, error: errServ } = await supabase
       .from('servidores')
-      .select('id, activo')
+      .select('id, activo, nombre')
       .eq('cedula', cedula)
       .maybeSingle();
 
@@ -131,7 +131,15 @@ export async function POST(req: Request) {
 
       // Si tiene múltiples roles administrativos O roles admin + roles operativos, va al portal
       if (rolesAdmin > 1 || (rolesAdmin > 0 && totalAsignaciones > 0)) {
-        const token = jwt.sign({ cedula, roles: ['portal'], servidorId }, secret, { expiresIn: '8h' });
+        // OPTIMIZACIÓN: Incluir asignaciones en el token para evitar queries en el portal
+        const asignaciones = [
+          ...contactos.map((c: any) => ({ tipo: 'contacto', etapa: c.etapa, dia: c.dia, semana: c.semana })),
+          ...maestros.map((m: any) => ({ tipo: 'maestro', etapa: m.etapa, dia: m.dia })),
+          ...logistica.map((l: any) => ({ tipo: 'logistica', dia: l.dia, franja: l.franja })),
+          ...(rolDirector ? [{ tipo: 'director', etapa: 'Director' }] : []),
+          ...(rolAdministrador ? [{ tipo: 'administrador', etapa: 'Administrador' }] : [])
+        ];
+        const token = jwt.sign({ cedula, roles: ['portal'], servidorId, nombre: servidor.nombre, asignaciones }, secret, { expiresIn: '8h' });
         const res = NextResponse.json({ redirect: '/login/portal' });
         res.cookies.set(isProd ? '__Host-session' : 'session', token, { httpOnly: true, secure: isProd, sameSite: 'lax', path: '/', maxAge: 60 * 60 * 8 });
         return res;
@@ -160,8 +168,13 @@ export async function POST(req: Request) {
     if (totalAsignaciones > 0) {
       // Si tiene MÁS de una asignación (total > 1), enviamos al PORTAL
       if (totalAsignaciones > 1) {
-        // En el token indicamos genéricamente que tiene roles, el portal se encarga del detalle
-        const token = jwt.sign({ cedula, roles: ['portal'], servidorId }, secret, { expiresIn: '8h' });
+        // OPTIMIZACIÓN: Incluir asignaciones en el token para evitar queries en el portal
+        const asignaciones = [
+          ...contactos.map((c: any) => ({ tipo: 'contacto', etapa: c.etapa, dia: c.dia, semana: c.semana })),
+          ...maestros.map((m: any) => ({ tipo: 'maestro', etapa: m.etapa, dia: m.dia })),
+          ...logistica.map((l: any) => ({ tipo: 'logistica', dia: l.dia, franja: l.franja }))
+        ];
+        const token = jwt.sign({ cedula, roles: ['portal'], servidorId, nombre: servidor.nombre, asignaciones }, secret, { expiresIn: '8h' });
         const res = NextResponse.json({ redirect: '/login/portal' });
         res.cookies.set(isProd ? '__Host-session' : 'session', token, { httpOnly: true, secure: isProd, sameSite: 'lax', path: '/', maxAge: 60 * 60 * 8 });
         return res;

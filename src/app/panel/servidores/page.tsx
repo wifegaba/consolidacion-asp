@@ -1131,7 +1131,7 @@ export default function GestionServidores() {
     };
 
     const eliminarByCedula = async (ced?: string) => {
-        const cedula = trim(ced ?? '');
+        const cedula = trim(ced || form.cedula || '');
         if (!cedula) return;
         setFeedback(null);
         setBusy(true);
@@ -1141,10 +1141,11 @@ export default function GestionServidores() {
 
             if (hardDelete) {
                 await eliminarFisicamente(sid);
-                toastShow('delete', 'Servidor eliminado definitivamente de la base de datos.');
+                toastShow('delete', 'Servidor eliminado definitivamente.');
                 setDetalleVisible(false);
                 setConfirmDetalleDelete(false);
                 setHardDelete(false);
+                resetFormulario();
                 return;
             }
 
@@ -1167,9 +1168,10 @@ export default function GestionServidores() {
             if (up4.error && up4.error.code !== 'PGRST116') throw up4.error;
 
 
-            toastShow('delete', 'Eliminado (inactivado) correctamente.');
+            toastShow('delete', 'Servidor eliminado correctamente.');
             setDetalleVisible(false);
             setConfirmDetalleDelete(false);
+            resetFormulario();
         } catch (e: any) {
             toastShow('error', `Error al eliminar: ${e?.message ?? e}`);
         } finally {
@@ -2079,7 +2081,7 @@ export default function GestionServidores() {
                 </div>
             )}
 
-            {detalleVisible && confirmDetalleDelete && detalleSel && (
+            {confirmDetalleDelete && (
                 <div className="srv-modal" role="dialog" aria-modal="true">
                     <div className="srv-modal__box confirm-box">
                         <button className="srv-modal__close" aria-label="Cerrar" onClick={() => setConfirmDetalleDelete(false)}>×</button>
@@ -2089,8 +2091,8 @@ export default function GestionServidores() {
                                 Esta acción inactivará al servidor y sus asignaciones.
                             </p>
                             <div className="confirm-data">
-                                <div><strong>Nombre:</strong> {detalleSel.nombre || '—'}</div>
-                                <div><strong>Cédula:</strong> {maskCedulaDisplay(detalleSel.cedula)}</div>
+                                <div><strong>Nombre:</strong> {detalleSel?.nombre || form.nombre || '—'}</div>
+                                <div><strong>Cédula:</strong> {maskCedulaDisplay(detalleSel?.cedula || form.cedula)}</div>
                             </div>
                             <div style={{ marginTop: 14, display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', background: '#fff5f5', borderRadius: 8, border: '1px solid #fecaca' }}>
                                 <input
@@ -2106,7 +2108,7 @@ export default function GestionServidores() {
                             </div>
                             <div className="srv-actions" style={{ marginTop: 14 }}>
                                 <button className="srv-btn" onClick={() => setConfirmDetalleDelete(false)}>Cancelar</button>
-                                <button className="srv-btn" style={{ background: '#ffe8e8' }} onClick={() => eliminarByCedula(detalleSel.cedula)} disabled={busy}>
+                                <button className="srv-btn" style={{ background: '#ffe8e8' }} onClick={() => eliminarByCedula(detalleSel?.cedula)} disabled={busy}>
                                     {busy ? 'Eliminando…' : 'Eliminar'}
                                 </button>
                             </div>
