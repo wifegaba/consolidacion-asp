@@ -16,6 +16,7 @@ import {
   Loader2,
   Lock,
   LogOut,
+  AlertTriangle,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../../../lib/supabaseClient';
@@ -45,6 +46,7 @@ import {
 import { GlobalPresenceProvider } from '../../../components/GlobalPresenceProvider';
 import { ConfettiButton } from '../../../components/ConfettiButton';
 import { GraduationModal } from '../../../components/GraduationModal';
+import { PendingStudentsModal } from '../../../components/PendingStudentsModal';
 
 // --- Memoización de Componentes ---
 const WelcomePanel = memo(WelcomePanelBase);
@@ -89,6 +91,7 @@ export default function EstudiantePage() {
 
   const [courseTopics, setCourseTopics] = useState<CourseTopic[]>([]);
   const [studentGrades, setStudentGrades] = useState<StudentGrades>({});
+  const [initialGrades, setInitialGrades] = useState<StudentGrades>({}); // Para detectar cambios
 
   // Control de imágenes y caché
   const [signedUrl, setSignedUrl] = useState<string | null>(null);
@@ -109,6 +112,9 @@ export default function EstudiantePage() {
   // Estado para modal de graduación
   const [showGraduationModal, setShowGraduationModal] = useState(false);
   const [promotionData, setPromotionData] = useState<{ studentName: string; nextCourseName: string } | null>(null);
+
+  // Estado para modal de pendientes
+  const [showPendingModal, setShowPendingModal] = useState(false);
 
 
   const [currentUserName, setCurrentUserName] = useState('');
@@ -336,16 +342,17 @@ export default function EstudiantePage() {
 
     const savedGrades = (asistenciaData?.asistencias as StudentGrades) || {};
 
-    const initialGrades: StudentGrades = {};
+    const loadedGrades: StudentGrades = {};
     initialCourseTopics.forEach(topic => {
-      initialGrades[topic.id] = {};
+      loadedGrades[topic.id] = {};
       const savedTopicGrades = savedGrades[topic.id] || {};
       topic.grades.forEach(g => {
-        initialGrades[topic.id][g.id] = savedTopicGrades[g.id] || '';
+        loadedGrades[topic.id][g.id] = savedTopicGrades[g.id] || '';
       });
     });
 
-    setStudentGrades(initialGrades);
+    setStudentGrades(loadedGrades);
+    setInitialGrades(loadedGrades); // Guardar estado inicial para detectar cambios
   }, [fotoUrls]);
 
   // --- Actualizaciones de Hoja de Vida ---
@@ -380,6 +387,7 @@ export default function EstudiantePage() {
   const saveGradesToDb = useCallback(async (gradesToSave: StudentGrades, inscripcionId: string) => {
     if (!inscripcionId) return;
     try {
+      // 1. Guardar asistencias normalmente
       await supabase
         .from('asistencias_academia')
         .upsert({
@@ -388,12 +396,53 @@ export default function EstudiantePage() {
           updated_at: new Date().toISOString()
         }, { onConflict: 'inscripcion_id' });
 
+      // 2. Procesar inasistencias pendientes (solo para topic 1 = Asistencia)
+      if (selectedCourse && gradesToSave[1]) {
+        const topicGrades = gradesToSave[1];
+        const initialTopicGrades = (initialGrades as any)?.[1] || {};
+
+        // Encontrar cambios en el topic de Asistencia
+        for (const [placeholderId, newValue] of Object.entries(topicGrades)) {
+          const previousValue = initialTopicGrades[placeholderId];
+
+          if (previousValue !== newValue) {
+            // Encontrar número de clase
+            const assistanceTopic = initialCourseTopics.find(t => t.id === 1);
+            const claseIndex = assistanceTopic?.grades.findIndex(g => g.id === parseInt(placeholderId));
+
+            if (claseIndex !== undefined && claseIndex >= 0) {
+              const claseNumero = claseIndex + 1;
+
+              // Si marca como 'no' -> registrar inasistencia
+              if (newValue === 'no') {
+                await supabase.rpc('fn_registrar_inasistencia', {
+                  p_inscripcion_id: inscripcionId,
+                  p_curso_id: selectedCourse.id,
+                  p_clase_numero: claseNumero
+                });
+              }
+              // Si cambia de 'no' a 'si' -> marcar como nivelado
+              else if (previousValue === 'no' && newValue === 'si' && user?.servidorId) {
+                await supabase.rpc('fn_nivelar_inasistencia', {
+                  p_inscripcion_id: inscripcionId,
+                  p_curso_id: selectedCourse.id,
+                  p_clase_numero: claseNumero,
+                  p_nivelado_por: user.servidorId
+                });
+              }
+            }
+          }
+        }
+      }
+
+      // Actualizar initialGrades después de guardar exitosamente
+      setInitialGrades(gradesToSave);
       isGradesDirty.current = false;
       toast.success("Asistencia guardada");
     } catch (error: any) {
       toast.error("Error de autoguardado: " + error.message);
     }
-  }, [toast]);
+  }, [toast, supabase, selectedCourse, initialGrades, user]);
 
   const handleGradeChange = useCallback((topicId: number, gradeId: number, value: string) => {
     isGradesDirty.current = true;
@@ -585,6 +634,45 @@ export default function EstudiantePage() {
 
   const isDetailView = mainState === 'creating' || mainState === 'viewing';
 
+  // Estado para estudiantes pendientes desde BD (no depende del estudiante seleccionado)
+  const [pendingStudentsFromDB, setPendingStudentsFromDB] = useState<any[]>([]);
+  const [loadingPending, setLoadingPending] = useState(false);
+
+  // Cargar pendientes desde BD cuando cambia el curso
+  useEffect(() => {
+    if (!selectedCourse) {
+      setPendingStudentsFromDB([]);
+      return;
+    }
+
+    const fetchPending = async () => {
+      setLoadingPending(true);
+      try {
+        const { data, error } = await supabase.rpc('fn_obtener_pendientes_curso', {
+          p_curso_id: selectedCourse.id
+        });
+
+        if (!error && data) {
+          console.log('📋 Pendientes cargados desde BD:', data);
+          setPendingStudentsFromDB(data);
+        } else {
+          console.error('Error cargando pendientes:', error);
+          setPendingStudentsFromDB([]);
+        }
+      } catch (err) {
+        console.error('Error en fetchPending:', err);
+        setPendingStudentsFromDB([]);
+      } finally {
+        setLoadingPending(false);
+      }
+    };
+
+    fetchPending();
+  }, [selectedCourse, supabase]); // Added supabase to dependency array
+
+  // El botón aparece si hay pendientes en la BD (no depende del estudiante seleccionado)
+  const hasPendingStudents = pendingStudentsFromDB.length > 0;
+
   if (authLoading) return <LoadingScreen text="Verificando sesión..." />;
   if (authError || !user) return <ErrorScreen message={authError || "No estás autenticado."} />;
 
@@ -616,6 +704,8 @@ export default function EstudiantePage() {
               isAttendanceCompleted={isAttendanceCompleted}
               showConfirmation={showConfirmation}
               setShowConfirmation={setShowConfirmation}
+              hasPendingStudents={hasPendingStudents}
+              onShowPending={() => setShowPendingModal(true)}
             />
           )}
 
@@ -666,7 +756,7 @@ export default function EstudiantePage() {
                   <div className={getTabPanelClasses('grades')}>
                     <MemoizedGradesTabContent
                       selectedStudent={selectedStudent}
-                      courseTopics={courseTopics}
+                      courseTopics={initialCourseTopics}
                       studentGrades={studentGrades}
                       onGradeChange={handleGradeChange}
                       selectedCourse={selectedCourse}
@@ -717,6 +807,46 @@ export default function EstudiantePage() {
           onConfirm={confirmPromotion}
           onCancel={() => setShowGraduationModal(false)}
         />
+
+        {/* Modal de Estudiantes Pendientes - Datos desde BD */}
+        <PendingStudentsModal
+          isOpen={showPendingModal}
+          students={pendingStudentsFromDB.map(p => ({
+            id: p.inscripcion_id,
+            nombre: p.estudiante_nombre || 'Sin nombre',
+            foto_path: null,
+            missedClasses: p.clases_perdidas || [],
+            missedDates: p.fechas_inasistencia || []
+          }))}
+          fotoUrls={fotoUrls}
+          onClose={() => setShowPendingModal(false)}
+          onMarkAsLeveled={async (inscripcionId, claseNumero) => {
+            if (!selectedCourse || !user?.servidorId) return;
+
+            try {
+              const { error } = await supabase.rpc('fn_nivelar_inasistencia', {
+                p_inscripcion_id: inscripcionId,
+                p_curso_id: selectedCourse.id,
+                p_clase_numero: claseNumero,
+                p_nivelado_por: user.servidorId
+              });
+
+              if (!error) {
+                toast.success('Estudiante nivelado correctamente');
+                // Recargar pendientes desde BD
+                const { data } = await supabase.rpc('fn_obtener_pendientes_curso', {
+                  p_curso_id: selectedCourse.id
+                });
+                setPendingStudentsFromDB(data || []);
+              } else {
+                toast.error('Error al nivelar: ' + error.message);
+              }
+            } catch (err: any) {
+              toast.error('Error: ' + err.message);
+            }
+          }}
+        />
+
 
 
       </main>
@@ -821,6 +951,7 @@ const MemoizedGradesTabContent = memo(({
           </div>
         )}
 
+
         <div className="space-y-6">
           {courseTopics.length === 0 && <p className="text-sm text-gray-700 text-center py-4">No hay temas.</p>}
           {courseTopics.map((topic) => (
@@ -857,6 +988,10 @@ function StudentSidebar({
   onCompleteAttendance,
   onMarkAttendanceDB,
   isAttendanceCompleted,
+  showConfirmation,
+  setShowConfirmation,
+  hasPendingStudents,
+  onShowPending,
 }: {
   students: EstudianteInscrito[];
   selectedStudentId: string | null;
@@ -875,6 +1010,8 @@ function StudentSidebar({
   isAttendanceCompleted: boolean;
   showConfirmation: boolean;
   setShowConfirmation: (show: boolean) => void;
+  hasPendingStudents: boolean;
+  onShowPending: () => void;
 }) {
   const isDetailView = mainState === 'creating' || mainState === 'viewing';
   const [currentAttendanceStudentIndex, setCurrentAttendanceStudentIndex] = useState(0);
@@ -972,6 +1109,15 @@ function StudentSidebar({
       </motion.nav>
 
       <div className="flex-shrink-0 p-4 border-t border-slate-800/50 min-h-[90px] flex flex-col items-center justify-center gap-3 bg-slate-900/60 backdrop-blur-xl absolute bottom-0 left-0 right-0 z-20 md:relative">
+        {hasPendingStudents && (
+          <button
+            onClick={onShowPending}
+            className="flex w-full items-center justify-center gap-2 rounded-xl border py-2.5 text-sm font-medium transition-all border-orange-500/30 bg-orange-600/10 text-orange-100 shadow-[0_4px_20px_-8px_rgba(249,115,22,0.5)] hover:bg-orange-600/20 active:scale-95"
+          >
+            <AlertTriangle size={18} />
+            <span>Pendientes por Nivelar</span>
+          </button>
+        )}
         <button onClick={onStartAttendance} className="flex w-full items-center justify-center gap-2 rounded-xl border py-2.5 text-sm font-medium transition-all border-blue-500/30 bg-blue-600/10 text-blue-100 shadow-[0_4px_20px_-8px_rgba(59,130,246,0.5)] hover:bg-blue-600/20 active:scale-95 disabled:opacity-50">
           <UserCheck size={18} />
           <span>{isAttendanceCompleted ? "Asistencia Tomada" : "Tomar Asistencia"}</span>

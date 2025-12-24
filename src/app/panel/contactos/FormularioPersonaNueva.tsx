@@ -21,9 +21,9 @@ type Registro = {
     preferencias: string | null;
     cultosSeleccionados: string | null;
     observaciones?: string | null;
-    estudioDia?: string | null; 
-    etapa?: AppEtapa | null;    
-    semana?: number | null;     
+    estudioDia?: string | null;
+    etapa?: AppEtapa | null;
+    semana?: number | null;
 };
 
 type PendienteItem = {
@@ -37,11 +37,11 @@ type PendienteItem = {
     etapa?: string | null;
     modulo?: number | null;
     observaciones?: string | null;
-    culto_seleccionado?: string | null; 
+    culto_seleccionado?: string | null;
     creado_en?: string | null;
     created_at?: string | null;
     fecha?: string | null;
-    creado_por_nombre?: string | null; 
+    creado_por_nombre?: string | null;
 };
 
 type Errores = { nombre?: string | null; telefono?: string | null; };
@@ -82,10 +82,10 @@ const cultosOpciones: Record<DiaKey, string[]> = {
 /* ========= Helpers ========= */
 const toDbEstudio = (arr: string[]): AppEstudioDia =>
     arr.includes('DOMINGO') ? 'Domingo' :
-    arr.includes('MARTES') ? 'Martes' :
-    arr.includes('PENDIENTES') ? 'Pendientes' :
-    arr.includes('VIRTUAL') ? 'Virtual' :
-    'Virtual'; 
+        arr.includes('MARTES') ? 'Martes' :
+            arr.includes('PENDIENTES') ? 'Pendientes' :
+                arr.includes('VIRTUAL') ? 'Virtual' :
+                    'Virtual';
 
 const normalizaTelefono = (v: string) => (v || '').replace(/\D+/g, '');
 
@@ -110,15 +110,15 @@ const soloFecha = (v?: string | null): string => {
     if (isNaN((d as unknown) as number)) {
         const parts = v.slice(0, 10).split('-');
         if (parts.length === 3 && parts[0].length === 4) {
-             return `${parts[2]}/${parts[1]}/${parts[0].slice(2)}`;
+            return `${parts[2]}/${parts[1]}/${parts[0].slice(2)}`;
         }
-        return v.slice(0, 10); 
+        return v.slice(0, 10);
     }
-    try { 
-        return d.toLocaleDateString('es-ES', { 
-            day: '2-digit', month: '2-digit', year: '2-digit' 
-        }); 
-    } catch { 
+    try {
+        return d.toLocaleDateString('es-ES', {
+            day: '2-digit', month: '2-digit', year: '2-digit'
+        });
+    } catch {
         const year = d.getFullYear().toString().slice(-2);
         const month = (d.getMonth() + 1).toString().padStart(2, '0');
         const day = d.getDate().toString().padStart(2, '0');
@@ -139,7 +139,7 @@ const extraerCulto = (
     cultoDirecto?: string | null,
     txtObservaciones?: string | null
 ): { diaKey: DiaKey | null; hora: string | null; full: string | null; clean: string } => {
-    
+
     let diaKey: DiaKey | null = null;
     let hora: string | null = null;
     let full: string | null = null;
@@ -173,14 +173,14 @@ const extraerCulto = (
 };
 
 // MEJORA 2: Componente Memoizado para Filas de Pendientes (Evita re-renders masivos)
-const PendienteRowItem = memo(({ 
-    row, 
-    onSelect, 
-    onDelete 
-}: { 
-    row: PendienteItem; 
-    onSelect: (p: PendienteItem) => void; 
-    onDelete: (p: PendienteItem) => void 
+const PendienteRowItem = memo(({
+    row,
+    onSelect,
+    onDelete
+}: {
+    row: PendienteItem;
+    onSelect: (p: PendienteItem) => void;
+    onDelete: (p: PendienteItem) => void
 }) => {
     return (
         <div
@@ -209,7 +209,7 @@ const PendienteRowItem = memo(({
                     Servidor: {row.creado_por_nombre ?? "Sistema"}
                 </div>
             </div>
-            
+
             <div className="hidden sm:block px-4 py-3 text-sm text-neutral-700 text-center">
                 {row.telefono ?? ""}
             </div>
@@ -227,9 +227,8 @@ const PendienteRowItem = memo(({
                         e.stopPropagation();
                     }}
                     title={`Llamar a ${row.nombre ?? ''}`}
-                    className={`grid place-items-center w-7 h-7 rounded-full text-white transition-all hover:scale-110 shadow-sm ${
-                        row.telefono ? 'bg-blue-500 hover:bg-blue-600' : 'bg-neutral-400 cursor-not-allowed'
-                    }`}
+                    className={`grid place-items-center w-7 h-7 rounded-full text-white transition-all hover:scale-110 shadow-sm ${row.telefono ? 'bg-blue-500 hover:bg-blue-600' : 'bg-neutral-400 cursor-not-allowed'
+                        }`}
                 >
                     <Phone size={13} strokeWidth={2.5} />
                 </a>
@@ -248,16 +247,16 @@ const PendienteRowItem = memo(({
 PendienteRowItem.displayName = 'PendienteRowItem';
 
 // MEJORA 3: Componente Memoizado para Resultados de Búsqueda
-const SearchResultItem = memo(({ 
-    p, 
-    isActive, 
-    onSelect, 
-    onHover 
-}: { 
-    p: Registro; 
-    isActive: boolean; 
-    onSelect: (p: Registro) => void; 
-    onHover: () => void 
+const SearchResultItem = memo(({
+    p,
+    isActive,
+    onSelect,
+    onHover
+}: {
+    p: Registro;
+    isActive: boolean;
+    onSelect: (p: Registro) => void;
+    onHover: () => void
 }) => {
     return (
         <button
@@ -332,7 +331,7 @@ export default function PersonaNueva({ servidorId }: { servidorId: string | null
 
     const cacheSugs = useRef(new Map<string, { ts: number; data: Registro[] }>()).current;
     const TTL_MS = 60_000, MIN_CHARS = 3, DEBOUNCE_MS = 350;
-    
+
     useEffect(() => { if (modalBuscarVisible) setTimeout(() => inputBusquedaModalRef.current?.focus(), 0); }, [modalBuscarVisible]);
 
     const toast = useCallback((msg: string) => {
@@ -375,7 +374,7 @@ export default function PersonaNueva({ servidorId }: { servidorId: string | null
         document.head.appendChild(s);
     }, []);
 
-    const showPremiumToast = useCallback((success: boolean, tipo: 'PDF'|'Excel') => {
+    const showPremiumToast = useCallback((success: boolean, tipo: 'PDF' | 'Excel') => {
         ensurePremiumToastStyles();
         const id = `premium-toast-${Date.now()}`;
         const wrap = document.createElement('div');
@@ -445,16 +444,16 @@ export default function PersonaNueva({ servidorId }: { servidorId: string | null
             ...f,
             nombre: p.nombre || '',
             telefono: p.telefono || '',
-            observaciones: culto.clean || '', 
+            observaciones: culto.clean || '',
             destino,
             cultos: cultosMap,
             cultoSeleccionado,
             pendienteId: fromPendientes ? (p.id || null) : null,
         }));
 
-        setModoEdicion(!fromPendientes); 
-        setIndiceEdicion(fromPendientes ? null : p.id); 
-        setBloquearCultos(cultoFueCargado); 
+        setModoEdicion(!fromPendientes);
+        setIndiceEdicion(fromPendientes ? null : p.id);
+        setBloquearCultos(cultoFueCargado);
 
         setBusqueda(''); setSugs([]); setOpenSugs(false); setModoSoloPendientes(false); setModalBuscarVisible(false);
         setTimeout(() => observacionesRef.current?.focus(), 0);
@@ -464,30 +463,30 @@ export default function PersonaNueva({ servidorId }: { servidorId: string | null
         const culto = extraerCulto(p.culto_seleccionado, p.observaciones);
         let cultosMap: CultosMap = defaultCultos();
         let cultoSeleccionado = '';
-        let cultoFueCargado = false; 
+        let cultoFueCargado = false;
 
         if (culto.diaKey && culto.hora) {
             const key = culto.diaKey as DiaKey;
             const diaBonito = key[0] + key.slice(1).toLowerCase();
             cultosMap = { ...defaultCultos(), [key]: culto.hora! };
             cultoSeleccionado = `${diaBonito} - ${culto.hora}`;
-            cultoFueCargado = true; 
+            cultoFueCargado = true;
         }
 
         setForm(f => ({
             ...f,
             nombre: p?.nombre || '',
             telefono: p?.telefono || '',
-            observaciones: culto.clean || '', 
-            destino: [], 
-            cultos: cultosMap, 
-            cultoSeleccionado, 
+            observaciones: culto.clean || '',
+            destino: [],
+            cultos: cultosMap,
+            cultoSeleccionado,
             pendienteId: (p?.id ?? p?.progreso_id ?? p?.persona_id ?? null) || null,
         }));
-        
-        setModoEdicion(false); 
+
+        setModoEdicion(false);
         setIndiceEdicion(null);
-        setBloquearCultos(cultoFueCargado); 
+        setBloquearCultos(cultoFueCargado);
 
         setModalPendVisible(false);
         setModalBuscarVisible(false);
@@ -499,37 +498,37 @@ export default function PersonaNueva({ servidorId }: { servidorId: string | null
     }, []);
 
     const handleEliminarPendiente = useCallback(async (row: PendienteItem) => {
-      if (!row?.id) { toast('No se encontró el ID del pendiente'); return; }
-      const ok = window.confirm(`¿Eliminar el pendiente de "${row.nombre ?? ''}"?`);
-      if (!ok) return;
-      try {
-          const { error } = await supabase.from('pendientes').delete().eq('id', row.id);
-          if (error) throw error;
-          setPendientesRows(prev => prev.filter(r => r.id !== row.id));
-          toast('🗑️ Pendiente eliminado');
-      } catch (e) {
-          console.error(e);
-          toast('❌ Error eliminando pendiente');
-      }
+        if (!row?.id) { toast('No se encontró el ID del pendiente'); return; }
+        const ok = window.confirm(`¿Eliminar el pendiente de "${row.nombre ?? ''}"?`);
+        if (!ok) return;
+        try {
+            const { error } = await supabase.from('pendientes').delete().eq('id', row.id);
+            if (error) throw error;
+            setPendientesRows(prev => prev.filter(r => r.id !== row.id));
+            toast('🗑️ Pendiente eliminado');
+        } catch (e) {
+            console.error(e);
+            toast('❌ Error eliminando pendiente');
+        }
     }, [toast]);
 
     // Funciones de formulario principales
     const selectDesdePendiente = (row: PendienteItem) => {
-      const reg: Registro = {
-        id: row.persona_id || '',
-        fecha: '',
-        nombre: row.nombre || '',
-        telefono: row.telefono || null,
-        preferencias: null,
-        cultosSeleccionados: null,
-        observaciones: row.observaciones ?? null,
-        estudioDia: 'PENDIENTES',
-        etapa: (row.etapa as AppEtapa) ?? null,
-        semana: typeof row.semana === 'number' ? row.semana : null,
-      };
-      setModalPendVisible(false);
-      selectPersona(reg, true, row.culto_seleccionado);
-      setForm(prev => ({ ...prev, pendienteId: row.id })); 
+        const reg: Registro = {
+            id: row.persona_id || '',
+            fecha: '',
+            nombre: row.nombre || '',
+            telefono: row.telefono || null,
+            preferencias: null,
+            cultosSeleccionados: null,
+            observaciones: row.observaciones ?? null,
+            estudioDia: 'PENDIENTES',
+            etapa: (row.etapa as AppEtapa) ?? null,
+            semana: typeof row.semana === 'number' ? row.semana : null,
+        };
+        setModalPendVisible(false);
+        selectPersona(reg, true, row.culto_seleccionado);
+        setForm(prev => ({ ...prev, pendienteId: row.id }));
     };
 
     const validar = (): boolean => {
@@ -565,7 +564,7 @@ export default function PersonaNueva({ servidorId }: { servidorId: string | null
                     p_telefono: form.telefono.trim(),
                     p_culto: toDbEstudio(form.destino),
                     p_estudio: toDbEstudio(form.destino),
-                    p_notas: p_notas_registro_normal, 
+                    p_notas: p_notas_registro_normal,
                 });
                 if (error) throw error;
                 const { error: delError } = await supabase.from('pendientes').delete().eq('id', form.pendienteId);
@@ -580,12 +579,12 @@ export default function PersonaNueva({ servidorId }: { servidorId: string | null
                     try {
                         const { data } = await supabase.rpc('fn_listar_pendientes');
                         setPendientesRows((data || []) as PendienteItem[]);
-                    } catch {}
+                    } catch { }
                 }
                 resetForm();
                 return;
             }
-    
+
             if (form.destino.includes('PENDIENTES')) {
                 const telNorm = normalizaTelefono(form.telefono);
                 if (telNorm.length < 7) {
@@ -608,9 +607,9 @@ export default function PersonaNueva({ servidorId }: { servidorId: string | null
                         p_nombre: form.nombre.trim(),
                         p_telefono: telNorm,
                         p_destino: 'Pendientes',
-                        p_culto: form.cultoSeleccionado || null, 
-                        p_observaciones: (form.observaciones || '').trim() || null, 
-                        p_creado_por: servidorId 
+                        p_culto: form.cultoSeleccionado || null,
+                        p_observaciones: (form.observaciones || '').trim() || null,
+                        p_creado_por: servidorId
                     });
                     if (error) throw error;
                     toast('Registro guardado en Pendientes');
@@ -618,7 +617,7 @@ export default function PersonaNueva({ servidorId }: { servidorId: string | null
                         try {
                             const { data } = await supabase.rpc('fn_listar_pendientes');
                             setPendientesRows((data || []) as PendienteItem[]);
-                        } catch (e) {}
+                        } catch (e) { }
                     }
                     resetForm();
                     return;
@@ -627,7 +626,7 @@ export default function PersonaNueva({ servidorId }: { servidorId: string | null
                     return;
                 }
             }
-    
+
             if (form.destino.some(d => ['DOMINGO', 'MARTES', 'VIRTUAL'].includes(d))) {
                 const telNorm = normalizaTelefono(form.telefono);
                 const { count, error } = await supabase.from('persona').select('id', { count: 'exact' }).eq('telefono', telNorm).limit(1);
@@ -649,7 +648,7 @@ export default function PersonaNueva({ servidorId }: { servidorId: string | null
                     return;
                 }
             }
-            
+
             const p_notas_normal = construirNotasNormales();
             if (modoEdicion && indiceEdicion) {
                 const { error } = await supabase.rpc('fn_actualizar_persona', {
@@ -665,7 +664,7 @@ export default function PersonaNueva({ servidorId }: { servidorId: string | null
                 const { error } = await supabase.rpc('fn_registrar_persona', {
                     p_nombre: form.nombre.trim(),
                     p_telefono: form.telefono.trim(),
-                    p_culto: p_estudio, 
+                    p_culto: p_estudio,
                     p_estudio,
                     p_notas: p_notas_normal,
                 });
@@ -673,9 +672,13 @@ export default function PersonaNueva({ servidorId }: { servidorId: string | null
                 toast('✅ Guardado. Enviado a Semillas 1 • Semana 1');
             }
             resetForm();
-        } catch (e) {
+        } catch (e: any) {
             console.error(e);
-            toast('❌ Error al guardar/actualizar');
+            if (e?.code === '23505' || e?.message?.includes('duplicate key') || e?.details?.includes('already exists')) {
+                toast('⚠️ Error: Este teléfono ya está registrado (puede estar en lista de eliminados/inactivos).');
+            } else {
+                toast('❌ Error al guardar/actualizar: ' + (e?.message || 'Error desconocido'));
+            }
         }
     };
 
@@ -712,7 +715,7 @@ export default function PersonaNueva({ servidorId }: { servidorId: string | null
                 semana: typeof r.semana === 'number' ? r.semana : null,
                 fecha: '',
                 preferencias: null,
-                cultosSeleccionados: null, 
+                cultosSeleccionados: null,
             }));
             setListadoPersonas(arr);
             setTotalPersonas(arr.length);
@@ -724,7 +727,7 @@ export default function PersonaNueva({ servidorId }: { servidorId: string | null
     };
 
     useEffect(() => {
-        if (modoSoloPendientes) return; 
+        if (modoSoloPendientes) return;
         const q = busqueda.trim();
         if (q.length < MIN_CHARS) { setSugs([]); setOpenSugs(false); setActive(0); return; }
         const cached = cacheSugs.get(q);
@@ -816,8 +819,8 @@ export default function PersonaNueva({ servidorId }: { servidorId: string | null
     };
 
     const ghost = openSugs && sugs[0] && (sugs[0].nombre ?? '').toLowerCase().startsWith(busqueda.toLowerCase())
-            ? (sugs[0].nombre ?? '').slice(busqueda.length)
-            : '';
+        ? (sugs[0].nombre ?? '').slice(busqueda.length)
+        : '';
 
     // MEJORA 1: Lazy Loading en exports
     const handleExportPDF = async () => {
@@ -827,7 +830,7 @@ export default function PersonaNueva({ servidorId }: { servidorId: string | null
             const autoTable = (await import('jspdf-autotable')).default;
             const mesActual = new Date().toLocaleString('es-ES', { month: 'long' });
             const doc = new jsPDF();
-            
+
             doc.setFontSize(16);
             doc.text(`Listado de Contactos pendientes del Mes ${mesActual.charAt(0).toUpperCase() + mesActual.slice(1)}`, 14, 20);
 
@@ -838,7 +841,7 @@ export default function PersonaNueva({ servidorId }: { servidorId: string | null
                     row.nombre || '',
                     row.telefono || '',
                     soloFecha(row.creado_en ?? row.created_at ?? row.fecha ?? ""),
-                    culto.full || 'N/A' 
+                    culto.full || 'N/A'
                 ];
             });
             autoTable(doc, {
@@ -846,7 +849,7 @@ export default function PersonaNueva({ servidorId }: { servidorId: string | null
                 head: headers,
                 body: body,
                 theme: 'striped',
-                headStyles: { fillColor: [79, 70, 229] } 
+                headStyles: { fillColor: [79, 70, 229] }
             });
             doc.save(`pendientes_${mesActual}.pdf`);
             showPremiumToast(true, 'PDF');
@@ -872,7 +875,7 @@ export default function PersonaNueva({ servidorId }: { servidorId: string | null
                     culto.full || 'N/A'
                 ];
             });
-            const allRows = [title, [], headers, ...data]; 
+            const allRows = [title, [], headers, ...data];
             const ws = XLSX.utils.aoa_to_sheet(allRows);
             ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 3 } }];
             const wb = XLSX.utils.book_new();
@@ -884,7 +887,7 @@ export default function PersonaNueva({ servidorId }: { servidorId: string | null
             showPremiumToast(false, 'Excel');
         }
     };
-    
+
     return (
         <div className="pn-root">
             <div className="formulario-box" id="formulario1">
@@ -913,7 +916,7 @@ export default function PersonaNueva({ servidorId }: { servidorId: string | null
                                         {modoSoloPendientes ? 'Registros Pendientes' : (modoListado ? 'Listado General' : 'Buscar Registros')}
                                     </h3>
                                     {!modoSoloPendientes && (
-                                        <button 
+                                        <button
                                             className="btn-minimal px-1 py-0.5 text-xs rounded-md flex items-center justify-center"
                                             style={{ position: 'relative', zIndex: 1, minWidth: 60, height: 28, fontWeight: 600, letterSpacing: '0.01em', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                                             onClick={() => {
@@ -929,7 +932,7 @@ export default function PersonaNueva({ servidorId }: { servidorId: string | null
                                     )}
                                 </div>
                             </div>
-                            
+
                             {modoListado ? (
                                 <>
                                     <table className="w-full border-collapse text-black rounded-xl overflow-hidden shadow-lg">
@@ -946,33 +949,33 @@ export default function PersonaNueva({ servidorId }: { servidorId: string | null
                                             {!listadoLoading && listadoPersonas
                                                 .slice(listadoPage * 7, (listadoPage + 1) * 7)
                                                 .map(p => (
-                                                <tr key={p.id} onClick={() => selectPersona(p)} className="cursor-pointer transition-colors hover:bg-indigo-50">
-                                                    <td className="px-2 py-3">{p.nombre}</td>
-                                                    <td className="px-2 py-3">{p.telefono}</td>
-                                                    <td className="px-2 py-3">{p.estudioDia || 'N/A'}</td>
-                                                </tr>
-                                            ))}
+                                                    <tr key={p.id} onClick={() => selectPersona(p)} className="cursor-pointer transition-colors hover:bg-indigo-50">
+                                                        <td className="px-2 py-3">{p.nombre}</td>
+                                                        <td className="px-2 py-3">{p.telefono}</td>
+                                                        <td className="px-2 py-3">{p.estudioDia || 'N/A'}</td>
+                                                    </tr>
+                                                ))}
                                         </tbody>
                                     </table>
-                                     <div className="mt-3 flex items-center justify-between text-white gap-4">
-                                            <button
-                                                onClick={() => setListadoPage(p => Math.max(0, p - 1))}
-                                                disabled={listadoPage === 0}
-                                                className="px-3 py-1.5 rounded-lg font-semibold border border-indigo-300 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-400 text-white shadow disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 hover:scale-105 hover:bg-gradient-to-r hover:from-pink-400 hover:to-indigo-500 sm:px-3 sm:py-1.5 px-2 py-1 text-sm"
-                                            >
-                                                ◀ Atrás
-                                            </button>
-                                            <div className="opacity-90 text-lg font-semibold drop-shadow">
-                                                Página {listadoPage + 1} de {Math.ceil(totalPersonas / LISTADO_PAGE_SIZE)}
-                                            </div>
-                                            <button
-                                                onClick={() => setListadoPage(p => Math.min(Math.ceil(totalPersonas / LISTADO_PAGE_SIZE) - 1, p + 1))}
-                                                disabled={listadoPage >= Math.ceil(totalPersonas / LISTADO_PAGE_SIZE) - 1}
-                                                className="px-3 py-1.5 rounded-lg font-semibold border border-indigo-300 bg-gradient-to-r from-pink-400 via-purple-500 to-indigo-500 text-white shadow disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 hover:scale-105 hover:bg-gradient-to-r hover:from-indigo-500 hover:to-pink-400 sm:px-3 sm:py-1.5 px-2 py-1 text-sm"
-                                            >
-                                                Siguiente ▶
-                                            </button>
+                                    <div className="mt-3 flex items-center justify-between text-white gap-4">
+                                        <button
+                                            onClick={() => setListadoPage(p => Math.max(0, p - 1))}
+                                            disabled={listadoPage === 0}
+                                            className="px-3 py-1.5 rounded-lg font-semibold border border-indigo-300 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-400 text-white shadow disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 hover:scale-105 hover:bg-gradient-to-r hover:from-pink-400 hover:to-indigo-500 sm:px-3 sm:py-1.5 px-2 py-1 text-sm"
+                                        >
+                                            ◀ Atrás
+                                        </button>
+                                        <div className="opacity-90 text-lg font-semibold drop-shadow">
+                                            Página {listadoPage + 1} de {Math.ceil(totalPersonas / LISTADO_PAGE_SIZE)}
                                         </div>
+                                        <button
+                                            onClick={() => setListadoPage(p => Math.min(Math.ceil(totalPersonas / LISTADO_PAGE_SIZE) - 1, p + 1))}
+                                            disabled={listadoPage >= Math.ceil(totalPersonas / LISTADO_PAGE_SIZE) - 1}
+                                            className="px-3 py-1.5 rounded-lg font-semibold border border-indigo-300 bg-gradient-to-r from-pink-400 via-purple-500 to-indigo-500 text-white shadow disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 hover:scale-105 hover:bg-gradient-to-r hover:from-indigo-500 hover:to-pink-400 sm:px-3 sm:py-1.5 px-2 py-1 text-sm"
+                                        >
+                                            Siguiente ▶
+                                        </button>
+                                    </div>
                                 </>
                             ) : (
                                 <div className="search-wrap" onBlur={() => setTimeout(() => setOpenSugs(false), 120)}>
@@ -998,7 +1001,7 @@ export default function PersonaNueva({ servidorId }: { servidorId: string | null
                                         <div id="sug-list-modal" role="listbox" className="sug-list">
                                             {/* MEJORA 3: Uso de componente memoizado para items de búsqueda */}
                                             {sugs.map((p, i) => (
-                                                <SearchResultItem 
+                                                <SearchResultItem
                                                     key={p.id}
                                                     p={p}
                                                     isActive={i === active}
@@ -1121,114 +1124,114 @@ export default function PersonaNueva({ servidorId }: { servidorId: string | null
                     </div>
                 </div>
 
-                                {modalPendVisible && (
-                                    <div
-                                        id="modal-pendientes"
-                                        role="dialog"
-                                        aria-modal="true"
-                                        aria-labelledby="pend-title"
-                                        onKeyDown={(e) => e.key === "Escape" && setModalPendVisible(false)}
-                                        className="fixed inset-0 z-50 flex items-center justify-center bg-black/25 backdrop-blur-md"
+                {modalPendVisible && (
+                    <div
+                        id="modal-pendientes"
+                        role="dialog"
+                        aria-modal="true"
+                        aria-labelledby="pend-title"
+                        onKeyDown={(e) => e.key === "Escape" && setModalPendVisible(false)}
+                        className="fixed inset-0 z-50 flex items-center justify-center bg-black/25 backdrop-blur-md"
+                    >
+                        <div
+                            tabIndex={-1}
+                            className="w-auto max-w-[90vw] lg:max-w-5xl rounded-[20px] overflow-hidden border border-neutral-200/50 shadow-2xl bg-white/90 backdrop-blur-xl"
+                        >
+                            <div className="sticky top-0 flex items-center justify-between py-3.5 px-5 bg-white/70 backdrop-blur-sm border-b border-neutral-300/80">
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        onClick={handleExportPDF}
+                                        className="grid place-items-center w-7 h-7 rounded-full text-red-600 bg-red-100/80 transition-all hover:bg-red-200/90"
+                                        title="Exportar PDF"
                                     >
-                                        <div
-                                            tabIndex={-1}
-                                            className="w-auto max-w-[90vw] lg:max-w-5xl rounded-[20px] overflow-hidden border border-neutral-200/50 shadow-2xl bg-white/90 backdrop-blur-xl"
+                                        <FileText size={15} />
+                                    </button>
+                                    <button
+                                        onClick={handleExportExcel}
+                                        className="grid place-items-center w-7 h-7 rounded-full text-green-700 bg-green-100/80 transition-all hover:bg-green-200/90"
+                                        title="Exportar Excel"
+                                    >
+                                        <FileSpreadsheet size={15} />
+                                    </button>
+                                </div>
+
+                                <h3 id="pend-title" className="font-semibold tracking-tight text-lg text-neutral-900 absolute left-1/2 -translate-x-1/2">
+                                    Pendientes
+                                </h3>
+
+                                <button
+                                    aria-label="Cerrar"
+                                    onClick={() => setModalPendVisible(false)}
+                                    className="relative z-10 grid place-items-center w-8 h-8 rounded-full bg-neutral-200/80 text-neutral-600 transition-all hover:bg-neutral-300/90 hover:text-neutral-900"
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-4 h-4">
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                </button>
+                            </div>
+
+                            <div className="px-3 pb-3 pt-2">
+                                <div className="w-full text-black">
+                                    <div className="flex w-full border-b border-neutral-300/80 px-3 py-2 bg-neutral-100/70">
+                                        <div className="flex-1 text-left text-xs font-semibold text-neutral-600 uppercase tracking-wider">Nombre</div>
+                                        <div className="hidden sm:block px-4 text-center text-xs font-semibold text-neutral-600 uppercase tracking-wider">Teléfono</div>
+                                        <div className="hidden sm:block px-4 text-center text-xs font-semibold text-neutral-600 uppercase tracking-wider">Día</div>
+                                        <div className="hidden sm:block px-4 text-center text-xs font-semibold text-neutral-600 uppercase tracking-wider">Creado por</div>
+                                        <div className="px-4 text-center text-xs font-semibold text-neutral-600 uppercase tracking-wider">Acciones</div>
+                                    </div>
+
+                                    <div className="list-body max-h-[60vh] overflow-y-auto">
+                                        {pendLoading && (
+                                            <div className="text-center text-neutral-600 px-2 py-10">Cargando…</div>
+                                        )}
+                                        {!pendLoading && pendientesRows.length === 0 && (
+                                            <div className="text-center text-neutral-600 px-2 py-10">Sin pendientes</div>
+                                        )}
+
+                                        {!pendLoading &&
+                                            pendientesRows
+                                                .slice(pendPage * PEND_PAGE_SIZE, (pendPage + 1) * PEND_PAGE_SIZE)
+                                                .map((row) => (
+                                                    /* MEJORA 2: Uso de componente memoizado */
+                                                    <PendienteRowItem
+                                                        key={(row.progreso_id ?? row.persona_id ?? row.id ?? Math.random().toString())}
+                                                        row={row}
+                                                        onSelect={selectPendiente}
+                                                        onDelete={handleEliminarPendiente}
+                                                    />
+                                                ))}
+                                    </div>
+                                </div>
+
+                                {!pendLoading && pendientesRows.length > PEND_PAGE_SIZE && (
+                                    <div className="mt-2 pt-3 flex items-center justify-between text-neutral-800 border-t border-neutral-300/80">
+                                        <button
+                                            onClick={() => setPendPage((p) => Math.max(0, p - 1))}
+                                            disabled={pendPage === 0}
+                                            className="px-2 py-1.5 text-sm font-medium text-blue-600 rounded-lg disabled:text-neutral-400 disabled:cursor-not-allowed transition-colors hover:bg-neutral-100 sm:px-4"
                                         >
-                                            <div className="sticky top-0 flex items-center justify-between py-3.5 px-5 bg-white/70 backdrop-blur-sm border-b border-neutral-300/80">
-                                                <div className="flex items-center gap-2">
-                                                    <button 
-                                                        onClick={handleExportPDF} 
-                                                        className="grid place-items-center w-7 h-7 rounded-full text-red-600 bg-red-100/80 transition-all hover:bg-red-200/90" 
-                                                        title="Exportar PDF"
-                                                    >
-                                                        <FileText size={15} />
-                                                    </button>
-                                                    <button 
-                                                        onClick={handleExportExcel} 
-                                                        className="grid place-items-center w-7 h-7 rounded-full text-green-700 bg-green-100/80 transition-all hover:bg-green-200/90" 
-                                                        title="Exportar Excel"
-                                                    >
-                                                        <FileSpreadsheet size={15} />
-                                                    </button>
-                                                </div>
-
-                                                <h3 id="pend-title" className="font-semibold tracking-tight text-lg text-neutral-900 absolute left-1/2 -translate-x-1/2">
-                                                    Pendientes
-                                                </h3>
-
-                                                <button
-                                                    aria-label="Cerrar"
-                                                    onClick={() => setModalPendVisible(false)}
-                                                    className="relative z-10 grid place-items-center w-8 h-8 rounded-full bg-neutral-200/80 text-neutral-600 transition-all hover:bg-neutral-300/90 hover:text-neutral-900"
-                                                >
-                                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-4 h-4">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                                                    </svg>
-                                                </button>
-                                            </div>
-
-                                            <div className="px-3 pb-3 pt-2">
-                                                <div className="w-full text-black">
-                                                    <div className="flex w-full border-b border-neutral-300/80 px-3 py-2 bg-neutral-100/70">
-                                                        <div className="flex-1 text-left text-xs font-semibold text-neutral-600 uppercase tracking-wider">Nombre</div>
-                                                        <div className="hidden sm:block px-4 text-center text-xs font-semibold text-neutral-600 uppercase tracking-wider">Teléfono</div>
-                                                        <div className="hidden sm:block px-4 text-center text-xs font-semibold text-neutral-600 uppercase tracking-wider">Día</div>
-                                                        <div className="hidden sm:block px-4 text-center text-xs font-semibold text-neutral-600 uppercase tracking-wider">Creado por</div>
-                                                        <div className="px-4 text-center text-xs font-semibold text-neutral-600 uppercase tracking-wider">Acciones</div>
-                                                    </div>
-
-                                                    <div className="list-body max-h-[60vh] overflow-y-auto">
-                                                        {pendLoading && (
-                                                            <div className="text-center text-neutral-600 px-2 py-10">Cargando…</div>
-                                                        )}
-                                                        {!pendLoading && pendientesRows.length === 0 && (
-                                                            <div className="text-center text-neutral-600 px-2 py-10">Sin pendientes</div>
-                                                        )}
-
-                                                        {!pendLoading &&
-                                                            pendientesRows
-                                                                .slice(pendPage * PEND_PAGE_SIZE, (pendPage + 1) * PEND_PAGE_SIZE)
-                                                                .map((row) => (
-                                                                    /* MEJORA 2: Uso de componente memoizado */
-                                                                    <PendienteRowItem 
-                                                                        key={(row.progreso_id ?? row.persona_id ?? row.id ?? Math.random().toString())}
-                                                                        row={row}
-                                                                        onSelect={selectPendiente}
-                                                                        onDelete={handleEliminarPendiente}
-                                                                    />
-                                                                ))}
-                                                    </div>
-                                                </div>
-
-                                                {!pendLoading && pendientesRows.length > PEND_PAGE_SIZE && (
-                                                    <div className="mt-2 pt-3 flex items-center justify-between text-neutral-800 border-t border-neutral-300/80">
-                                                        <button
-                                                            onClick={() => setPendPage((p) => Math.max(0, p - 1))}
-                                                            disabled={pendPage === 0}
-                                                            className="px-2 py-1.5 text-sm font-medium text-blue-600 rounded-lg disabled:text-neutral-400 disabled:cursor-not-allowed transition-colors hover:bg-neutral-100 sm:px-4"
-                                                        >
-                                                            Atrás
-                                                        </button>
-                                                        <div className="text-sm text-neutral-600">
-                                                            Página {pendPage + 1} de {Math.max(1, Math.ceil(pendientesRows.length / PEND_PAGE_SIZE))}
-                                                        </div>
-                                                        <button
-                                                            onClick={() =>
-                                                                setPendPage((p) =>
-                                                                    Math.min(Math.ceil(pendientesRows.length / PEND_PAGE_SIZE) - 1, p + 1)
-                                                                )
-                                                            }
-                                                            disabled={pendPage >= Math.ceil(pendientesRows.length / PEND_PAGE_SIZE) - 1}
-                                                            className="px-2 py-1.5 text-sm font-medium text-blue-600 rounded-lg disabled:text-neutral-400 disabled:cursor-not-allowed transition-colors hover:bg-neutral-100 sm:px-4"
-                                                        >
-                                                            Siguiente
-                                                        </button>
-                                                    </div>
-                                                )}
-                                            </div>
+                                            Atrás
+                                        </button>
+                                        <div className="text-sm text-neutral-600">
+                                            Página {pendPage + 1} de {Math.max(1, Math.ceil(pendientesRows.length / PEND_PAGE_SIZE))}
                                         </div>
+                                        <button
+                                            onClick={() =>
+                                                setPendPage((p) =>
+                                                    Math.min(Math.ceil(pendientesRows.length / PEND_PAGE_SIZE) - 1, p + 1)
+                                                )
+                                            }
+                                            disabled={pendPage >= Math.ceil(pendientesRows.length / PEND_PAGE_SIZE) - 1}
+                                            className="px-2 py-1.5 text-sm font-medium text-blue-600 rounded-lg disabled:text-neutral-400 disabled:cursor-not-allowed transition-colors hover:bg-neutral-100 sm:px-4"
+                                        >
+                                            Siguiente
+                                        </button>
                                     </div>
                                 )}
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 <div className="btn-container" style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: '4px' }}>
                     <button className="btn-minimal" onClick={handleGuardar} style={{ backgroundColor: (modoEdicion) ? 'orange' : '' }}>
