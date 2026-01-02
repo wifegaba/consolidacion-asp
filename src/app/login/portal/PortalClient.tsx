@@ -86,7 +86,7 @@ export default function PortalClient({ nombre, asignaciones }: { nombre: string,
             const res = await fetch('/api/select-role', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                credentials: 'include', // IMPORTANTE: Enviar cookies de sesión
+                credentials: 'include',
                 body: JSON.stringify(a)
             });
 
@@ -101,28 +101,8 @@ export default function PortalClient({ nombre, asignaciones }: { nombre: string,
             }
         } catch (error) {
             console.error(error);
-            setLoadingKey(null); // Reset on error so user can retry
-            // Opcional: mostrar toast de error
+            setLoadingKey(null);
         }
-    };
-
-    const getGradient = (type: Asignacion['tipo']) => {
-        switch (type) {
-            case 'contacto': return 'linear-gradient(135deg, #60A5FA, #2563EB)'; // Blue
-            case 'maestro': return 'linear-gradient(135deg, #BFDBFE, #60A5FA)'; // Light Diffused Blue
-            case 'logistica': return 'linear-gradient(135deg, #94a3b8, #475569)'; // Steel
-            case 'director': return 'linear-gradient(135deg, #fbbf24, #f59e0b)'; // Gold
-            case 'administrador': return 'linear-gradient(135deg, #8b5cf6, #6366f1)'; // Purple
-            default: return 'linear-gradient(135deg, #ddd, #999)';
-        }
-    };
-
-    const getDayColor = (dia: string) => {
-        const d = dia.toLowerCase();
-        if (d.includes('domingo')) return 'bg-gradient-to-br from-emerald-50 via-green-50 to-teal-50 text-emerald-700 ring-1 ring-emerald-200/60';
-        if (d.includes('martes')) return 'bg-gradient-to-br from-sky-50 via-blue-50 to-indigo-50 text-blue-700 ring-1 ring-blue-200/60';
-        if (d.includes('virtual')) return 'bg-gradient-to-br from-fuchsia-50 via-pink-50 to-rose-50 text-fuchsia-700 ring-1 ring-fuchsia-200/60';
-        return 'bg-gradient-to-br from-slate-50 via-gray-50 to-zinc-50 text-slate-700 ring-1 ring-slate-200/60';
     };
 
     const getTitle = (type: Asignacion['tipo']) => {
@@ -136,31 +116,36 @@ export default function PortalClient({ nombre, asignaciones }: { nombre: string,
     };
 
     return (
-        <main className="min-h-screen relative flex flex-col items-center justify-center p-6 bg-[url('/portal-bg-new.jpg')] bg-cover bg-center bg-no-repeat overflow-hidden">
-            {/* Overlay for better text readability */}
-            <div className="absolute inset-0 bg-black/30 pointer-events-none" />
+        <main
+            className="min-h-screen relative flex flex-col items-center justify-center p-6 overflow-hidden"
+            style={{
+                background: 'radial-gradient(circle at 50% 0%, #1e40af 0%, #0f172a 50%, #020617 100%)', // Cleaner Cosmic Blue -> Dark
+                backgroundColor: '#020617'
+            }}
+        >
+            {/* Top Light Source - Stronger Glow */}
+            <div className="absolute top-[-10%] left-1/2 -translate-x-1/2 w-[600px] h-[500px] bg-blue-500/20 blur-[120px] rounded-full pointer-events-none mix-blend-screen" />
 
-            <div className="w-full max-w-4xl z-10">
+            <div className="w-full max-w-4xl z-10 relative">
                 <header className="mb-12 text-center">
                     <motion.div
                         initial={{ opacity: 0, y: -20 }}
                         animate={{ opacity: 1, y: 0 }}
                         className="inline-block"
                     >
-                        <h1 className="text-4xl md:text-5xl font-extrabold text-white tracking-tight mb-3 drop-shadow-lg">
+                        <h1 className="text-4xl md:text-5xl font-bold text-white tracking-tight mb-3 drop-shadow-[0_0_25px_rgba(59,130,246,0.6)]">
                             Hola, {nombre.split(' ')[0]}
                         </h1>
-                        <p className="text-lg text-blue-100/90 font-medium drop-shadow-md">
+                        <p className="text-lg text-blue-100/80 font-medium tracking-wide drop-shadow-md">
                             Selecciona tu perfil de acceso
                         </p>
                     </motion.div>
                 </header>
 
-                {/* Grid ajustado: hasta 4 columnas, pero flexible */}
-                <div className={`grid gap-4 md:gap-5 justify-center ${asignaciones.length === 1 ? 'grid-cols-1 max-w-sm mx-auto' :
-                        asignaciones.length === 2 ? 'grid-cols-1 md:grid-cols-2 max-w-3xl mx-auto' :
-                            asignaciones.length === 3 ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3' :
-                                'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'
+                <div className={`grid gap-8 justify-center ${asignaciones.length === 1 ? 'grid-cols-1 max-w-sm mx-auto' :
+                    asignaciones.length === 2 ? 'grid-cols-1 md:grid-cols-2 max-w-3xl mx-auto' :
+                        asignaciones.length === 3 ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3' :
+                            'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'
                     }`}>
                     {asignaciones.map((a, i) => (
                         <motion.button
@@ -168,65 +153,71 @@ export default function PortalClient({ nombre, asignaciones }: { nombre: string,
                             initial={{ opacity: 0, y: 30 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: i * 0.1, duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-                            whileHover={!loadingKey ? { y: -8, scale: 1.02, transition: { duration: 0.2 } } : {}}
+                            whileHover={!loadingKey ? { y: -8, scale: 1.02 } : {}}
                             whileTap={!loadingKey ? { scale: 0.98 } : {}}
                             onClick={() => handleSelect(a)}
                             disabled={!!loadingKey}
-                            className={`relative group flex flex-col items-center rounded-[28px] text-center w-full h-full transition-opacity duration-300 ${asignaciones.length <= 2 ? 'p-8' : 'p-5'
+                            className={`relative group flex flex-col items-center rounded-[40px] text-center w-full h-full transition-all duration-300 ${asignaciones.length <= 2 ? 'px-8 py-12' : 'p-6'
                                 } ${loadingKey && loadingKey !== a.key ? 'opacity-50 blur-sm' : ''} ${loadingKey === a.key ? 'cursor-wait' : ''}`}
                             style={{
-                                background: 'rgba(255, 255, 255, 0.65)',
-                                backdropFilter: 'blur(20px)',
-                                WebkitBackdropFilter: 'blur(20px)',
-                                border: '1px solid rgba(255, 255, 255, 0.8)',
-                                boxShadow: '0 20px 40px -10px rgba(0,0,0,0.1)',
+                                // Ultra Glass Effect - Cleaner with Glowing Edges
+                                background: 'linear-gradient(180deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.0) 100%)',
+                                backdropFilter: 'blur(16px)',
+                                WebkitBackdropFilter: 'blur(16px)',
+                                borderTop: '1px solid rgba(255, 255, 255, 0.5)', // Brighter top
+                                borderLeft: '1px solid rgba(255, 255, 255, 0.2)',
+                                borderRight: '1px solid rgba(255, 255, 255, 0.2)',
+                                borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+                                // Outer Blue Glow + Inner White highlight
+                                boxShadow: '0 0 15px rgba(59, 130, 246, 0.4), inset 0 0 0 1px rgba(255, 255, 255, 0.1), inset 0 0 20px rgba(59, 130, 246, 0.2)',
                             }}
                         >
+                            {/* Card Inner Glow Hover Effect */}
+                            <div className="absolute inset-0 rounded-[40px] bg-gradient-to-b from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
+
                             {loadingKey === a.key && (
-                                <div className="absolute inset-0 flex items-center justify-center z-50 bg-white/70 backdrop-blur-sm rounded-[32px] transition-all duration-300">
-                                    <PremiumLoader text="Iniciando..." />
+                                <div className="absolute inset-0 flex items-center justify-center z-50 bg-black/40 backdrop-blur-md rounded-[40px]">
+                                    <PremiumLoader text="Conectando..." />
                                 </div>
                             )}
 
-                            {/* Card Content */}
-                            <div
-                                className={`rounded-2xl flex items-center justify-center transition-transform duration-500 group-hover:scale-110 group-hover:rotate-3 ${asignaciones.length <= 2 ? 'w-24 h-24 mb-6' : 'w-16 h-16 mb-4'
-                                    }`}
-                                style={{
-                                    background: (a.tipo === 'administrador' || a.tipo === 'director') ? 'transparent' : getGradient(a.tipo),
-                                    boxShadow: (a.tipo === 'administrador' || a.tipo === 'director') ? 'none' : '0 10px 25px -5px rgba(0,0,0,0.15)'
-                                }}
-                            >
-                                {a.tipo === 'contacto' && <ContactoIcon />}
-                                {a.tipo === 'maestro' && <MaestroIcon />}
-                                {a.tipo === 'logistica' && <LogisticaIcon />}
-                                {a.tipo === 'director' && <DirectorIcon />}
-                                {a.tipo === 'administrador' && <AdminIcon />}
+                            {/* Floating Icon Container */}
+                            <div className="relative mb-8 p-4">
+                                {/* Glow behind icon */}
+                                <div className="absolute inset-0 bg-blue-500/30 blur-2xl rounded-full opacity-60 group-hover:opacity-100 transition-opacity duration-500" />
+
+                                <div className="relative z-10 transform transition-transform duration-500 group-hover:scale-110 group-hover:-translate-y-2 drop-shadow-2xl">
+                                    {a.tipo === 'contacto' && <ContactoIcon />}
+                                    {a.tipo === 'maestro' && <MaestroIcon />}
+                                    {a.tipo === 'logistica' && <LogisticaIcon />}
+                                    {a.tipo === 'director' && <DirectorIcon />}
+                                    {a.tipo === 'administrador' && <AdminIcon />}
+                                </div>
                             </div>
 
-                            <h3 className={`font-bold text-slate-800 mb-1 group-hover:text-blue-600 transition-colors ${asignaciones.length <= 2 ? 'text-2xl' : 'text-lg'
-                                }`}>
+                            <h3 className="font-bold text-white text-3xl mb-2 tracking-tight drop-shadow-lg group-hover:text-blue-100 transition-colors">
                                 {getTitle(a.tipo)}
                             </h3>
 
                             {!['director', 'administrador'].includes(a.tipo) && (
-                                <p className={`text-slate-500 font-medium uppercase tracking-wide mb-3 ${asignaciones.length <= 2 ? 'text-sm' : 'text-xs'
-                                    }`}>
+                                <p className="text-blue-100/90 font-medium tracking-wide mb-6 uppercase text-sm drop-shadow-sm">
                                     {a.etapa}
                                 </p>
                             )}
 
-                            <div className="mt-auto w-full pt-3 border-t border-slate-200/60">
-                                {a.dia && (
-                                    <div className={`flex items-center justify-center gap-2 py-1.5 px-3 rounded-full font-semibold shadow-sm ${asignaciones.length <= 2 ? 'text-sm' : 'text-xs'
-                                        } ${getDayColor(a.dia)}`}>
-                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>
-                                        {a.dia} {a.franja && `• ${a.franja}`}
-                                    </div>
-                                )}
-                                {!a.dia && (
-                                    <div className="text-center py-2 px-4 text-slate-500 text-xs font-medium">
+                            <div className="mt-auto pt-6 border-t border-white/10 w-full">
+                                {!a.dia ? (
+                                    <span className="text-blue-100/50 text-xs font-bold tracking-[0.2em] uppercase">
                                         Acceso Administrativo
+                                    </span>
+                                ) : (
+                                    <div className="inline-flex items-center gap-2 bg-white/5 px-4 py-1.5 rounded-full border border-white/10 backdrop-blur-md">
+                                        <div className={`w-2 h-2 rounded-full shadow-[0_0_8px_currentcolor] ${a.dia.toLowerCase().includes('domingo') ? 'bg-emerald-400 text-emerald-400' :
+                                            a.dia.toLowerCase().includes('martes') ? 'bg-sky-400 text-sky-400' : 'bg-slate-400 text-slate-400'
+                                            }`} />
+                                        <span className="text-white text-xs font-semibold tracking-wide">
+                                            {a.dia} {a.franja && `• ${a.franja}`}
+                                        </span>
                                     </div>
                                 )}
                             </div>
@@ -237,12 +228,16 @@ export default function PortalClient({ nombre, asignaciones }: { nombre: string,
                 <motion.div
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
-                    transition={{ delay: 0.8 }}
-                    className="mt-16 text-center"
+                    transition={{ delay: 1 }}
+                    className="mt-20 text-center"
                 >
-                    <a href="/login" className="inline-flex items-center gap-2 text-blue-100 hover:text-white transition-colors font-medium text-sm px-6 py-3 rounded-full hover:bg-white/10 checkbox-shadow">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6" /></svg>
-                        Cerrar Sesión
+                    <a href="/login" className="relative group inline-flex items-center gap-3 px-8 py-3 rounded-full overflow-hidden transition-all">
+                        {/* Button Glow */}
+                        <div className="absolute inset-0 bg-white/5 border border-white/20 rounded-full group-hover:bg-white/10 group-hover:border-white/40 transition-all duration-300" />
+                        <div className="absolute inset-0 bg-blue-500/20 blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-blue-200 group-hover:text-white transition-colors relative z-10"><path d="M15 18l-6-6 6-6" /></svg>
+                        <span className="text-blue-100 font-semibold tracking-wide group-hover:text-white transition-colors relative z-10 text-sm">Cerrar Sesión</span>
                     </a>
                 </motion.div>
             </div>
