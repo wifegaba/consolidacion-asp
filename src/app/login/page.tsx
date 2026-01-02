@@ -122,7 +122,7 @@ export default function LoginPage() {
               // su propio control de visibilidad (icono de ojo). En su lugar
               // aplicamos -webkit-text-security para enmascarar los caracteres
               // cuando showPassword === false.
-              type="text"
+              type={showPassword ? 'text' : 'password'}
               // Se mantiene 'text' en inputMode para permitir letras si el 'usuario' las tiene.
               inputMode="text"
               autoComplete="off"
@@ -131,8 +131,6 @@ export default function LoginPage() {
               onChange={(e) => setCedula(normalizeCedula(e.target.value))}
               // Se agregó 'pr-12' para el padding derecho, dando espacio al ícono
               className="w-full px-4 py-3 pr-12 rounded-2xl bg-white/35 border border-white/60 text-slate-800 placeholder-slate-400 shadow-inner focus:outline-none focus:ring-2 focus:ring-sky-400 focus:border-transparent backdrop-blur-md"
-              // Oculta visualmente los caracteres en navegadores WebKit/Blink
-              style={{ WebkitTextSecurity: showPassword ? 'none' : 'disc' } as React.CSSProperties}
             />
 
             {/* BOTÓN DE TOGGLE DE VISIBILIDAD (LA 'LUPITA') */}

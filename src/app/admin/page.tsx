@@ -72,7 +72,7 @@ export const modalVariants: Variants = {
 
 // --- COMPONENTE PRINCIPAL ---
 export default function AdminPage() {
-  const [activeTab, setActiveTab] = useState<AdminTab>('servidores');
+  const [activeTab, setActiveTab] = useState<AdminTab>('maestros');
   const [maestros, setMaestros] = useState<MaestroConCursos[]>([]);
   const [cursos, setCursos] = useState<Curso[]>([]);
   const [estudiantes, setEstudiantes] = useState<Estudiante[]>([]);
@@ -220,7 +220,7 @@ export default function AdminPage() {
           {/* SIDEBAR (Desktop) */}
           <aside className="hidden md:flex w-64 flex-col border-r border-white/40 bg-white/20 p-4">
             <nav className="flex flex-col gap-2 flex-1">
-              <TabButton Icon={Server} label="Servidores" isActive={activeTab === 'servidores'} onClick={() => setActiveTab('servidores')} />
+              {/* <TabButton Icon={Server} label="Servidores" isActive={activeTab === 'servidores'} onClick={() => setActiveTab('servidores')} /> */}
               <TabButton Icon={Users} label="Maestros" isActive={activeTab === 'maestros'} onClick={() => setActiveTab('maestros')} />
               <TabButton Icon={UserPlus} label="Matricular" isActive={activeTab === 'matricular'} onClick={() => setActiveTab('matricular')} badge={estudiantesPendientesCount} />
               <TabButton Icon={GraduationCap} label="Promovidos" isActive={activeTab === 'promovidos'} onClick={() => setActiveTab('promovidos')} badge={promovidosCount} />
@@ -268,7 +268,7 @@ export default function AdminPage() {
 
             {/* Barra de Navegación Móvil (Sticky Bottom) */}
             <div className="md:hidden border-t border-white/40 bg-white/40 backdrop-blur-xl flex justify-around py-1 px-2 pb-safe shrink-0 z-30">
-              <MobileTab Icon={Server} label="Servidores" isActive={activeTab === 'servidores'} onClick={() => setActiveTab('servidores')} />
+              {/* <MobileTab Icon={Server} label="Servidores" isActive={activeTab === 'servidores'} onClick={() => setActiveTab('servidores')} /> */}
               <MobileTab Icon={Users} label="Maestros" isActive={activeTab === 'maestros'} onClick={() => setActiveTab('maestros')} />
               <MobileTab Icon={UserPlus} label="Matricular" isActive={activeTab === 'matricular'} onClick={() => setActiveTab('matricular')} badge={estudiantesPendientesCount} />
               <MobileTab Icon={GraduationCap} label="Prom." isActive={activeTab === 'promovidos'} onClick={() => setActiveTab('promovidos')} badge={promovidosCount} />
