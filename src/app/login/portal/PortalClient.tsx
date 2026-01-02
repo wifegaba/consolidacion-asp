@@ -61,12 +61,12 @@ const DirectorIcon = () => (
 
 const AdminIcon = () => (
     <div className="relative w-24 h-24 flex items-center justify-center">
-        <div className="absolute inset-0 flex items-center justify-center" style={{ transform: 'scale(5.2)', pointerEvents: 'none' }}>
+        <div className="absolute inset-0 flex items-center justify-center" style={{ transform: 'scale(6.2)', pointerEvents: 'none' }}>
             <Image
                 src="/gestor-academico.png"
                 alt="Gestor Académico"
-                width={150}
-                height={150}
+                width={800}
+                height={800}
                 className="object-contain"
                 priority
             />
