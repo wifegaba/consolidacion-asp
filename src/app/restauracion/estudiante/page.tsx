@@ -18,7 +18,7 @@ import {
   LogOut,
   AlertTriangle,
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, Variants } from 'framer-motion';
 import { supabase } from '../../../lib/supabaseClient';
 import { useToast } from '../../../components/ToastProvider';
 import { useAuth } from '../../../hooks/useAuth';
@@ -51,6 +51,29 @@ import { PendingStudentsModal } from '../../../components/PendingStudentsModal';
 // --- Memoización de Componentes ---
 const WelcomePanel = memo(WelcomePanelBase);
 const MemoizedHojaDeVida = memo(HojaDeVidaPanel);
+
+// Animaciones premium para el sidebar de estudiantes
+const EASE_SMOOTH = [0.16, 1, 0.3, 1] as const;
+
+const STUDENT_LIST_WRAPPER_VARIANTS: Variants = {
+  hidden: {
+    transition: { staggerChildren: 0.035, staggerDirection: -1 }
+  },
+  visible: {
+    transition: { delayChildren: 0.1, staggerChildren: 0.045 }
+  }
+};
+
+const STUDENT_ITEM_VARIANTS: Variants = {
+  hidden: { opacity: 0, x: -20, y: 12, scale: 0.97 },
+  visible: {
+    opacity: 1,
+    x: 0,
+    y: 0,
+    scale: 1,
+    transition: { duration: 0.5, ease: EASE_SMOOTH }
+  }
+};
 
 type EstudianteInscrito = Entrevista & {
   inscripcion_id: string;
@@ -1072,7 +1095,7 @@ function StudentSidebar({
       )}
 
       <motion.nav
-        className="flex-1 overflow-y-auto px-4 py-3 space-y-4 md:space-y-3 min-h-0 pb-28 md:pb-4 custom-scrollbar"
+        className="flex-1 overflow-y-auto px-6 md:px-4 py-3 space-y-4 md:space-y-3 min-h-0 pb-28 md:pb-4 custom-scrollbar"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.3 }}
@@ -1148,15 +1171,15 @@ function StudentSidebarItem({ student, fotoUrls, isActive, isAttendanceModeActiv
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 16, scale: 0.96 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
+      initial={{ opacity: 0, x: -20, y: 12, scale: 0.97 }}
+      animate={{ opacity: 1, x: 0, y: 0, scale: 1 }}
       transition={{
         duration: 0.5,
-        delay: index * 0.06,
-        ease: [0.25, 0.46, 0.45, 0.94],
+        delay: 0.1 + (index * 0.045), // Efecto Stagger Premium Manual
+        ease: EASE_SMOOTH,
       }}
       onClick={(e) => { if (!isAttendanceModeActive) { e.preventDefault(); onSelectStudent(student); } }}
-      className="relative pl-8 md:pl-6"
+      className="relative pl-11 md:pl-6"
     >
       {/* Avatar posicionado para sobresalir */}
       <div className="absolute left-0 top-1/2 -translate-y-1/2 z-10">

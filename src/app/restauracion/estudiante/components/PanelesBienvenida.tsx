@@ -1,12 +1,36 @@
 'use client';
 
 import React from 'react';
-// --- CAMBIO: Importar Loader2 ---
+// --- CAMBIO: Importar Loader2 y Framer Motion ---
 import { BookMarked, Folder, Star, Loader2, LogOut } from 'lucide-react';
 import { supabase } from '../../../../lib/supabaseClient';
+import { motion, Variants } from 'framer-motion';
 
 // Importamos los tipos y utils que necesitamos
 import { Course, folderColors } from './academia.utils';
+
+// Animaciones premium para las carpetas de cursos
+const EASE_SMOOTH = [0.16, 1, 0.3, 1] as const;
+
+const LIST_WRAPPER_VARIANTS: Variants = {
+  hidden: {
+    transition: { staggerChildren: 0.035, staggerDirection: -1 }
+  },
+  visible: {
+    transition: { delayChildren: 0.12, staggerChildren: 0.075 }
+  }
+};
+
+const FOLDER_ITEM_VARIANTS: Variants = {
+  hidden: { opacity: 0, x: 28, y: 14, scale: 0.97 },
+  visible: {
+    opacity: 1,
+    x: 0,
+    y: 0,
+    scale: 1,
+    transition: { duration: 0.5, ease: EASE_SMOOTH }
+  }
+};
 
 // --- TIPO DE PROPS (MODIFICADO) ---
 interface WelcomePanelProps {
@@ -75,7 +99,7 @@ export function WelcomePanel({
           style={{ transitionDelay: `${isActive ? foldersContainerDelay : 0}ms` }}
         >
 
-          {/* --- CAMBIO: Lógica de carga --- */}
+          {/* --- CAMBIO: Lógica de carga con animaciones Framer Motion --- */}
           {loading ? (
             <div className="flex items-center justify-center w-full h-44 text-gray-600">
               <Loader2 size={24} className="animate-spin mr-2" />
@@ -86,20 +110,23 @@ export function WelcomePanel({
               No tienes cursos asignados actualmente.
             </div>
           ) : (
-            courses.map((course, index) => (
-              <CourseFolder
-                key={course.id}
-                title={course.title}
-                color={course.color}
-                hasSpecialBadge={course.hasSpecialBadge}
-                onSelect={() => onSelectCourse(course)}
-                className={`
-                  transition-all duration-300 ease-out 
-                  ${isActive ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'}
-                `}
-                style={{ transitionDelay: `${isActive ? foldersContainerDelay + index * folderStagger : 0}ms` }}
-              />
-            ))
+            <motion.div
+              className="flex flex-wrap md:flex-nowrap items-center justify-center gap-4 md:gap-6 w-full"
+              variants={LIST_WRAPPER_VARIANTS}
+              initial="hidden"
+              animate={isActive ? "visible" : "hidden"}
+            >
+              {courses.map((course) => (
+                <motion.div key={course.id} variants={FOLDER_ITEM_VARIANTS}>
+                  <CourseFolder
+                    title={course.title}
+                    color={course.color}
+                    hasSpecialBadge={course.hasSpecialBadge}
+                    onSelect={() => onSelectCourse(course)}
+                  />
+                </motion.div>
+              ))}
+            </motion.div>
           )}
           {/* --- FIN CAMBIO --- */}
 

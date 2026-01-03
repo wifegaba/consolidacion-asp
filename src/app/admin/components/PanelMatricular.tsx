@@ -4,8 +4,31 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../../../lib/supabaseClient';
 import { GlassCard, CardHeader, FormSelect, GLASS_STYLES, ModalTemplate } from '../page';
 import { UserPlus, Search, Plus, ChevronDown, X, AlertTriangle, Check, Loader2 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, Variants } from 'framer-motion';
 import type { MaestroConCursos, Curso, Estudiante, Inscripcion } from '../page';
+
+// Animaciones premium para la lista de estudiantes
+const EASE_SMOOTH = [0.16, 1, 0.3, 1] as const;
+
+const LIST_WRAPPER_VARIANTS: Variants = {
+    hidden: {
+        transition: { staggerChildren: 0.035, staggerDirection: -1 }
+    },
+    visible: {
+        transition: { delayChildren: 0.12, staggerChildren: 0.055 }
+    }
+};
+
+const LIST_ITEM_VARIANTS: Variants = {
+    hidden: { opacity: 0, x: 28, y: 14, scale: 0.97 },
+    visible: {
+        opacity: 1,
+        x: 0,
+        y: 0,
+        scale: 1,
+        transition: { duration: 0.5, ease: EASE_SMOOTH }
+    }
+};
 
 interface PanelMatricularProps {
     maestros: MaestroConCursos[];
@@ -239,24 +262,37 @@ export default function PanelMatricular({ maestros, cursos, estudiantes, inscrip
                         <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
                     </div>
                     <div className={`flex-1 overflow-y-auto rounded-xl ${GLASS_STYLES.input} p-0 border-2 border-white/50`}>
-                        {eDisponibles.length === 0 ? <div className="p-6 text-center text-gray-500">No hay estudiantes disponibles</div> : eDisponibles.map(e => (
-                            <div key={e.id} onClick={() => handleStudentToggle(e.id)} className={`flex items-center gap-3 p-3 cursor-pointer ${GLASS_STYLES.listItem} ${selectedIds[e.id] ? 'bg-blue-50/60' : ''}`}>
-                                <div className={`h-5 w-5 rounded border flex items-center justify-center ${selectedIds[e.id] ? 'bg-blue-500 border-blue-500' : 'border-gray-400'}`}>
-                                    {selectedIds[e.id] && <Check size={12} className="text-white" />}
-                                </div>
-                                <div className="flex-1">
-                                    <div className="flex items-center gap-2">
-                                        <p className="text-sm font-medium">{e.nombre}</p>
-                                        {e.suspendedCourseId && (
-                                            <span className="text-[9px] uppercase tracking-wider font-bold bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded border border-amber-200">
-                                                Susp. {cursos.find(c => c.id === e.suspendedCourseId)?.nombre}
-                                            </span>
-                                        )}
-                                    </div>
-                                    <p className="text-xs text-gray-500">{e.cedula}</p>
-                                </div>
-                            </div>
-                        ))}
+                        {eDisponibles.length === 0 ? <div className="p-6 text-center text-gray-500">No hay estudiantes disponibles</div> : (
+                            <motion.div
+                                variants={LIST_WRAPPER_VARIANTS}
+                                initial="hidden"
+                                animate="visible"
+                            >
+                                {eDisponibles.map(e => (
+                                    <motion.div
+                                        key={e.id}
+                                        variants={LIST_ITEM_VARIANTS}
+                                        onClick={() => handleStudentToggle(e.id)}
+                                        className={`flex items-center gap-3 p-3 cursor-pointer ${GLASS_STYLES.listItem} ${selectedIds[e.id] ? 'bg-blue-50/60' : ''}`}
+                                    >
+                                        <div className={`h-5 w-5 rounded border flex items-center justify-center ${selectedIds[e.id] ? 'bg-blue-500 border-blue-500' : 'border-gray-400'}`}>
+                                            {selectedIds[e.id] && <Check size={12} className="text-white" />}
+                                        </div>
+                                        <div className="flex-1">
+                                            <div className="flex items-center gap-2">
+                                                <p className="text-sm font-medium">{e.nombre}</p>
+                                                {e.suspendedCourseId && (
+                                                    <span className="text-[9px] uppercase tracking-wider font-bold bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded border border-amber-200">
+                                                        Susp. {cursos.find(c => c.id === e.suspendedCourseId)?.nombre}
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <p className="text-xs text-gray-500">{e.cedula}</p>
+                                        </div>
+                                    </motion.div>
+                                ))}
+                            </motion.div>
+                        )}
                     </div>
                 </div>
             </div>

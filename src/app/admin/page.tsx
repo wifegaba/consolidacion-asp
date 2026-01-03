@@ -70,6 +70,29 @@ export const modalVariants: Variants = {
   exit: { scale: 0.95, opacity: 0 },
 };
 
+// Animaciones premium para las tarjetas de maestros
+const EASE_SMOOTH = [0.16, 1, 0.3, 1] as const;
+
+const LIST_WRAPPER_VARIANTS: Variants = {
+  hidden: {
+    transition: { staggerChildren: 0.035, staggerDirection: -1 }
+  },
+  visible: {
+    transition: { delayChildren: 0.12, staggerChildren: 0.055 }
+  }
+};
+
+const LIST_ITEM_VARIANTS: Variants = {
+  hidden: { opacity: 0, x: 28, y: 14, scale: 0.97 },
+  visible: {
+    opacity: 1,
+    x: 0,
+    y: 0,
+    scale: 1,
+    transition: { duration: 0.5, ease: EASE_SMOOTH }
+  }
+};
+
 // --- COMPONENTE PRINCIPAL ---
 export default function AdminPage() {
   const [activeTab, setActiveTab] = useState<AdminTab>('maestros');
@@ -375,9 +398,18 @@ function PanelGestionarMaestros({ maestros, loading, onCrear, onEditar, onAsigna
       </div>
       <div className="p-6 flex-1 overflow-y-auto min-h-0">
         {loading ? <div className="text-center p-4">Cargando...</div> : (
-          <ul className="space-y-3">
+          <motion.ul
+            className="space-y-3"
+            variants={LIST_WRAPPER_VARIANTS}
+            initial="hidden"
+            animate="visible"
+          >
             {filtered.map(m => (
-              <li key={m.id} className={`p-4 rounded-xl ${GLASS_STYLES.panel} flex flex-col md:flex-row items-start md:items-center gap-4 justify-between`}>
+              <motion.li
+                key={m.id}
+                variants={LIST_ITEM_VARIANTS}
+                className={`p-4 rounded-xl ${GLASS_STYLES.panel} flex flex-col md:flex-row items-start md:items-center gap-4 justify-between`}
+              >
                 <div className="flex items-center gap-3">
                   <div className="h-10 w-10 rounded-full bg-white/50 flex items-center justify-center text-indigo-800 font-bold shadow-sm">{m.nombre.charAt(0)}</div>
                   <div>
@@ -406,9 +438,9 @@ function PanelGestionarMaestros({ maestros, loading, onCrear, onEditar, onAsigna
                   <button onClick={() => onEditar(m)} className={`${GLASS_STYLES.buttonSecondary} px-3 py-1.5 rounded-lg text-xs flex gap-1`}><Edit2 size={16} /> <span className="hidden md:inline">Editar</span></button>
                   <button onClick={() => onDesactivar(m)} className={`${GLASS_STYLES.buttonSecondary} px-3 py-1.5 rounded-lg text-xs text-red-600 hover:bg-red-50`}><Trash2 size={16} /></button>
                 </div>
-              </li>
+              </motion.li>
             ))}
-          </ul>
+          </motion.ul>
         )}
       </div>
     </GlassCard>

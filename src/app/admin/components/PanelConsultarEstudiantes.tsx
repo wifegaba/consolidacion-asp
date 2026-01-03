@@ -2,10 +2,33 @@
 
 import React, { useState, useMemo } from 'react';
 import { ClipboardList, Search, UserX, UserCheck2, UserCog, UserMinus, Check, AlertTriangle, Loader2, Phone, MessageCircle } from 'lucide-react';
-import { AnimatePresence } from 'framer-motion';
+import { AnimatePresence, motion, Variants } from 'framer-motion';
 import { supabase } from '../../../lib/supabaseClient';
 import { GlassCard, CardHeader, FormSelect, GLASS_STYLES, ModalTemplate } from '../page';
 import type { MaestroConCursos, Curso, Estudiante, Inscripcion, EstudianteInscrito } from '../page';
+
+// Animaciones premium para las listas de pendientes y matriculados
+const EASE_SMOOTH = [0.16, 1, 0.3, 1] as const;
+
+const LIST_WRAPPER_VARIANTS: Variants = {
+    hidden: {
+        transition: { staggerChildren: 0.035, staggerDirection: -1 }
+    },
+    visible: {
+        transition: { delayChildren: 0.12, staggerChildren: 0.055 }
+    }
+};
+
+const LIST_ITEM_VARIANTS: Variants = {
+    hidden: { opacity: 0, x: 28, y: 14, scale: 0.97 },
+    visible: {
+        opacity: 1,
+        x: 0,
+        y: 0,
+        scale: 1,
+        transition: { duration: 0.5, ease: EASE_SMOOTH }
+    }
+};
 
 // Helper local
 function generateAvatar(name: string): string {
@@ -90,14 +113,38 @@ export default function PanelConsultarEstudiantes({ maestros, cursos, estudiante
                 <div className="flex flex-col h-full min-h-0">
                     <div className="mb-2 flex items-center gap-2 text-rose-700 font-semibold shrink-0"><UserX size={18} /> Pendientes ({pendientes.length})</div>
                     <div className={`flex-1 overflow-y-auto rounded-xl ${GLASS_STYLES.input} p-0 border-2 border-white/50`}>
-                        {loading ? <div className="p-4 text-center">Cargando...</div> : pendientes.length === 0 ? <div className="p-8 text-center text-gray-500">No hay pendientes</div> : pendientes.map(e => <EstudianteRow key={e.id} e={e} onClick={() => setSelectedStudent(e)} />)}
+                        {loading ? <div className="p-4 text-center">Cargando...</div> : pendientes.length === 0 ? <div className="p-8 text-center text-gray-500">No hay pendientes</div> : (
+                            <motion.div
+                                variants={LIST_WRAPPER_VARIANTS}
+                                initial="hidden"
+                                animate="visible"
+                            >
+                                {pendientes.map(e => (
+                                    <motion.div key={e.id} variants={LIST_ITEM_VARIANTS}>
+                                        <EstudianteRow e={e} onClick={() => setSelectedStudent(e)} />
+                                    </motion.div>
+                                ))}
+                            </motion.div>
+                        )}
                     </div>
                 </div>
 
                 <div className="flex flex-col h-full min-h-0">
                     <div className="mb-2 flex items-center gap-2 text-blue-700 font-semibold shrink-0"><UserCheck2 size={18} /> Matriculados ({matriculados.length})</div>
                     <div className={`flex-1 overflow-y-auto rounded-xl ${GLASS_STYLES.input} p-0 border-2 border-white/50`}>
-                        {loading ? <div className="p-4 text-center">Cargando...</div> : matriculados.length === 0 ? <div className="p-8 text-center text-gray-500">No hay matriculados</div> : matriculados.map(e => <EstudianteRow key={e.id} e={e} matriculado fotoUrl={e.foto_path ? fotoUrls[e.foto_path] : undefined} onClick={() => setSelectedStudent(e)} />)}
+                        {loading ? <div className="p-4 text-center">Cargando...</div> : matriculados.length === 0 ? <div className="p-8 text-center text-gray-500">No hay matriculados</div> : (
+                            <motion.div
+                                variants={LIST_WRAPPER_VARIANTS}
+                                initial="hidden"
+                                animate="visible"
+                            >
+                                {matriculados.map(e => (
+                                    <motion.div key={e.id} variants={LIST_ITEM_VARIANTS}>
+                                        <EstudianteRow e={e} matriculado fotoUrl={e.foto_path ? fotoUrls[e.foto_path] : undefined} onClick={() => setSelectedStudent(e)} />
+                                    </motion.div>
+                                ))}
+                            </motion.div>
+                        )}
                     </div>
                 </div>
             </div>
