@@ -70,7 +70,7 @@ export default function PanelConsultarEstudiantes({ maestros, cursos, estudiante
                 ...e,
                 maestro: (isActive && ins.servidor_id) ? mSet.get(ins.servidor_id) || null : null,
                 curso: (ins && ins.curso_id) ? cSet.get(ins.curso_id) || null : null,
-                inscripcion_id: isActive ? ins.entrevista_id : null,
+                inscripcion_id: isActive ? ins.id : null,
                 suspended_course: (!isActive && ins && ins.estado === 'inactivo') ? cSet.get(ins.curso_id) || null : null
             };
         });

@@ -45,8 +45,8 @@ export type AsignacionMaestro = { id: string; servidor_id: string; curso_id: num
 export type MaestroDataRaw = Maestro & { asignaciones: AsignacionMaestro[]; observaciones_count: { count: number }[]; servidores_roles: { rol: string }[]; };
 export type MaestroConCursos = Maestro & { asignaciones: AsignacionMaestro[]; obs_count: number; rol: string | null; };
 export type Estudiante = { id: string; nombre: string; cedula: string; telefono?: string | null; foto_path?: string | null; };
-export type Inscripcion = { entrevista_id: string; curso_id: number; servidor_id: string | null; cursos?: Pick<Curso, 'nombre' | 'color'> | null; };
-export type EstudianteInscrito = Estudiante & { maestro: MaestroConCursos | null; curso: Curso | null; inscripcion_id: string | null; };
+export type Inscripcion = { id: number; entrevista_id: string; curso_id: number; servidor_id: string | null; cursos?: Pick<Curso, 'nombre' | 'color'> | null; };
+export type EstudianteInscrito = Estudiante & { maestro: MaestroConCursos | null; curso: Curso | null; inscripcion_id: number | null; };
 export type AdminTab = 'matricular' | 'maestros' | 'servidores' | 'consultar' | 'promovidos';
 
 // --- HELPERS ---

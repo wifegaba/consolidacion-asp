@@ -794,24 +794,13 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
       const allActive = (data as any).asignaciones_maestro?.filter((x: AsigMaestro) => x.vigente) || [];
 
       // Intentar encontrar el que coincida con la URL (si existe)
-      // Intentar encontrar el que coincida con la URL (si existe)
       const pEtapa = params?.get('etapa');
       const pDia = params?.get('dia');
 
-      const norm = (s: string | null | undefined) => (s || '').trim().toLowerCase();
-
-      let a = allActive.find((x: AsigMaestro) =>
-        norm(x.etapa) === norm(pEtapa) &&
-        norm(x.dia) === norm(pDia)
-      );
+      let a = allActive.find((x: AsigMaestro) => x.etapa === pEtapa && x.dia === pDia);
 
       // Fallback: usar el primero vigente si no hay match en URL
-      if (!a) {
-        if (pEtapa || pDia) {
-          console.warn(`[MaestrosClient] No match found for URL params: etapa="${pEtapa}", dia="${pDia}". Falling back to first active role.`);
-        }
-        a = allActive[0];
-      }
+      if (!a) a = allActive[0];
 
       if (!a) {
         router.replace(`/bienvenida?cedula=${cedula}`);

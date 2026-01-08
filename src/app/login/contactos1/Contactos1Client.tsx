@@ -736,9 +736,7 @@ export default function Contactos1Client(
       // Si no hay params o no hubo coincidencia, fallback al primero
       if (!ac) {
         if (pEtapa || pDia) {
-          const debugMsg = `DEBUG INFO: URL Params etapa='${pEtapa}', dia='${pDia}', sem='${pSemana}' not found in user roles. Fallback to first role.`;
-          console.warn(debugMsg);
-          // alert(debugMsg); // Uncomment for extreme debugging
+          console.warn(`[Contactos1Client] No match found for params: ${pEtapa}/${pDia}. Fallback to first.`);
         }
         ac = allContacts[0];
       }
