@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState, useCallback, useRef, memo } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
 import dynamic from 'next/dynamic';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -316,6 +316,7 @@ export default function Contactos1Client(
   }, []);
 
   const router = useRouter();
+  const params = useSearchParams();
   const cedula = normalizeCedula(cedulaProp ?? '');
   const rtDebug = false;
   const rtLog = useCallback((...args: any[]) => { if (rtDebug) console.log('[RT contactos1]', ...args); }, []);
@@ -718,7 +719,30 @@ export default function Contactos1Client(
       setNombre((data as any).nombre ?? '');
       setServidorId((data as any).id ?? null);
 
-      const ac = (data as any).asignaciones_contacto?.find((x: any) => x.vigente);
+      const allContacts = (data as any).asignaciones_contacto?.filter((x: any) => x.vigente) || [];
+      const pEtapa = params?.get('etapa');
+      const pDia = params?.get('dia');
+      const pSemana = params?.get('semana') ? parseInt(params.get('semana')!, 10) : null;
+
+      const norm = (s: string | null | undefined) => (s || '').trim().toLowerCase();
+
+      // Buscamos coincidencia exacta primero
+      let ac = allContacts.find((x: any) =>
+        norm(x.etapa) === norm(pEtapa) &&
+        norm(x.dia) === norm(pDia) &&
+        (!pSemana || x.semana === pSemana)
+      );
+
+      // Si no hay params o no hubo coincidencia, fallback al primero
+      if (!ac) {
+        if (pEtapa || pDia) {
+          const debugMsg = `DEBUG INFO: URL Params etapa='${pEtapa}', dia='${pDia}', sem='${pSemana}' not found in user roles. Fallback to first role.`;
+          console.warn(debugMsg);
+          // alert(debugMsg); // Uncomment for extreme debugging
+        }
+        ac = allContacts[0];
+      }
+
       if (ac) {
         const baseC = mapEtapaDetToBase(ac.etapa);
         const asignC: MaestroAsignacion = {
