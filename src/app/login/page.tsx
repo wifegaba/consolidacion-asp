@@ -5,9 +5,6 @@ import { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 
 // IMPORTACIÓN SIMULADA DE ÍCONOS MODERNOS
-// En un proyecto real, se usaría una librería como 'lucide-react', 'react-icons', o similar.
-// Se recomienda instalar una para usar SVGs limpios en lugar de los placeholders de texto.
-// Por ejemplo: `npm install lucide-react` o `npm install react-icons`
 const EyeIcon = (props: React.SVGProps<SVGSVGElement>) => (
   <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"></path><circle cx="12" cy="12" r="3"></circle></svg>
 );
@@ -102,12 +99,12 @@ export default function LoginPage() {
         </div>
 
         {/* Versículo */}
-        <div className="mt-5 rounded-xl border border-amber-300/60 bg-gradient-to-br from-amber-50 via-amber-100/90 to-amber-200/70 shadow-inner p-4">
+        <div className="mt-5 rounded-xl border border-white/50 bg-white/30 backdrop-blur-md shadow-inner p-4">
           <p className="text-[13.5px] sm:text-sm font-serif italic text-slate-800 text-center leading-relaxed">
-            “Quien quiera servirme debe seguirme; y donde yo esté, allí también estará mi siervo.
-            A quien me sirva, mi Padre lo honrará.”
+            "Recuerden que ustedes van a recibir la recompensa del Señor que Dios le prometió a su pueblo,
+            pues ustedes sirven a Cristo el Señor."
             <br />
-            <span className="font-bold not-italic">Juan 12:26</span>
+            <span className="font-bold not-italic">Colosenses 3:24</span>
           </p>
         </div>
 
@@ -118,34 +115,23 @@ export default function LoginPage() {
             <label htmlFor="cedula" className="sr-only">Cédula o Usuario</label>
             <input
               id="cedula"
-              // Usamos siempre type="text" para evitar que el navegador muestre
-              // su propio control de visibilidad (icono de ojo). En su lugar
-              // aplicamos -webkit-text-security para enmascarar los caracteres
-              // cuando showPassword === false.
               type="text"
-              // Se mantiene 'text' en inputMode para permitir letras si el 'usuario' las tiene.
               inputMode="text"
               autoComplete="off"
               placeholder="Ingrese su cédula o usuario"
               value={cedula}
               onChange={(e) => setCedula(normalizeCedula(e.target.value))}
-              // Se agregó 'pr-12' para el padding derecho, dando espacio al ícono
               className="w-full px-4 py-3 pr-12 rounded-2xl bg-white/35 border border-white/60 text-slate-800 placeholder-slate-400 shadow-inner focus:outline-none focus:ring-2 focus:ring-sky-400 focus:border-transparent backdrop-blur-md"
-              // Oculta visualmente los caracteres en navegadores WebKit/Blink
               style={{ WebkitTextSecurity: showPassword ? 'none' : 'disc' } as React.CSSProperties}
             />
 
-            {/* BOTÓN DE TOGGLE DE VISIBILIDAD (LA 'LUPITA') */}
-            {/* Solo se muestra si el campo tiene contenido para alternar */}
             {cedula.length > 0 && (
               <button
                 type="button"
                 onClick={togglePasswordVisibility}
-                // ARIA: Mejora la accesibilidad para lectores de pantalla
                 aria-label={showPassword ? 'Ocultar cédula' : 'Mostrar cédula'}
                 className="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-500 hover:text-slate-800 transition-colors"
               >
-                {/* El ícono cambia dinámicamente según la visibilidad */}
                 {showPassword ? (
                   <EyeOffIcon className="w-5 h-5" />
                 ) : (

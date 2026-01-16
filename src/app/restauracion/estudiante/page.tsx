@@ -671,17 +671,20 @@ export default function EstudiantePage() {
     const fetchPending = async () => {
       setLoadingPending(true);
       try {
-        const { data, error } = await supabase.rpc('fn_obtener_pendientes_curso', {
-          p_curso_id: selectedCourse.id
-        });
+        // TEMPORAL: Función RPC no existe en Supabase
+        // const { data, error } = await supabase.rpc('fn_obtener_pendientes_curso', {
+        //   p_curso_id: selectedCourse.id
+        // });
+        //
+        // if (!error && data) {
+        //   console.log('📋 Pendientes cargados desde BD:', data);
+        //   setPendingStudentsFromDB(data);
+        // } else {
+        //   console.error('Error cargando pendientes:', error);
+        //   setPendingStudentsFromDB([]);
+        // }
 
-        if (!error && data) {
-          console.log('📋 Pendientes cargados desde BD:', data);
-          setPendingStudentsFromDB(data);
-        } else {
-          console.error('Error cargando pendientes:', error);
-          setPendingStudentsFromDB([]);
-        }
+        setPendingStudentsFromDB([]); // Por ahora vacío
       } catch (err) {
         console.error('Error en fetchPending:', err);
         setPendingStudentsFromDB([]);
@@ -857,10 +860,12 @@ export default function EstudiantePage() {
               if (!error) {
                 toast.success('Estudiante nivelado correctamente');
                 // Recargar pendientes desde BD
-                const { data } = await supabase.rpc('fn_obtener_pendientes_curso', {
-                  p_curso_id: selectedCourse.id
-                });
-                setPendingStudentsFromDB(data || []);
+                // TEMPORAL: Comentado hasta que se cree la función
+                // const { data } = await supabase.rpc('fn_obtener_pendientes_curso', {
+                //   p_curso_id: selectedCourse.id
+                // });
+                // setPendingStudentsFromDB(data || []);
+                setPendingStudentsFromDB([]); // Por ahora vacío
               } else {
                 toast.error('Error al nivelar: ' + error.message);
               }

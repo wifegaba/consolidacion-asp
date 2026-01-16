@@ -60,7 +60,7 @@ export async function POST(req: Request) {
       // Consulta para el rol 'Administrador'
       supabase
         .from('servidores_roles')
-        .select('rol')
+        .select('rol, dia_acceso, cursos_asignados')
         .eq('servidor_id', servidorId)
         .eq('vigente', true)
         .eq('rol', 'Administrador')
@@ -137,7 +137,12 @@ export async function POST(req: Request) {
           ...maestros.map((m: any) => ({ tipo: 'maestro', etapa: m.etapa, dia: m.dia })),
           ...logistica.map((l: any) => ({ tipo: 'logistica', dia: l.dia, franja: l.franja })),
           ...(rolDirector ? [{ tipo: 'director', etapa: 'Director' }] : []),
-          ...(rolAdministrador ? [{ tipo: 'administrador', etapa: 'Administrador' }] : [])
+          ...(rolAdministrador ? [{
+            tipo: 'administrador',
+            etapa: 'Administrador',
+            dia: rolAdministrador.dia_acceso,
+            cursos: rolAdministrador.cursos_asignados
+          }] : [])
         ];
         const token = jwt.sign({ cedula, roles: ['portal'], servidorId, nombre: servidor.nombre, asignaciones }, secret, { expiresIn: '8h' });
         const res = NextResponse.json({ redirect: '/login/portal' });

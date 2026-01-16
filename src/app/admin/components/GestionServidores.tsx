@@ -88,7 +88,7 @@ const ROLES_DEF = [
     { id: 'Maestros', label: 'Coordinadores', desc: 'Enseñanza y guia', icon: User, color: 'text-emerald-600', bg: 'bg-emerald-50' },
     { id: 'Maestro Ptm', label: 'Maestro PTM', desc: 'Academia y Cursos', icon: BookOpen, color: 'text-indigo-600', bg: 'bg-indigo-50' },
     { id: 'Director', label: 'Director', desc: 'Liderazgo general', icon: Server, color: 'text-purple-600', bg: 'bg-purple-50' },
-    { id: 'Administrador', label: 'Admin', desc: 'Control total', icon: ShieldAlert, color: 'text-slate-600', bg: 'bg-slate-50' },
+    { id: 'Administrador', label: 'Gestor PTDM', desc: 'Gestión administrativa', icon: ShieldAlert, color: 'text-slate-600', bg: 'bg-slate-50' },
 ];
 
 // Helpers

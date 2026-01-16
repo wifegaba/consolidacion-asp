@@ -18,21 +18,24 @@ export async function GET(req: NextRequest) {
 
     // --- CAMBIO: Usar JwtPayload para un tipado seguro en lugar de 'as any' ---
     const payload = jwt.verify(token, secret) as JwtPayload;
-    
+
     // --- CAMBIO: Extraer 'servidorId' del payload ---
     const { cedula, rol, servidorId } = payload || {};
-    
+
     // --- CAMBIO: 'servidorId' ahora es requerido para la sesión ---
     if (!cedula || !servidorId) {
       return NextResponse.json({ error: 'Token inválido o incompleto' }, { status: 401 });
     }
 
     // --- CAMBIO: Devolver 'servidorId' en la respuesta ---
-    return NextResponse.json({ 
+    return NextResponse.json({
       isLoggedIn: true, // Añadido para que el hook lo entienda
-      cedula, 
-      rol, 
-      servidorId 
+      cedula,
+      rol,
+      servidorId,
+      // Exponemos las asignaciones y el conteo para el frontend (Admin/Panel)
+      asignaciones: payload.asignaciones || [],
+      roleCount: payload.asignaciones && Array.isArray(payload.asignaciones) ? payload.asignaciones.length : 1
     });
 
   } catch (err) {

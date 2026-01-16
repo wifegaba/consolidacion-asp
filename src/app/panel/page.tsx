@@ -36,8 +36,8 @@ export default async function Page({
   const resolvedSearchParams = searchParams ? await searchParams : {};
 
   const currentRange: Range = resolvedSearchParams?.range === 'week' ? 'week'
-                            : resolvedSearchParams?.range === 'today' ? 'today'
-                            : 'month';
+    : resolvedSearchParams?.range === 'today' ? 'today'
+      : 'month';
   const currentValue = resolvedSearchParams?.valor;
 
 
@@ -95,8 +95,8 @@ export default async function Page({
           <div className="flex items-center justify-between">
             <span className="kpi-label">Asistencias ({
               currentRange === 'today' ? 'Hoy'
-              : currentRange === 'week' ? 'Semana'
-              : 'Mes'
+                : currentRange === 'week' ? 'Semana'
+                  : 'Mes'
             })</span>
           </div>
           <div className="flex items-center gap-6 mt-2">

@@ -77,6 +77,7 @@ type AddedRole = {
         dia?: string;
         semana?: number | string;
         culto?: string;
+        cursos?: string[];
     };
 };
 type AsigContacto = {
@@ -96,6 +97,8 @@ type ServidorRol = {
     id: number;
     rol: string;
     vigente: boolean;
+    dia_acceso?: string | null;
+    cursos_asignados?: string[] | null;
 };
 type ServidorRow = {
     id: string;
@@ -136,7 +139,15 @@ const ROLES_FILA_2 = ['Director', 'Administrador'];
 const ROLE_UI_LABEL: Record<string, string> = {
     Maestros: 'Coordinadores',
     Contactos: 'Timoteos',
+    Administrador: 'Gestor PTDM',
 };
+const CURSOS_DISPONIBLES = [
+    'Restauración 1',
+    'Fundamentos 1',
+    'Fundamentos 2',
+    'Restauración 2',
+    'Escuela de Siervos'
+];
 const uiRoleLabel = (v: string) => ROLE_UI_LABEL[v] ?? v;
 const trim = (s: string) => (s ?? '').trim();
 const esVacio = (s: string) => !trim(s);
@@ -432,6 +443,11 @@ export default function GestionServidores() {
     const [adminRolePassword, setAdminRolePassword] = useState('');
     const [adminRoleError, setAdminRoleError] = useState<string | null>(null);
     const [pendingAdminRole, setPendingAdminRole] = useState<string | null>(null);
+
+    // Estados para modal de selección de día (Gestor PTDM)
+    const [gestorDiaModalVisible, setGestorDiaModalVisible] = useState(false);
+    const [gestorDiaSeleccionado, setGestorDiaSeleccionado] = useState<string[]>(['Todos']);
+    const [gestorCursosSeleccionados, setGestorCursosSeleccionados] = useState<string[]>([]);
     useEffect(() => {
         if (editMode) {
             setCedulaUnlocked(false);
@@ -583,9 +599,20 @@ export default function GestionServidores() {
             }
             nuevoRol.detalles = { culto: form.cultoSeleccionado };
         } else if (rolEs(form.rol, 'Director') || rolEs(form.rol, 'Administrador')) {
-            // Estos roles no requieren detalles adicionales (etapa, día, culto)
-            // Solo necesitan registrarse en servidores_roles
-            nuevoRol.detalles = {};
+            if (rolEs(form.rol, 'Administrador')) {
+                // Gestor PTDM requiere día
+                if (!gestorDiaSeleccionado || gestorDiaSeleccionado.length === 0) {
+                    setGuidedError({ key: 'dia', msg: 'Selecciona día' });
+                    return;
+                }
+                nuevoRol.detalles = {
+                    dia: gestorDiaSeleccionado.join(', '),
+                    cursos: gestorCursosSeleccionados.length > 0 ? gestorCursosSeleccionados : undefined
+                };
+            } else {
+                // Director no requiere detalles adicionales
+                nuevoRol.detalles = {};
+            }
         }
 
         // Agregar a la lista si no existe ya esa COMBINACIÓN EXACTA de rol+detalles
@@ -633,6 +660,7 @@ export default function GestionServidores() {
         setNivelSemillasSel('');
         setNivelDevSel('');
         setNivelResSel('');
+        setGestorCursosSeleccionados([]);
         setGuidedError(null);
 
         // Mostrar mensaje de éxito
@@ -804,14 +832,25 @@ export default function GestionServidores() {
 
         // 3. Revisar roles administrativos (Director, Administrador, Logistica) desde servidores_roles
         const rolesVigentes = (s.servidores_roles ?? []).filter(r => r.vigente);
-        for (const rol of rolesVigentes) {
-            if (rol.rol === 'Director' || rol.rol === 'Administrador') {
+        for (const rolRow of rolesVigentes) {
+            if (rolRow.rol === 'Administrador') {
                 newRolesAgregados.push({
-                    rol: rol.rol,
+                    rol: 'Administrador',
+                    detalles: {
+                        dia: rolRow.dia_acceso || 'Todos',
+                        cursos: rolRow.cursos_asignados || []
+                    }
+                });
+            } else if (rolRow.rol === 'Director') {
+                newRolesAgregados.push({
+                    rol: 'Director',
                     detalles: {}
                 });
+            } else if (rolRow.rol === 'Logistica') {
+                // Intentar obtener culto desde logistica_turnos
+                // (no lo tenemos en este select, así que omitir detalles)
+                newRolesAgregados.push({ rol: 'Logistica', detalles: {} });
             }
-            // Logistica también podría cargarse aquí si fuera necesario
         }
 
         setForm(prev => ({ ...prev, rolesAgregados: newRolesAgregados }));
@@ -1038,10 +1077,25 @@ export default function GestionServidores() {
                 // 2. Insertar en tabla de roles
                 // Estrategia: primero intentar UPDATE, si no existe hacer INSERT
 
+                // Preparar campo dia_acceso y cursos_asignados (solo para Gestor PTDM)
+                const diaAcceso = (rolEs(item.rol as any, 'Administrador') && item.detalles?.dia)
+                    ? item.detalles.dia
+                    : null;
+
+                const cursosAsignados = (rolEs(item.rol as any, 'Administrador') && item.detalles?.cursos)
+                    ? item.detalles.cursos
+                    : null;
+
+
+
                 // Primero intentar actualizar si ya existe
                 const { data: updateData, error: updateError } = await supabase
                     .from('servidores_roles')
-                    .update({ vigente: true })
+                    .update({
+                        vigente: true,
+                        dia_acceso: diaAcceso,
+                        cursos_asignados: cursosAsignados
+                    })
                     .eq('servidor_id', servidorId)
                     .eq('rol', item.rol)
                     .select();
@@ -1050,7 +1104,13 @@ export default function GestionServidores() {
                 if (!updateError && (!updateData || updateData.length === 0)) {
                     const { error: insertError } = await supabase
                         .from('servidores_roles')
-                        .insert({ servidor_id: servidorId, rol: item.rol, vigente: true });
+                        .insert({
+                            servidor_id: servidorId,
+                            rol: item.rol,
+                            vigente: true,
+                            dia_acceso: diaAcceso,
+                            cursos_asignados: cursosAsignados
+                        });
 
                     if (insertError) {
                         console.error(`Error insertando rol ${item.rol}:`, insertError);
@@ -1251,24 +1311,39 @@ export default function GestionServidores() {
             return;
         }
 
-        // Contraseña correcta - asignar el rol
+        // Contraseña correcta - separar lógica por rol
         if (pendingAdminRole) {
-            setForm((prev) => ({
-                ...prev,
-                rol: pendingAdminRole,
-                cultoSeleccionado: '',
-                cultos: defaultCultos(),
-                destino: [],
-                observaciones: '',
-            }));
-            showToast('success', `Rol ${pendingAdminRole} seleccionado correctamente`);
-        }
+            if (pendingAdminRole === 'Administrador') {
+                // Gestor PTDM: cerrar modal de contraseña y abrir modal de día
+                setAdminRoleModalVisible(false);
+                setAdminRolePassword('');
+                setAdminRoleError(null);
+                setPendingAdminRole(null);
 
-        // Cerrar modal
-        setAdminRoleModalVisible(false);
-        setAdminRolePassword('');
-        setAdminRoleError(null);
-        setPendingAdminRole(null);
+                // Abrir modal de selección de día para Gestor PTDM
+                setGestorDiaModalVisible(true);
+                setGestorDiaSeleccionado(['Todos']); // Reset al valor por defecto
+
+            } else if (pendingAdminRole === 'Director') {
+                // Director: solo asignar rol, NO necesita modal de día
+                setForm((prev) => ({
+                    ...prev,
+                    rol: pendingAdminRole,
+                    cultoSeleccionado: '',
+                    cultos: defaultCultos(),
+                    destino: [],
+                    observaciones: '',
+                }));
+
+                showToast('success', 'Director seleccionado correctamente');
+
+                // Cerrar modal
+                setAdminRoleModalVisible(false);
+                setAdminRolePassword('');
+                setAdminRoleError(null);
+                setPendingAdminRole(null);
+            }
+        }
     };
 
     const closeAdminRoleModal = () => {
@@ -1292,6 +1367,27 @@ export default function GestionServidores() {
         if (destino === 'Contactos' || destino === 'Maestros') {
             setContactosModalVisible(true);
         }
+    };
+
+    // Handler para confirmar día del Gestor PTDM
+    const confirmarGestorDia = () => {
+        // Asignar el rol con el día y cursos seleccionados
+        setForm((prev) => ({
+            ...prev,
+            rol: 'Administrador',
+            cultoSeleccionado: '',
+            cultos: defaultCultos(),
+            destino: [],
+            observaciones: '',
+        }));
+
+        setGestorDiaModalVisible(false);
+
+        const diasTexto = gestorDiaSeleccionado.join(', ');
+        const cursosTexto = gestorCursosSeleccionados.length > 0
+            ? ` | Cursos: ${gestorCursosSeleccionados.join(', ')}`
+            : '';
+        showToast('success', `Gestor PTDM configurado con acceso: ${diasTexto}${cursosTexto}`);
     };
 
     /* ===== 4. INICIO DEL BLOQUE JSX REFACTORIZADO ===== */
@@ -1780,6 +1876,193 @@ export default function GestionServidores() {
                             <p className="srv-info" style={{ marginTop: 18, lineHeight: 1.35 }}>
                                 Se registrará como <b>Timoteo - …</b> y se configurarán las opciones del área elegida.
                             </p>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Modal de Selección de Día - Gestor PTDM */}
+            {gestorDiaModalVisible && (
+                <div className="srv-modal" role="dialog" aria-modal="true">
+                    <div className="srv-modal__box" style={{ maxWidth: 900, padding: '24px', borderRadius: 18 }}>
+                        <button
+                            className="srv-modal__close"
+                            aria-label="Cerrar"
+                            onClick={() => {
+                                setGestorDiaModalVisible(false);
+                                setGestorCursosSeleccionados([]);
+                                setForm((prev) => ({ ...prev, rol: '' }));
+                            }}
+                        >
+                            ×
+                        </button>
+
+                        <div className="srv-modal__content">
+                            <h4 style={{ marginBottom: 8, fontWeight: 600, fontSize: 18 }}>
+                                Configurar Gestor PTDM
+                            </h4>
+                            <p style={{ marginBottom: 24, fontSize: 14, color: '#64748b' }}>
+                                Selecciona el día de acceso y los cursos asignados
+                            </p>
+
+                            {/* Layout de dos columnas */}
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
+
+                                {/* Columna Izquierda: Días */}
+                                <div>
+                                    <h5 style={{ marginBottom: 12, fontWeight: 600, fontSize: 15, color: '#334155' }}>
+                                        Día de Acceso
+                                    </h5>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                                        {['Domingo', 'Martes', 'Virtual', 'Todos'].map((dia) => {
+                                            const isActive = gestorDiaSeleccionado.includes(dia);
+                                            const handleToggle = () => {
+                                                if (dia === 'Todos') {
+                                                    setGestorDiaSeleccionado(['Todos']);
+                                                } else {
+                                                    setGestorDiaSeleccionado(prev => {
+                                                        const sinTodos = prev.filter(d => d !== 'Todos');
+                                                        if (sinTodos.includes(dia)) {
+                                                            const next = sinTodos.filter(d => d !== dia);
+                                                            return next.length === 0 ? ['Todos'] : next;
+                                                        } else {
+                                                            return [...sinTodos, dia];
+                                                        }
+                                                    });
+                                                }
+                                            };
+                                            return (
+                                                <label
+                                                    key={dia}
+                                                    style={{
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'space-between',
+                                                        padding: '16px',
+                                                        borderRadius: 12,
+                                                        border: `2px solid ${isActive ? '#3b82f6' : '#e2e8f0'}`,
+                                                        background: isActive ? '#eff6ff' : '#ffffff',
+                                                        cursor: 'pointer',
+                                                        transition: 'all 0.2s ease',
+                                                    }}
+                                                    onClick={(e) => {
+                                                        e.preventDefault();
+                                                        handleToggle();
+                                                    }}
+                                                >
+                                                    <span style={{
+                                                        fontSize: 15,
+                                                        fontWeight: isActive ? 600 : 500,
+                                                        color: isActive ? '#1e40af' : '#334155'
+                                                    }}>
+                                                        {dia}
+                                                    </span>
+                                                    <div style={{
+                                                        position: 'relative',
+                                                        width: 51,
+                                                        height: 31,
+                                                        borderRadius: 9999,
+                                                        background: isActive ? '#3b82f6' : '#cbd5e1',
+                                                        transition: 'all 0.3s ease',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        padding: '2px',
+                                                    }}>
+                                                        <div style={{
+                                                            width: 27,
+                                                            height: 27,
+                                                            borderRadius: '50%',
+                                                            background: '#ffffff',
+                                                            boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+                                                            transition: 'transform 0.3s cubic-bezier(0.4, 0.0, 0.2, 1)',
+                                                            transform: isActive ? 'translateX(20px)' : 'translateX(0px)',
+                                                        }} />
+                                                    </div>
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={isActive}
+                                                        readOnly
+                                                        style={{ display: 'none' }}
+                                                    />
+                                                </label>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+
+                                {/* Columna Derecha: Cursos */}
+                                <div>
+                                    <h5 style={{ marginBottom: 12, fontWeight: 600, fontSize: 15, color: '#334155' }}>
+                                        Cursos Asignados
+                                    </h5>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                                        {CURSOS_DISPONIBLES.map((curso) => {
+                                            const isSelected = gestorCursosSeleccionados.includes(curso);
+                                            return (
+                                                <label
+                                                    key={curso}
+                                                    style={{
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        padding: '14px',
+                                                        borderRadius: 10,
+                                                        border: `2px solid ${isSelected ? '#10b981' : '#e2e8f0'}`,
+                                                        background: isSelected ? '#f0fdf4' : '#ffffff',
+                                                        cursor: 'pointer',
+                                                        transition: 'all 0.2s ease',
+                                                    }}
+                                                >
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={isSelected}
+                                                        onChange={(e) => {
+                                                            if (e.target.checked) {
+                                                                setGestorCursosSeleccionados(prev => [...prev, curso]);
+                                                            } else {
+                                                                setGestorCursosSeleccionados(prev => prev.filter(c => c !== curso));
+                                                            }
+                                                        }}
+                                                        style={{
+                                                            marginRight: '12px',
+                                                            width: '18px',
+                                                            height: '18px',
+                                                            cursor: 'pointer',
+                                                            accentColor: '#10b981'
+                                                        }}
+                                                    />
+                                                    <span style={{
+                                                        fontSize: 14,
+                                                        fontWeight: isSelected ? 600 : 500,
+                                                        color: isSelected ? '#059669' : '#334155',
+                                                        flex: 1
+                                                    }}>
+                                                        {curso}
+                                                    </span>
+                                                </label>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="srv-actions srv-modal__actions" style={{ marginTop: 24 }}>
+                            <button
+                                className="srv-btn"
+                                onClick={() => {
+                                    setGestorDiaModalVisible(false);
+                                    setGestorCursosSeleccionados([]);
+                                    setForm((prev) => ({ ...prev, rol: '' }));
+                                }}
+                            >
+                                Cancelar
+                            </button>
+                            <button
+                                className="srv-btn-primary"
+                                onClick={confirmarGestorDia}
+                            >
+                                Confirmar
+                            </button>
                         </div>
                     </div>
                 </div>

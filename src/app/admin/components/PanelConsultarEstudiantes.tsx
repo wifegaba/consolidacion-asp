@@ -44,9 +44,10 @@ interface PanelConsultarProps {
     loading: boolean;
     fotoUrls: Record<string, string>;
     onDataUpdated: () => void;
+    currentUser: { rol?: string; diaAcceso?: string; cursosAcceso?: string[] };
 }
 
-export default function PanelConsultarEstudiantes({ maestros, cursos, estudiantes, inscripciones, loading, fotoUrls, onDataUpdated }: PanelConsultarProps) {
+export default function PanelConsultarEstudiantes({ maestros, cursos, estudiantes, inscripciones, loading, fotoUrls, onDataUpdated, currentUser }: PanelConsultarProps) {
     const [search, setSearch] = useState('');
     const [selectedMaestroId, setSelectedMaestroId] = useState('');
     const [selectedCourseId, setSelectedCourseId] = useState('');
@@ -79,16 +80,21 @@ export default function PanelConsultarEstudiantes({ maestros, cursos, estudiante
     const { pendientes, matriculados } = useMemo(() => {
         const q = search.toLowerCase();
         const match = (e: Estudiante) => !q || e.nombre.toLowerCase().includes(q) || e.cedula?.includes(q);
+
+        const isDirector = !currentUser.rol || currentUser.rol === 'Director';
+        const cursosPermitidos = currentUser.cursosAcceso || [];
+
         return {
             pendientes: procesados.filter(e => !e.inscripcion_id && match(e)),
             matriculados: procesados.filter(e =>
                 e.inscripcion_id &&
+                (isDirector || cursosPermitidos.length === 0 || (e.curso && cursosPermitidos.includes(e.curso.nombre))) &&
                 (!selectedMaestroId || e.maestro?.id === selectedMaestroId) &&
                 (!selectedCourseId || e.curso?.id === parseInt(selectedCourseId)) &&
                 match(e)
             )
         };
-    }, [procesados, search, selectedMaestroId, selectedCourseId]);
+    }, [procesados, search, selectedMaestroId, selectedCourseId, currentUser]);
 
     return (
         <GlassCard className="h-full flex flex-col relative">

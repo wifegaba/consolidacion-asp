@@ -286,8 +286,16 @@ export default function PanelMatricular({ maestros, cursos, estudiantes, inscrip
                                                         Susp. {cursos.find(c => c.id === e.suspendedCourseId)?.nombre}
                                                     </span>
                                                 )}
+                                                {e.dia && (
+                                                    <span className={`text-[10px] uppercase tracking-wider font-bold px-2.5 py-1 rounded-lg shadow-sm ${e.dia === 'Domingo' ? 'bg-blue-100 text-blue-700 border border-blue-200' :
+                                                            e.dia === 'Martes' ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' :
+                                                                'bg-pink-100 text-pink-700 border border-pink-200'
+                                                        }`}>
+                                                        {e.dia}
+                                                    </span>
+                                                )}
                                             </div>
-                                            <p className="text-xs text-gray-500">{e.cedula}</p>
+                                            <p className="text-xs text-gray-500">{e.telefono || 'Sin teléfono'}</p>
                                         </div>
                                     </motion.div>
                                 ))}

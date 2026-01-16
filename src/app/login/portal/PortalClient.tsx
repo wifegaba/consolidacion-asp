@@ -13,18 +13,23 @@ type Asignacion = {
     dia: string;
     semana?: number;
     franja?: string;
+    cursos?: string[];
     key: string;
 };
 
 // Custom SVG Icons matching the panel
-const ContactoIcon = () => (
-    <svg width="60" height="60" viewBox="0 0 24 24" fill="currentColor" className="text-white drop-shadow-lg">
+const ContactoIcon = ({ variant }: { variant?: 'martes' | 'virtual' | 'default' }) => (
+    <svg width="60" height="60" viewBox="0 0 24 24" fill="currentColor" className={`${variant === 'virtual' ? 'text-fuchsia-400' :
+            variant === 'martes' ? 'text-sky-400' : 'text-white'
+        } drop-shadow-lg transition-colors duration-500`}>
         <circle cx="12" cy="12" r="6" fillOpacity="0.9" />
     </svg>
 );
 
-const MaestroIcon = () => (
-    <svg width="60" height="60" viewBox="0 0 24 24" fill="currentColor" className="text-indigo-600 drop-shadow-md">
+const MaestroIcon = ({ variant }: { variant?: 'martes' | 'virtual' | 'default' }) => (
+    <svg width="60" height="60" viewBox="0 0 24 24" fill="currentColor" className={`${variant === 'virtual' ? 'text-fuchsia-400' :
+            variant === 'martes' ? 'text-sky-400' : 'text-indigo-600'
+        } drop-shadow-md transition-colors duration-500`}>
         <circle cx="12" cy="6" r="3.5" fillOpacity="0.9" />
         <circle cx="6" cy="16" r="3.5" fillOpacity="0.7" />
         <circle cx="18" cy="16" r="3.5" fillOpacity="0.7" />
@@ -127,7 +132,7 @@ export default function PortalClient({ nombre, asignaciones }: { nombre: string,
             <div className="absolute top-[-10%] left-1/2 -translate-x-1/2 w-[600px] h-[500px] bg-blue-500/20 blur-[120px] rounded-full pointer-events-none mix-blend-screen" />
 
             <div className="w-full max-w-4xl z-10 relative">
-                <header className="mb-12 text-center">
+                <header className="mb-8 text-center">
                     <motion.div
                         initial={{ opacity: 0, y: -20 }}
                         animate={{ opacity: 1, y: 0 }}
@@ -157,7 +162,7 @@ export default function PortalClient({ nombre, asignaciones }: { nombre: string,
                             whileTap={!loadingKey ? { scale: 0.98 } : {}}
                             onClick={() => handleSelect(a)}
                             disabled={!!loadingKey}
-                            className={`relative group flex flex-col items-center rounded-[40px] text-center w-full h-full transition-all duration-300 ${asignaciones.length <= 2 ? 'px-8 py-12' : 'p-6'
+                            className={`relative group flex flex-col items-center rounded-[32px] text-center w-full h-full transition-all duration-300 ${asignaciones.length <= 2 ? 'px-8 py-8' : 'p-5'
                                 } ${loadingKey && loadingKey !== a.key ? 'opacity-50 blur-sm' : ''} ${loadingKey === a.key ? 'cursor-wait' : ''}`}
                             style={{
                                 // Ultra Glass Effect - Cleaner with Glowing Edges
@@ -182,17 +187,30 @@ export default function PortalClient({ nombre, asignaciones }: { nombre: string,
                             )}
 
                             {/* Floating Icon Container */}
-                            <div className="relative mb-8 p-4">
+                            <div className="relative mb-4 p-2">
                                 {/* Glow behind icon */}
-                                <div className="absolute inset-0 bg-blue-500/30 blur-2xl rounded-full opacity-60 group-hover:opacity-100 transition-opacity duration-500" />
+                                {(() => {
+                                    const diaLower = a.dia.toLowerCase();
+                                    const variant = diaLower.includes('virtual') ? 'virtual' : diaLower.includes('martes') ? 'martes' : 'default';
+                                    const isCoordOrTim = ['contacto', 'maestro'].includes(a.tipo);
 
-                                <div className="relative z-10 transform transition-transform duration-500 group-hover:scale-110 group-hover:-translate-y-2 drop-shadow-2xl">
-                                    {a.tipo === 'contacto' && <ContactoIcon />}
-                                    {a.tipo === 'maestro' && <MaestroIcon />}
-                                    {a.tipo === 'logistica' && <LogisticaIcon />}
-                                    {a.tipo === 'director' && <DirectorIcon />}
-                                    {a.tipo === 'administrador' && <AdminIcon />}
-                                </div>
+                                    return (
+                                        <>
+                                            <div className={`absolute inset-0 blur-2xl rounded-full opacity-60 group-hover:opacity-100 transition-all duration-500 ${isCoordOrTim && variant === 'virtual' ? 'bg-fuchsia-500/40' :
+                                                    isCoordOrTim && variant === 'martes' ? 'bg-sky-500/40' :
+                                                        'bg-blue-500/30'
+                                                }`} />
+
+                                            <div className="relative z-10 transform transition-transform duration-500 group-hover:scale-110 group-hover:-translate-y-2 drop-shadow-2xl">
+                                                {a.tipo === 'contacto' && <ContactoIcon variant={variant} />}
+                                                {a.tipo === 'maestro' && <MaestroIcon variant={variant} />}
+                                                {a.tipo === 'logistica' && <LogisticaIcon />}
+                                                {a.tipo === 'director' && <DirectorIcon />}
+                                                {a.tipo === 'administrador' && <AdminIcon />}
+                                            </div>
+                                        </>
+                                    );
+                                })()}
                             </div>
 
                             <h3 className="font-bold text-white text-3xl mb-2 tracking-tight drop-shadow-lg group-hover:text-blue-100 transition-colors">
@@ -200,20 +218,42 @@ export default function PortalClient({ nombre, asignaciones }: { nombre: string,
                             </h3>
 
                             {!['director', 'administrador'].includes(a.tipo) && (
-                                <p className="text-blue-100/90 font-medium tracking-wide mb-6 uppercase text-sm drop-shadow-sm">
+                                <p className="text-blue-100/90 font-medium tracking-wide mb-4 uppercase text-sm drop-shadow-sm">
                                     {a.etapa}
                                 </p>
                             )}
 
-                            <div className="mt-auto pt-6 border-t border-white/10 w-full">
+                            {a.tipo === 'administrador' && a.cursos && a.cursos.length > 0 && (
+                                <div className="flex flex-wrap justify-center gap-2 mb-4 max-w-[200px]">
+                                    {a.cursos.map((curso, idx) => (
+                                        <span key={idx} className="px-3 py-1 bg-blue-500/20 border border-blue-400/30 rounded-lg text-xs font-medium text-blue-100 backdrop-blur-sm">
+                                            {curso}
+                                        </span>
+                                    ))}
+                                </div>
+                            )}
+
+                            <div className="mt-auto pt-4 border-t border-white/10 w-full">
                                 {!a.dia ? (
                                     <span className="text-blue-100/50 text-xs font-bold tracking-[0.2em] uppercase">
                                         Acceso Administrativo
                                     </span>
                                 ) : (
-                                    <div className="inline-flex items-center gap-2 bg-white/5 px-4 py-1.5 rounded-full border border-white/10 backdrop-blur-md">
-                                        <div className={`w-2 h-2 rounded-full shadow-[0_0_8px_currentcolor] ${a.dia.toLowerCase().includes('domingo') ? 'bg-emerald-400 text-emerald-400' :
-                                            a.dia.toLowerCase().includes('martes') ? 'bg-sky-400 text-sky-400' : 'bg-slate-400 text-slate-400'
+                                    <div className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-full border backdrop-blur-md ${a.dia.toLowerCase().includes('domingo')
+                                        ? 'bg-emerald-500/10 border-emerald-500/20'
+                                        : a.dia.toLowerCase().includes('martes')
+                                            ? 'bg-sky-500/10 border-sky-500/20'
+                                            : a.dia.toLowerCase().includes('virtual')
+                                                ? 'bg-gradient-to-r from-fuchsia-500/20 to-pink-500/20 border-fuchsia-500/30'
+                                                : 'bg-white/5 border-white/10'
+                                        }`}>
+                                        <div className={`w-2 h-2 rounded-full shadow-[0_0_8px_currentcolor] ${a.dia.toLowerCase().includes('domingo')
+                                            ? 'bg-emerald-400 text-emerald-400'
+                                            : a.dia.toLowerCase().includes('martes')
+                                                ? 'bg-sky-400 text-sky-400'
+                                                : a.dia.toLowerCase().includes('virtual')
+                                                    ? 'bg-fuchsia-400 text-fuchsia-400'
+                                                    : 'bg-slate-400 text-slate-400'
                                             }`} />
                                         <span className="text-white text-xs font-semibold tracking-wide">
                                             {a.dia} {a.franja && `• ${a.franja}`}
@@ -229,7 +269,7 @@ export default function PortalClient({ nombre, asignaciones }: { nombre: string,
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     transition={{ delay: 1 }}
-                    className="mt-20 text-center"
+                    className="mt-8 text-center"
                 >
                     <a href="/login" className="relative group inline-flex items-center gap-3 px-8 py-3 rounded-full overflow-hidden transition-all">
                         {/* Button Glow */}

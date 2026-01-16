@@ -44,6 +44,7 @@ export default async function PortalPage() {
                 tipo: a.tipo as 'contacto' | 'maestro' | 'logistica' | 'director' | 'administrador',
                 etapa: a.etapa || 'Logística',
                 dia: a.dia || '',
+                cursos: a.cursos || [],
                 key
             };
         });
@@ -69,7 +70,7 @@ export default async function PortalPage() {
                 .eq('vigente', true),
             supabase
                 .from('servidores_roles')
-                .select('rol')
+                .select('rol, dia_acceso, cursos_asignados')
                 .eq('servidor_id', servidorId)
                 .eq('vigente', true)
                 .in('rol', ['Director', 'Administrador']),
@@ -110,7 +111,8 @@ export default async function PortalPage() {
             ...roles.map((r: any) => ({
                 tipo: r.rol.toLowerCase() as 'director' | 'administrador',
                 etapa: r.rol,
-                dia: '',
+                dia: r.dia_acceso || '',
+                cursos: r.cursos_asignados || [],
                 key: `r-${r.rol}`
             }))
         ];

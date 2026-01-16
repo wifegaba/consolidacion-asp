@@ -21,7 +21,7 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: 'Sesión expirada' }, { status: 401 });
     }
 
-    const { cedula, servidorId } = payload;
+    const { cedula, servidorId, asignaciones } = payload;
     if (!cedula || !servidorId) {
         return NextResponse.json({ error: 'Datos de sesión incompletos' }, { status: 400 });
     }
@@ -33,7 +33,8 @@ export async function POST(req: Request) {
         console.log('Body:', body);
 
         const supabase = getServerSupabase();
-        let newPayload: any = { cedula, servidorId, rol: tipo };
+        // IMPORTANTE: Preservar 'asignaciones' para que el LogoutButton sepa que hay más roles
+        let newPayload: any = { cedula, servidorId, rol: tipo, asignaciones };
         let redirectUrl = '';
 
         // VERIFICACIÓN ESTRICTA EN BD (Surgical approach: trust but verify)

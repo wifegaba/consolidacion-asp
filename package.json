@@ -16,6 +16,7 @@
     "bcryptjs": "^3.0.2",
     "canvas-confetti": "^1.9.4",
     "d3": "^7.9.0",
+    "dotenv": "^17.2.3",
     "framer-motion": "^12.23.24",
     "jose": "^6.1.0",
     "jsonwebtoken": "^9.0.2",

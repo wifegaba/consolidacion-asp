@@ -23,9 +23,10 @@ interface PanelPromovidosProps {
     estudiantes: Estudiante[];
     onDataUpdated: () => void;
     loading: boolean;
+    currentUser: { rol?: string; diaAcceso?: string; cursosAcceso?: string[] };
 }
 
-export default function PanelPromovidos({ maestros, cursos, estudiantes, onDataUpdated, loading }: PanelPromovidosProps) {
+export default function PanelPromovidos({ maestros, cursos, estudiantes, onDataUpdated, loading, currentUser }: PanelPromovidosProps) {
     const [promotedStudents, setPromotedStudents] = useState<PromotedStudent[]>([]);
     const [fetching, setFetching] = useState(true);
 
@@ -83,14 +84,21 @@ export default function PanelPromovidos({ maestros, cursos, estudiantes, onDataU
     // Mapped Data
     const groupedStats = useMemo(() => {
         const stats: Record<number, { name: string; count: number }> = {};
+
+        const isDirector = !currentUser.rol || currentUser.rol === 'Director';
+        const cursosPermitidos = currentUser.cursosAcceso || [];
+
         promotedStudents.forEach(s => {
+            // Filtrar por curso de destino si el usuario no es Director
+            if (!isDirector && cursosPermitidos.length > 0 && !cursosPermitidos.includes(s.nextCourseName)) return;
+
             if (!stats[s.nextCourseId]) {
                 stats[s.nextCourseId] = { name: s.nextCourseName, count: 0 };
             }
             stats[s.nextCourseId].count++;
         });
         return stats;
-    }, [promotedStudents]);
+    }, [promotedStudents, currentUser]);
 
     const studentsForSelectedCourse = useMemo(() => {
         if (!selectedNextCourseId) return [];

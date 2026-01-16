@@ -7,7 +7,38 @@ import './panel.css'; // ← único CSS para todo el panel (sidebar + content)
 import './contactos/contactos.css';
 import './servidores/servidores.css';
 
-export default function PanelLayout({ children }: { children: React.ReactNode }) {
+import { cookies } from 'next/headers';
+import jwt from 'jsonwebtoken';
+import { LogoutButton } from '@/components/ui/LogoutButton'; // Asegúrate de que el path sea correcto
+
+export default async function PanelLayout({ children }: { children: React.ReactNode }) {
+    // --- LÓGICA DE Detección de Roles ---
+    const cookieStore = await cookies();
+    const isProd = process.env.NODE_ENV === 'production';
+    const tokenName = isProd ? '__Host-session' : 'session';
+    const token = cookieStore.get(tokenName)?.value;
+
+    let roleCount = 1; // Por defecto asumimos 1 para evitar bloqueo
+
+    if (token && process.env.JWT_SECRET) {
+        try {
+            const payload = jwt.verify(token, process.env.JWT_SECRET) as any;
+            // Si el token tiene asignaciones (nueva lógica), las contamos
+            if (payload.asignaciones && Array.isArray(payload.asignaciones)) {
+                roleCount = payload.asignaciones.length;
+            } else {
+                // FALLBACK: Si es un token antiguo o no tiene asignaciones, 
+                // podríamos asumir 1 o intentar una lógica más compleja.
+                // Para mantenerlo rápido, asumimos 1 (Logout directo) a menos que sepamos lo contrario.
+                // Opcional: Podrías hacer una consulta rápida a BD aquí si es crítico, 
+                // pero por rendimiento mejor confiar en el token.
+            }
+        } catch (e) {
+            // Token inválido, no hacemos nada (el middleware o page manejarán la auth)
+        }
+    }
+    // ------------------------------------
+
     return (
         <main className="app-frame">
             <div className="shell">
@@ -58,32 +89,38 @@ export default function PanelLayout({ children }: { children: React.ReactNode })
                             <span className="nav-text">Restauración</span>
                         </Link>
 
-                       
 
+
+
+
+                        {/* --- INICIO CAMBIO: Botón Inteligente --- */}
+                        {/* Pasamos el flag calculado desde el Server Component */}
+                        <LogoutButton isMultiRole={roleCount > 1} />
+                        {/* --- FIN CAMBIO --- */}
 
                     </nav>
 
 
 
-                   <div className="sidebar-footer">
-  <div className="user">
-    <Image
-      src="/wf-logo.png"   // 🔹 asegúrate que el archivo exista en /public
-      alt="WF SYSTEM Logo"
-      width={42}
-      height={42}
-      className="avatar-logo"
-    />
-<div className="user-meta">
-  <span className="user-email">
-    © 2025 Designed by <br />
-    <strong>WF SYSTEM</strong>
-  </span>
-</div>
+                    <div className="sidebar-footer">
+                        <div className="user">
+                            <Image
+                                src="/wf-logo.png"   // 🔹 asegúrate que el archivo exista en /public
+                                alt="WF SYSTEM Logo"
+                                width={42}
+                                height={42}
+                                className="avatar-logo"
+                            />
+                            <div className="user-meta">
+                                <span className="user-email">
+                                    © 2025 Designed by <br />
+                                    <strong>WF SYSTEM</strong>
+                                </span>
+                            </div>
 
 
-  </div>
-</div>
+                        </div>
+                    </div>
 
 
 

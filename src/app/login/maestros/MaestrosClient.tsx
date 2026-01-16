@@ -113,6 +113,12 @@ const MAC2025_PANEL_VARIANTS = {
   }
 };
 
+const DEPURACION_MODAL_VARIANTS: any = {
+  initial: { opacity: 0, scale: 0.95, y: 20 },
+  animate: { opacity: 1, scale: 1, y: 0, transition: { duration: 0.4, ease: [0.2, 0.8, 0.2, 1] } },
+  exit: { opacity: 0, scale: 0.95, y: 20, transition: { duration: 0.2 } }
+};
+
 /** ======== Banco Archivo ======== */
 type BancoRow = {
   progreso_id: string;
@@ -247,7 +253,7 @@ const PendienteItem = memo(({
   c,
   selectedId,
   disabled,
-  onSelect
+  onSelect,
 }: {
   c: PendRowUI,
   selectedId: string | null,
@@ -264,10 +270,13 @@ const PendienteItem = memo(({
         ${c._ui === 'changed' ? 'animate-flashBg' : ''}
         ${disabled ? 'opacity-55 cursor-not-allowed' : 'hover:bg-white/40 cursor-pointer'}
         transition-[box-shadow] duration-500`}
-      onClick={(e) => onSelect(e, c)}
+      onClick={(e) => {
+        onSelect(e, c);
+      }}
     >
       <div className="flex items-start justify-between gap-4">
-        <div className="flex items-start gap-3 min-w-0">
+
+        <div className="flex items-start gap-3 min-w-0 flex-1">
           <span className={`mt-1 inline-block h-2.5 w-2.5 rounded-full ${c._ui === 'new'
             ? 'bg-emerald-500 shadow-[0_0_0_4px_rgba(16,185,129,.25)] animate-newUiFade-5s'
             : (disabled
@@ -440,6 +449,13 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
   const [showNextWeekModal, setShowNextWeekModal] = useState(false);
   const [modalTargetId, setModalTargetId] = useState<string | null>(null);
   const [modalPosition, setModalPosition] = useState<{ top: number; left: number } | null>(null);
+
+  // === Estado para Depuración ===
+  const [isDebugging, setIsDebugging] = useState(false);
+  const [selectedDepuracionIds, setSelectedDepuracionIds] = useState<Set<string>>(new Set());
+  const [showDepuracionModal, setShowDepuracionModal] = useState(false);
+  const [depuracionReason, setDepuracionReason] = useState<string>('');
+  const [depuracionLoading, setDepuracionLoading] = useState(false);
 
   /** ======== Banco Archivo (estado) ======== */
   const [bancoOpen, setBancoOpen] = useState(false);
@@ -773,6 +789,48 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
     toast.success('Archivo PDF de Asistencias descargado exitosamente');
   };
 
+  /* =========================================
+     Función: handleDepurar (Movida al scope principal)
+     ========================================= */
+  const handleDepurar = async () => {
+    if (!depuracionReason) return;
+    setDepuracionLoading(true);
+    try {
+      const { error } = await supabase.rpc('fn_depurar_registros', {
+        p_ids: Array.from(selectedDepuracionIds),
+        p_motivo: depuracionReason,
+        p_hecho_por: servidorId
+      });
+
+      if (error) throw error;
+
+      toast.success(`${selectedDepuracionIds.size} registros depurados correctamente.`);
+
+      // Limpiar estado
+      setShowDepuracionModal(false);
+      setIsDebugging(false);
+      setSelectedDepuracionIds(new Set());
+      setDepuracionReason('');
+
+      // Recargar lista
+      if (semana && dia) {
+        await fetchPendientes(semana, dia, { quiet: true });
+        await fetchAgendados({ quiet: true });
+        // También recargar banco de archivo si está abierto, aunque se cierre al cambiar de vista,
+        // pero aquí estamos en la misma vista.
+        // Si depuramos, movemos de pendiente a archivo, así que deberíamos refrescar el contador del banco
+        // El useEffect del contador depende de 'asig', no de 'bancoRows'.
+        // Forzamos un update del contador si es necesario, pero el usuario abrirá el banco después.
+      }
+
+    } catch (e: any) {
+      console.error(e);
+      toast.error('Error al depurar registros: ' + (e.message || 'Desconocido'));
+    } finally {
+      setDepuracionLoading(false);
+    }
+  };
+
   // Cargar asignación
   useEffect(() => {
     (async () => {
@@ -998,8 +1056,9 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
       nombre: student.nombre,
       telefono: student.telefono ?? null,
       cedula: placeholderCedula,
+      dia: asig?.dia ?? null,
       created_by: servidorId,
-      notas: `Registro automático creado desde "Asistencia" (Restauración) el ${new Date().toISOString()}. Cédula pendiente de actualizar.`
+      notas: `Registro automático creado desde "Asistencia" (Restauración/${asig?.dia ?? 'N/A'}) el ${new Date().toISOString()}. Cédula pendiente de actualizar.`
     };
     try {
       const { error } = await supabase.from('entrevistas').insert(payload);
@@ -1129,7 +1188,13 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
       }
 
       if (newMatch) refreshQuiet();
+
     };
+
+    /* =========================================
+       Función: handleDepurar
+       ========================================= */
+
 
     let t: number | null = null;
     const refreshQuiet = () => {
@@ -1654,6 +1719,30 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
+                    {/* Botón Depuración en Modal */}
+                    <button
+                      onClick={() => {
+                        setIsDebugging(!isDebugging);
+                        setSelectedDepuracionIds(new Set());
+                      }}
+                      className={`inline-flex items-center gap-1 rounded-xl px-2 py-1 text-xs font-medium transition ring-1 ring-white/50 shadow-sm
+                        ${isDebugging
+                          ? 'bg-amber-100 text-amber-800 hover:bg-amber-200'
+                          : 'bg-white/85 text-neutral-700 hover:bg-white'}`}
+                      title="Activar modo depuración"
+                    >
+                      {isDebugging ? 'Cancelar' : 'Depurar'}
+                    </button>
+
+                    {isDebugging && selectedDepuracionIds.size > 0 && (
+                      <button
+                        onClick={() => setShowDepuracionModal(true)}
+                        className="inline-flex items-center gap-1 rounded-xl bg-indigo-600 text-white px-3 py-1 text-xs font-bold shadow-md hover:bg-indigo-700 transition"
+                      >
+                        Enviar ({selectedDepuracionIds.size})
+                      </button>
+                    )}
+
                     <button
                       onClick={downloadBancoPDF}
                       className="inline-flex items-center gap-1 rounded-xl bg-gradient-to-r from-red-400 via-red-500 to-red-600 text-white ring-1 ring-white/50 shadow-[0_6px_20px_rgba(220,38,38,0.35)] px-2 py-1 text-xs font-medium hover:scale-[1.02] active:scale-95 transition"
@@ -1700,6 +1789,22 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
                             <table className="w-full text-sm">
                               <thead>
                                 <tr className="text-left text-neutral-800">
+                                  {isDebugging && (
+                                    <th className="py-2 pl-3 bg-white/90 supports-[backdrop-filter]:bg-white/70 backdrop-blur-sm w-10">
+                                      <input
+                                        type="checkbox"
+                                        className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                                        onChange={(e) => {
+                                          if (e.target.checked) {
+                                            setSelectedDepuracionIds(new Set(bancoRows.map(r => r.progreso_id)));
+                                          } else {
+                                            setSelectedDepuracionIds(new Set());
+                                          }
+                                        }}
+                                        checked={bancoRows.length > 0 && selectedDepuracionIds.size === bancoRows.length}
+                                      />
+                                    </th>
+                                  )}
                                   <th className="sticky left-0 z-10 py-2 pr-3 bg-white/90 supports-[backdrop-filter]:bg-white/70 backdrop-blur-sm">Nombre</th>
                                   <th className="py-2 pr-3">Teléfono</th>
                                   <th className="py-2 pr-3">Módulo</th>
@@ -1717,6 +1822,23 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
                                   <tr><td colSpan={7} className="py-6 text-center text-neutral-700">Sin registros archivados.</td></tr>
                                 ) : registrosMostrados.map((r) => (
                                   <tr key={r.progreso_id} className="border-t border-white/50">
+                                    {isDebugging && (
+                                      <td className="py-2 pl-3 bg-white/90 supports-[backdrop-filter]:bg-white/70 backdrop-blur-sm">
+                                        <input
+                                          type="checkbox"
+                                          className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                                          checked={selectedDepuracionIds.has(r.progreso_id)}
+                                          onChange={() => {
+                                            setSelectedDepuracionIds(prev => {
+                                              const next = new Set(prev);
+                                              if (next.has(r.progreso_id)) next.delete(r.progreso_id);
+                                              else next.add(r.progreso_id);
+                                              return next;
+                                            });
+                                          }}
+                                        />
+                                      </td>
+                                    )}
                                     <td className="sticky left-0 z-10 py-2 pr-3 font-medium text-neutral-900 bg-white/90 supports-[backdrop-filter]:bg-white/70 backdrop-blur-sm">{r.nombre}</td>
                                     <td className="py-2 pr-3 text-neutral-800">{r.telefono ?? '—'}</td>
                                     <td className="py-2 pr-3">{r.modulo ?? '—'}</td>
@@ -2003,7 +2125,79 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
           )}
         </AnimatePresence>
 
+
+        {/* Modal Depuración (Premium Glass) */}
+        <AnimatePresence>
+          {showDepuracionModal && (
+            <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-[6px] px-4">
+              <motion.div
+                variants={DEPURACION_MODAL_VARIANTS}
+                initial="initial"
+                animate="animate"
+                exit="exit"
+                className="w-full max-w-md bg-white/80 backdrop-blur-2xl rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.25)] ring-1 ring-white/60 p-6 md:p-8"
+              >
+                <div className="text-center mb-6">
+                  <div className="mx-auto h-12 w-12 rounded-full bg-red-50 flex items-center justify-center mb-4">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" className="text-red-500">
+                      <path d="M19 7L18.1327 19.1425C18.0579 20.1891 17.187 21 16.1378 21H7.86224C6.81296 21 5.94208 20.1891 5.86732 19.1425L5 7M10 11V17M14 11V17M15 7V4C15 3.44772 14.5523 3 14 3H10C9.44772 3 9 3.44772 9 4V7M4 7H20" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </div>
+                  <h3 className="text-xl font-bold text-neutral-900">Depurar Registros</h3>
+                  <p className="text-sm text-neutral-600 mt-2">
+                    Vas a archivar <span className="font-bold text-indigo-600">{selectedDepuracionIds.size}</span> registros.
+                    <br />Selecciona el motivo:
+                  </p>
+                </div>
+
+                <div className="space-y-3 mb-6">
+                  {['No me Interesa', 'Motivos Laborales', 'Asiste a otra Iglesia'].map((reason) => (
+                    <label
+                      key={reason}
+                      className={`flex items-center gap-3 p-4 rounded-xl border cursor-pointer transition-all
+                          ${depuracionReason === reason
+                          ? 'bg-indigo-50 border-indigo-200 shadow-sm'
+                          : 'bg-white border-transparent hover:bg-neutral-50'}`}
+                    >
+                      <input
+                        type="radio"
+                        name="depuracionReason"
+                        value={reason}
+                        checked={depuracionReason === reason}
+                        onChange={(e) => setDepuracionReason(e.target.value)}
+                        className="h-4 w-4 text-indigo-600 border-gray-300 focus:ring-indigo-600"
+                      />
+                      <span className={`text-sm font-medium ${depuracionReason === reason ? 'text-indigo-900' : 'text-neutral-700'}`}>
+                        {reason}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setShowDepuracionModal(false)}
+                    disabled={depuracionLoading}
+                    className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-neutral-600 hover:bg-neutral-100 transition-colors"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={handleDepurar}
+                    disabled={!depuracionReason || depuracionLoading}
+                    className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-200 transition-all disabled:opacity-50 disabled:shadow-none"
+                  >
+                    {depuracionLoading ? 'Procesando...' : 'Confirmar y Archivar'}
+                  </button>
+                </div>
+
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
+
         {/* Modal Nueva Alma */}
+
         <AnimatePresence mode="sync" initial={false}>
           {nuevaAlmaOpen && (
             <div
@@ -2481,6 +2675,9 @@ function FollowUp({
           </div>
         </div>
       )}
+
+
+
     </>
   );
 }

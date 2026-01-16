@@ -17,7 +17,8 @@ import {
   ChevronDown, AlertTriangle, ClipboardList, UserX, UserCheck2,
   Phone, MessageCircle, GraduationCap, LogOut
 } from 'lucide-react';
-import ServidoresPage from '../panel/servidores/page';
+import { LogoutButton } from '../../components/ui/LogoutButton';
+// import ServidoresPage from '../panel/servidores/page'; // REMOVIDO: causaba errores de compilación
 import ComponenteGestionarMaestros from './components/GestionServidores'; // Asumo que este es el nombre real o similar
 import PanelMatricular from './components/PanelMatricular';
 import PanelConsultarEstudiantes from './components/PanelConsultarEstudiantes';
@@ -44,7 +45,7 @@ export type Curso = { id: number; nombre: string; color: string; orden?: number 
 export type AsignacionMaestro = { id: string; servidor_id: string; curso_id: number; cursos: Pick<Curso, 'nombre' | 'color'> | null; };
 export type MaestroDataRaw = Maestro & { asignaciones: AsignacionMaestro[]; observaciones_count: { count: number }[]; servidores_roles: { rol: string }[]; };
 export type MaestroConCursos = Maestro & { asignaciones: AsignacionMaestro[]; obs_count: number; rol: string | null; };
-export type Estudiante = { id: string; nombre: string; cedula: string; telefono?: string | null; foto_path?: string | null; };
+export type Estudiante = { id: string; nombre: string; cedula: string; telefono?: string | null; foto_path?: string | null; dia?: string; };
 export type Inscripcion = { id: number; entrevista_id: string; curso_id: number; servidor_id: string | null; cursos?: Pick<Curso, 'nombre' | 'color'> | null; };
 export type EstudianteInscrito = Estudiante & { maestro: MaestroConCursos | null; curso: Curso | null; inscripcion_id: number | null; };
 export type AdminTab = 'matricular' | 'maestros' | 'servidores' | 'consultar' | 'promovidos';
@@ -110,7 +111,7 @@ export default function AdminPage() {
   const [modalDesactivar, setModalDesactivar] = useState<MaestroConCursos | null>(null);
 
   // Usuario Logueado
-  const [currentUser, setCurrentUser] = useState<{ name: string; initials: string; id: string }>({ name: 'Administrador', initials: 'AD', id: '' });
+  const [currentUser, setCurrentUser] = useState<{ name: string; initials: string; id: string; rol?: string; diaAcceso?: string; cursosAcceso?: string[]; roleCount: number }>({ name: 'Administrador', initials: 'AD', id: '', cursosAcceso: [], roleCount: 1 });
 
   // Presence Notifications
 
@@ -124,34 +125,50 @@ export default function AdminPage() {
           const data = await res.json();
           // data incluye: cedula, servidorId, etc
 
+          // commonSelect removido para usar selecciones explícitas con tipado
+
           if (data.servidorId) {
             // Buscar el nombre usando servidorId
             const { data: servidor } = await supabase
               .from('servidores')
-              .select('nombre')
+              .select('nombre, id, servidores_roles(rol, dia_acceso, cursos_asignados)')
               .eq('id', data.servidorId)
               .maybeSingle();
 
             if (servidor && servidor.nombre) {
+              const roles = (servidor as any).servidores_roles || [];
+              const rolData = roles.find((r: any) => r.rol === 'Administrador' || r.rol === 'Director') || roles[0];
+
               setCurrentUser({
                 name: servidor.nombre,
                 initials: servidor.nombre.substring(0, 2).toUpperCase(),
-                id: data.servidorId
+                id: data.servidorId,
+                rol: rolData?.rol,
+                diaAcceso: rolData?.dia_acceso,
+                cursosAcceso: rolData?.cursos_asignados || [],
+                roleCount: data.roleCount || 1
               });
             }
           } else if (data.cedula) {
             // Fallback: buscar por cédula
             const { data: servidor } = await supabase
               .from('servidores')
-              .select('nombre, id')
+              .select('nombre, id, servidores_roles(rol, dia_acceso, cursos_asignados)')
               .eq('cedula', data.cedula)
               .maybeSingle();
 
             if (servidor && servidor.nombre) {
+              const roles = (servidor as any).servidores_roles || [];
+              const rolData = roles.find((r: any) => r.rol === 'Administrador' || r.rol === 'Director') || roles[0];
+
               setCurrentUser({
                 name: servidor.nombre,
                 initials: servidor.nombre.substring(0, 2).toUpperCase(),
-                id: servidor.id
+                id: servidor.id,
+                rol: rolData?.rol,
+                diaAcceso: rolData?.dia_acceso,
+                cursosAcceso: rolData?.cursos_asignados || [],
+                roleCount: data.roleCount || 1
               });
             }
           }
@@ -170,7 +187,7 @@ export default function AdminPage() {
       const [{ data: mData }, { data: cData }, { data: eData }, { data: iData }] = await Promise.all([
         supabase.from('servidores').select(`id, nombre, cedula, telefono, email, activo, asignaciones:asignaciones_academia (id, servidor_id, curso_id, cursos ( nombre, color )), observaciones_count:servidores_observaciones!servidor_id(count), servidores_roles ( rol )`).order('nombre', { ascending: true }),
         supabase.from('cursos').select('id, nombre, color, orden').order('orden', { ascending: true }),
-        supabase.from('entrevistas').select('id, nombre, cedula, telefono, foto_path').order('nombre', { ascending: true }),
+        supabase.from('entrevistas').select('id, nombre, cedula, telefono, foto_path, dia').order('nombre', { ascending: true }),
         supabase.from('inscripciones').select('id, entrevista_id, curso_id, servidor_id, estado')
       ]);
 
@@ -183,6 +200,7 @@ export default function AdminPage() {
       setMaestros(processedMaestros);
       setCursos((cData as Curso[]) || []);
       setEstudiantes((eData as Estudiante[]) || []);
+
       setInscripciones((iData as Inscripcion[]) || []);
 
       // Cargar fotos en background
@@ -203,6 +221,17 @@ export default function AdminPage() {
   useEffect(() => { loadData(); }, [loadData]);
   const onDataUpdated = () => loadData();
 
+  const estudiantesFiltrados = useMemo(() => {
+    // Si no hay info de acceso o rol es Director, mostrar TODO
+    if (!currentUser.rol || currentUser.rol === 'Director') return estudiantes;
+
+    // Si diaAcceso es 'Todos' o vacio, mostrar TODO
+    if (!currentUser.diaAcceso || currentUser.diaAcceso === 'Todos') return estudiantes;
+
+    // Filtrar por dia contenido en diaAcceso (soporta multiples dias comma-separated)
+    return estudiantes.filter(e => e.dia && currentUser.diaAcceso?.includes(e.dia));
+  }, [estudiantes, currentUser]);
+
   const estudiantesPendientesCount = useMemo(() => {
     // Count students that either have no inscription OR have inactive/suspended status
     const activeIds = new Set(
@@ -210,8 +239,9 @@ export default function AdminPage() {
         .filter(i => (i as any).estado === 'activo' || (i as any).estado === 'promovido')
         .map(i => i.entrevista_id)
     );
-    return estudiantes.filter(e => !activeIds.has(e.id)).length;
-  }, [estudiantes, inscripciones]);
+    // Usar la lista filtrada para el conteo también
+    return estudiantesFiltrados.filter(e => !activeIds.has(e.id)).length;
+  }, [estudiantesFiltrados, inscripciones]);
 
   const promovidosCount = useMemo(() => {
     return inscripciones.filter(i => (i as any).estado === 'promovido').length;
@@ -248,17 +278,26 @@ export default function AdminPage() {
               <TabButton Icon={UserPlus} label="Matricular" isActive={activeTab === 'matricular'} onClick={() => setActiveTab('matricular')} badge={estudiantesPendientesCount} />
               <TabButton Icon={GraduationCap} label="Promovidos" isActive={activeTab === 'promovidos'} onClick={() => setActiveTab('promovidos')} badge={promovidosCount} />
               <TabButton Icon={ClipboardList} label="Estudiantes" isActive={activeTab === 'consultar'} onClick={() => setActiveTab('consultar')} />
-            </nav>
+
+              <div className="mt-2 pt-2 border-t border-white/20">
+                <LogoutButton
+                  isMultiRole={currentUser.roleCount > 1}
+                  className="relative group flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-all duration-300 text-gray-600 hover:bg-white/20 hover:text-gray-900 w-full"
+                  iconClassName="text-gray-500 group-hover:text-red-600 transition-colors"
+                  textClassName=""
+                />
+              </div>            </nav>
             <div className="mt-auto border-t border-white/30 pt-4 px-2">
               <div className="flex items-center gap-3">
                 <div className="h-8 w-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold text-xs">{currentUser.initials}</div>
                 <div className="flex flex-col">
                   <span className="text-xs font-bold text-indigo-900">{currentUser.name}</span>
                   <span className="text-[10px] text-indigo-700/70">En línea</span>
+                  {/* Mostrar badge de día si es relevante */}
+                  {currentUser.diaAcceso && currentUser.diaAcceso !== 'Todos' && (
+                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 w-fit">{currentUser.diaAcceso}</span>
+                  )}
                 </div>
-                <button onClick={handleLogout} className="ml-auto p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Cerrar Sesión">
-                  <LogOut size={16} />
-                </button>
               </div>
             </div>
           </aside>
@@ -280,11 +319,85 @@ export default function AdminPage() {
 
               <AnimatePresence mode="wait">
                 <motion.div key={activeTab} variants={fadeTransition} initial="hidden" animate="visible" exit="exit" className="h-full flex flex-col">
-                  {activeTab === 'servidores' && <ServidoresPage />}
-                  {activeTab === 'matricular' && <PanelMatricular maestros={maestros} cursos={cursos} estudiantes={estudiantes} inscripciones={inscripciones} onMatriculaExitosa={onDataUpdated} loading={isLoading} />}
-                  {activeTab === 'maestros' && <PanelGestionarMaestros maestros={maestros.filter(m => m.rol === 'Maestro Ptm')} loading={isLoading} onCrear={() => setModalMaestro('new')} onEditar={(m) => setModalMaestro(m)} onAsignar={(m) => setModalAsignar(m)} onObs={(m) => setModalObservacion(m)} onDesactivar={(m) => setModalDesactivar(m)} />}
-                  {activeTab === 'promovidos' && <PanelPromovidos maestros={maestros} cursos={cursos} estudiantes={estudiantes} onDataUpdated={onDataUpdated} loading={isLoading} />}
-                  {activeTab === 'consultar' && <PanelConsultarEstudiantes maestros={maestros} cursos={cursos} estudiantes={estudiantes} inscripciones={inscripciones} loading={isLoading} fotoUrls={fotoUrls} onDataUpdated={onDataUpdated} />}
+                  {/* {activeTab === 'servidores' && <ServidoresPage />} */}
+                  {/* NOTA: La pestaña Servidores está oculta - se gestiona desde /panel/servidores */}
+                  {activeTab === 'matricular' && (
+                    <PanelMatricular
+                      maestros={maestros}
+                      cursos={cursos.filter(c => !currentUser.rol || currentUser.rol === 'Director' || !currentUser.cursosAcceso || currentUser.cursosAcceso.length === 0 || currentUser.cursosAcceso.includes(c.nombre))}
+                      estudiantes={estudiantesFiltrados}
+                      inscripciones={inscripciones}
+                      onMatriculaExitosa={onDataUpdated}
+                      loading={isLoading}
+                    />
+                  )}
+                  {activeTab === 'maestros' && (
+                    <PanelGestionarMaestros
+                      maestros={maestros.filter(m => {
+                        const isMaestro = m.rol === 'Maestro Ptm';
+                        if (!isMaestro) return false;
+                        if (!currentUser.rol || currentUser.rol === 'Director') return true;
+                        if (!currentUser.cursosAcceso || currentUser.cursosAcceso.length === 0) return true;
+                        // Mostrar si el maestro no tiene asignaciones (para poder asignarle el primero)
+                        // o si comparte al menos uno de los cursos del usuario
+                        return m.asignaciones.length === 0 || m.asignaciones.some(a => currentUser.cursosAcceso?.includes(a.cursos?.nombre || ''));
+                      })}
+                      loading={isLoading}
+                      onCrear={() => setModalMaestro('new')}
+                      onEditar={(m) => setModalMaestro(m)}
+                      onAsignar={(m) => setModalAsignar(m)}
+                      onObs={(m) => setModalObservacion(m)}
+                      onDesactivar={(m) => setModalDesactivar(m)}
+                      onReactivar={async (m) => {
+                        try {
+                          await supabase.from('servidores').update({ activo: true }).eq('id', m.id);
+                          const { data: existingRole } = await supabase
+                            .from('servidores_roles')
+                            .select('id')
+                            .eq('servidor_id', m.id)
+                            .eq('rol', 'Maestro Ptm')
+                            .maybeSingle();
+
+                          if (existingRole) {
+                            await supabase.from('servidores_roles').update({ vigente: true }).eq('id', existingRole.id);
+                          } else {
+                            await supabase.from('servidores_roles').insert({ servidor_id: m.id, rol: 'Maestro Ptm', vigente: true });
+                          }
+                          onDataUpdated();
+                        } catch (err: any) {
+                          alert('Error al reactivar: ' + err.message);
+                        }
+                      }}
+                    />
+                  )}
+                  {activeTab === 'promovidos' && (
+                    <PanelPromovidos
+                      maestros={maestros}
+                      cursos={cursos}
+                      estudiantes={estudiantes}
+                      onDataUpdated={onDataUpdated}
+                      loading={isLoading}
+                      currentUser={currentUser}
+                    />
+                  )}
+                  {activeTab === 'consultar' && (
+                    <PanelConsultarEstudiantes
+                      maestros={maestros.filter(m => {
+                        const isMaestro = m.rol === 'Maestro Ptm';
+                        if (!isMaestro) return false;
+                        if (!currentUser.rol || currentUser.rol === 'Director') return true;
+                        if (!currentUser.cursosAcceso || currentUser.cursosAcceso.length === 0) return true;
+                        return m.asignaciones.length === 0 || m.asignaciones.some(a => currentUser.cursosAcceso?.includes(a.cursos?.nombre || ''));
+                      })}
+                      cursos={cursos.filter(c => !currentUser.rol || currentUser.rol === 'Director' || !currentUser.cursosAcceso || currentUser.cursosAcceso.length === 0 || currentUser.cursosAcceso.includes(c.nombre))}
+                      estudiantes={estudiantes}
+                      inscripciones={inscripciones}
+                      loading={isLoading}
+                      fotoUrls={fotoUrls}
+                      onDataUpdated={onDataUpdated}
+                      currentUser={currentUser}
+                    />
+                  )}
                 </motion.div>
               </AnimatePresence>
             </div>
@@ -307,7 +420,13 @@ export default function AdminPage() {
           <ModalCrearEditarMaestro key="modal-maestro" maestroInicial={modalMaestro === 'new' ? null : modalMaestro} onClose={() => setModalMaestro(null)} onSuccess={() => { setModalMaestro(null); onDataUpdated(); }} />
         )}
         {modalAsignar && (
-          <ModalAsignarCursos key="modal-asignar" maestro={modalAsignar} cursosDisponibles={cursos} onClose={() => setModalAsignar(null)} onSuccess={() => { setModalAsignar(null); onDataUpdated(); }} />
+          <ModalAsignarCursos
+            key="modal-asignar"
+            maestro={modalAsignar}
+            cursosDisponibles={cursos.filter(c => !currentUser.rol || currentUser.rol === 'Director' || !currentUser.cursosAcceso || currentUser.cursosAcceso.length === 0 || currentUser.cursosAcceso.includes(c.nombre))}
+            onClose={() => setModalAsignar(null)}
+            onSuccess={() => { setModalAsignar(null); onDataUpdated(); }}
+          />
         )}
         {modalObservacion && (
           <ModalObservaciones key="modal-obs" maestro={modalObservacion} onClose={() => { setModalObservacion(null); onDataUpdated(); }} />
@@ -383,8 +502,9 @@ interface PanelMaestrosProps {
   onAsignar: (m: MaestroConCursos) => void;
   onObs: (m: MaestroConCursos) => void;
   onDesactivar: (m: MaestroConCursos) => void;
+  onReactivar: (m: MaestroConCursos) => void;
 }
-function PanelGestionarMaestros({ maestros, loading, onCrear, onEditar, onAsignar, onObs, onDesactivar }: PanelMaestrosProps) {
+function PanelGestionarMaestros({ maestros, loading, onCrear, onEditar, onAsignar, onObs, onDesactivar, onReactivar }: PanelMaestrosProps) {
   const [search, setSearch] = useState('');
   const filtered = maestros.filter(m => !search || m.nombre.toLowerCase().includes(search.toLowerCase()));
 
@@ -415,6 +535,11 @@ function PanelGestionarMaestros({ maestros, loading, onCrear, onEditar, onAsigna
                   <div>
                     <div className="flex items-center gap-4 flex-wrap">
                       <p className="font-bold text-gray-900 text-[16px]">{m.nombre}</p>
+                      {!m.activo && (
+                        <span className="bg-red-100 text-red-700 text-[10px] font-bold px-2 py-0.5 rounded-full border border-red-300">
+                          INACTIVO
+                        </span>
+                      )}
                       {m.telefono && (
                         <div className="flex items-center gap-3">
                           <button onClick={(e) => { e.stopPropagation(); window.location.href = `tel:${m.telefono!.replace(/\s+/g, '')}`; }} className="h-10 w-10 rounded-full bg-white/70 flex items-center justify-center text-sky-600 hover:bg-white hover:scale-110 hover:shadow-md transition-all shadow-sm border border-sky-100"><Phone size={20} /></button>
@@ -436,7 +561,13 @@ function PanelGestionarMaestros({ maestros, loading, onCrear, onEditar, onAsigna
                   <button onClick={() => onObs(m)} className={`${GLASS_STYLES.buttonSecondary} px-3 py-1.5 rounded-lg text-xs relative`}><MessageSquarePlus size={16} /> {m.obs_count > 0 && <span className="absolute -top-1 -right-1 h-2 w-2 bg-rose-500 rounded-full" />}</button>
                   <button onClick={() => onAsignar(m)} className={`${GLASS_STYLES.buttonSecondary} px-3 py-1.5 rounded-lg text-xs flex gap-1`}><BookOpen size={16} /> <span className="hidden md:inline">Cursos</span></button>
                   <button onClick={() => onEditar(m)} className={`${GLASS_STYLES.buttonSecondary} px-3 py-1.5 rounded-lg text-xs flex gap-1`}><Edit2 size={16} /> <span className="hidden md:inline">Editar</span></button>
-                  <button onClick={() => onDesactivar(m)} className={`${GLASS_STYLES.buttonSecondary} px-3 py-1.5 rounded-lg text-xs text-red-600 hover:bg-red-50`}><Trash2 size={16} /></button>
+                  {m.activo ? (
+                    <button onClick={() => onDesactivar(m)} className={`${GLASS_STYLES.buttonSecondary} px-3 py-1.5 rounded-lg text-xs text-red-600 hover:bg-red-50`}><Trash2 size={16} /></button>
+                  ) : (
+                    <button onClick={() => onReactivar(m)} className={`bg-emerald-500 hover:bg-emerald-600 text-white px-3 py-1.5 rounded-lg text-xs flex gap-1 items-center shadow-sm`}>
+                      <UserCheck2 size={16} /> <span className="hidden md:inline">Reactivar</span>
+                    </button>
+                  )}
                 </div>
               </motion.li>
             ))}
@@ -608,41 +739,61 @@ function ModalAsignarCursos({ maestro, cursosDisponibles, onClose, onSuccess }: 
   const save = async () => {
     setSaving(true);
     try {
+      // IDs de cursos actuales (basado en lo que cargó la página)
       const currentIds = maestro.asignaciones.map(a => a.curso_id);
+      // IDs seleccionados en el modal (convertidos a number)
       const newIds = Object.keys(asig).filter(k => asig[k]).map(Number);
 
       const toAdd = newIds.filter(id => !currentIds.includes(id));
       const toRemove = currentIds.filter(id => !newIds.includes(id));
 
-      if (toRemove.length > 0) {
-        // Buscar los IDs de asignación para desactivar
-        // Necesitamos mapear curso_id -> asignacion_id
-        const idsToUpdate = maestro.asignaciones
-          .filter(a => toRemove.includes(a.curso_id))
-          .map(a => a.id);
+      const promises = [];
 
-        if (idsToUpdate.length > 0) {
-          const { error: errDel } = await supabase
+      // 1. RETIRAR CURSOS (DELETE directo)
+      if (toRemove.length > 0) {
+        console.log('[MAESTROS] Retirando cursos:', toRemove, 'de maestro:', maestro.id);
+        // DELETE directo usando clave compuesta (servidor_id + curso_id)
+        const removeProm = toRemove.map(async (cursoId) => {
+          const result = await supabase
             .from('asignaciones_academia')
-            .update({ vigente: false })
-            .in('id', idsToUpdate);
-          if (errDel) throw errDel;
-        }
+            .delete()
+            .eq('servidor_id', maestro.id)
+            .eq('curso_id', cursoId);
+
+          console.log(`[MAESTROS] DELETE curso ${cursoId}:`, result);
+          return result;
+        });
+        promises.push(...removeProm);
       }
 
+      // 2. AGREGAR CURSOS
       if (toAdd.length > 0) {
-        const rows = toAdd.map(cid => ({
+        // Para agregar, usamos upsert para mayor robustez en caso de que exista registro previo desactivado
+        const upsertRows = toAdd.map(cid => ({
           servidor_id: maestro.id,
           curso_id: cid,
           vigente: true
         }));
-        const { error: errAdd } = await supabase.from('asignaciones_academia').insert(rows);
-        if (errAdd) throw errAdd;
+
+        // Upsert requiere validación de conflicto. Si no hay constraint unique (servidor_id, curso_id),
+        // upsert podría duplicar. Asumimos que existe. Si falla, el catch lo capturará.
+        promises.push(
+          supabase.from('asignaciones_academia').upsert(upsertRows, { onConflict: 'servidor_id,curso_id' })
+        );
+      }
+
+      const results = await Promise.all(promises);
+
+      // Verificar errores en resultados individuales
+      const errors = results.filter(r => r.error).map(r => r.error?.message);
+      if (errors.length > 0) {
+        throw new Error("Errores al guardar: " + errors.join(', '));
       }
 
       onSuccess();
     } catch (e: any) {
-      alert("Error al guardar asignaciones: " + e.message);
+      console.error("Error detallado al guardar asignaciones:", e);
+      alert("Error al guardar asignaciones: " + (e.message || JSON.stringify(e)));
     } finally {
       setSaving(false);
     }
@@ -704,23 +855,137 @@ function ModalObservaciones({ maestro, onClose }: { maestro: MaestroConCursos, o
 }
 
 function ModalConfirmarDesactivar({ maestro, onClose, onSuccess }: { maestro: MaestroConCursos, onClose: () => void, onSuccess: () => void }) {
+  const [paso, setPaso] = useState<'seleccion' | 'confirmar-eliminar'>('seleccion');
+  const [loading, setLoading] = useState(false);
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+
+  const handleDesactivar = async () => {
+    setLoading(true);
+    try {
+      const { error } = await supabase.from('servidores').update({ activo: false }).eq('id', maestro.id);
+      if (error) throw error;
+      onSuccess();
+    } catch (err: any) {
+      alert("Error al desactivar: " + err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleEliminarDefinitivo = async () => {
+    setError('');
+
+    if (password !== '93062015-4') {
+      setError('Contraseña administrativa incorrecta.');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      // Intentar eliminar. Si hay FKs sin cascade, esto fallará y el catch lo capturará.
+      const { error } = await supabase.from('servidores').delete().eq('id', maestro.id);
+      if (error) throw error;
+      onSuccess();
+    } catch (err: any) {
+      console.error(err);
+      setError("No se pudo eliminar: " + (err.message || 'Error desconocido.'));
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
-    <ModalTemplate onClose={onClose} title="Desactivar">
-      <div className="p-6 text-center">
-        <div className="mx-auto w-12 h-12 bg-red-100 text-red-600 rounded-full flex items-center justify-center mb-3"><AlertTriangle /></div>
-        <p className="text-gray-800 mb-6">¿Estás seguro de desactivar a <b>{maestro.nombre}</b>?</p>
-        <div className="flex justify-center gap-3">
-          <button onClick={onClose} className="px-4 py-2 rounded-lg text-gray-600 hover:bg-gray-100">Cancelar</button>
-          <button onClick={async () => { await supabase.rpc('fn_desactivar_servidor', { p_servidor_id: maestro.id }); onSuccess(); }} className="bg-red-600 text-white px-4 py-2 rounded-lg font-bold shadow-lg shadow-red-500/30">Si, Desactivar</button>
+    <ModalTemplate onClose={onClose} title="Gestionar Baja">
+      {paso === 'seleccion' && (
+        <div className="p-6">
+          <div className="flex items-center gap-4 mb-6">
+            <div className="h-14 w-14 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 shrink-0">
+              <UserX size={28} />
+            </div>
+            <div>
+              <h3 className="text-lg font-bold text-gray-900">¿Qué deseas hacer con {maestro.nombre}?</h3>
+              <p className="text-sm text-gray-500">Selecciona el tipo de baja para este maestro.</p>
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <button
+              onClick={handleDesactivar}
+              disabled={loading}
+              className="w-full flex items-center justify-between p-4 rounded-xl border border-gray-200 hover:border-indigo-300 hover:bg-indigo-50 transition-all group text-left"
+            >
+              <div>
+                <span className="block font-bold text-gray-800 group-hover:text-indigo-700">Desactivar Temporalmente</span>
+                <span className="block text-xs text-gray-500 mt-1">El registro permance inactivo. Se puede reactivar después.</span>
+              </div>
+              <div className="h-8 w-8 rounded-full bg-white border border-gray-200 flex items-center justify-center text-gray-400 group-hover:border-indigo-200 group-hover:text-indigo-600">
+                {loading ? <Loader2 className="animate-spin" size={16} /> : <UserX size={16} />}
+              </div>
+            </button>
+
+            <button
+              onClick={() => setPaso('confirmar-eliminar')}
+              disabled={loading}
+              className="w-full flex items-center justify-between p-4 rounded-xl border border-red-100 bg-red-50/30 hover:bg-red-50 hover:border-red-300 transition-all group text-left"
+            >
+              <div>
+                <span className="block font-bold text-red-700">Eliminar Definitivamente</span>
+                <span className="block text-xs text-red-600/70 mt-1">Borra todos los datos del sistema. <span className="font-bold">Esta acción no se puede deshacer.</span></span>
+              </div>
+              <div className="h-8 w-8 rounded-full bg-white border border-red-200 flex items-center justify-center text-red-400 group-hover:text-red-600">
+                <Trash2 size={16} />
+              </div>
+            </button>
+          </div>
+
+          <div className="mt-6 flex justify-center">
+            <button onClick={onClose} className="text-sm text-gray-500 hover:text-gray-800 underline">Cancelar</button>
+          </div>
         </div>
-      </div>
+      )}
+
+      {paso === 'confirmar-eliminar' && (
+        <div className="p-6 text-center">
+          <div className="mx-auto w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mb-4 animate-bounce">
+            <AlertTriangle size={32} />
+          </div>
+          <h3 className="text-xl font-bold text-gray-900 mb-2">Acción Irreversible</h3>
+          <p className="text-gray-600 mb-6 text-sm">
+            Para eliminar permanentemente a <b>{maestro.nombre}</b>, por favor ingresa la contraseña de administrador.
+          </p>
+
+          <div className="mb-6">
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => { setPassword(e.target.value); setError(''); }}
+              placeholder="Contraseña de Administrador"
+              className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 focus:border-transparent text-center font-mono text-lg"
+              autoFocus
+            />
+            {error && <p className="text-red-600 text-sm mt-2 font-bold animate-pulse">{error}</p>}
+          </div>
+
+          <div className="flex flex-col gap-3">
+            <button
+              onClick={handleEliminarDefinitivo}
+              disabled={loading || !password}
+              className="w-full bg-red-600 hover:bg-red-700 text-white py-3 rounded-xl font-bold shadow-lg shadow-red-500/30 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {loading && <Loader2 className="animate-spin" size={18} />}
+              Confirmar Eliminación
+            </button>
+            <button
+              onClick={() => { setPaso('seleccion'); setPassword(''); setError(''); }}
+              disabled={loading}
+              className="w-full bg-white border border-gray-300 text-gray-700 py-3 rounded-xl font-medium hover:bg-gray-50"
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
+      )}
     </ModalTemplate>
   );
 }
-
-
-
-
-
-
-
