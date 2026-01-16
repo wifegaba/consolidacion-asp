@@ -18,6 +18,7 @@ import {
   Phone, MessageCircle, GraduationCap, LogOut
 } from 'lucide-react';
 import { LogoutButton } from '../../components/ui/LogoutButton';
+import { PremiumActionButton } from './components/PremiumActionButton';
 // import ServidoresPage from '../panel/servidores/page'; // REMOVIDO: causaba errores de compilación
 import ComponenteGestionarMaestros from './components/GestionServidores'; // Asumo que este es el nombre real o similar
 import PanelMatricular from './components/PanelMatricular';
@@ -271,7 +272,7 @@ export default function AdminPage() {
         <div className={`w-full max-w-[1500px] h-full md:h-[92vh] flex flex-col md:flex-row md:rounded-3xl overflow-hidden ${GLASS_STYLES.container}`}>
 
           {/* SIDEBAR (Desktop) */}
-          <aside className="hidden md:flex w-64 flex-col border-r border-white/40 bg-white/20 p-4">
+          <aside className="hidden md:flex w-64 flex-col border-r border-white/20 bg-gradient-to-b from-blue-600 via-blue-700 to-indigo-900 backdrop-blur-xl p-4 shadow-2xl z-20">
             <nav className="flex flex-col gap-2 flex-1">
               {/* <TabButton Icon={Server} label="Servidores" isActive={activeTab === 'servidores'} onClick={() => setActiveTab('servidores')} /> */}
               <TabButton Icon={Users} label="Maestros" isActive={activeTab === 'maestros'} onClick={() => setActiveTab('maestros')} />
@@ -287,20 +288,23 @@ export default function AdminPage() {
               <div className="mt-2 pt-2 border-t border-white/20">
                 <LogoutButton
                   isMultiRole={currentUser.roleCount > 1}
-                  className="relative group flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-bold transition-all duration-300 text-indigo-900 bg-white/30 hover:bg-white/50 hover:shadow-sm border border-white/40 w-full"
-                  iconClassName="text-indigo-700 group-hover:text-indigo-900 transition-colors"
+                  className="relative group flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-bold transition-all duration-300 text-white bg-white/10 hover:bg-white/20 hover:shadow-lg hover:shadow-blue-900/20 border border-white/20 w-full"
+                  iconClassName="text-blue-200 group-hover:text-white transition-colors"
                   textClassName=""
                 />
               </div>            </nav>
-            <div className="mt-auto border-t border-white/30 pt-4 px-2">
+            <div className="mt-auto border-t border-white/20 pt-4 px-2">
               <div className="flex items-center gap-3">
-                <div className="h-8 w-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold text-xs">{currentUser.initials}</div>
+                <div className="h-10 w-10 rounded-full bg-white/20 border border-white/30 flex items-center justify-center text-white font-bold text-sm shadow-inner">{currentUser.initials}</div>
                 <div className="flex flex-col">
-                  <span className="text-xs font-bold text-indigo-900">{currentUser.name}</span>
-                  <span className="text-[10px] text-indigo-700/70">En línea</span>
+                  <span className="text-sm font-bold text-white tracking-wide">{currentUser.name}</span>
+                  <div className="flex items-center gap-2">
+                    <span className="h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.6)] animate-pulse"></span>
+                    <span className="text-[11px] text-blue-100/80 font-medium">En línea</span>
+                  </div>
                   {/* Mostrar badge de día si es relevante */}
                   {currentUser.diaAcceso && currentUser.diaAcceso !== 'Todos' && (
-                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 w-fit">{currentUser.diaAcceso}</span>
+                    <span className="text-[9px] px-2 py-0.5 rounded-full bg-blue-500/30 border border-blue-400/30 text-blue-100 w-fit mt-1">{currentUser.diaAcceso}</span>
                   )}
                 </div>
               </div>
@@ -402,7 +406,7 @@ export default function AdminPage() {
             </div>
 
             {/* Barra de Navegación Móvil (Sticky Bottom) */}
-            <div className="md:hidden border-t border-white/40 bg-white/40 backdrop-blur-xl flex justify-between py-1 px-1 pb-safe shrink-0 z-30">
+            <div className="md:hidden border-t border-white/20 bg-gradient-to-r from-blue-900 via-indigo-900 to-blue-900 backdrop-blur-xl flex justify-between py-1 px-1 pb-safe shrink-0 z-30 shadow-[0_-5px_20px_rgba(30,58,138,0.5)]">
               {/* <MobileTab Icon={Server} label="Servidores" isActive={activeTab === 'servidores'} onClick={() => setActiveTab('servidores')} /> */}
               <MobileTab Icon={Users} label="Maestros" isActive={activeTab === 'maestros'} onClick={() => setActiveTab('maestros')} />
               <MobileTab Icon={UserPlus} label="Matricular" isActive={activeTab === 'matricular'} onClick={() => setActiveTab('matricular')} badge={estudiantesPendientesCount} />
@@ -416,9 +420,9 @@ export default function AdminPage() {
               {/* Botón de Perfil/Salir integrado */}
               <LogoutButton
                 isMultiRole={currentUser.roleCount > 1}
-                className="relative flex flex-1 flex-col items-center justify-center p-2 rounded-lg active:scale-95 transition-transform text-gray-600"
-                iconClassName="text-gray-600 mb-0.5"
-                textClassName="text-[10px] font-medium mt-0.5 text-gray-600 text-center leading-tight w-full"
+                className="relative flex flex-1 flex-col items-center justify-center p-2 rounded-lg active:scale-95 transition-transform text-blue-200/80 hover:text-white hover:bg-white/10"
+                iconClassName="text-blue-200/80 mb-0.5 group-hover:text-white"
+                textClassName="text-[10px] font-medium mt-0.5 text-blue-200/80 text-center leading-tight w-full group-hover:text-white"
               />
             </div>
           </main>
@@ -461,10 +465,12 @@ export default function AdminPage() {
 interface TabButtonProps { Icon: LucideIcon; label: string; isActive: boolean; onClick: () => void; badge?: number; }
 function TabButton({ Icon, label, isActive, onClick, badge }: TabButtonProps) {
   return (
-    <button onClick={onClick} className={`relative group flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-all duration-300 ${isActive ? 'bg-white/40 text-indigo-800 shadow-sm border border-white/50' : 'text-gray-600 hover:bg-white/20 hover:text-gray-900'}`}>
-      <Icon size={18} className={isActive ? "text-indigo-600" : "text-gray-500 group-hover:text-gray-700"} />
-      <span>{label}</span>
-      {badge !== undefined && badge > 0 && <span className="ml-auto flex h-5 min-w-[20px] items-center justify-center rounded-full bg-gradient-to-r from-pink-500 to-rose-500 px-1 text-[10px] font-bold text-white shadow-sm">{badge}</span>}
+    <button onClick={onClick} className={`relative group flex items-center gap-3 rounded-xl px-4 py-3.5 text-sm font-medium transition-all duration-300 overflow-hidden ${isActive ? 'bg-gradient-to-r from-white/25 to-white/10 text-white shadow-lg border-t border-white/50 border-b border-white/10 backdrop-blur-md' : 'text-blue-100/70 hover:bg-white/10 hover:text-white'}`}>
+      {isActive && <div className="absolute inset-0 bg-white/5 pointer-events-none" />}
+      <Icon size={20} className={`transition-colors duration-300 ${isActive ? "text-white drop-shadow-md" : "text-blue-300/70 group-hover:text-white"}`} />
+      <span className="relative z-10 tracking-wide">{label}</span>
+      {isActive && <motion.div layoutId="active-glow" className="absolute left-0 w-1 h-8 bg-white/80 rounded-r-full shadow-[0_0_10px_rgba(255,255,255,0.5)]" />}
+      {badge !== undefined && badge > 0 && <span className="ml-auto flex h-5 min-w-[20px] items-center justify-center rounded-full bg-rose-500/90 border border-rose-400/50 px-1 text-[10px] font-bold text-white shadow-lg">{badge}</span>}
     </button>
   );
 }
@@ -472,10 +478,11 @@ function TabButton({ Icon, label, isActive, onClick, badge }: TabButtonProps) {
 interface MobileTabProps { Icon: LucideIcon; label: string; isActive: boolean; onClick: () => void; badge?: number; }
 function MobileTab({ Icon, label, isActive, onClick, badge }: MobileTabProps) {
   return (
-    <button onClick={onClick} className="relative flex flex-1 flex-col items-center justify-center p-2 rounded-lg active:scale-95 transition-transform">
-      <div className={`p-1 rounded-lg transition-colors ${isActive ? 'bg-indigo-100/50 text-indigo-700' : 'text-gray-600'}`}><Icon size={18} /></div>
-      <span className="text-[10px] font-medium mt-0.5 text-gray-600 text-center leading-tight line-clamp-1 w-full">{label}</span>
-      {badge !== undefined && badge > 0 && <span className="absolute top-1 right-1/4 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-rose-500 px-0.5 text-[9px] font-bold text-white shadow-sm ring-1 ring-white">{badge}</span>}
+    <button onClick={onClick} className="relative flex flex-1 flex-col items-center justify-center p-2 rounded-lg active:scale-95 transition-transform group">
+      <div className={`p-1.5 rounded-lg transition-all duration-300 ${isActive ? 'bg-white/20 text-white shadow-[0_0_12px_rgba(255,255,255,0.4)] border border-white/20' : 'text-blue-300/60 group-hover:text-white group-hover:bg-white/10'}`}><Icon size={20} /></div>
+      <span className={`text-[10px] font-bold mt-1 text-center leading-tight line-clamp-1 w-full transition-colors ${isActive ? 'text-white drop-shadow-md' : 'text-blue-300/60 group-hover:text-white'}`}>{label}</span>
+      {badge !== undefined && badge > 0 && <span className="absolute top-1 right-1/4 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-rose-500 border border-rose-400 text-[9px] font-bold text-white shadow-lg z-10">{badge}</span>}
+      {isActive && <motion.div layoutId="active-mobile-glow" className="absolute inset-x-2 bottom-0 h-0.5 bg-gradient-to-r from-transparent via-white/80 to-transparent shadow-[0_0_8px_rgba(255,255,255,0.8)]" />}
     </button>
   );
 }
@@ -575,27 +582,39 @@ function PanelGestionarMaestros({ maestros, loading, onCrear, onEditar, onAsigna
 
                   {/* Bottom Section: Courses then Actions */}
                   <div className="flex gap-4 mt-2">
-                    <button onClick={() => onObs(m)} className="h-11 w-11 rounded-2xl bg-white flex items-center justify-center text-violet-600 shadow-lg shadow-violet-200/50 hover:scale-110 hover:shadow-xl hover:shadow-violet-300/60 transition-all duration-300 border border-violet-100 relative group">
-                      <MessageSquarePlus size={20} className="fill-violet-50 group-hover:fill-violet-100 transition-colors" strokeWidth={1.5} />
-                      {m.obs_count > 0 && <span className="absolute -top-1 -right-1 h-3 w-3 bg-rose-500 rounded-full border-2 border-white" />}
-                    </button>
-
-                    <button onClick={() => onAsignar(m)} className="h-11 w-11 rounded-2xl bg-white flex items-center justify-center text-amber-600 shadow-lg shadow-amber-200/50 hover:scale-110 hover:shadow-xl hover:shadow-amber-300/60 transition-all duration-300 border border-amber-100 group">
-                      <BookOpen size={20} className="fill-amber-50 group-hover:fill-amber-100 transition-colors" strokeWidth={1.5} />
-                    </button>
-
-                    <button onClick={() => onEditar(m)} className="h-11 w-11 rounded-2xl bg-white flex items-center justify-center text-sky-600 shadow-lg shadow-sky-200/50 hover:scale-110 hover:shadow-xl hover:shadow-sky-300/60 transition-all duration-300 border border-sky-100 group">
-                      <Edit2 size={20} className="fill-sky-50 group-hover:fill-sky-100 transition-colors" strokeWidth={1.5} />
-                    </button>
-
+                    <PremiumActionButton
+                      onClick={() => onObs(m)}
+                      Icon={MessageSquarePlus}
+                      color="violet"
+                      label="OBSERVACIONES"
+                      badgeCount={m.obs_count}
+                    />
+                    <PremiumActionButton
+                      onClick={() => onAsignar(m)}
+                      Icon={BookOpen}
+                      color="amber"
+                      label="CURSOS"
+                    />
+                    <PremiumActionButton
+                      onClick={() => onEditar(m)}
+                      Icon={Edit2}
+                      color="sky"
+                      label="EDITAR"
+                    />
                     {m.activo ? (
-                      <button onClick={() => onDesactivar(m)} className="h-11 w-11 rounded-2xl bg-white flex items-center justify-center text-rose-600 shadow-lg shadow-rose-200/50 hover:scale-110 hover:shadow-xl hover:shadow-rose-300/60 transition-all duration-300 border border-rose-100 group">
-                        <Trash2 size={20} className="fill-rose-50 group-hover:fill-rose-100 transition-colors" strokeWidth={1.5} />
-                      </button>
+                      <PremiumActionButton
+                        onClick={() => onDesactivar(m)}
+                        Icon={Trash2}
+                        color="rose"
+                        label="ELIMINAR"
+                      />
                     ) : (
-                      <button onClick={() => onReactivar(m)} className="h-11 px-4 rounded-2xl bg-emerald-500 text-white flex items-center justify-center shadow-lg shadow-emerald-200/50 hover:scale-105 hover:shadow-xl hover:shadow-emerald-300/60 transition-all duration-300 text-xs font-bold gap-2">
-                        <UserCheck2 size={18} strokeWidth={2} /> <span>Activar</span>
-                      </button>
+                      <PremiumActionButton
+                        onClick={() => onReactivar(m)}
+                        Icon={UserCheck2}
+                        color="emerald"
+                        label="REACTIVAR"
+                      />
                     )}
                   </div>
                 </div>
@@ -620,39 +639,54 @@ function PanelGestionarMaestros({ maestros, loading, onCrear, onEditar, onAsigna
                           </div>
                         )}
                       </div>
-                      <p className="text-xs text-gray-600 flex items-center gap-2">
+                      <p className="text-xs text-gray-600 flex items-center gap-2 mt-1">
                         {m.cedula}
-                        {m.rol && <span className="bg-gray-100/60 px-2 py-0.5 rounded text-gray-700">{m.rol}</span>}
+                        {m.asignaciones.map((a, idx) => (
+                          <span key={`${a.id}-${idx}`} className="text-[10px] bg-indigo-50/80 text-indigo-700 px-2 py-0.5 rounded border border-indigo-100 font-bold tracking-tight">
+                            {a.cursos?.nombre}
+                          </span>
+                        ))}
                       </p>
                     </div>
                   </div>
 
-                  <div className="flex flex-wrap gap-1.5">
-                    {m.asignaciones.map((a, idx) => <span key={`${a.id}-${idx}`} className="text-[10px] bg-blue-50/80 text-blue-800 px-2 py-1 rounded border border-blue-100">{a.cursos?.nombre}</span>)}
-                  </div>
+                  {/* Empty div or spacer if needed, but flex justify-between handles spacing. 
+                      Removed distinct assignments div. */}
 
                   <div className="flex gap-4">
-                    <button onClick={() => onObs(m)} className="h-11 w-11 rounded-2xl bg-white flex items-center justify-center text-violet-600 shadow-lg shadow-violet-200/50 hover:scale-110 hover:shadow-xl hover:shadow-violet-300/60 transition-all duration-300 border border-violet-100 relative group">
-                      <MessageSquarePlus size={20} className="fill-violet-50 group-hover:fill-violet-100 transition-colors" strokeWidth={1.5} />
-                      {m.obs_count > 0 && <span className="absolute -top-1 -right-1 h-3 w-3 bg-rose-500 rounded-full border-2 border-white" />}
-                    </button>
-
-                    <button onClick={() => onAsignar(m)} className="h-11 w-11 rounded-2xl bg-white flex items-center justify-center text-amber-600 shadow-lg shadow-amber-200/50 hover:scale-110 hover:shadow-xl hover:shadow-amber-300/60 transition-all duration-300 border border-amber-100 group">
-                      <BookOpen size={20} className="fill-amber-50 group-hover:fill-amber-100 transition-colors" strokeWidth={1.5} />
-                    </button>
-
-                    <button onClick={() => onEditar(m)} className="h-11 w-11 rounded-2xl bg-white flex items-center justify-center text-sky-600 shadow-lg shadow-sky-200/50 hover:scale-110 hover:shadow-xl hover:shadow-sky-300/60 transition-all duration-300 border border-sky-100 group">
-                      <Edit2 size={20} className="fill-sky-50 group-hover:fill-sky-100 transition-colors" strokeWidth={1.5} />
-                    </button>
-
+                    <PremiumActionButton
+                      onClick={() => onObs(m)}
+                      Icon={MessageSquarePlus}
+                      color="violet"
+                      label="OBSERVACIONES"
+                      badgeCount={m.obs_count}
+                    />
+                    <PremiumActionButton
+                      onClick={() => onAsignar(m)}
+                      Icon={BookOpen}
+                      color="amber"
+                      label="CURSOS"
+                    />
+                    <PremiumActionButton
+                      onClick={() => onEditar(m)}
+                      Icon={Edit2}
+                      color="sky"
+                      label="EDITAR"
+                    />
                     {m.activo ? (
-                      <button onClick={() => onDesactivar(m)} className="h-11 w-11 rounded-2xl bg-white flex items-center justify-center text-rose-600 shadow-lg shadow-rose-200/50 hover:scale-110 hover:shadow-xl hover:shadow-rose-300/60 transition-all duration-300 border border-rose-100 group">
-                        <Trash2 size={20} className="fill-rose-50 group-hover:fill-rose-100 transition-colors" strokeWidth={1.5} />
-                      </button>
+                      <PremiumActionButton
+                        onClick={() => onDesactivar(m)}
+                        Icon={Trash2}
+                        color="rose"
+                        label="ELIMINAR"
+                      />
                     ) : (
-                      <button onClick={() => onReactivar(m)} className="h-11 px-4 rounded-2xl bg-emerald-500 text-white flex items-center justify-center shadow-lg shadow-emerald-200/50 hover:scale-105 hover:shadow-xl hover:shadow-emerald-300/60 transition-all duration-300 text-xs font-bold gap-2">
-                        <UserCheck2 size={18} strokeWidth={2} /> <span>Activar</span>
-                      </button>
+                      <PremiumActionButton
+                        onClick={() => onReactivar(m)}
+                        Icon={UserCheck2}
+                        color="emerald"
+                        label="REACTIVAR"
+                      />
                     )}
                   </div>
                 </div>
