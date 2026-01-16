@@ -276,14 +276,19 @@ export default function AdminPage() {
               {/* <TabButton Icon={Server} label="Servidores" isActive={activeTab === 'servidores'} onClick={() => setActiveTab('servidores')} /> */}
               <TabButton Icon={Users} label="Maestros" isActive={activeTab === 'maestros'} onClick={() => setActiveTab('maestros')} />
               <TabButton Icon={UserPlus} label="Matricular" isActive={activeTab === 'matricular'} onClick={() => setActiveTab('matricular')} badge={estudiantesPendientesCount} />
-              <TabButton Icon={GraduationCap} label="Promovidos" isActive={activeTab === 'promovidos'} onClick={() => setActiveTab('promovidos')} badge={promovidosCount} />
+
+              {/* Ocultar Promovidos para usuarios exclusivos de Restauración 1 */}
+              {!(currentUser.cursosAcceso?.length === 1 && currentUser.cursosAcceso[0] === 'Restauración 1' && currentUser.rol !== 'Director') && (
+                <TabButton Icon={GraduationCap} label="Promovidos" isActive={activeTab === 'promovidos'} onClick={() => setActiveTab('promovidos')} badge={promovidosCount} />
+              )}
+
               <TabButton Icon={ClipboardList} label="Estudiantes" isActive={activeTab === 'consultar'} onClick={() => setActiveTab('consultar')} />
 
               <div className="mt-2 pt-2 border-t border-white/20">
                 <LogoutButton
                   isMultiRole={currentUser.roleCount > 1}
-                  className="relative group flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-all duration-300 text-gray-600 hover:bg-white/20 hover:text-gray-900 w-full"
-                  iconClassName="text-gray-500 group-hover:text-red-600 transition-colors"
+                  className="relative group flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-bold transition-all duration-300 text-indigo-900 bg-white/30 hover:bg-white/50 hover:shadow-sm border border-white/40 w-full"
+                  iconClassName="text-indigo-700 group-hover:text-indigo-900 transition-colors"
                   textClassName=""
                 />
               </div>            </nav>
@@ -309,13 +314,7 @@ export default function AdminPage() {
 
             {/* Area de Contenido con Scroll */}
             <div className="flex-1 overflow-y-auto p-2 md:p-8 md:pb-8 scroll-smooth relative">
-              {/* Botón Logout Flotante (Solo Móvil) */}
-              <button
-                onClick={handleLogout}
-                className="md:hidden absolute top-4 right-4 z-50 p-2 rounded-full bg-white/40 border border-white/50 text-red-600 shadow-lg backdrop-blur text-xs font-bold active:scale-95"
-              >
-                <LogOut size={16} />
-              </button>
+              {/* Botón Logout Flotante ELIMINADO */}
 
               <AnimatePresence mode="wait">
                 <motion.div key={activeTab} variants={fadeTransition} initial="hidden" animate="visible" exit="exit" className="h-full flex flex-col">
@@ -403,12 +402,24 @@ export default function AdminPage() {
             </div>
 
             {/* Barra de Navegación Móvil (Sticky Bottom) */}
-            <div className="md:hidden border-t border-white/40 bg-white/40 backdrop-blur-xl flex justify-around py-1 px-2 pb-safe shrink-0 z-30">
+            <div className="md:hidden border-t border-white/40 bg-white/40 backdrop-blur-xl flex justify-between py-1 px-1 pb-safe shrink-0 z-30">
               {/* <MobileTab Icon={Server} label="Servidores" isActive={activeTab === 'servidores'} onClick={() => setActiveTab('servidores')} /> */}
               <MobileTab Icon={Users} label="Maestros" isActive={activeTab === 'maestros'} onClick={() => setActiveTab('maestros')} />
               <MobileTab Icon={UserPlus} label="Matricular" isActive={activeTab === 'matricular'} onClick={() => setActiveTab('matricular')} badge={estudiantesPendientesCount} />
-              <MobileTab Icon={GraduationCap} label="Prom." isActive={activeTab === 'promovidos'} onClick={() => setActiveTab('promovidos')} badge={promovidosCount} />
+
+              {!(currentUser.cursosAcceso?.length === 1 && currentUser.cursosAcceso[0] === 'Restauración 1' && currentUser.rol !== 'Director') && (
+                <MobileTab Icon={GraduationCap} label="Prom." isActive={activeTab === 'promovidos'} onClick={() => setActiveTab('promovidos')} badge={promovidosCount} />
+              )}
+
               <MobileTab Icon={ClipboardList} label="Estudiantes" isActive={activeTab === 'consultar'} onClick={() => setActiveTab('consultar')} />
+
+              {/* Botón de Perfil/Salir integrado */}
+              <LogoutButton
+                isMultiRole={currentUser.roleCount > 1}
+                className="relative flex flex-1 flex-col items-center justify-center p-2 rounded-lg active:scale-95 transition-transform text-gray-600"
+                iconClassName="text-gray-600 mb-0.5"
+                textClassName="text-[10px] font-medium mt-0.5 text-gray-600 text-center leading-tight w-full"
+              />
             </div>
           </main>
         </div>
@@ -461,10 +472,10 @@ function TabButton({ Icon, label, isActive, onClick, badge }: TabButtonProps) {
 interface MobileTabProps { Icon: LucideIcon; label: string; isActive: boolean; onClick: () => void; badge?: number; }
 function MobileTab({ Icon, label, isActive, onClick, badge }: MobileTabProps) {
   return (
-    <button onClick={onClick} className="relative flex flex-col items-center justify-center p-2 rounded-lg w-16 active:scale-95 transition-transform">
+    <button onClick={onClick} className="relative flex flex-1 flex-col items-center justify-center p-2 rounded-lg active:scale-95 transition-transform">
       <div className={`p-1 rounded-lg transition-colors ${isActive ? 'bg-indigo-100/50 text-indigo-700' : 'text-gray-600'}`}><Icon size={18} /></div>
-      <span className="text-[10px] font-medium mt-0.5 text-gray-600">{label}</span>
-      {badge !== undefined && badge > 0 && <span className="absolute top-0 right-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-rose-500 px-0.5 text-[9px] font-bold text-white shadow-sm ring-1 ring-white">{badge}</span>}
+      <span className="text-[10px] font-medium mt-0.5 text-gray-600 text-center leading-tight line-clamp-1 w-full">{label}</span>
+      {badge !== undefined && badge > 0 && <span className="absolute top-1 right-1/4 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-rose-500 px-0.5 text-[9px] font-bold text-white shadow-sm ring-1 ring-white">{badge}</span>}
     </button>
   );
 }
@@ -528,53 +539,130 @@ function PanelGestionarMaestros({ maestros, loading, onCrear, onEditar, onAsigna
               <motion.li
                 key={m.id}
                 variants={LIST_ITEM_VARIANTS}
-                className={`p-4 rounded-xl ${GLASS_STYLES.panel} flex flex-col md:flex-row items-start md:items-center gap-4 justify-between`}
+                className={`p-4 rounded-xl bg-gradient-to-br from-indigo-200 via-white to-blue-200 border border-white/60 shadow-lg md:bg-white/30 md:border-white/50 md:shadow-sm`}
               >
-                <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 rounded-full bg-white/50 flex items-center justify-center text-indigo-800 font-bold shadow-sm">{m.nombre.charAt(0)}</div>
-                  <div>
-                    <div className="flex items-center gap-4 flex-wrap">
-                      <p className="font-bold text-gray-900 text-[16px]">{m.nombre}</p>
-                      {!m.activo && (
-                        <span className="bg-red-100 text-red-700 text-[10px] font-bold px-2 py-0.5 rounded-full border border-red-300">
-                          INACTIVO
-                        </span>
-                      )}
-                      {m.telefono && (
-                        <div className="flex items-center gap-3">
-                          <button onClick={(e) => { e.stopPropagation(); window.location.href = `tel:${m.telefono!.replace(/\s+/g, '')}`; }} className="h-10 w-10 rounded-full bg-white/70 flex items-center justify-center text-sky-600 hover:bg-white hover:scale-110 hover:shadow-md transition-all shadow-sm border border-sky-100"><Phone size={20} /></button>
-                          <button onClick={(e) => { e.stopPropagation(); window.open(`https://wa.me/${m.telefono!.replace(/\D/g, '')}`, '_blank'); }} className="h-10 w-10 rounded-full bg-white/70 flex items-center justify-center text-emerald-600 hover:bg-white hover:scale-110 hover:shadow-md transition-all shadow-sm border border-emerald-100"><MessageCircle size={20} /></button>
+                {/* === MOBILE LAYOUT (Visible < md) === */}
+                <div className="flex flex-col gap-4 md:hidden">
+                  {/* Top Row: Avatar, Name/Details, Comms */}
+                  <div className="flex items-start justify-between w-full">
+                    <div className="flex items-center gap-3">
+                      <div className="h-10 w-10 shrink-0 rounded-full bg-white/50 flex items-center justify-center text-indigo-800 font-bold shadow-sm">{m.nombre.charAt(0)}</div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <p className="font-bold text-gray-900 text-[16px]">{m.nombre}</p>
+                          {!m.activo && (
+                            <span className="bg-red-100 text-red-700 text-[10px] font-bold px-2 py-0.5 rounded-full border border-red-300">
+                              INACTIVO
+                            </span>
+                          )}
                         </div>
-                      )}
+                        <p className="text-xs text-gray-600 flex items-center gap-2 flex-wrap mt-1">
+                          {m.cedula}
+                          {/* Courses Moved Here */}
+                          {m.asignaciones.map((a, idx) => <span key={`${a.id}-${idx}`} className="text-[12px] bg-indigo-50 text-indigo-700 px-3 py-1 rounded-lg border border-indigo-100 font-medium">{a.cursos?.nombre}</span>)}
+                        </p>
+                      </div>
                     </div>
-                    <p className="text-xs text-gray-600 flex items-center gap-2">
-                      {m.cedula}
-                      {m.rol && <span className="bg-gray-100/60 px-2 py-0.5 rounded text-gray-700">{m.rol}</span>}
-                    </p>
+
+                    {/* Communication Icons - Always visible on right for Mobile */}
+                    {m.telefono && (
+                      <div className="flex items-center gap-4 shrink-0">
+                        <button onClick={(e) => { e.stopPropagation(); window.location.href = `tel:${m.telefono!.replace(/\s+/g, '')}`; }} className="h-10 w-10 rounded-full bg-white flex items-center justify-center text-sky-600 hover:scale-110 transition-all shadow-sm border border-gray-100"><Phone size={20} /></button>
+                        <button onClick={(e) => { e.stopPropagation(); window.open(`https://wa.me/${m.telefono!.replace(/\D/g, '')}`, '_blank'); }} className="h-10 w-10 rounded-full bg-white flex items-center justify-center text-emerald-600 hover:scale-110 transition-all shadow-sm border border-gray-100"><MessageCircle size={20} /></button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Bottom Section: Courses then Actions */}
+                  <div className="flex gap-4 mt-2">
+                    <button onClick={() => onObs(m)} className="h-11 w-11 rounded-2xl bg-white flex items-center justify-center text-violet-600 shadow-lg shadow-violet-200/50 hover:scale-110 hover:shadow-xl hover:shadow-violet-300/60 transition-all duration-300 border border-violet-100 relative group">
+                      <MessageSquarePlus size={20} className="fill-violet-50 group-hover:fill-violet-100 transition-colors" strokeWidth={1.5} />
+                      {m.obs_count > 0 && <span className="absolute -top-1 -right-1 h-3 w-3 bg-rose-500 rounded-full border-2 border-white" />}
+                    </button>
+
+                    <button onClick={() => onAsignar(m)} className="h-11 w-11 rounded-2xl bg-white flex items-center justify-center text-amber-600 shadow-lg shadow-amber-200/50 hover:scale-110 hover:shadow-xl hover:shadow-amber-300/60 transition-all duration-300 border border-amber-100 group">
+                      <BookOpen size={20} className="fill-amber-50 group-hover:fill-amber-100 transition-colors" strokeWidth={1.5} />
+                    </button>
+
+                    <button onClick={() => onEditar(m)} className="h-11 w-11 rounded-2xl bg-white flex items-center justify-center text-sky-600 shadow-lg shadow-sky-200/50 hover:scale-110 hover:shadow-xl hover:shadow-sky-300/60 transition-all duration-300 border border-sky-100 group">
+                      <Edit2 size={20} className="fill-sky-50 group-hover:fill-sky-100 transition-colors" strokeWidth={1.5} />
+                    </button>
+
+                    {m.activo ? (
+                      <button onClick={() => onDesactivar(m)} className="h-11 w-11 rounded-2xl bg-white flex items-center justify-center text-rose-600 shadow-lg shadow-rose-200/50 hover:scale-110 hover:shadow-xl hover:shadow-rose-300/60 transition-all duration-300 border border-rose-100 group">
+                        <Trash2 size={20} className="fill-rose-50 group-hover:fill-rose-100 transition-colors" strokeWidth={1.5} />
+                      </button>
+                    ) : (
+                      <button onClick={() => onReactivar(m)} className="h-11 px-4 rounded-2xl bg-emerald-500 text-white flex items-center justify-center shadow-lg shadow-emerald-200/50 hover:scale-105 hover:shadow-xl hover:shadow-emerald-300/60 transition-all duration-300 text-xs font-bold gap-2">
+                        <UserCheck2 size={18} strokeWidth={2} /> <span>Activar</span>
+                      </button>
+                    )}
                   </div>
                 </div>
-                <div className="flex flex-wrap gap-1.5">
-                  {m.asignaciones.map((a, idx) => <span key={`${a.id}-${idx}`} className="text-[10px] bg-blue-50/80 text-blue-800 px-2 py-1 rounded border border-blue-100">{a.cursos?.nombre}</span>)}
-                </div>
-                <div className="flex gap-2 mt-2 md:mt-0">
 
-                  <button onClick={() => onObs(m)} className={`${GLASS_STYLES.buttonSecondary} px-3 py-1.5 rounded-lg text-xs relative`}><MessageSquarePlus size={16} /> {m.obs_count > 0 && <span className="absolute -top-1 -right-1 h-2 w-2 bg-rose-500 rounded-full" />}</button>
-                  <button onClick={() => onAsignar(m)} className={`${GLASS_STYLES.buttonSecondary} px-3 py-1.5 rounded-lg text-xs flex gap-1`}><BookOpen size={16} /> <span className="hidden md:inline">Cursos</span></button>
-                  <button onClick={() => onEditar(m)} className={`${GLASS_STYLES.buttonSecondary} px-3 py-1.5 rounded-lg text-xs flex gap-1`}><Edit2 size={16} /> <span className="hidden md:inline">Editar</span></button>
-                  {m.activo ? (
-                    <button onClick={() => onDesactivar(m)} className={`${GLASS_STYLES.buttonSecondary} px-3 py-1.5 rounded-lg text-xs text-red-600 hover:bg-red-50`}><Trash2 size={16} /></button>
-                  ) : (
-                    <button onClick={() => onReactivar(m)} className={`bg-emerald-500 hover:bg-emerald-600 text-white px-3 py-1.5 rounded-lg text-xs flex gap-1 items-center shadow-sm`}>
-                      <UserCheck2 size={16} /> <span className="hidden md:inline">Reactivar</span>
+                {/* === DESKTOP LAYOUT (Visible >= md) === */}
+                <div className="hidden md:flex flex-row items-center gap-4 justify-between w-full">
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 shrink-0 rounded-full bg-white/50 flex items-center justify-center text-indigo-800 font-bold shadow-sm">{m.nombre.charAt(0)}</div>
+                    <div>
+                      <div className="flex items-center gap-4 flex-wrap">
+                        <p className="font-bold text-gray-900 text-[16px]">{m.nombre}</p>
+                        {!m.activo && (
+                          <span className="bg-red-100 text-red-700 text-[10px] font-bold px-2 py-0.5 rounded-full border border-red-300">
+                            INACTIVO
+                          </span>
+                        )}
+                        {/* Comms inside info block in Desktop */}
+                        {m.telefono && (
+                          <div className="flex items-center gap-3">
+                            <button onClick={(e) => { e.stopPropagation(); window.location.href = `tel:${m.telefono!.replace(/\s+/g, '')}`; }} className="h-10 w-10 rounded-full bg-white/70 flex items-center justify-center text-sky-600 hover:bg-white hover:scale-110 hover:shadow-md transition-all shadow-sm border border-sky-100"><Phone size={20} /></button>
+                            <button onClick={(e) => { e.stopPropagation(); window.open(`https://wa.me/${m.telefono!.replace(/\D/g, '')}`, '_blank'); }} className="h-10 w-10 rounded-full bg-white/70 flex items-center justify-center text-emerald-600 hover:bg-white hover:scale-110 hover:shadow-md transition-all shadow-sm border border-emerald-100"><MessageCircle size={20} /></button>
+                          </div>
+                        )}
+                      </div>
+                      <p className="text-xs text-gray-600 flex items-center gap-2">
+                        {m.cedula}
+                        {m.rol && <span className="bg-gray-100/60 px-2 py-0.5 rounded text-gray-700">{m.rol}</span>}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap gap-1.5">
+                    {m.asignaciones.map((a, idx) => <span key={`${a.id}-${idx}`} className="text-[10px] bg-blue-50/80 text-blue-800 px-2 py-1 rounded border border-blue-100">{a.cursos?.nombre}</span>)}
+                  </div>
+
+                  <div className="flex gap-4">
+                    <button onClick={() => onObs(m)} className="h-11 w-11 rounded-2xl bg-white flex items-center justify-center text-violet-600 shadow-lg shadow-violet-200/50 hover:scale-110 hover:shadow-xl hover:shadow-violet-300/60 transition-all duration-300 border border-violet-100 relative group">
+                      <MessageSquarePlus size={20} className="fill-violet-50 group-hover:fill-violet-100 transition-colors" strokeWidth={1.5} />
+                      {m.obs_count > 0 && <span className="absolute -top-1 -right-1 h-3 w-3 bg-rose-500 rounded-full border-2 border-white" />}
                     </button>
-                  )}
+
+                    <button onClick={() => onAsignar(m)} className="h-11 w-11 rounded-2xl bg-white flex items-center justify-center text-amber-600 shadow-lg shadow-amber-200/50 hover:scale-110 hover:shadow-xl hover:shadow-amber-300/60 transition-all duration-300 border border-amber-100 group">
+                      <BookOpen size={20} className="fill-amber-50 group-hover:fill-amber-100 transition-colors" strokeWidth={1.5} />
+                    </button>
+
+                    <button onClick={() => onEditar(m)} className="h-11 w-11 rounded-2xl bg-white flex items-center justify-center text-sky-600 shadow-lg shadow-sky-200/50 hover:scale-110 hover:shadow-xl hover:shadow-sky-300/60 transition-all duration-300 border border-sky-100 group">
+                      <Edit2 size={20} className="fill-sky-50 group-hover:fill-sky-100 transition-colors" strokeWidth={1.5} />
+                    </button>
+
+                    {m.activo ? (
+                      <button onClick={() => onDesactivar(m)} className="h-11 w-11 rounded-2xl bg-white flex items-center justify-center text-rose-600 shadow-lg shadow-rose-200/50 hover:scale-110 hover:shadow-xl hover:shadow-rose-300/60 transition-all duration-300 border border-rose-100 group">
+                        <Trash2 size={20} className="fill-rose-50 group-hover:fill-rose-100 transition-colors" strokeWidth={1.5} />
+                      </button>
+                    ) : (
+                      <button onClick={() => onReactivar(m)} className="h-11 px-4 rounded-2xl bg-emerald-500 text-white flex items-center justify-center shadow-lg shadow-emerald-200/50 hover:scale-105 hover:shadow-xl hover:shadow-emerald-300/60 transition-all duration-300 text-xs font-bold gap-2">
+                        <UserCheck2 size={18} strokeWidth={2} /> <span>Activar</span>
+                      </button>
+                    )}
+                  </div>
                 </div>
               </motion.li>
             ))}
           </motion.ul>
-        )}
-      </div>
-    </GlassCard>
+        )
+        }
+      </div >
+    </GlassCard >
   );
 }
 

@@ -715,20 +715,11 @@ export default function GestionServidores() {
     const abrirListado = () => { setListadoVisible(true); cargarListado(1); };
     const cerrarListado = () => setListadoVisible(false);
     const [detalleVisible, setDetalleVisible] = useState(false);
-    const [detalleTab, setDetalleTab] = useState<'datos' | 'actualizar'>('datos');
     const [detalleSel, setDetalleSel] = useState<ServidorRow | null>(null);
     const [obsLoading, setObsLoading] = useState(false);
     const [obsItems, setObsItems] = useState<ObservacionRow[]>([]);
     const [confirmDetalleDelete, setConfirmDetalleDelete] = useState(false);
-    const volverABuscar = () => {
-        setConfirmDetalleDelete(false);
-        setDetalleVisible(false);
-        setDetalleSel(null);
-        setQ('');
-        setResults([]);
-        setFocusIndex(0);
-        setBuscarModalVisible(true);
-    };
+
     useEffect(() => {
         if (!buscarModalVisible) return;
         const term = trim(q);
@@ -769,7 +760,6 @@ export default function GestionServidores() {
     }, [results, buscarModalVisible]);
     const applyPick = (s: ServidorRow) => {
         setDetalleSel(s);
-        setDetalleTab('datos');
         setObsItems([]);
         setBuscarModalVisible(false);
         setDetalleVisible(true);
@@ -901,15 +891,8 @@ export default function GestionServidores() {
         setEditMode(true);
         setDetalleVisible(false);
     };
-    const eliminarDesdeDetalle = async () => {
-        if (!detalleSel?.cedula) return;
-        const prevCed = form.cedula;
-        setForm((f) => ({ ...f, cedula: detalleSel.cedula }));
-        await onEliminar();
-        setForm((f) => ({ ...f, cedula: prevCed }));
-        setDetalleVisible(false);
-        setConfirmDetalleDelete(false);
-    };
+
+
     const resetFormulario = () => {
         setForm({
             nombre: '',
@@ -1202,9 +1185,9 @@ export default function GestionServidores() {
             if (hardDelete) {
                 await eliminarFisicamente(sid);
                 toastShow('delete', 'Servidor eliminado definitivamente.');
-                setDetalleVisible(false);
-                setConfirmDetalleDelete(false);
                 setHardDelete(false);
+                setConfirmDetalleDelete(false);
+                setDetalleVisible(false);
                 resetFormulario();
                 return;
             }
@@ -1229,8 +1212,8 @@ export default function GestionServidores() {
 
 
             toastShow('delete', 'Servidor eliminado correctamente.');
-            setDetalleVisible(false);
             setConfirmDetalleDelete(false);
+            setDetalleVisible(false);
             resetFormulario();
         } catch (e: any) {
             toastShow('error', `Error al eliminar: ${e?.message ?? e}`);
@@ -2265,6 +2248,7 @@ export default function GestionServidores() {
                 </div>
             )}
 
+            {/* Modal de Detalle del Servidor */}
             {detalleVisible && detalleSel && (
                 <div className="srv-modal" role="dialog" aria-modal="true">
                     <div className="srv-modal__box view-box">
@@ -2274,62 +2258,44 @@ export default function GestionServidores() {
 
                         <div className="view-layout">
                             <div className="view-content">
-                                {detalleTab === 'datos' && (
-                                    <div className="view-section">
-                                        <h4 className="view-title">Datos Personales</h4>
-                                        <div className="view-grid">
-                                            <div className="view-row"><label>Nombre:</label> <span>{detalleSel.nombre || '—'}</span></div>
-                                            <div className="view-row"><label>Teléfono:</label> <span>{detalleSel.telefono || '—'}</span></div>
-                                            <div className="view-row"><label>Cédula:</label> <span>{maskCedulaDisplay(detalleSel.cedula)}</span></div>
-                                            <div className="view-row"><label>Rol:</label> <span>{uiRoleLabel(roleFromRow(detalleSel))}</span></div>
-                                            <div className="view-row"><label>Día:</label> <span>{((detalleSel.asignaciones_contacto?.find(a => a.vigente)?.dia ?? detalleSel.asignaciones_maestro?.find(a => a.vigente)?.dia) || (detalleSel.asignaciones_contacto?.find(a => a.vigente)?.dia ?? detalleSel.asignaciones_maestro?.find(a => a.vigente)?.dia) || '—')}</span></div>
-                                            <div className="view-row"><label>Etapa:</label> <span>{((detalleSel.asignaciones_contacto?.find(a => a.vigente)?.etapa ?? detalleSel.asignaciones_maestro?.find(a => a.vigente)?.etapa) || (detalleSel.asignaciones_contacto?.find(a => a.vigente)?.etapa ?? detalleSel.asignaciones_maestro?.find(a => a.vigente)?.etapa) || '—')}</span></div>
-                                        </div>
-                                        <h4 className="view-title" style={{ marginTop: 16 }}>Historial de Observaciones</h4>
-                                        <div className="view-obs">
-                                            {obsLoading && <div className="view-obs-empty">Cargando…</div>}
-                                            {!obsLoading && obsItems.length === 0 && <div className="view-obs-empty">Sin observaciones registradas.</div>}
-                                            {!obsLoading && obsItems.length > 0 && (
-                                                <ul className="view-obs-list">
-                                                    {obsItems.map((o, i) => (
-                                                        <li key={o.id ?? i}>
-                                                            <div className="view-obs-text">{o.texto || '—'}</div>
-                                                            {o.created_at && <div className="view-obs-date">{new Date(o.created_at).toLocaleString()}</div>}
-                                                        </li>
-                                                    ))}
-                                                </ul>
-                                            )}
-                                        </div>
+                                <div className="view-section">
+                                    <h4 className="view-title">Datos Personales</h4>
+                                    <div className="view-grid">
+                                        <div className="view-row"><label>Nombre:</label> <span>{detalleSel.nombre || '—'}</span></div>
+                                        <div className="view-row"><label>Teléfono:</label> <span>{detalleSel.telefono || '—'}</span></div>
+                                        <div className="view-row"><label>Cédula:</label> <span>{maskCedulaDisplay(detalleSel.cedula)}</span></div>
+                                        <div className="view-row"><label>Rol:</label> <span>{uiRoleLabel(roleFromRow(detalleSel))}</span></div>
+                                        <div className="view-row"><label>Día:</label> <span>{((detalleSel.asignaciones_contacto?.find((a: any) => a?.vigente)?.dia ?? detalleSel.asignaciones_maestro?.find((a: any) => a?.vigente)?.dia) || (detalleSel.asignaciones_contacto?.find((a: any) => a?.vigente)?.dia ?? detalleSel.asignaciones_maestro?.find((a: any) => a?.vigente)?.dia) || '—')}</span></div>
+                                        <div className="view-row"><label>Etapa:</label> <span>{((detalleSel.asignaciones_contacto?.find((a: any) => a?.vigente)?.etapa ?? detalleSel.asignaciones_maestro?.find((a: any) => a?.vigente)?.etapa) || (detalleSel.asignaciones_contacto?.find((a: any) => a?.vigente)?.etapa ?? detalleSel.asignaciones_maestro?.find((a: any) => a?.vigente)?.etapa) || '—')}</span></div>
                                     </div>
-                                )}
-
-                                {detalleTab === 'actualizar' && (
-                                    <div className="view-section">
-                                        <h4 className="view-title">Actualizar Datos</h4>
-                                        <p className="srv-info" style={{ marginBottom: 12 }}>Cargar este servidor en el formulario para editar.</p>
-                                        <div className="srv-actions">
-                                            <button className="srv-btn srv-btn-buscar" onClick={actualizarDesdeDetalle}>Cargar para Actualizar</button>
-                                        </div>
-                                        <div style={{ marginTop: 10 }}>
-                                            <small className="srv-info">El botón principal del formulario cambiará a “Actualizar”.</small>
-                                        </div>
-                                        <div className="srv-actions" style={{ marginTop: 18 }}>
-                                            <button className="srv-btn" style={{ background: '#ffe8e8' }} onClick={handleDeleteButtonClick}>Eliminar Servidor</button>
-                                        </div>
+                                    <h4 className="view-title" style={{ marginTop: 16 }}>Historial de Observaciones</h4>
+                                    <div className="view-obs">
+                                        {obsLoading && <div className="view-obs-empty">Cargando…</div>}
+                                        {!obsLoading && obsItems.length === 0 && <div className="view-obs-empty">Sin observaciones registradas.</div>}
+                                        {!obsLoading && obsItems.length > 0 && (
+                                            <ul className="view-obs-list">
+                                                {obsItems.map((o: any, i: number) => (
+                                                    <li key={o.id ?? i}>
+                                                        <div className="view-obs-text">{o.texto || '—'}</div>
+                                                        {o.created_at && <div className="view-obs-date">{new Date(o.created_at).toLocaleString()}</div>}
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        )}
                                     </div>
-                                )}
+                                </div>
                             </div>
 
                             <aside className="view-sidebar">
-                                <button className={`view-item${detalleTab === 'datos' ? ' is-active' : ''}`} onClick={() => setDetalleTab('datos')}>Datos Personales</button>
-                                <button className={`view-item${detalleTab === 'actualizar' ? ' is-active' : ''}`} onClick={() => setDetalleTab('actualizar')}>Actualizar Datos</button>
+                                <button className="view-item" onClick={actualizarDesdeDetalle}>Cargar para Actualizar</button>
                                 <button className="view-item view-item-danger" onClick={handleDeleteButtonClick}>Eliminar Servidor</button>
-                                <button className="view-item" onClick={volverABuscar}>Atras</button>
+                                <button className="view-item" onClick={() => setDetalleVisible(false)}>Cerrar</button>
                             </aside>
                         </div>
                     </div>
                 </div>
             )}
+
 
             {adminPassModalVisible && (
                 <div className="srv-modal" role="dialog" aria-modal="true">
@@ -2364,6 +2330,7 @@ export default function GestionServidores() {
                 </div>
             )}
 
+            {/* Modal de Confirmación de Eliminación */}
             {confirmDetalleDelete && (
                 <div className="srv-modal" role="dialog" aria-modal="true">
                     <div className="srv-modal__box confirm-box">
@@ -2399,6 +2366,8 @@ export default function GestionServidores() {
                     </div>
                 </div>
             )}
+
+
 
             {/* Modal Premium de Roles Administrativos */}
             <AnimatePresence>

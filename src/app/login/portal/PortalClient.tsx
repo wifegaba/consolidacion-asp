@@ -20,7 +20,7 @@ type Asignacion = {
 // Custom SVG Icons matching the panel
 const ContactoIcon = ({ variant }: { variant?: 'martes' | 'virtual' | 'default' }) => (
     <svg width="60" height="60" viewBox="0 0 24 24" fill="currentColor" className={`${variant === 'virtual' ? 'text-fuchsia-400' :
-            variant === 'martes' ? 'text-sky-400' : 'text-white'
+        variant === 'martes' ? 'text-sky-400' : 'text-white'
         } drop-shadow-lg transition-colors duration-500`}>
         <circle cx="12" cy="12" r="6" fillOpacity="0.9" />
     </svg>
@@ -28,7 +28,7 @@ const ContactoIcon = ({ variant }: { variant?: 'martes' | 'virtual' | 'default' 
 
 const MaestroIcon = ({ variant }: { variant?: 'martes' | 'virtual' | 'default' }) => (
     <svg width="60" height="60" viewBox="0 0 24 24" fill="currentColor" className={`${variant === 'virtual' ? 'text-fuchsia-400' :
-            variant === 'martes' ? 'text-sky-400' : 'text-indigo-600'
+        variant === 'martes' ? 'text-sky-400' : 'text-indigo-600'
         } drop-shadow-md transition-colors duration-500`}>
         <circle cx="12" cy="6" r="3.5" fillOpacity="0.9" />
         <circle cx="6" cy="16" r="3.5" fillOpacity="0.7" />
@@ -197,8 +197,8 @@ export default function PortalClient({ nombre, asignaciones }: { nombre: string,
                                     return (
                                         <>
                                             <div className={`absolute inset-0 blur-2xl rounded-full opacity-60 group-hover:opacity-100 transition-all duration-500 ${isCoordOrTim && variant === 'virtual' ? 'bg-fuchsia-500/40' :
-                                                    isCoordOrTim && variant === 'martes' ? 'bg-sky-500/40' :
-                                                        'bg-blue-500/30'
+                                                isCoordOrTim && variant === 'martes' ? 'bg-sky-500/40' :
+                                                    'bg-blue-500/30'
                                                 }`} />
 
                                             <div className="relative z-10 transform transition-transform duration-500 group-hover:scale-110 group-hover:-translate-y-2 drop-shadow-2xl">
@@ -239,23 +239,30 @@ export default function PortalClient({ nombre, asignaciones }: { nombre: string,
                                         Acceso Administrativo
                                     </span>
                                 ) : (
-                                    <div className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-full border backdrop-blur-md ${a.dia.toLowerCase().includes('domingo')
-                                        ? 'bg-emerald-500/10 border-emerald-500/20'
-                                        : a.dia.toLowerCase().includes('martes')
-                                            ? 'bg-sky-500/10 border-sky-500/20'
-                                            : a.dia.toLowerCase().includes('virtual')
-                                                ? 'bg-gradient-to-r from-fuchsia-500/20 to-pink-500/20 border-fuchsia-500/30'
-                                                : 'bg-white/5 border-white/10'
+                                    <div className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-full border backdrop-blur-md ${a.dia.toLowerCase().includes('todos')
+                                            ? 'bg-gradient-to-r from-amber-500/20 via-yellow-400/20 to-amber-500/20 border-amber-400/40'
+                                            : a.dia.toLowerCase().includes('domingo')
+                                                ? 'bg-emerald-500/10 border-emerald-500/20'
+                                                : a.dia.toLowerCase().includes('martes')
+                                                    ? 'bg-sky-500/10 border-sky-500/20'
+                                                    : a.dia.toLowerCase().includes('virtual')
+                                                        ? 'bg-gradient-to-r from-fuchsia-500/20 to-pink-500/20 border-fuchsia-500/30'
+                                                        : 'bg-white/5 border-white/10'
                                         }`}>
-                                        <div className={`w-2 h-2 rounded-full shadow-[0_0_8px_currentcolor] ${a.dia.toLowerCase().includes('domingo')
-                                            ? 'bg-emerald-400 text-emerald-400'
-                                            : a.dia.toLowerCase().includes('martes')
-                                                ? 'bg-sky-400 text-sky-400'
-                                                : a.dia.toLowerCase().includes('virtual')
-                                                    ? 'bg-fuchsia-400 text-fuchsia-400'
-                                                    : 'bg-slate-400 text-slate-400'
+                                        <div className={`w-2 h-2 rounded-full shadow-[0_0_8px_currentcolor] ${a.dia.toLowerCase().includes('todos')
+                                                ? 'bg-gradient-to-r from-amber-400 to-yellow-300 text-amber-400'
+                                                : a.dia.toLowerCase().includes('domingo')
+                                                    ? 'bg-emerald-400 text-emerald-400'
+                                                    : a.dia.toLowerCase().includes('martes')
+                                                        ? 'bg-sky-400 text-sky-400'
+                                                        : a.dia.toLowerCase().includes('virtual')
+                                                            ? 'bg-fuchsia-400 text-fuchsia-400'
+                                                            : 'bg-slate-400 text-slate-400'
                                             }`} />
-                                        <span className="text-white text-xs font-semibold tracking-wide">
+                                        <span className={`text-xs font-semibold tracking-wide ${a.dia.toLowerCase().includes('todos')
+                                                ? 'bg-gradient-to-r from-amber-300 via-yellow-200 to-amber-300 bg-clip-text text-transparent drop-shadow-[0_0_12px_rgba(251,191,36,0.6)]'
+                                                : 'text-white'
+                                            }`}>
                                             {a.dia} {a.franja && `• ${a.franja}`}
                                         </span>
                                     </div>
