@@ -15,7 +15,7 @@ import {
   Users, UserPlus, Server, Search, Plus, X, Loader2, Check,
   Edit2, Trash2, BookOpen, MessageSquarePlus, type LucideIcon,
   ChevronDown, AlertTriangle, ClipboardList, UserX, UserCheck2,
-  Phone, MessageCircle, GraduationCap, LogOut
+  Phone, MessageCircle, GraduationCap, LogOut, Home
 } from 'lucide-react';
 import { LogoutButton } from '../../components/ui/LogoutButton';
 import { PremiumActionButton } from './components/PremiumActionButton';
@@ -24,6 +24,7 @@ import ComponenteGestionarMaestros from './components/GestionServidores'; // Asu
 import PanelMatricular from './components/PanelMatricular';
 import PanelConsultarEstudiantes from './components/PanelConsultarEstudiantes';
 import PanelPromovidos from './components/PanelPromovidos';
+import WelcomePanelAdmin from './components/WelcomePanelAdmin';
 import { PresenceToast, type Toast } from './components/PresenceToast';
 import { usePresence } from '../../hooks/usePresence';
 import { useGlobalPresence } from '../../hooks/useGlobalPresence';
@@ -49,7 +50,7 @@ export type MaestroConCursos = Maestro & { asignaciones: AsignacionMaestro[]; ob
 export type Estudiante = { id: string; nombre: string; cedula: string; telefono?: string | null; foto_path?: string | null; dia?: string; };
 export type Inscripcion = { id: number; entrevista_id: string; curso_id: number; servidor_id: string | null; cursos?: Pick<Curso, 'nombre' | 'color'> | null; };
 export type EstudianteInscrito = Estudiante & { maestro: MaestroConCursos | null; curso: Curso | null; inscripcion_id: number | null; };
-export type AdminTab = 'matricular' | 'maestros' | 'servidores' | 'consultar' | 'promovidos';
+export type AdminTab = 'bienvenida' | 'matricular' | 'maestros' | 'servidores' | 'consultar' | 'promovidos';
 
 // --- HELPERS ---
 function bustUrl(u?: string | null) {
@@ -97,7 +98,7 @@ const LIST_ITEM_VARIANTS: Variants = {
 
 // --- COMPONENTE PRINCIPAL ---
 export default function AdminPage() {
-  const [activeTab, setActiveTab] = useState<AdminTab>('maestros');
+  const [activeTab, setActiveTab] = useState<AdminTab>('bienvenida');
   const [maestros, setMaestros] = useState<MaestroConCursos[]>([]);
   const [cursos, setCursos] = useState<Curso[]>([]);
   const [estudiantes, setEstudiantes] = useState<Estudiante[]>([]);
@@ -286,45 +287,48 @@ export default function AdminPage() {
         {/* FIX: En móvil es h-full y rounded-none. En desktop es h-[92vh] (ampliado) y rounded-3xl */}
         <div className={`w-full max-w-[1500px] h-full md:h-[92vh] flex flex-col md:flex-row md:rounded-3xl overflow-hidden ${GLASS_STYLES.container}`}>
 
-          {/* SIDEBAR (Desktop) */}
-          <aside className="hidden md:flex w-64 flex-col border-r border-white/20 bg-gradient-to-b from-blue-600 via-blue-700 to-indigo-900 backdrop-blur-xl p-4 shadow-2xl z-20">
-            <nav className="flex flex-col gap-2 flex-1">
-              {/* <TabButton Icon={Server} label="Servidores" isActive={activeTab === 'servidores'} onClick={() => setActiveTab('servidores')} /> */}
-              <TabButton Icon={Users} label="Maestros" isActive={activeTab === 'maestros'} onClick={() => setActiveTab('maestros')} />
-              <TabButton Icon={UserPlus} label="Matricular" isActive={activeTab === 'matricular'} onClick={() => setActiveTab('matricular')} badge={estudiantesPendientesCount} />
+          {/* SIDEBAR (Desktop) - Oculto en vista de bienvenida */}
+          {activeTab !== 'bienvenida' && (
+            <aside className="hidden md:flex w-64 flex-col border-r border-white/20 bg-gradient-to-b from-blue-600 via-blue-700 to-indigo-900 backdrop-blur-xl p-4 shadow-2xl z-20">
+              <nav className="flex flex-col gap-2 flex-1">
+                <TabButton Icon={Home} label="Bienvenida" isActive={activeTab === 'bienvenida'} onClick={() => setActiveTab('bienvenida')} />
+                {/* <TabButton Icon={Server} label="Servidores" isActive={activeTab === 'servidores'} onClick={() => setActiveTab('servidores')} /> */}
+                <TabButton Icon={Users} label="Maestros" isActive={activeTab === 'maestros'} onClick={() => setActiveTab('maestros')} />
+                <TabButton Icon={UserPlus} label="Matricular" isActive={activeTab === 'matricular'} onClick={() => setActiveTab('matricular')} badge={estudiantesPendientesCount} />
 
-              {/* Ocultar Promovidos para usuarios exclusivos de Restauración 1 */}
-              {!(currentUser.cursosAcceso?.length === 1 && currentUser.cursosAcceso[0] === 'Restauración 1' && currentUser.rol !== 'Director') && (
-                <TabButton Icon={GraduationCap} label="Promovidos" isActive={activeTab === 'promovidos'} onClick={() => setActiveTab('promovidos')} badge={promovidosCount} />
-              )}
+                {/* Ocultar Promovidos para usuarios exclusivos de Restauración 1 */}
+                {!(currentUser.cursosAcceso?.length === 1 && currentUser.cursosAcceso[0] === 'Restauración 1' && currentUser.rol !== 'Director') && (
+                  <TabButton Icon={GraduationCap} label="Promovidos" isActive={activeTab === 'promovidos'} onClick={() => setActiveTab('promovidos')} badge={promovidosCount} />
+                )}
 
-              <TabButton Icon={ClipboardList} label="Estudiantes" isActive={activeTab === 'consultar'} onClick={() => setActiveTab('consultar')} />
+                <TabButton Icon={ClipboardList} label="Estudiantes" isActive={activeTab === 'consultar'} onClick={() => setActiveTab('consultar')} />
 
-              <div className="mt-2 pt-2 border-t border-white/20">
-                <LogoutButton
-                  isMultiRole={currentUser.roleCount > 1}
-                  className="relative group flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-bold transition-all duration-300 text-white bg-white/10 hover:bg-white/20 hover:shadow-lg hover:shadow-blue-900/20 border border-white/20 w-full"
-                  iconClassName="text-blue-200 group-hover:text-white transition-colors"
-                  textClassName=""
-                />
-              </div>            </nav>
-            <div className="mt-auto border-t border-white/20 pt-4 px-2">
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-full bg-white/20 border border-white/30 flex items-center justify-center text-white font-bold text-sm shadow-inner">{currentUser.initials}</div>
-                <div className="flex flex-col">
-                  <span className="text-sm font-bold text-white tracking-wide">{currentUser.name}</span>
-                  <div className="flex items-center gap-2">
-                    <span className="h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.6)] animate-pulse"></span>
-                    <span className="text-[11px] text-blue-100/80 font-medium">En línea</span>
+                <div className="mt-2 pt-2 border-t border-white/20">
+                  <LogoutButton
+                    isMultiRole={currentUser.roleCount > 1}
+                    className="relative group flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-bold transition-all duration-300 text-white bg-white/10 hover:bg-white/20 hover:shadow-lg hover:shadow-blue-900/20 border border-white/20 w-full"
+                    iconClassName="text-blue-200 group-hover:text-white transition-colors"
+                    textClassName=""
+                  />
+                </div>            </nav>
+              <div className="mt-auto border-t border-white/20 pt-4 px-2">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-full bg-white/20 border border-white/30 flex items-center justify-center text-white font-bold text-sm shadow-inner">{currentUser.initials}</div>
+                  <div className="flex flex-col">
+                    <span className="text-sm font-bold text-white tracking-wide">{currentUser.name}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.6)] animate-pulse"></span>
+                      <span className="text-[11px] text-blue-100/80 font-medium">En línea</span>
+                    </div>
+                    {/* Mostrar badge de día si es relevante */}
+                    {currentUser.diaAcceso && currentUser.diaAcceso !== 'Todos' && (
+                      <span className="text-[9px] px-2 py-0.5 rounded-full bg-blue-500/30 border border-blue-400/30 text-blue-100 w-fit mt-1">{currentUser.diaAcceso}</span>
+                    )}
                   </div>
-                  {/* Mostrar badge de día si es relevante */}
-                  {currentUser.diaAcceso && currentUser.diaAcceso !== 'Todos' && (
-                    <span className="text-[9px] px-2 py-0.5 rounded-full bg-blue-500/30 border border-blue-400/30 text-blue-100 w-fit mt-1">{currentUser.diaAcceso}</span>
-                  )}
                 </div>
               </div>
-            </div>
-          </aside>
+            </aside>
+          )}
 
           {/* CONTENIDO PRINCIPAL */}
           <main className="flex-1 relative flex flex-col min-w-0 bg-transparent h-full overflow-hidden">
@@ -337,6 +341,18 @@ export default function AdminPage() {
 
               <AnimatePresence mode="wait">
                 <motion.div key={activeTab} variants={fadeTransition} initial="hidden" animate="visible" exit="exit" className="h-full flex flex-col">
+                  {activeTab === 'bienvenida' && (
+                    <WelcomePanelAdmin
+                      userName={currentUser.name}
+                      userRole={currentUser.rol}
+                      onSelectSection={(sectionId) => setActiveTab(sectionId)}
+                      onLogout={handleLogout}
+                      isMultiRole={currentUser.roleCount > 1}
+                      estudiantesPendientesCount={estudiantesPendientesCount}
+                      promovidosCount={promovidosCount}
+                      currentUser={currentUser}
+                    />
+                  )}
                   {/* {activeTab === 'servidores' && <ServidoresPage />} */}
                   {/* NOTA: La pestaña Servidores está oculta - se gestiona desde /panel/servidores */}
                   {activeTab === 'matricular' && (
@@ -448,6 +464,7 @@ export default function AdminPage() {
 
             {/* Barra de Navegación Móvil (Sticky Bottom) */}
             <div className="md:hidden border-t border-white/20 bg-gradient-to-r from-blue-900 via-indigo-900 to-blue-900 backdrop-blur-xl flex justify-between py-1 px-1 pb-safe shrink-0 z-30 shadow-[0_-5px_20px_rgba(30,58,138,0.5)]">
+              <MobileTab Icon={Home} label="Inicio" isActive={activeTab === 'bienvenida'} onClick={() => setActiveTab('bienvenida')} />
               {/* <MobileTab Icon={Server} label="Servidores" isActive={activeTab === 'servidores'} onClick={() => setActiveTab('servidores')} /> */}
               <MobileTab Icon={Users} label="Maestros" isActive={activeTab === 'maestros'} onClick={() => setActiveTab('maestros')} />
               <MobileTab Icon={UserPlus} label="Matricular" isActive={activeTab === 'matricular'} onClick={() => setActiveTab('matricular')} badge={estudiantesPendientesCount} />

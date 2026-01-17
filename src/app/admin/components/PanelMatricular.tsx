@@ -224,15 +224,15 @@ export default function PanelMatricular({ maestros, cursos, estudiantes, inscrip
             <CardHeader Icon={UserPlus} title="Matricular Estudiantes" subtitle="Asignación de cursos y maestros.">
                 <button
                     onClick={() => setShowModal(true)}
-                    className="bg-white/30 hover:bg-white/50 text-indigo-900 border border-white/50 px-4 py-2 rounded-xl text-sm font-bold flex items-center backdrop-blur-md transition-all shadow-sm active:scale-95"
+                    className="bg-blue-600 hover:bg-blue-700 text-white border border-blue-500 px-4 py-2 rounded-xl text-sm font-bold flex items-center backdrop-blur-md transition-all shadow-lg shadow-blue-500/30 active:scale-95"
                 >
                     <Plus size={18} className="mr-2" />
-                    <span className="hidden sm:inline">Agregar Estudiante</span>
+                    Crear Estudiante
                 </button>
             </CardHeader>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 p-6 flex-1 min-h-0 overflow-hidden">
-                <div className="space-y-4 overflow-visible md:overflow-y-auto md:max-h-full">
-                    <div className="space-y-2">
+            <div className="grid grid-cols-1 md:grid-cols-3 grid-rows-[auto_1fr] md:grid-rows-1 gap-6 p-6 flex-1 min-h-0 overflow-hidden">
+                <div className="flex flex-col gap-3 overflow-y-auto md:max-h-full">
+                    <div>
                         <label className="hidden text-xs font-bold text-gray-600 uppercase tracking-wider">Configuración</label>
                         <div className="hidden">
                             <FormSelect label="Curso" value={cursoId} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => { setCursoId(e.target.value); setMaestroId(''); }}>
