@@ -802,13 +802,47 @@ export function FormInput({ id, label, value, onChange, type = "text", disabled,
 
 export function ModalTemplate({ children, onClose, title }: { children: React.ReactNode, onClose: () => void, title: string }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/30 backdrop-blur-sm" onClick={onClose}>
-      <motion.div variants={modalVariants} initial="hidden" animate="visible" exit="exit" onClick={e => e.stopPropagation()} className={`relative w-full max-w-lg rounded-2xl overflow-hidden flex flex-col max-h-[92vh] ${GLASS_STYLES.container} bg-white/80`}>
-        <div className={`p-4 flex justify-between items-center border-b border-white/50 bg-white/40`}>
-          <h3 className="font-bold text-gray-900 text-lg">{title}</h3>
-          <button onClick={onClose} className="p-1 hover:bg-white/50 rounded-full text-gray-500"><X size={20} /></button>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md" onClick={onClose}>
+      <motion.div
+        variants={modalVariants}
+        initial="hidden"
+        animate="visible"
+        exit="exit"
+        onClick={e => e.stopPropagation()}
+        className="relative w-full max-w-lg rounded-3xl overflow-hidden flex flex-col max-h-[92vh] shadow-2xl border border-white/10"
+        style={{
+          background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 50%, #e2e8f0 100%)'
+        }}
+      >
+        {/* Gradiente decorativo superior izquierdo - Azul/Índigo */}
+        <div
+          className="absolute top-0 left-0 w-96 h-96 opacity-30 pointer-events-none blur-3xl"
+          style={{
+            background: 'radial-gradient(circle at top left, #3b82f6 0%, #6366f1 40%, transparent 70%)'
+          }}
+        />
+
+        {/* Gradiente decorativo inferior derecho - Violeta/Rosa */}
+        <div
+          className="absolute bottom-0 right-0 w-80 h-80 opacity-25 pointer-events-none blur-3xl"
+          style={{
+            background: 'radial-gradient(circle at bottom right, #a855f7 0%, #ec4899 40%, transparent 70%)'
+          }}
+        />
+
+        {/* Contenido del modal con z-index para estar sobre los gradientes */}
+        <div className="relative z-10 flex flex-col h-full bg-white/40 backdrop-blur-xl rounded-3xl">
+          <div className="p-5 flex justify-between items-center border-b border-white/30 bg-gradient-to-r from-white/50 via-white/30 to-white/50 backdrop-blur-sm">
+            <h3 className="font-bold text-gray-900 text-xl tracking-tight">{title}</h3>
+            <button
+              onClick={onClose}
+              className="p-2 hover:bg-white/60 rounded-full text-gray-600 hover:text-gray-900 transition-all active:scale-95"
+            >
+              <X size={22} />
+            </button>
+          </div>
+          {children}
         </div>
-        {children}
       </motion.div>
     </div>
   );
