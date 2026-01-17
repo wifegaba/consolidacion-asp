@@ -233,19 +233,21 @@ export default function PanelMatricular({ maestros, cursos, estudiantes, inscrip
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 p-6 flex-1 min-h-0 overflow-hidden">
                 <div className="space-y-4 overflow-visible md:overflow-y-auto md:max-h-full">
                     <div className="space-y-2">
-                        <label className="text-xs font-bold text-gray-600 uppercase tracking-wider">Configuración</label>
-                        <FormSelect label="Curso" value={cursoId} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => { setCursoId(e.target.value); setMaestroId(''); }}>
-                            {cursosPermitidos.length === 0 ? (
-                                <option value="">Seleccione estudiantes...</option>
-                            ) : cursosPermitidos.length === 1 ? (
-                                <option value={cursosPermitidos[0].id}>{cursosPermitidos[0].nombre}</option>
-                            ) : (
-                                <>
-                                    <option value="">Seleccionar Curso...</option>
-                                    {cursosPermitidos.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
-                                </>
-                            )}
-                        </FormSelect>
+                        <label className="hidden text-xs font-bold text-gray-600 uppercase tracking-wider">Configuración</label>
+                        <div className="hidden">
+                            <FormSelect label="Curso" value={cursoId} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => { setCursoId(e.target.value); setMaestroId(''); }}>
+                                {cursosPermitidos.length === 0 ? (
+                                    <option value="">Seleccione estudiantes...</option>
+                                ) : cursosPermitidos.length === 1 ? (
+                                    <option value={cursosPermitidos[0].id}>{cursosPermitidos[0].nombre}</option>
+                                ) : (
+                                    <>
+                                        <option value="">Seleccionar Curso...</option>
+                                        {cursosPermitidos.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+                                    </>
+                                )}
+                            </FormSelect>
+                        </div>
                         <FormSelect label="Maestro" value={maestroId} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setMaestroId(e.target.value)} disabled={!cursoId}>
                             <option value="">Seleccionar...</option>
                             {mDisponibles.map(m => <option key={m.id} value={m.id}>{m.nombre}</option>)}
@@ -288,8 +290,8 @@ export default function PanelMatricular({ maestros, cursos, estudiantes, inscrip
                                                 )}
                                                 {e.dia && (
                                                     <span className={`text-[10px] uppercase tracking-wider font-bold px-2.5 py-1 rounded-lg shadow-sm ${e.dia === 'Domingo' ? 'bg-blue-100 text-blue-700 border border-blue-200' :
-                                                            e.dia === 'Martes' ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' :
-                                                                'bg-pink-100 text-pink-700 border border-pink-200'
+                                                        e.dia === 'Martes' ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' :
+                                                            'bg-pink-100 text-pink-700 border border-pink-200'
                                                         }`}>
                                                         {e.dia}
                                                     </span>

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { ClipboardList, Search, UserX, UserCheck2, UserCog, UserMinus, Check, AlertTriangle, Loader2, Phone, MessageCircle } from 'lucide-react';
+import { ClipboardList, Search, UserX, UserCheck2, UserCog, UserMinus, Check, AlertTriangle, Loader2, Phone, MessageCircle, Trash2 } from 'lucide-react';
 import { AnimatePresence, motion, Variants } from 'framer-motion';
 import { supabase } from '../../../lib/supabaseClient';
 import { GlassCard, CardHeader, FormSelect, GLASS_STYLES, ModalTemplate } from '../page';
@@ -208,6 +208,7 @@ function ModalDetalleEstudiante({ estudiante, maestros, fotoUrl, onClose, onSucc
     const [isActiveState, setIsActiveState] = useState(!!estudiante.inscripcion_id);
 
     const [confirmData, setConfirmData] = useState<{ isOpen: boolean; title: string; message: string; onConfirm: () => void } | null>(null);
+    const [secureConfirmData, setSecureConfirmData] = useState<{ isOpen: boolean; studentName: string; onConfirm: () => void } | null>(null);
     const [alertData, setAlertData] = useState<{ isOpen: boolean; title: string; message: string; type: 'error' | 'info' } | null>(null);
 
     // Filtrar maestros disponibles (mismo rol 'Maestro Ptm')
@@ -260,11 +261,38 @@ function ModalDetalleEstudiante({ estudiante, maestros, fotoUrl, onClose, onSucc
 
     const handleDesasignar = async () => {
         setSelectedMaestro('');
-        // Trigger update manually via the same button flow or auto? 
-        // User requested a "button that allows desasignar".
-        // We can make the dropdown empty and click save, or a dedicated button.
-        // Let's keep it simple: Select "Seleccionar..." in dropdown and save.
-        // Or explicit button.
+    };
+
+    const handleEliminar = () => {
+        const executeDelete = async () => {
+            setLoading(true);
+            try {
+                const { error } = await supabase.from('entrevistas').delete().eq('id', estudiante.id);
+                if (error) throw error;
+                onSuccess();
+            } catch (e: any) {
+                setAlertData({ isOpen: true, title: 'Error', message: "No se pudo eliminar: " + e.message, type: 'error' });
+            } finally {
+                setLoading(false);
+                setSecureConfirmData(null);
+                setConfirmData(null);
+            }
+        };
+
+        if (isActiveState) {
+            setSecureConfirmData({
+                isOpen: true,
+                studentName: estudiante.nombre,
+                onConfirm: executeDelete
+            });
+        } else {
+            setConfirmData({
+                isOpen: true,
+                title: 'Eliminar Registro',
+                message: `¿Estás seguro de que deseas eliminar permanentemente a ${estudiante.nombre}?`,
+                onConfirm: executeDelete
+            });
+        }
     };
 
     const avatar = fotoUrl || generateAvatar(estudiante.nombre);
@@ -299,17 +327,23 @@ function ModalDetalleEstudiante({ estudiante, maestros, fotoUrl, onClose, onSucc
                     </div>
 
                     {/* Action Buttons */}
-                    {estudiante.telefono && (
-                        <div className="flex items-center gap-3">
-                            <a href={`tel:${estudiante.telefono}`} className="flex items-center justify-center w-10 h-10 rounded-full bg-white text-sky-500 hover:bg-sky-50 hover:scale-110 transition-all shadow-sm border border-sky-100" title="Llamar">
-                                <Phone size={20} />
-                            </a>
-                            <a href={`https://wa.me/57${estudiante.telefono.replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center w-10 h-10 rounded-full bg-emerald-100 text-emerald-600 hover:bg-emerald-200 hover:scale-110 transition-all shadow-sm border border-emerald-200" title="Enviar Mensaje">
-                                <MessageCircle size={18} />
-                            </a>
-                            <span className="bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-200 text-sm font-medium text-gray-700 shadow-sm">{estudiante.telefono}</span>
-                        </div>
-                    )}
+                    {/* Action Buttons */}
+                    <div className="flex items-center gap-3 mt-1">
+                        {estudiante.telefono && (
+                            <>
+                                <a href={`tel:${estudiante.telefono}`} className="flex items-center justify-center w-10 h-10 rounded-full bg-white text-sky-500 hover:bg-sky-50 hover:scale-110 transition-all shadow-sm border border-sky-100" title="Llamar">
+                                    <Phone size={20} />
+                                </a>
+                                <a href={`https://wa.me/57${estudiante.telefono.replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center w-10 h-10 rounded-full bg-emerald-100 text-emerald-600 hover:bg-emerald-200 hover:scale-110 transition-all shadow-sm border border-emerald-200" title="Enviar Mensaje">
+                                    <MessageCircle size={18} />
+                                </a>
+                            </>
+                        )}
+                        <button onClick={handleEliminar} className="flex items-center justify-center w-10 h-10 rounded-full bg-rose-50 text-rose-600 hover:bg-rose-100 hover:scale-110 transition-all shadow-sm border border-rose-200" title="Eliminar del Sistema">
+                            <Trash2 size={18} />
+                        </button>
+                    </div>
+                    {estudiante.telefono && <span className="bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-200 text-xs font-medium text-gray-700 shadow-sm mt-1">{estudiante.telefono}</span>}
                 </div>
 
                 <div className="p-3 flex-1 overflow-y-auto space-y-2">
@@ -355,11 +389,11 @@ function ModalDetalleEstudiante({ estudiante, maestros, fotoUrl, onClose, onSucc
                     </div>
                 </div>
 
-                {isActiveState && (
-                    <div className="p-4 bg-white/40 border-t border-white/50 flex gap-3 mt-auto shrink-0">
-                        <button onClick={onClose} className="flex-1 py-2 rounded-xl border border-gray-300 text-gray-600 text-sm font-medium hover:bg-gray-50 transition-colors">
-                            Cancelar
-                        </button>
+                <div className="p-4 bg-white/40 border-t border-white/50 flex gap-3 mt-auto shrink-0">
+                    <button onClick={onClose} className="flex-1 py-2 rounded-xl border border-gray-300 text-gray-600 text-sm font-medium hover:bg-gray-50 transition-colors">
+                        {isActiveState ? 'Cancelar' : 'Cerrar'}
+                    </button>
+                    {isActiveState ? (
                         <button
                             onClick={handleUpdateMaestro}
                             disabled={loading || selectedMaestro === (estudiante.maestro?.id || '')} // Disable if no change
@@ -368,11 +402,20 @@ function ModalDetalleEstudiante({ estudiante, maestros, fotoUrl, onClose, onSucc
                             {loading && <Loader2 className="animate-spin" size={16} />}
                             {selectedMaestro ? 'Actualizar' : 'Desasignar Maestro'}
                         </button>
-                    </div>
-                )}
+                    ) : (
+                        <button
+                            onClick={handleEliminar}
+                            className="flex-[2] py-2 rounded-xl bg-gradient-to-r from-red-600 to-rose-600 text-white font-bold text-sm shadow-lg shadow-rose-500/30 hover:shadow-rose-500/50 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+                        >
+                            <Trash2 size={16} />
+                            Eliminar Registro
+                        </button>
+                    )}
+                </div>
             </div>
             {/* Modales de Confirmación y Alerta dentro del Modal de Estudiante para layering correcto */}
             <AnimatePresence>
+
                 {confirmData && (
                     <ModalConfirm
                         key="conf-modal"
@@ -380,6 +423,14 @@ function ModalDetalleEstudiante({ estudiante, maestros, fotoUrl, onClose, onSucc
                         message={confirmData.message}
                         onConfirm={confirmData.onConfirm}
                         onCancel={() => setConfirmData(null)}
+                    />
+                )}
+                {secureConfirmData && (
+                    <ModalSecureDelete
+                        key="secure-conf-modal"
+                        studentName={secureConfirmData.studentName}
+                        onConfirm={secureConfirmData.onConfirm}
+                        onCancel={() => setSecureConfirmData(null)}
                     />
                 )}
                 {alertData && (
@@ -428,6 +479,63 @@ function ModalAlert({ title, message, type, onClose }: { title: string, message:
                     <h3 className="text-lg font-bold text-gray-900 mb-2">{title}</h3>
                     <p className="text-gray-600 text-sm mb-6 leading-relaxed">{message}</p>
                     <button onClick={onClose} className="w-full py-2.5 rounded-xl bg-gray-900 text-white font-bold shadow-lg hover:bg-gray-800 text-sm">Entendido</button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function ModalSecureDelete({ studentName, onConfirm, onCancel }: { studentName: string, onConfirm: () => void, onCancel: () => void }) {
+    const [password, setPassword] = useState('');
+    const [error, setError] = useState('');
+
+    const handleSubmit = () => {
+        if (password === '93062015-4') {
+            onConfirm();
+        } else {
+            setError('Contraseña incorrecta');
+            setPassword('');
+        }
+    };
+
+    return (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+            <div className="w-full max-w-sm bg-white/95 backdrop-blur-2xl rounded-3xl shadow-2xl overflow-hidden border border-white/50 animate-in fade-in zoom-in duration-300">
+                <div className="p-6 text-center">
+                    <div className="mx-auto w-16 h-16 bg-red-50 text-red-500 rounded-full flex items-center justify-center mb-4 shadow-sm ring-4 ring-red-50/50">
+                        <AlertTriangle size={32} />
+                    </div>
+                    <h3 className="text-xl font-bold text-gray-900 mb-2">Eliminar Estudiante</h3>
+                    <p className="text-gray-500 text-sm mb-6 leading-relaxed">
+                        ¿Estás seguro de que deseas eliminar a <span className="font-bold text-gray-800">{studentName}</span>?
+                        <br /><br />
+                        <span className="text-red-600 font-medium">Esta acción borrará todos sus datos permanentemente y no se puede deshacer.</span>
+                    </p>
+
+                    <div className="mb-6 space-y-2">
+                        <input
+                            type="password"
+                            value={password}
+                            onChange={(e) => { setPassword(e.target.value); setError(''); }}
+                            placeholder="Contraseña de Administrador"
+                            className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 focus:bg-white focus:ring-2 focus:ring-red-500/20 focus:border-red-500 text-center font-mono text-lg transition-all"
+                            autoFocus
+                        />
+                        {error && <p className="text-red-500 text-xs font-bold animate-pulse">{error}</p>}
+                    </div>
+
+                    <div className="flex gap-3">
+                        <button onClick={onCancel} className="flex-1 py-3 rounded-xl border border-gray-200 text-gray-600 font-bold hover:bg-gray-50 transition-all text-sm">
+                            Cancelar
+                        </button>
+                        <button
+                            onClick={handleSubmit}
+                            disabled={!password}
+                            className="flex-[1.5] py-3 rounded-xl bg-gradient-to-r from-red-600 to-rose-600 text-white font-bold shadow-lg shadow-red-500/30 hover:shadow-red-500/50 hover:scale-[1.02] active:scale-[0.98] transition-all text-sm disabled:opacity-50 disabled:shadow-none"
+                        >
+                            Aceptar
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
