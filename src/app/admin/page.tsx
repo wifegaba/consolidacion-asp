@@ -577,167 +577,111 @@ function PanelGestionarMaestros({ maestros, loading, onCrear, onEditar, onAsigna
       </div>
       <div className="p-6 flex-1 overflow-y-auto min-h-0">
         {loading ? <div className="text-center p-4">Cargando...</div> : (
-          <motion.ul
-            className="space-y-3"
+          <motion.div
+            className="grid grid-cols-1 lg:grid-cols-2 gap-4"
             variants={LIST_WRAPPER_VARIANTS}
             initial="hidden"
             animate="visible"
           >
             {filtered.map(m => (
-              <motion.li
+              <motion.div
                 key={m.id}
                 variants={LIST_ITEM_VARIANTS}
-                className={`p-4 rounded-xl bg-gradient-to-br from-indigo-200 via-white to-blue-200 border border-white/60 shadow-lg md:bg-white/30 md:border-white/50 md:shadow-sm`}
+                className={`relative p-4 rounded-2xl bg-gradient-to-br from-white/90 via-white/60 to-white/80 border border-white/60 shadow-lg hover:shadow-xl transition-all backdrop-blur-sm ${!m.activo ? 'opacity-60' : ''}`}
               >
-                {/* === MOBILE LAYOUT (Visible < md) === */}
-                <div className="flex flex-col gap-4 md:hidden">
-                  {/* Top Row: Avatar, Name/Details, Comms */}
-                  <div className="flex items-start justify-between w-full">
-                    <div className="flex items-center gap-3">
-                      <div className="h-10 w-10 shrink-0 rounded-full bg-white/50 flex items-center justify-center text-indigo-800 font-bold shadow-sm">{m.nombre.charAt(0)}</div>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <p className="font-bold text-gray-900 text-[16px]">{m.nombre}</p>
-                          {!m.activo && (
-                            <span className="bg-red-100 text-red-700 text-[10px] font-bold px-2 py-0.5 rounded-full border border-red-300">
-                              INACTIVO
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-xs text-gray-600 flex items-center gap-2 flex-wrap mt-1">
-                          {m.cedula}
-                          {/* Courses Moved Here */}
-                          {m.asignaciones.map((a, idx) => <span key={`${a.id}-${idx}`} className="text-[12px] bg-indigo-50 text-indigo-700 px-3 py-1 rounded-lg border border-indigo-100 font-medium">{a.cursos?.nombre}</span>)}
-                        </p>
-                      </div>
-                    </div>
+                {/* Badge de estado inactivo */}
+                {!m.activo && (
+                  <div className="absolute top-2 right-2">
+                    <span className="bg-red-100 text-red-700 text-[9px] font-bold px-2 py-0.5 rounded-full border border-red-300 uppercase tracking-wide">
+                      Inactivo
+                    </span>
+                  </div>
+                )}
 
-                    {/* Communication Icons - Always visible on right for Mobile */}
-                    {m.telefono && (
-                      <div className="flex items-center gap-4 shrink-0">
-                        <button onClick={(e) => { e.stopPropagation(); window.location.href = `tel:${m.telefono!.replace(/\s+/g, '')}`; }} className="h-10 w-10 rounded-full bg-white flex items-center justify-center text-sky-600 hover:scale-110 transition-all shadow-sm border border-gray-100"><Phone size={20} /></button>
-                        <button onClick={(e) => { e.stopPropagation(); window.open(`https://wa.me/${m.telefono!.replace(/\D/g, '')}`, '_blank'); }} className="h-10 w-10 rounded-full bg-white flex items-center justify-center text-emerald-600 hover:scale-110 transition-all shadow-sm border border-gray-100"><MessageCircle size={20} /></button>
-                      </div>
-                    )}
+                {/* Layout Horizontal */}
+                <div className="flex items-center gap-4">
+                  {/* Avatar */}
+                  <div className="h-12 w-12 shrink-0 rounded-full bg-gradient-to-br from-indigo-500 to-blue-500 flex items-center justify-center text-white font-bold text-lg shadow-md">
+                    {m.nombre.charAt(0)}
                   </div>
 
-                  {/* Bottom Section: Courses then Actions */}
-                  <div className="flex gap-4 mt-2">
-                    <PremiumActionButton
-                      onClick={() => onObs(m)}
-                      Icon={MessageSquarePlus}
-                      color="violet"
-                      label="OBSERVACIONES"
-                      badgeCount={m.obs_count}
-                    />
-                    <PremiumActionButton
-                      onClick={() => onAsignar(m)}
-                      Icon={BookOpen}
-                      color="amber"
-                      label="CURSOS"
-                    />
-                    <PremiumActionButton
-                      onClick={() => onEditar(m)}
-                      Icon={Edit2}
-                      color="sky"
-                      label="EDITAR"
-                    />
-                    {m.activo ? (
-                      <PremiumActionButton
-                        onClick={() => onDesactivar(m)}
-                        Icon={Trash2}
-                        color="rose"
-                        label="ELIMINAR"
-                      />
-                    ) : (
-                      <PremiumActionButton
-                        onClick={() => onReactivar(m)}
-                        Icon={UserCheck2}
-                        color="emerald"
-                        label="REACTIVAR"
-                      />
-                    )}
-                  </div>
-                </div>
-
-                {/* === DESKTOP LAYOUT (Visible >= md) === */}
-                <div className="hidden md:flex flex-row items-center gap-4 justify-between w-full">
-                  <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 shrink-0 rounded-full bg-white/50 flex items-center justify-center text-indigo-800 font-bold shadow-sm">{m.nombre.charAt(0)}</div>
-                    <div>
-                      <div className="flex items-center gap-4 flex-wrap">
-                        <p className="font-bold text-gray-900 text-[16px]">{m.nombre}</p>
-                        {!m.activo && (
-                          <span className="bg-red-100 text-red-700 text-[10px] font-bold px-2 py-0.5 rounded-full border border-red-300">
-                            INACTIVO
-                          </span>
-                        )}
-                        {/* Comms inside info block in Desktop */}
-                        {m.telefono && (
-                          <div className="flex items-center gap-3">
-                            <button onClick={(e) => { e.stopPropagation(); window.location.href = `tel:${m.telefono!.replace(/\s+/g, '')}`; }} className="h-10 w-10 rounded-full bg-white/70 flex items-center justify-center text-sky-600 hover:bg-white hover:scale-110 hover:shadow-md transition-all shadow-sm border border-sky-100"><Phone size={20} /></button>
-                            <button onClick={(e) => { e.stopPropagation(); window.open(`https://wa.me/${m.telefono!.replace(/\D/g, '')}`, '_blank'); }} className="h-10 w-10 rounded-full bg-white/70 flex items-center justify-center text-emerald-600 hover:bg-white hover:scale-110 hover:shadow-md transition-all shadow-sm border border-emerald-100"><MessageCircle size={20} /></button>
-                          </div>
-                        )}
-                      </div>
-                      <p className="text-xs text-gray-600 flex items-center gap-2 mt-1">
-                        {m.cedula}
-                        {m.asignaciones.map((a, idx) => (
-                          <span key={`${a.id}-${idx}`} className="text-[10px] bg-indigo-50/80 text-indigo-700 px-2 py-0.5 rounded border border-indigo-100 font-bold tracking-tight">
-                            {a.cursos?.nombre}
-                          </span>
-                        ))}
-                      </p>
+                  {/* Información Principal */}
+                  <div className="flex-1 min-w-0">
+                    <p className="font-bold text-gray-900 text-sm truncate">{m.nombre}</p>
+                    <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                      <span className="text-xs text-gray-600">{m.cedula}</span>
+                      {m.asignaciones.length > 0 && (
+                        <span className="text-[10px] bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full border border-indigo-200 font-bold">
+                          {m.asignaciones[0].cursos?.nombre}
+                        </span>
+                      )}
                     </div>
                   </div>
 
-                  {/* Empty div or spacer if needed, but flex justify-between handles spacing. 
-                      Removed distinct assignments div. */}
-
-                  <div className="flex gap-4">
-                    <PremiumActionButton
-                      onClick={() => onObs(m)}
-                      Icon={MessageSquarePlus}
-                      color="violet"
-                      label="OBSERVACIONES"
-                      badgeCount={m.obs_count}
-                    />
-                    <PremiumActionButton
-                      onClick={() => onAsignar(m)}
-                      Icon={BookOpen}
-                      color="amber"
-                      label="CURSOS"
-                    />
-                    <PremiumActionButton
-                      onClick={() => onEditar(m)}
-                      Icon={Edit2}
-                      color="sky"
-                      label="EDITAR"
-                    />
-                    {m.activo ? (
-                      <PremiumActionButton
-                        onClick={() => onDesactivar(m)}
-                        Icon={Trash2}
-                        color="rose"
-                        label="ELIMINAR"
-                      />
-                    ) : (
-                      <PremiumActionButton
-                        onClick={() => onReactivar(m)}
-                        Icon={UserCheck2}
-                        color="emerald"
-                        label="REACTIVAR"
-                      />
-                    )}
-                  </div>
+                  {/* Botones de Comunicación */}
+                  {m.telefono && (
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        onClick={(e) => { e.stopPropagation(); window.location.href = `tel:${m.telefono!.replace(/\s+/g, '')}`; }}
+                        className="h-9 w-9 rounded-full bg-white flex items-center justify-center text-sky-600 hover:scale-110 hover:shadow-md transition-all shadow-sm border border-sky-100"
+                        title="Llamar"
+                      >
+                        <Phone size={18} />
+                      </button>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); window.open(`https://wa.me/${m.telefono!.replace(/\D/g, '')}`, '_blank'); }}
+                        className="h-9 w-9 rounded-full bg-white flex items-center justify-center text-emerald-600 hover:scale-110 hover:shadow-md transition-all shadow-sm border border-emerald-100"
+                        title="WhatsApp"
+                      >
+                        <MessageCircle size={18} />
+                      </button>
+                    </div>
+                  )}
                 </div>
-              </motion.li>
+
+                {/* Botones de Acción */}
+                <div className="flex gap-2 mt-3 flex-wrap">
+                  <PremiumActionButton
+                    onClick={() => onObs(m)}
+                    Icon={MessageSquarePlus}
+                    color="violet"
+                    label="OBSERVACIONES"
+                    badgeCount={m.obs_count}
+                  />
+                  <PremiumActionButton
+                    onClick={() => onAsignar(m)}
+                    Icon={BookOpen}
+                    color="amber"
+                    label="CURSOS"
+                  />
+                  <PremiumActionButton
+                    onClick={() => onEditar(m)}
+                    Icon={Edit2}
+                    color="sky"
+                    label="EDITAR"
+                  />
+                  {m.activo ? (
+                    <PremiumActionButton
+                      onClick={() => onDesactivar(m)}
+                      Icon={Trash2}
+                      color="rose"
+                      label="ELIMINAR"
+                    />
+                  ) : (
+                    <PremiumActionButton
+                      onClick={() => onReactivar(m)}
+                      Icon={UserCheck2}
+                      color="emerald"
+                      label="REACTIVAR"
+                    />
+                  )}
+                </div>
+              </motion.div>
             ))}
-          </motion.ul>
-        )
-        }
-      </div >
-    </GlassCard >
+          </motion.div>
+        )}
+      </div>
+    </GlassCard>
   );
 }
 

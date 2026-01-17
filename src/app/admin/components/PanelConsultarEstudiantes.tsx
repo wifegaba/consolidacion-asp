@@ -83,16 +83,44 @@ export default function PanelConsultarEstudiantes({ maestros, cursos, estudiante
 
         const isDirector = !currentUser.rol || currentUser.rol === 'Director';
         const cursosPermitidos = currentUser.cursosAcceso || [];
+        const diaAcceso = currentUser.diaAcceso;
+
+        // Parsear días del usuario
+        const diasUsuario = diaAcceso && diaAcceso !== 'Todos'
+            ? diaAcceso.split(',').map(d => d.trim())
+            : [];
 
         return {
             pendientes: procesados.filter(e => !e.inscripcion_id && match(e)),
-            matriculados: procesados.filter(e =>
-                e.inscripcion_id &&
-                (isDirector || cursosPermitidos.length === 0 || (e.curso && cursosPermitidos.includes(e.curso.nombre))) &&
-                (!selectedMaestroId || e.maestro?.id === selectedMaestroId) &&
-                (!selectedCourseId || e.curso?.id === parseInt(selectedCourseId)) &&
-                match(e)
-            )
+            matriculados: procesados.filter(e => {
+                // Debe tener inscripción activa
+                if (!e.inscripcion_id) return false;
+
+                // Filtro por curso según permisos
+                if (!isDirector && cursosPermitidos.length > 0) {
+                    if (!e.curso || !cursosPermitidos.includes(e.curso.nombre)) return false;
+                }
+
+                // Filtro por maestro seleccionado
+                if (selectedMaestroId && e.maestro?.id !== selectedMaestroId) return false;
+
+                // Filtro por curso seleccionado
+                if (selectedCourseId && e.curso?.id !== parseInt(selectedCourseId)) return false;
+
+                // Filtro por búsqueda
+                if (!match(e)) return false;
+
+                // Filtro por día del maestro
+                if (!isDirector && diasUsuario.length > 0) {
+                    // Si el maestro no tiene día asignado, mostrar el estudiante
+                    if (!e.maestro?.dia_asignado) return true;
+
+                    // Solo mostrar si el día del maestro está en los días del usuario
+                    return diasUsuario.includes(e.maestro.dia_asignado);
+                }
+
+                return true;
+            })
         };
     }, [procesados, search, selectedMaestroId, selectedCourseId, currentUser]);
 
