@@ -45,7 +45,7 @@ export type Maestro = { id: string; nombre: string; cedula: string; telefono: st
 export type Curso = { id: number; nombre: string; color: string; orden?: number };
 export type AsignacionMaestro = { id: string; servidor_id: string; curso_id: number; cursos: Pick<Curso, 'nombre' | 'color'> | null; };
 export type MaestroDataRaw = Maestro & { asignaciones: AsignacionMaestro[]; observaciones_count: { count: number }[]; servidores_roles: { rol: string }[]; };
-export type MaestroConCursos = Maestro & { asignaciones: AsignacionMaestro[]; obs_count: number; rol: string | null; };
+export type MaestroConCursos = Maestro & { asignaciones: AsignacionMaestro[]; obs_count: number; rol: string | null; dia_asignado?: string | null; };
 export type Estudiante = { id: string; nombre: string; cedula: string; telefono?: string | null; foto_path?: string | null; dia?: string; };
 export type Inscripcion = { id: number; entrevista_id: string; curso_id: number; servidor_id: string | null; cursos?: Pick<Curso, 'nombre' | 'color'> | null; };
 export type EstudianteInscrito = Estudiante & { maestro: MaestroConCursos | null; curso: Curso | null; inscripcion_id: number | null; };
@@ -192,10 +192,25 @@ export default function AdminPage() {
         supabase.from('inscripciones').select('id, entrevista_id, curso_id, servidor_id, estado')
       ]);
 
+      // Cargar días asignados de maestros
+      const { data: diasData } = await supabase
+        .from('asignaciones_maestro')
+        .select('servidor_id, dia')
+        .eq('vigente', true);
+
+      // Crear mapa de servidor_id -> día
+      const diasMap: Record<string, string> = {};
+      if (diasData) {
+        diasData.forEach((d: any) => {
+          diasMap[d.servidor_id] = d.dia;
+        });
+      }
+
       const processedMaestros = (mData as unknown as MaestroDataRaw[] || []).map(m => ({
         ...m,
         obs_count: m.observaciones_count.length > 0 ? m.observaciones_count[0].count : 0,
         rol: m.servidores_roles.length > 0 ? m.servidores_roles[0].rol : null,
+        dia_asignado: diasMap[m.id] || null
       }));
 
       setMaestros(processedMaestros);
@@ -339,11 +354,37 @@ export default function AdminPage() {
                       maestros={maestros.filter(m => {
                         const isMaestro = m.rol === 'Maestro Ptm';
                         if (!isMaestro) return false;
-                        if (!currentUser.rol || currentUser.rol === 'Director') return true;
-                        if (!currentUser.cursosAcceso || currentUser.cursosAcceso.length === 0) return true;
-                        // Mostrar si el maestro no tiene asignaciones (para poder asignarle el primero)
-                        // o si comparte al menos uno de los cursos del usuario
-                        return m.asignaciones.length === 0 || m.asignaciones.some(a => currentUser.cursosAcceso?.includes(a.cursos?.nombre || ''));
+
+                        // Filtro por rol (Director ve todos)
+                        if (!currentUser.rol || currentUser.rol === 'Director') {
+                          // Director ve todos los maestros
+                        } else {
+                          // Filtro por cursos para no-directores
+                          if (!currentUser.cursosAcceso || currentUser.cursosAcceso.length === 0) {
+                            // Sin restricción de cursos
+                          } else {
+                            // Mostrar si el maestro no tiene asignaciones (para poder asignarle)
+                            // o si comparte al menos uno de los cursos del usuario
+                            const pasaCursosFiltro = m.asignaciones.length === 0 || m.asignaciones.some(a => currentUser.cursosAcceso?.includes(a.cursos?.nombre || ''));
+                            if (!pasaCursosFiltro) return false;
+                          }
+                        }
+
+                        // Filtro por día
+                        const diaAcceso = currentUser.diaAcceso;
+                        if (!diaAcceso || diaAcceso === 'Todos') {
+                          // Usuario tiene acceso a todos los días - ve todos los maestros
+                          return true;
+                        } else {
+                          // Usuario tiene días específicos
+                          const diasUsuario = diaAcceso.split(',').map(d => d.trim());
+
+                          // Si el maestro no tiene día asignado, mostrarlo (para poder asignarle uno)
+                          if (!m.dia_asignado) return true;
+
+                          // Mostrar solo si el día del maestro está en los días del usuario
+                          return diasUsuario.includes(m.dia_asignado);
+                        }
                       })}
                       loading={isLoading}
                       onCrear={() => setModalMaestro('new')}
@@ -432,7 +473,7 @@ export default function AdminPage() {
       {/* MODALES */}
       <AnimatePresence>
         {(modalMaestro === 'new' || (typeof modalMaestro === 'object' && modalMaestro !== null)) && (
-          <ModalCrearEditarMaestro key="modal-maestro" maestroInicial={modalMaestro === 'new' ? null : modalMaestro} onClose={() => setModalMaestro(null)} onSuccess={() => { setModalMaestro(null); onDataUpdated(); }} />
+          <ModalCrearEditarMaestro key="modal-maestro" maestroInicial={modalMaestro === 'new' ? null : modalMaestro} currentUser={currentUser} onClose={() => setModalMaestro(null)} onSuccess={() => { setModalMaestro(null); onDataUpdated(); }} />
         )}
         {modalAsignar && (
           <ModalAsignarCursos
@@ -773,17 +814,93 @@ export function ModalTemplate({ children, onClose, title }: { children: React.Re
   );
 }
 
-function ModalCrearEditarMaestro({ maestroInicial, onClose, onSuccess }: { maestroInicial: MaestroConCursos | null, onClose: () => void, onSuccess: () => void }) {
+function ModalCrearEditarMaestro({ maestroInicial, currentUser, onClose, onSuccess }: { maestroInicial: MaestroConCursos | null, currentUser: { name: string; initials: string; id: string; rol?: string; diaAcceso?: string; cursosAcceso?: string[]; roleCount: number }, onClose: () => void, onSuccess: () => void }) {
   const isEdit = !!maestroInicial;
   const [nom, setNom] = useState(maestroInicial?.nombre || '');
   const [ced, setCed] = useState(maestroInicial?.cedula || '');
   const [tel, setTel] = useState(maestroInicial?.telefono || '');
   const [rol, setRol] = useState(maestroInicial?.rol || 'Maestro Ptm');
   const [loading, setLoading] = useState(false);
+  const [loadingDiaActual, setLoadingDiaActual] = useState(isEdit);
+
+  // Estados para selector de día
+  const [diaSeleccionado, setDiaSeleccionado] = useState<"Domingo" | "Martes" | "Jueves" | "Virtual" | null>(null);
+  const [diasHabilitados, setDiasHabilitados] = useState<("Domingo" | "Martes" | "Jueves" | "Virtual")[]>([]);
+  const [esSoloLectura, setEsSoloLectura] = useState(false);
+
+  // Cargar día actual del maestro si está en modo edición
+  useEffect(() => {
+    const cargarDiaActual = async () => {
+      if (!isEdit || !maestroInicial?.id) {
+        setLoadingDiaActual(false);
+        return;
+      }
+
+      try {
+        const { data, error } = await supabase
+          .from('asignaciones_maestro')
+          .select('dia')
+          .eq('servidor_id', maestroInicial.id)
+          .eq('vigente', true)
+          .maybeSingle();
+
+        if (!error && data && data.dia) {
+          setDiaSeleccionado(data.dia as any);
+        }
+      } catch (err) {
+        console.error('Error cargando día del maestro:', err);
+      } finally {
+        setLoadingDiaActual(false);
+      }
+    };
+
+    cargarDiaActual();
+  }, [isEdit, maestroInicial?.id]);
+
+  // Determinar días habilitados según configuración del usuario
+  useEffect(() => {
+    const diaAcceso = currentUser.diaAcceso;
+
+    if (!diaAcceso || diaAcceso === "Todos") {
+      // Usuario tiene todos los días - puede seleccionar entre los 4
+      setDiasHabilitados(["Domingo", "Martes", "Jueves", "Virtual"]);
+      setEsSoloLectura(false);
+    } else {
+      // Parsear días separados por coma (ej: "Domingo,Martes")
+      const diasUsuario = diaAcceso
+        .split(',')
+        .map(d => d.trim())
+        .filter(d => ["Domingo", "Martes", "Jueves", "Virtual"].includes(d)) as ("Domingo" | "Martes" | "Jueves" | "Virtual")[];
+
+      if (diasUsuario.length === 0) {
+        // Fallback: si no hay días válidos, habilitar todos
+        setDiasHabilitados(["Domingo", "Martes", "Jueves", "Virtual"]);
+        setEsSoloLectura(false);
+      } else if (diasUsuario.length === 1) {
+        // Usuario tiene solo 1 día - solo lectura
+        setDiasHabilitados(diasUsuario);
+        setEsSoloLectura(true);
+        // Auto-seleccionar el único día disponible
+        if (!isEdit) {
+          setDiaSeleccionado(diasUsuario[0]);
+        }
+      } else {
+        // Usuario tiene múltiples días específicos - puede seleccionar entre ellos
+        setDiasHabilitados(diasUsuario);
+        setEsSoloLectura(false);
+      }
+    }
+  }, [currentUser.diaAcceso, isEdit]);
 
   const save = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!nom || !ced) return alert("Nombre y Cédula requeridos");
+
+    // Validar que se haya seleccionado un día
+    if (!diaSeleccionado) {
+      return alert("Debe seleccionar un día para el maestro");
+    }
+
     setLoading(true);
     try {
       // 1. Crear o Actualizar Servidor
@@ -820,6 +937,26 @@ function ModalCrearEditarMaestro({ maestroInicial, onClose, onSuccess }: { maest
         if (errIns) throw errIns;
       }
 
+      // 3. Actualizar todas las asignaciones de maestro a no vigentes primero
+      await supabase
+        .from('asignaciones_maestro')
+        .update({ vigente: false })
+        .eq('servidor_id', sid);
+
+      // 4. Insertar o actualizar la asignación de maestro con el día seleccionado
+      const { error: errAsig } = await supabase
+        .from('asignaciones_maestro')
+        .upsert({
+          servidor_id: sid,
+          etapa: 'Restauracion 1', // Valor por defecto
+          dia: diaSeleccionado,
+          vigente: true
+        }, {
+          onConflict: 'servidor_id,etapa,dia'
+        });
+
+      if (errAsig) throw errAsig;
+
       onSuccess();
     }
     catch (err: any) {
@@ -829,6 +966,18 @@ function ModalCrearEditarMaestro({ maestroInicial, onClose, onSuccess }: { maest
     finally { setLoading(false); }
   };
 
+  // Mostrar cargando mientras se obtiene el día actual en modo edición
+  if (loadingDiaActual) {
+    return (
+      <ModalTemplate onClose={onClose} title="Editar Maestro">
+        <div className="p-6 flex items-center justify-center">
+          <Loader2 className="animate-spin text-indigo-600" size={32} />
+          <span className="ml-3 text-gray-600">Cargando información...</span>
+        </div>
+      </ModalTemplate>
+    );
+  }
+
   return (
     <ModalTemplate onClose={onClose} title={isEdit ? "Editar Maestro" : "Nuevo Maestro"}>
       <form onSubmit={save} className="p-6 space-y-4 flex-1 overflow-y-auto">
@@ -836,6 +985,53 @@ function ModalCrearEditarMaestro({ maestroInicial, onClose, onSuccess }: { maest
         <FormInput id="c" label="Cédula" value={ced} onChange={setCed} disabled={isEdit} />
         <FormInput id="t" label="Teléfono" value={tel} onChange={setTel} placeholder="Ej: 3001234567" />
         <FormInput id="rol-display" label="Rol" value="Maestro Proceso Transformacional" onChange={() => { }} disabled />
+
+        {/* Selector de Día */}
+        <div>
+          <label className="block text-xs font-bold text-gray-600 uppercase mb-2">
+            Día de Servicio *
+          </label>
+
+          {esSoloLectura ? (
+            // Usuario tiene solo 1 día - mostrar en modo solo lectura
+            <div className="px-4 py-2.5 rounded-lg bg-indigo-50 border border-indigo-200 text-indigo-700 text-sm font-semibold flex items-center justify-between">
+              <span>{diaSeleccionado || diasHabilitados[0]}</span>
+              <span className="text-xs text-indigo-500 font-normal">
+                (Asignado automáticamente)
+              </span>
+            </div>
+          ) : (
+            // Usuario puede seleccionar entre múltiples días
+            <>
+              <div className="grid grid-cols-2 gap-2">
+                {diasHabilitados.map(dia => (
+                  <button
+                    key={dia}
+                    type="button"
+                    onClick={() => setDiaSeleccionado(dia)}
+                    className={`px-4 py-2.5 rounded-lg text-sm font-semibold transition-all ${diaSeleccionado === dia
+                      ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/30 border-2 border-indigo-600'
+                      : 'bg-white/40 border-2 border-white/50 text-gray-800 hover:bg-white/60 hover:border-indigo-200'
+                      }`}
+                  >
+                    {dia}
+                  </button>
+                ))}
+              </div>
+              {!diaSeleccionado && (
+                <p className="text-xs text-amber-600 mt-2 font-medium">
+                  Por favor selecciona un día para continuar
+                </p>
+              )}
+              {diasHabilitados.length < 4 && (
+                <p className="text-xs text-gray-500 mt-2">
+                  Solo puedes asignar en los días que tienes habilitados
+                </p>
+              )}
+            </>
+          )}
+        </div>
+
         <div className="pt-4 flex justify-end gap-2">
           <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg text-gray-600 hover:bg-white/50 text-sm font-medium">Cancelar</button>
           <button disabled={loading} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-lg shadow-blue-500/30">
