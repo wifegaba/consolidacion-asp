@@ -79,6 +79,8 @@ type EstudianteInscrito = Entrevista & {
   inscripcion_id: string;
   estado_inscripcion: string;
   progress?: number; // 0 - 100
+  missedClasses?: number[]; // Array de números de clase perdidas (ej: [1, 3, 5])
+  missedCount?: number; // Total de inasistencias
 };
 
 function createDefaultGradePlaceholders(count = 5): GradePlaceholder[] {
@@ -287,16 +289,24 @@ export default function EstudiantePage() {
           return acc;
         }, {} as Record<string, any>);
 
-        // Calcular progreso
+        // Calcular progreso y clases perdidas
         loadedStudents.forEach(student => {
           const grades = asistenciaMap[student.inscripcion_id] || {};
           let totalChecks = 0;
+          const missedClasses: number[] = [];
           const topicGrades = grades['1'] || {};
-          Object.values(topicGrades).forEach(val => {
+
+          // Iterar sobre las 12 clases
+          for (let i = 1; i <= 12; i++) {
+            const val = topicGrades[i];
             if (val === 'si') totalChecks++;
-          });
+            if (val === 'no') missedClasses.push(i); // Guardar número de clase perdida
+          }
+
           const percentage = Math.min(100, Math.round((totalChecks / 12) * 100));
           student.progress = percentage;
+          student.missedClasses = missedClasses;
+          student.missedCount = missedClasses.length;
         });
 
         // Procesar fotos
@@ -704,11 +714,17 @@ export default function EstudiantePage() {
 
   return (
     <GlobalPresenceProvider userName={currentUserName} userId={user?.servidorId || ''}>
-      <main className="relative flex h-screen w-full items-stretch justify-stretch p-0 text-gray-900 selection:bg-indigo-300/40 selection:text-gray-900 bg-[conic-gradient(from_210deg_at_50%_0%,#EEF2FF_0%,#FAF5FF_40%,#F9FAFB_85%)]">
+      <main className="relative flex h-screen w-full items-stretch justify-stretch p-0 text-gray-900 selection:bg-indigo-300/40 selection:text-gray-900 bg-[#F8FAFC] overflow-hidden">
+        {/* Fondo Ambiental Premium - Más Vibrante */}
+        <div className="absolute inset-0 w-full h-full pointer-events-none z-0">
+          <div className="absolute top-[-20%] left-[-10%] w-[70vw] h-[70vw] rounded-full bg-indigo-500/30 blur-[100px]" />
+          <div className="absolute top-[10%] right-[-20%] w-[60vw] h-[60vw] rounded-full bg-purple-500/25 blur-[100px]" />
+          <div className="absolute bottom-[-20%] left-[20%] w-[60vw] h-[60vw] rounded-full bg-blue-500/30 blur-[100px]" />
+        </div>
         <StyleDefinitions />
         <div className="pointer-events-none absolute inset-0 opacity-[0.06] [background:radial-gradient(circle,_#000_1px,_transparent_1px)] [background-size:22px_22px]" />
 
-        <div className="relative flex w-full min-h-0 overflow-hidden rounded-none border-none bg-white/40 backdrop-blur-2xl ring-0 shadow-none bg-[linear-gradient(145deg,rgba(99,102,241,0.08),rgba(255,255,255,0.07))] md:flex-row">
+        <div className="relative flex w-full min-h-0 overflow-hidden rounded-none border-none bg-white/20 backdrop-blur-3xl ring-0 shadow-none bg-[linear-gradient(145deg,rgba(99,102,241,0.05),rgba(255,255,255,0.05))] md:flex-row">
 
           {/* SIDEBAR MEMOIZADA */}
           {selectedCourse !== null && (
@@ -765,6 +781,7 @@ export default function EstudiantePage() {
                 isActive={mainState === 'welcome'}
                 courses={courses}
                 loading={loadingCourses || authLoading}
+                userName={currentUserName}
               />
 
               {mainState === 'courseWelcome' && (
@@ -1156,6 +1173,14 @@ function StudentSidebar({
 }
 
 function StudentSidebarItem({ student, fotoUrls, isActive, isAttendanceModeActive, isCurrentAttendanceTarget, isCompleted, isLoading, onMarkAttendance, onSelectStudent, index = 0 }: any) {
+  // Helper: Acortar nombre a "Nombre Apellido"
+  const getShortName = (fullName: string | null | undefined): string => {
+    if (!fullName) return 'Sin Nombre';
+    const parts = fullName.trim().split(/\s+/);
+    if (parts.length <= 2) return fullName;
+    return `${parts[0]} ${parts[1]}`;
+  };
+
   const containerClasses = ['group relative flex items-center gap-4 rounded-2xl h-16 md:h-14 pl-0 pr-4 transition-all border cursor-pointer overflow-visible'];
 
   if (isAttendanceModeActive) {
@@ -1193,8 +1218,8 @@ function StudentSidebarItem({ student, fotoUrls, isActive, isAttendanceModeActiv
 
       {/* Tarjeta que empieza desde el centro del avatar */}
       <div className={classNames(...containerClasses)}>
-        <div className="flex-1 min-w-0 flex flex-col justify-center gap-2 pl-10 md:pl-8">
-          <span className="block text-[15px] md:text-[13.5px] font-semibold leading-tight tracking-[-0.01em] truncate">{student.nombre ?? 'Sin Nombre'}</span>
+        <div className="flex-1 min-w-0 flex flex-col justify-center gap-2 pl-14 md:pl-12">
+          <span className="block text-[15px] md:text-[13.5px] font-semibold leading-tight tracking-[-0.01em] truncate">{getShortName(student.nombre)}</span>
 
           {/* Barra de Progreso Elegante */}
           <div className="w-full max-w-[160px] md:max-w-[120px] flex items-center gap-2">

@@ -38,7 +38,8 @@ interface WelcomePanelProps {
   className?: string;
   isActive: boolean;
   courses: readonly Course[];
-  loading: boolean; // <-- CAMBIO: Prop 'loading' añadida
+  loading: boolean;
+  userName?: string;
 }
 
 // --- Componente 1: WelcomePanel ---
@@ -47,7 +48,8 @@ export function WelcomePanel({
   className = '',
   isActive,
   courses,
-  loading // <-- CAMBIO: Prop 'loading' recibida
+  loading,
+  userName = ''
 }: WelcomePanelProps) {
   const cardDelay = 100;
   const foldersContainerDelay = cardDelay + 100; // 200ms
@@ -60,16 +62,29 @@ export function WelcomePanel({
       {/* Tarjeta de Bienvenida */}
       <div
         className={`
-          group relative overflow-hidden rounded-3xl border border-white/70 bg-white/55 px-6 md:px-10 py-8 md:py-12 shadow-xl backdrop-blur-xl w-full max-w-md md:max-w-sm
+          group relative rounded-3xl border border-white/70 bg-white/55 px-6 md:px-12 pt-8 pb-6 md:pt-10 md:pb-8 shadow-xl backdrop-blur-xl w-full max-w-md md:w-auto md:min-w-[28rem] md:max-w-3xl
           transition-all duration-${animationDuration} ease-[${easing}]
           ${isActive ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-4 scale-95'}
         `}
-        style={{ transitionDelay: `${isActive ? cardDelay : 0}ms` }}
+        style={{
+          transitionDelay: `${isActive ? cardDelay : 0}ms`,
+        }}
       >
-        <div className="absolute -top-24 -right-24 h-64 w-64 rounded-full bg-gradient-to-br from-indigo-500/25 to-white/25 blur-3xl" />
+        {/* Premium Background Gradients */}
+        <div className="absolute -top-20 -left-20 h-64 w-64 rounded-full bg-gradient-to-br from-blue-400/30 via-indigo-400/20 to-transparent blur-[50px] pointer-events-none" />
+        <div className="absolute -bottom-20 -right-20 h-64 w-64 rounded-full bg-gradient-to-tl from-purple-500/30 via-fuchsia-400/20 to-transparent blur-[50px] pointer-events-none" />
         <BookMarked className="w-14 h-14 md:w-16 md:h-16 mx-auto text-indigo-500/90" />
-        <h1 className="mt-6 text-xl md:text-2xl font-semibold tracking-tight text-gray-900">Bienvenido al Gestor Académico</h1>
-        <p className="mt-2 max-w-sm text-sm md:text-base text-gray-700 mx-auto">Selecciona un curso para empezar a gestionar estudiantes y registrar calificaciones.</p>
+        <h1 className="mt-4 text-lg md:text-xl font-semibold tracking-tight text-gray-900 flex flex-col items-center gap-1">
+          <span>Bienvenido</span>
+          {userName && (
+            <span className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-600 bg-clip-text text-transparent animate-gradient-x pb-0.5">
+              {userName}
+            </span>
+          )}
+        </h1>
+        <p className="mt-3 max-w-sm text-sm md:text-base text-gray-700 mx-auto leading-relaxed">Selecciona un curso para empezar a gestionar estudiantes y registrar calificaciones.</p>
+
+
       </div>
 
       {/* Título Cursos */}
