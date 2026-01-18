@@ -133,10 +133,12 @@ export default function PanelConsultarEstudiantes({ maestros, cursos, estudiante
                     <input type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar estudiante..." className={`w-full rounded-lg px-4 py-2.5 pl-10 ${GLASS_STYLES.input}`} />
                     <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
                 </div>
-                <FormSelect value={selectedCourseId} onChange={(e: any) => setSelectedCourseId(e.target.value)} label="">
-                    <option value="">Todos los Niveles</option>
-                    {cursos.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
-                </FormSelect>
+                <div className={cursos.length <= 1 ? "hidden md:block" : ""}>
+                    <FormSelect value={selectedCourseId} onChange={(e: any) => setSelectedCourseId(e.target.value)} label="">
+                        <option value="">Todos los Niveles</option>
+                        {cursos.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+                    </FormSelect>
+                </div>
                 <FormSelect value={selectedMaestroId} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setSelectedMaestroId(e.target.value)} label="">
                     <option value="">Todos los Maestros</option>
                     {maestros.filter(m => m.rol === 'Maestro Ptm').map(m => <option key={m.id} value={m.id}>{m.nombre}</option>)}
@@ -149,6 +151,7 @@ export default function PanelConsultarEstudiantes({ maestros, cursos, estudiante
                     <div className={`flex-1 overflow-y-auto rounded-xl ${GLASS_STYLES.input} p-0 border-2 border-white/50`}>
                         {loading ? <div className="p-4 text-center">Cargando...</div> : pendientes.length === 0 ? <div className="p-8 text-center text-gray-500">No hay pendientes</div> : (
                             <motion.div
+                                key={`pendientes-${search}-${pendientes.length}`}
                                 variants={LIST_WRAPPER_VARIANTS}
                                 initial="hidden"
                                 animate="visible"
@@ -168,6 +171,7 @@ export default function PanelConsultarEstudiantes({ maestros, cursos, estudiante
                     <div className={`flex-1 overflow-y-auto rounded-xl ${GLASS_STYLES.input} p-0 border-2 border-white/50`}>
                         {loading ? <div className="p-4 text-center">Cargando...</div> : matriculados.length === 0 ? <div className="p-8 text-center text-gray-500">No hay matriculados</div> : (
                             <motion.div
+                                key={`matriculados-${search}-${matriculados.length}`}
                                 variants={LIST_WRAPPER_VARIANTS}
                                 initial="hidden"
                                 animate="visible"

@@ -231,29 +231,30 @@ export default function PanelMatricular({ maestros, cursos, estudiantes, inscrip
                 </button>
             </CardHeader>
             <div className="grid grid-cols-1 md:grid-cols-3 grid-rows-[auto_1fr] md:grid-rows-1 gap-6 p-6 flex-1 min-h-0 overflow-hidden">
-                <div className="flex flex-col gap-3 overflow-y-auto md:max-h-full">
-                    <div>
+                <div className="flex flex-col gap-3 relative z-20 overflow-visible md:overflow-y-auto md:max-h-full">
+                    <div className="space-y-3">
                         <label className="hidden text-xs font-bold text-gray-600 uppercase tracking-wider">Configuración</label>
                         <div className="hidden">
-                            <FormSelect label="Curso" value={cursoId} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => { setCursoId(e.target.value); setMaestroId(''); }}>
-                                {cursosPermitidos.length === 0 ? (
-                                    <option value="">Seleccione estudiantes...</option>
-                                ) : cursosPermitidos.length === 1 ? (
-                                    <option value={cursosPermitidos[0].id}>{cursosPermitidos[0].nombre}</option>
-                                ) : (
-                                    <>
-                                        <option value="">Seleccionar Curso...</option>
-                                        {cursosPermitidos.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
-                                    </>
-                                )}
-                            </FormSelect>
+                            <PremiumSelect
+                                label="Curso"
+                                value={cursoId}
+                                onChange={(val) => { setCursoId(val); setMaestroId(''); }}
+                                options={cursosPermitidos.length === 0
+                                    ? [{ value: "", label: "Seleccione estudiantes..." }]
+                                    : cursosPermitidos.map(c => ({ value: String(c.id), label: c.nombre }))
+                                }
+                                placeholder={cursosPermitidos.length === 1 ? cursosPermitidos[0].nombre : "Seleccionar Curso..."}
+                            />
                         </div>
-                        <FormSelect label="Maestro" value={maestroId} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setMaestroId(e.target.value)} disabled={!cursoId}>
-                            <option value="">Seleccionar...</option>
-                            {mDisponibles.map(m => <option key={m.id} value={m.id}>{m.nombre}</option>)}
-                        </FormSelect>
+                        <PremiumSelect
+                            label="Maestro"
+                            value={maestroId}
+                            onChange={setMaestroId}
+                            options={mDisponibles.map(m => ({ value: m.id, label: m.nombre }))}
+                            placeholder="Seleccionar..."
+                        />
                     </div>
-                    <button onClick={handleMatricular} disabled={isSaving || !maestroId || Object.keys(selectedIds).length === 0} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl shadow-lg shadow-blue-500/30 transition-all disabled:opacity-50">
+                    <button onClick={handleMatricular} disabled={isSaving || !maestroId || Object.keys(selectedIds).length === 0} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl shadow-lg shadow-blue-500/30 transition-all disabled:opacity-50 mt-1">
                         {isSaving ? <span className="flex items-center justify-center gap-2"><Loader2 className="animate-spin" size={20} /> Procesando...</span> : "Confirmar Matrícula"}
                     </button>
                 </div>
@@ -458,76 +459,79 @@ function ModalNuevoEstudiante({ cursos, maestros, onClose, onSuccess }: { cursos
     };
 
     return (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-0 bg-slate-900/60 backdrop-blur-sm" onClick={onClose}>
-            <motion.div
-                initial={{ scale: 0.9, opacity: 0, y: 20 }}
-                animate={{ scale: 1, opacity: 1, y: 0 }}
-                exit={{ scale: 0.9, opacity: 0, y: 20 }}
-                transition={{ type: "spring", duration: 0.5 }}
-                onClick={e => e.stopPropagation()}
-                className="w-full max-w-lg bg-white/80 backdrop-blur-2xl border border-white/60 rounded-3xl shadow-2xl overflow-hidden flex flex-col h-full"
-            >
-                <div className="bg-gradient-to-r from-indigo-500/10 to-purple-500/10 px-4 py-3 border-b border-white/50 flex justify-between items-center shrink-0">
-                    <div>
-                        <h3 className="text-base font-bold text-gray-900 leading-none">Nuevo Estudiante</h3>
-                        <p className="text-[10px] text-gray-500 mt-1">Ingresa los datos para matricular</p>
+
+        <ModalTemplate onClose={onClose} title="Nuevo Estudiante">
+            <div className="flex flex-col h-full">
+                <div className="px-1 py-2">
+                    <p className="text-sm text-gray-500 mb-4 px-1">Ingresa los datos para matricular al nuevo estudiante.</p>
+
+                    <div className="space-y-4">
+                        <div>
+                            <label className="block text-xs font-bold text-gray-700 uppercase mb-1 ml-1">Nombre Completo</label>
+                            <input
+                                value={nombre}
+                                onChange={e => setNombre(e.target.value)}
+                                className={`w-full rounded-xl px-4 py-2.5 text-sm border border-gray-200 bg-white/50 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all`}
+                                placeholder="Ej: Juan Pérez"
+                            />
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-xs font-bold text-gray-700 uppercase mb-1 ml-1">Cédula</label>
+                                <input
+                                    value={cedula}
+                                    onChange={e => setCedula(e.target.value)}
+                                    className={`w-full rounded-xl px-4 py-2.5 text-sm border border-gray-200 bg-white/50 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all`}
+                                    placeholder="123456789"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-gray-700 uppercase mb-1 ml-1">Teléfono</label>
+                                <input
+                                    value={telefono}
+                                    onChange={e => setTelefono(e.target.value)}
+                                    className={`w-full rounded-xl px-4 py-2.5 text-sm border border-gray-200 bg-white/50 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all`}
+                                    placeholder="300 123 4567"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-3 border-t border-gray-100/50">
+                            <PremiumSelect
+                                label="Nivel / Curso"
+                                value={cursoId}
+                                onChange={(val) => { setCursoId(val); setMaestroId(''); }}
+                                options={cursos.map(c => ({ value: String(c.id), label: c.nombre }))}
+                                placeholder="Seleccionar Nivel..."
+                            />
+
+                            <PremiumSelect
+                                label="Maestro"
+                                value={maestroId}
+                                onChange={setMaestroId}
+                                options={maestrosDisponibles.map(m => ({ value: m.id, label: m.nombre }))}
+                                placeholder="Seleccionar Maestro..."
+                            />
+                        </div>
                     </div>
-                    <button onClick={onClose} className="p-1.5 hover:bg-white/50 rounded-full text-gray-500 transition-colors">
-                        <X size={18} />
-                    </button>
                 </div>
 
-                <div className="flex-1 px-4 py-4 space-y-3">
-                    <div>
-                        <label className="block text-[10px] font-bold text-gray-600 uppercase mb-0.5 ml-1">Nombre Completo</label>
-                        <input value={nombre} onChange={e => setNombre(e.target.value)} className={`w-full rounded-lg px-3 py-1.5 text-sm ${GLASS_STYLES.input} transition-all focus:ring-1 focus:ring-indigo-500/50`} placeholder="Ej: Juan Pérez" />
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-3">
-                        <div>
-                            <label className="block text-[10px] font-bold text-gray-600 uppercase mb-0.5 ml-1">Cédula</label>
-                            <input value={cedula} onChange={e => setCedula(e.target.value)} className={`w-full rounded-lg px-3 py-1.5 text-sm ${GLASS_STYLES.input}`} placeholder="123456789" />
-                        </div>
-                        <div>
-                            <label className="block text-[10px] font-bold text-gray-600 uppercase mb-0.5 ml-1">Teléfono</label>
-                            <input value={telefono} onChange={e => setTelefono(e.target.value)} className={`w-full rounded-lg px-3 py-1.5 text-sm ${GLASS_STYLES.input}`} placeholder="300 123 4567" />
-                        </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-white/40">
-                        <PremiumSelect
-                            label="Nivel / Curso"
-                            value={cursoId}
-                            onChange={(val) => { setCursoId(val); setMaestroId(''); }}
-                            options={cursos.map(c => ({ value: String(c.id), label: c.nombre }))}
-                            placeholder="Nivel..."
-                        />
-
-                        <PremiumSelect
-                            label="Maestro"
-                            value={maestroId}
-                            onChange={setMaestroId}
-                            options={maestrosDisponibles.map(m => ({ value: m.id, label: m.nombre }))}
-                            placeholder="Seleccionar..."
-                        />
-                    </div>
-                </div>
-
-                <div className="px-4 py-3 bg-white/40 border-t border-white/50 flex justify-end gap-2 shrink-0">
-                    <button onClick={onClose} className="px-4 py-1.5 rounded-lg text-gray-600 font-bold hover:bg-white/50 transition-colors text-xs">
+                <div className="mt-6 flex justify-end gap-3 pt-4 border-t border-gray-100">
+                    <button onClick={onClose} className="px-5 py-2.5 rounded-xl border border-gray-200 text-gray-600 font-bold hover:bg-gray-50 transition-all text-sm">
                         Cancelar
                     </button>
                     <button
                         onClick={handleSubmit}
                         disabled={loading || !nombre || !cedula || !cursoId || !maestroId}
-                        className="bg-gradient-to-r from-indigo-600 to-violet-600 text-white px-4 py-1.5 rounded-lg font-bold shadow-md shadow-indigo-500/20 hover:shadow-indigo-500/40 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 disabled:hover:scale-100 flex items-center text-xs"
+                        className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-6 py-2.5 rounded-xl font-bold shadow-lg shadow-blue-500/30 hover:shadow-blue-500/50 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 disabled:hover:scale-100 flex items-center text-sm"
                     >
-                        {loading ? <Loader2 className="animate-spin mr-1.5" size={12} /> : null}
-                        Registrar
+                        {loading ? <Loader2 className="animate-spin mr-2" size={16} /> : null}
+                        Registrar Estudiante
                     </button>
                 </div>
-            </motion.div>
-        </div>
+            </div>
+        </ModalTemplate>
     );
 }
 

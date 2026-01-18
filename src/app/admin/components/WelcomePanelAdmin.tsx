@@ -244,7 +244,13 @@ export default function WelcomePanelAdmin({
                         transition={{ duration: 0.5, delay: 0.4 }}
                     >
                         <button
-                            onClick={onLogout}
+                            onClick={() => {
+                                if (isMultiRole) {
+                                    window.location.href = '/login/portal';
+                                } else {
+                                    onLogout();
+                                }
+                            }}
                             className="group relative flex items-center gap-2 px-5 py-2.5 rounded-2xl
                 bg-gradient-to-r from-white/60 via-white/40 to-white/60 
                 border border-white/60 backdrop-blur-xl shadow-lg
