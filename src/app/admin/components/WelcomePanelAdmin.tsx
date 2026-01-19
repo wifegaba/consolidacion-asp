@@ -93,7 +93,7 @@ export default function WelcomePanelAdmin({
         },
         {
             id: 'matricular',
-            title: 'Matricular',
+            title: 'Matriculas',
             icon: UserPlus,
             color: 'emerald',
             description: 'Inscribir estudiantes',

@@ -62,9 +62,9 @@ function bustUrl(u?: string | null) {
 
 // --- VARIANTES DE ANIMACIÓN ---
 const fadeTransition: Variants = {
-  hidden: { opacity: 0, x: -20 },
-  visible: { opacity: 1, x: 0, transition: { duration: 0.3, ease: "easeOut" } },
-  exit: { opacity: 0, x: 20, transition: { duration: 0.2 } }
+  hidden: { opacity: 0, y: 10 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: "easeOut" } },
+  exit: { opacity: 0, y: -10, transition: { duration: 0.2 } }
 };
 
 export const modalVariants: Variants = {
@@ -78,21 +78,20 @@ const EASE_SMOOTH = [0.16, 1, 0.3, 1] as const;
 
 const LIST_WRAPPER_VARIANTS: Variants = {
   hidden: {
-    transition: { staggerChildren: 0.035, staggerDirection: -1 }
+    transition: { staggerChildren: 0.05, staggerDirection: -1 }
   },
   visible: {
-    transition: { delayChildren: 0.12, staggerChildren: 0.055 }
+    transition: { delayChildren: 0.1, staggerChildren: 0.08 }
   }
 };
 
 const LIST_ITEM_VARIANTS: Variants = {
-  hidden: { opacity: 0, x: 28, y: 14, scale: 0.97 },
+  hidden: { opacity: 0, y: 20, scale: 0.95 },
   visible: {
     opacity: 1,
-    x: 0,
     y: 0,
     scale: 1,
-    transition: { duration: 0.5, ease: EASE_SMOOTH }
+    transition: { duration: 0.6, ease: EASE_SMOOTH }
   }
 };
 
@@ -113,7 +112,7 @@ export default function AdminPage() {
   const [modalDesactivar, setModalDesactivar] = useState<MaestroConCursos | null>(null);
 
   // Usuario Logueado
-  const [currentUser, setCurrentUser] = useState<{ name: string; initials: string; id: string; rol?: string; diaAcceso?: string; cursosAcceso?: string[]; roleCount: number }>({ name: 'Administrador', initials: 'AD', id: '', cursosAcceso: [], roleCount: 1 });
+  const [currentUser, setCurrentUser] = useState<{ isLoaded: boolean; name: string; initials: string; id: string; rol?: string; diaAcceso?: string; cursosAcceso?: string[]; roleCount: number }>({ isLoaded: false, name: 'Administrador', initials: 'AD', id: '', cursosAcceso: [], roleCount: 1 });
 
   // Presence Notifications
 
@@ -142,6 +141,7 @@ export default function AdminPage() {
               const rolData = roles.find((r: any) => r.rol === 'Administrador' || r.rol === 'Director') || roles[0];
 
               setCurrentUser({
+                isLoaded: true,
                 name: servidor.nombre,
                 initials: servidor.nombre.substring(0, 2).toUpperCase(),
                 id: data.servidorId,
@@ -164,6 +164,7 @@ export default function AdminPage() {
               const rolData = roles.find((r: any) => r.rol === 'Administrador' || r.rol === 'Director') || roles[0];
 
               setCurrentUser({
+                isLoaded: true,
                 name: servidor.nombre,
                 initials: servidor.nombre.substring(0, 2).toUpperCase(),
                 id: servidor.id,
@@ -177,6 +178,7 @@ export default function AdminPage() {
         }
       } catch (error) {
         console.error("Error fetching user profile:", error);
+        setCurrentUser(p => ({ ...p, isLoaded: true }));
       }
     };
 
@@ -291,10 +293,10 @@ export default function AdminPage() {
           {activeTab !== 'bienvenida' && (
             <aside className="hidden md:flex w-64 flex-col border-r border-white/20 bg-gradient-to-b from-blue-600 via-blue-700 to-indigo-900 backdrop-blur-xl p-4 shadow-2xl z-20">
               <nav className="flex flex-col gap-2 flex-1">
-                <TabButton Icon={Home} label="Bienvenida" isActive={activeTab === 'bienvenida'} onClick={() => setActiveTab('bienvenida')} />
+                <TabButton Icon={Home} label="Bienvenida" isActive={false} onClick={() => setActiveTab('bienvenida')} />
                 {/* <TabButton Icon={Server} label="Servidores" isActive={activeTab === 'servidores'} onClick={() => setActiveTab('servidores')} /> */}
                 <TabButton Icon={Users} label="Maestros" isActive={activeTab === 'maestros'} onClick={() => setActiveTab('maestros')} />
-                <TabButton Icon={UserPlus} label="Matricular" isActive={activeTab === 'matricular'} onClick={() => setActiveTab('matricular')} badge={estudiantesPendientesCount} />
+                <TabButton Icon={UserPlus} label="Matriculas" isActive={activeTab === 'matricular'} onClick={() => setActiveTab('matricular')} badge={estudiantesPendientesCount} />
 
                 {/* Ocultar Promovidos para usuarios exclusivos de Restauración 1 */}
                 {!(currentUser.cursosAcceso?.length === 1 && currentUser.cursosAcceso[0] === 'Restauración 1' && currentUser.rol !== 'Director') && (
@@ -351,6 +353,7 @@ export default function AdminPage() {
                       estudiantesPendientesCount={estudiantesPendientesCount}
                       promovidosCount={promovidosCount}
                       currentUser={currentUser}
+                      isActive={currentUser.isLoaded}
                     />
                   )}
                   {/* {activeTab === 'servidores' && <ServidoresPage />} */}
@@ -467,7 +470,7 @@ export default function AdminPage() {
               <MobileTab Icon={Home} label="Inicio" isActive={activeTab === 'bienvenida'} onClick={() => setActiveTab('bienvenida')} />
               {/* <MobileTab Icon={Server} label="Servidores" isActive={activeTab === 'servidores'} onClick={() => setActiveTab('servidores')} /> */}
               <MobileTab Icon={Users} label="Maestros" isActive={activeTab === 'maestros'} onClick={() => setActiveTab('maestros')} />
-              <MobileTab Icon={UserPlus} label="Matricular" isActive={activeTab === 'matricular'} onClick={() => setActiveTab('matricular')} badge={estudiantesPendientesCount} />
+              <MobileTab Icon={UserPlus} label="Matriculas" isActive={activeTab === 'matricular'} onClick={() => setActiveTab('matricular')} badge={estudiantesPendientesCount} />
 
               {!(currentUser.cursosAcceso?.length === 1 && currentUser.cursosAcceso[0] === 'Restauración 1' && currentUser.rol !== 'Director') && (
                 <MobileTab Icon={GraduationCap} label="Prom." isActive={activeTab === 'promovidos'} onClick={() => setActiveTab('promovidos')} badge={promovidosCount} />
@@ -586,118 +589,124 @@ function PanelGestionarMaestros({ maestros, loading, onCrear, onEditar, onAsigna
 
   return (
     <GlassCard className="h-full flex flex-col">
-      <CardHeader Icon={Users} title="Gestionar Maestros" subtitle="Administración docente." >
-        <button onClick={onCrear} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-semibold shadow-md shadow-blue-500/30 flex items-center gap-2"><Plus size={16} /> Nuevo</button>
-      </CardHeader>
-      <div className="px-6 pt-4 shrink-0">
-        <input type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar..." className={`w-full rounded-lg px-4 py-2 ${GLASS_STYLES.input}`} />
-      </div>
-      <div className="p-6 flex-1 overflow-y-auto min-h-0">
-        {loading ? <div className="text-center p-4">Cargando...</div> : (
-          <motion.div
-            className="grid grid-cols-1 lg:grid-cols-2 gap-4"
-            variants={LIST_WRAPPER_VARIANTS}
-            initial="hidden"
-            animate="visible"
-          >
-            {filtered.map(m => (
-              <motion.div
-                key={m.id}
-                variants={LIST_ITEM_VARIANTS}
-                className={`relative p-4 rounded-2xl bg-gradient-to-br from-white/90 via-white/60 to-white/80 border border-white/60 shadow-lg hover:shadow-xl transition-all backdrop-blur-sm ${!m.activo ? 'opacity-60' : ''}`}
-              >
-                {/* Badge de estado inactivo */}
-                {!m.activo && (
-                  <div className="absolute top-2 right-2">
-                    <span className="bg-red-100 text-red-700 text-[9px] font-bold px-2 py-0.5 rounded-full border border-red-300 uppercase tracking-wide">
-                      Inactivo
-                    </span>
-                  </div>
-                )}
+      <motion.div
+        className="flex flex-col h-full"
+        variants={LIST_WRAPPER_VARIANTS}
+        initial="hidden"
+        animate="visible"
+      >
+        <motion.div variants={LIST_ITEM_VARIANTS}>
+          <CardHeader Icon={Users} title="Gestionar Maestros" subtitle="Administración docente." >
+            <button onClick={onCrear} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-semibold shadow-md shadow-blue-500/30 flex items-center gap-2"><Plus size={16} /> Nuevo</button>
+          </CardHeader>
+        </motion.div>
 
-                {/* Layout Horizontal */}
-                <div className="flex items-center gap-4">
-                  {/* Avatar */}
-                  <div className="h-12 w-12 shrink-0 rounded-full bg-gradient-to-br from-indigo-500 to-blue-500 flex items-center justify-center text-white font-bold text-lg shadow-md">
-                    {m.nombre.charAt(0)}
-                  </div>
+        <motion.div variants={LIST_ITEM_VARIANTS} className="px-6 pt-4 shrink-0">
+          <input type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar..." className={`w-full rounded-lg px-4 py-2 ${GLASS_STYLES.input}`} />
+        </motion.div>
 
-                  {/* Información Principal */}
-                  <div className="flex-1 min-w-0">
-                    <p className="font-bold text-gray-900 text-sm truncate">{m.nombre}</p>
-                    <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                      <span className="text-xs text-gray-600">{m.cedula}</span>
-                      {m.asignaciones.length > 0 && (
-                        <span className="text-[10px] bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full border border-indigo-200 font-bold">
-                          {m.asignaciones[0].cursos?.nombre}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Botones de Comunicación */}
-                  {m.telefono && (
-                    <div className="flex items-center gap-2 shrink-0">
-                      <button
-                        onClick={(e) => { e.stopPropagation(); window.location.href = `tel:${m.telefono!.replace(/\s+/g, '')}`; }}
-                        className="h-9 w-9 rounded-full bg-white flex items-center justify-center text-sky-600 hover:scale-110 hover:shadow-md transition-all shadow-sm border border-sky-100"
-                        title="Llamar"
-                      >
-                        <Phone size={18} />
-                      </button>
-                      <button
-                        onClick={(e) => { e.stopPropagation(); window.open(`https://wa.me/${m.telefono!.replace(/\D/g, '')}`, '_blank'); }}
-                        className="h-9 w-9 rounded-full bg-white flex items-center justify-center text-emerald-600 hover:scale-110 hover:shadow-md transition-all shadow-sm border border-emerald-100"
-                        title="WhatsApp"
-                      >
-                        <MessageCircle size={18} />
-                      </button>
+        <div className="p-6 flex-1 overflow-y-auto min-h-0">
+          {loading ? <div className="text-center p-4">Cargando...</div> : (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {filtered.map(m => (
+                <motion.div
+                  key={m.id}
+                  variants={LIST_ITEM_VARIANTS}
+                  className={`relative p-4 rounded-2xl bg-gradient-to-br from-white/90 via-white/60 to-white/80 border border-white/60 shadow-lg hover:shadow-xl transition-all backdrop-blur-sm ${!m.activo ? 'opacity-60' : ''}`}
+                >
+                  {/* Badge de estado inactivo */}
+                  {!m.activo && (
+                    <div className="absolute top-2 right-2">
+                      <span className="bg-red-100 text-red-700 text-[9px] font-bold px-2 py-0.5 rounded-full border border-red-300 uppercase tracking-wide">
+                        Inactivo
+                      </span>
                     </div>
                   )}
-                </div>
 
-                {/* Botones de Acción */}
-                <div className="flex gap-2 mt-3 flex-wrap">
-                  <PremiumActionButton
-                    onClick={() => onObs(m)}
-                    Icon={MessageSquarePlus}
-                    color="violet"
-                    label="OBSERVACIONES"
-                    badgeCount={m.obs_count}
-                  />
-                  <PremiumActionButton
-                    onClick={() => onAsignar(m)}
-                    Icon={BookOpen}
-                    color="amber"
-                    label="CURSOS"
-                  />
-                  <PremiumActionButton
-                    onClick={() => onEditar(m)}
-                    Icon={Edit2}
-                    color="sky"
-                    label="EDITAR"
-                  />
-                  {m.activo ? (
+                  {/* Layout Horizontal */}
+                  <div className="flex items-center gap-4">
+                    {/* Avatar */}
+                    <div className="h-12 w-12 shrink-0 rounded-full bg-gradient-to-br from-indigo-500 to-blue-500 flex items-center justify-center text-white font-bold text-lg shadow-md">
+                      {m.nombre.charAt(0)}
+                    </div>
+
+                    {/* Información Principal */}
+                    <div className="flex-1 min-w-0">
+                      <p className="font-bold text-gray-900 text-sm truncate">{m.nombre}</p>
+                      <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                        <span className="text-xs text-gray-600">{m.cedula}</span>
+                        {m.asignaciones.length > 0 && (
+                          <span className="text-[10px] bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full border border-indigo-200 font-bold">
+                            {m.asignaciones[0].cursos?.nombre}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Botones de Comunicación */}
+                    {m.telefono && (
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button
+                          onClick={(e) => { e.stopPropagation(); window.location.href = `tel:${m.telefono!.replace(/\s+/g, '')}`; }}
+                          className="h-9 w-9 rounded-full bg-white flex items-center justify-center text-sky-600 hover:scale-110 hover:shadow-md transition-all shadow-sm border border-sky-100"
+                          title="Llamar"
+                        >
+                          <Phone size={18} />
+                        </button>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); window.open(`https://wa.me/${m.telefono!.replace(/\D/g, '')}`, '_blank'); }}
+                          className="h-9 w-9 rounded-full bg-white flex items-center justify-center text-emerald-600 hover:scale-110 hover:shadow-md transition-all shadow-sm border border-emerald-100"
+                          title="WhatsApp"
+                        >
+                          <MessageCircle size={18} />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Botones de Acción */}
+                  <div className="flex gap-2 mt-3 flex-wrap">
                     <PremiumActionButton
-                      onClick={() => onDesactivar(m)}
-                      Icon={Trash2}
-                      color="rose"
-                      label="ELIMINAR"
+                      onClick={() => onObs(m)}
+                      Icon={MessageSquarePlus}
+                      color="violet"
+                      label="OBSERVACIONES"
+                      badgeCount={m.obs_count}
                     />
-                  ) : (
                     <PremiumActionButton
-                      onClick={() => onReactivar(m)}
-                      Icon={UserCheck2}
-                      color="emerald"
-                      label="REACTIVAR"
+                      onClick={() => onAsignar(m)}
+                      Icon={BookOpen}
+                      color="amber"
+                      label="CURSOS"
                     />
-                  )}
-                </div>
-              </motion.div>
-            ))}
-          </motion.div>
-        )}
-      </div>
+                    <PremiumActionButton
+                      onClick={() => onEditar(m)}
+                      Icon={Edit2}
+                      color="sky"
+                      label="EDITAR"
+                    />
+                    {m.activo ? (
+                      <PremiumActionButton
+                        onClick={() => onDesactivar(m)}
+                        Icon={Trash2}
+                        color="rose"
+                        label="ELIMINAR"
+                      />
+                    ) : (
+                      <PremiumActionButton
+                        onClick={() => onReactivar(m)}
+                        Icon={UserCheck2}
+                        color="emerald"
+                        label="REACTIVAR"
+                      />
+                    )}
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          )}
+        </div>
+      </motion.div>
     </GlassCard>
   );
 }
