@@ -52,7 +52,7 @@ export default async function PortalPage() {
         // FALLBACK: Si el token no tiene asignaciones (login antiguo), consultamos BD
         const supabase = getServerSupabase();
 
-        const [contactosRes, maestrosRes, logisticaRes, rolesRes, servidorRes] = await Promise.all([
+        const [contactosRes, maestrosRes, logisticaRes, rolesRes, servidorRes, maestroPtmDiaRes, academiaRes] = await Promise.all([
             supabase
                 .from('asignaciones_contacto')
                 .select('etapa, dia, semana')
@@ -73,12 +73,26 @@ export default async function PortalPage() {
                 .select('rol, dia_acceso, cursos_asignados')
                 .eq('servidor_id', servidorId)
                 .eq('vigente', true)
-                .in('rol', ['Director', 'Administrador']),
+                .in('rol', ['Director', 'Administrador', 'Maestro Ptm']),
             supabase
                 .from('servidores')
                 .select('nombre')
                 .eq('id', servidorId)
-                .single()
+                .single(),
+            // NEW: Consulta para asignaciones Maestro PTM (Día)
+            supabase
+                .from('asignaciones_maestro_ptm')
+                .select('dia')
+                .eq('servidor_id', servidorId)
+                .eq('vigente', true)
+                .maybeSingle(),
+            // NEW: Consulta para asignaciones Academia (Curso/Etapa)
+            supabase
+                .from('asignaciones_academia')
+                .select('curso:cursos(nombre)')
+                .eq('servidor_id', servidorId)
+                .eq('vigente', true)
+                .maybeSingle()
         ]);
 
         const contactos = contactosRes.data || [];
@@ -86,6 +100,10 @@ export default async function PortalPage() {
         const logistica = logisticaRes.data || [];
         const roles = rolesRes.data || [];
         nombre = servidorRes.data?.nombre || 'Servidor';
+
+        // NEW: Datos de Maestro PTM
+        const maestroPtmDia = maestroPtmDiaRes.data?.dia || '';
+        const maestroPtmEtapa = (academiaRes.data?.curso as any)?.nombre || 'Maestro';
 
         asignaciones = [
             ...contactos.map((c: any) => ({
@@ -108,13 +126,25 @@ export default async function PortalPage() {
                 franja: l.franja,
                 key: `l-${l.franja}-${l.dia}`
             })),
-            ...roles.map((r: any) => ({
-                tipo: r.rol.toLowerCase() as 'director' | 'administrador',
-                etapa: r.rol,
-                dia: r.dia_acceso || '',
-                cursos: r.cursos_asignados || [],
-                key: `r-${r.rol}`
-            }))
+            ...roles.map((r: any) => {
+                let etapa = r.rol;
+                let dia = r.dia_acceso || '';
+                let tipo = r.rol.toLowerCase();
+
+                if (r.rol === 'Maestro Ptm') {
+                    tipo = 'estudiante_ptm';
+                    etapa = maestroPtmEtapa;
+                    dia = maestroPtmDia;
+                }
+
+                return {
+                    tipo: tipo as 'director' | 'administrador' | 'estudiante_ptm',
+                    etapa,
+                    dia,
+                    cursos: r.cursos_asignados || [],
+                    key: `r-${r.rol}`
+                };
+            })
         ];
     }
 

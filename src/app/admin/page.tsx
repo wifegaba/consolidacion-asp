@@ -195,24 +195,25 @@ export default function AdminPage() {
         supabase.from('inscripciones').select('id, entrevista_id, curso_id, servidor_id, estado')
       ]);
 
-      // Cargar días asignados de maestros
-      const { data: diasData } = await supabase
-        .from('asignaciones_maestro')
-        .select('servidor_id, dia')
-        .eq('vigente', true);
+      // Cargar días asignados de maestros (Primero PTM, luego Academia como fallback)
+      const [{ data: ptmDias }, { data: acadDias }] = await Promise.all([
+        supabase.from('asignaciones_maestro_ptm').select('servidor_id, dia').eq('vigente', true),
+        supabase.from('asignaciones_maestro').select('servidor_id, dia').eq('vigente', true)
+      ]);
 
-      // Crear mapa de servidor_id -> día
       const diasMap: Record<string, string> = {};
-      if (diasData) {
-        diasData.forEach((d: any) => {
-          diasMap[d.servidor_id] = d.dia;
-        });
-      }
+      // Prioridad 1: Tabla PTM
+      if (ptmDias) ptmDias.forEach((d: any) => { diasMap[d.servidor_id] = d.dia; });
+      // Prioridad 2: Tabla Academia (solo si no está en PTM)
+      if (acadDias) acadDias.forEach((d: any) => { if (!diasMap[d.servidor_id]) diasMap[d.servidor_id] = d.dia; });
 
       const processedMaestros = (mData as unknown as MaestroDataRaw[] || []).map(m => ({
         ...m,
         obs_count: m.observaciones_count.length > 0 ? m.observaciones_count[0].count : 0,
-        rol: m.servidores_roles.length > 0 ? m.servidores_roles[0].rol : null,
+        // CORRECCIÓN: Buscar específicamente el rol "Maestro Ptm" en el array
+        rol: m.servidores_roles.find(r => r.rol === 'Maestro Ptm')?.rol ||
+          m.servidores_roles.find(r => r.rol === 'Maestros')?.rol ||
+          (m.servidores_roles.length > 0 ? m.servidores_roles[0].rol : null),
         dia_asignado: diasMap[m.id] || null
       }));
 
@@ -465,27 +466,29 @@ export default function AdminPage() {
               </AnimatePresence>
             </div>
 
-            {/* Barra de Navegación Móvil (Sticky Bottom) */}
-            <div className="md:hidden border-t border-white/20 bg-gradient-to-r from-blue-900 via-indigo-900 to-blue-900 backdrop-blur-xl flex justify-between py-1 px-1 pb-safe shrink-0 z-30 shadow-[0_-5px_20px_rgba(30,58,138,0.5)]">
-              <MobileTab Icon={Home} label="Inicio" isActive={activeTab === 'bienvenida'} onClick={() => setActiveTab('bienvenida')} />
-              {/* <MobileTab Icon={Server} label="Servidores" isActive={activeTab === 'servidores'} onClick={() => setActiveTab('servidores')} /> */}
-              <MobileTab Icon={Users} label="Maestros" isActive={activeTab === 'maestros'} onClick={() => setActiveTab('maestros')} />
-              <MobileTab Icon={UserPlus} label="Matriculas" isActive={activeTab === 'matricular'} onClick={() => setActiveTab('matricular')} badge={estudiantesPendientesCount} />
+            {/* Barra de Navegación Móvil (Sticky Bottom) - Solo visible si NO estamos en bienvenida */}
+            {activeTab !== 'bienvenida' && (
+              <div className="md:hidden border-t border-white/20 bg-gradient-to-r from-blue-900 via-indigo-900 to-blue-900 backdrop-blur-xl flex justify-between py-1 px-1 pb-safe shrink-0 z-30 shadow-[0_-5px_20px_rgba(30,58,138,0.5)]">
+                <MobileTab Icon={Home} label="Inicio" isActive={false} onClick={() => setActiveTab('bienvenida')} />
+                {/* <MobileTab Icon={Server} label="Servidores" isActive={activeTab === 'servidores'} onClick={() => setActiveTab('servidores')} /> */}
+                <MobileTab Icon={Users} label="Maestros" isActive={activeTab === 'maestros'} onClick={() => setActiveTab('maestros')} />
+                <MobileTab Icon={UserPlus} label="Matriculas" isActive={activeTab === 'matricular'} onClick={() => setActiveTab('matricular')} badge={estudiantesPendientesCount} />
 
-              {!(currentUser.cursosAcceso?.length === 1 && currentUser.cursosAcceso[0] === 'Restauración 1' && currentUser.rol !== 'Director') && (
-                <MobileTab Icon={GraduationCap} label="Prom." isActive={activeTab === 'promovidos'} onClick={() => setActiveTab('promovidos')} badge={promovidosCount} />
-              )}
+                {!(currentUser.cursosAcceso?.length === 1 && currentUser.cursosAcceso[0] === 'Restauración 1' && currentUser.rol !== 'Director') && (
+                  <MobileTab Icon={GraduationCap} label="Prom." isActive={activeTab === 'promovidos'} onClick={() => setActiveTab('promovidos')} badge={promovidosCount} />
+                )}
 
-              <MobileTab Icon={ClipboardList} label="Estudiantes" isActive={activeTab === 'consultar'} onClick={() => setActiveTab('consultar')} />
+                <MobileTab Icon={ClipboardList} label="Estudiantes" isActive={activeTab === 'consultar'} onClick={() => setActiveTab('consultar')} />
 
-              {/* Botón de Perfil/Salir integrado */}
-              <LogoutButton
-                isMultiRole={currentUser.roleCount > 1}
-                className="relative flex flex-1 flex-col items-center justify-center p-2 rounded-lg active:scale-95 transition-transform text-blue-200/80 hover:text-white hover:bg-white/10"
-                iconClassName="text-blue-200/80 mb-0.5 group-hover:text-white"
-                textClassName="text-[10px] font-medium mt-0.5 text-blue-200/80 text-center leading-tight w-full group-hover:text-white"
-              />
-            </div>
+                {/* Botón de Perfil/Salir integrado */}
+                <LogoutButton
+                  isMultiRole={currentUser.roleCount > 1}
+                  className="relative flex flex-1 flex-col items-center justify-center p-2 rounded-lg active:scale-95 transition-transform text-blue-200/80 hover:text-white hover:bg-white/10"
+                  iconClassName="text-blue-200/80 mb-0.5 group-hover:text-white"
+                  textClassName="text-[10px] font-medium mt-0.5 text-blue-200/80 text-center leading-tight w-full group-hover:text-white"
+                />
+              </div>
+            )}
           </main>
         </div>
       </div>
@@ -606,12 +609,27 @@ function PanelGestionarMaestros({ maestros, loading, onCrear, onEditar, onAsigna
         </motion.div>
 
         <div className="p-6 flex-1 overflow-y-auto min-h-0">
-          {loading ? <div className="text-center p-4">Cargando...</div> : (
+          {loading ? (
+            <div className="flex flex-col items-center justify-center p-10 text-gray-400">
+              <Loader2 className="animate-spin mb-2" size={32} />
+              <p>Cargando maestros...</p>
+            </div>
+          ) : filtered.length === 0 ? (
+            <div className="flex flex-col items-center justify-center p-10 text-gray-400 text-center">
+              <div className="bg-gray-100 p-4 rounded-full mb-3">
+                <Search size={32} className="text-gray-300" />
+              </div>
+              <p className="font-bold text-gray-500">No se encontraron maestros</p>
+              <p className="text-sm">Intenta ajustar los filtros de búsqueda o crea uno nuevo.</p>
+            </div>
+          ) : (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               {filtered.map(m => (
                 <motion.div
                   key={m.id}
                   variants={LIST_ITEM_VARIANTS}
+                  initial="hidden"
+                  animate="visible"
                   className={`relative p-4 rounded-2xl bg-gradient-to-br from-white/90 via-white/60 to-white/80 border border-white/60 shadow-lg hover:shadow-xl transition-all backdrop-blur-sm ${!m.activo ? 'opacity-60' : ''}`}
                 >
                   {/* Badge de estado inactivo */}
@@ -841,15 +859,28 @@ function ModalCrearEditarMaestro({ maestroInicial, currentUser, onClose, onSucce
       }
 
       try {
-        const { data, error } = await supabase
-          .from('asignaciones_maestro')
+        // Intentar primero en la tabla PTM
+        const { data: ptmData, error: ptmError } = await supabase
+          .from('asignaciones_maestro_ptm')
           .select('dia')
           .eq('servidor_id', maestroInicial.id)
           .eq('vigente', true)
           .maybeSingle();
 
-        if (!error && data && data.dia) {
-          setDiaSeleccionado(data.dia as any);
+        if (!ptmError && ptmData && ptmData.dia) {
+          setDiaSeleccionado(ptmData.dia as any);
+        } else {
+          // Fallback a tabla normal por si es un registro antiguo
+          const { data, error } = await supabase
+            .from('asignaciones_maestro')
+            .select('dia')
+            .eq('servidor_id', maestroInicial.id)
+            .eq('vigente', true)
+            .maybeSingle();
+
+          if (!error && data && data.dia) {
+            setDiaSeleccionado(data.dia as any);
+          }
         }
       } catch (err) {
         console.error('Error cargando día del maestro:', err);
@@ -905,69 +936,71 @@ function ModalCrearEditarMaestro({ maestroInicial, currentUser, onClose, onSucce
       return alert("Debe seleccionar un día para el maestro");
     }
 
+
     setLoading(true);
     try {
-      // 1. Crear o Actualizar Servidor
-      const { data: sid, error: err1 } = await supabase.rpc('fn_upsert_servidor', {
+      // ===== PASO 1: Crear o Actualizar Servidor =====
+      const { data: servidorId, error: rpcError } = await supabase.rpc('fn_upsert_servidor', {
         p_cedula: ced.trim(),
         p_nombre: nom.trim(),
         p_telefono: tel.trim() || null,
         p_email: null
       });
-      if (err1) throw err1;
 
-      // 2. Asignar Rol (Manual Update/Insert para evitar error ON CONFLICT)
-      const { data: existingRole, error: errCheck } = await supabase
+      if (rpcError) throw rpcError;
+      if (!servidorId) throw new Error('No se pudo obtener el ID del servidor');
+
+      // ===== PASO 2: Asignar Rol "Maestro Ptm" SIN afectar otros roles =====
+      const { data: updateData, error: updateError } = await supabase
         .from('servidores_roles')
-        .select('id')
-        .eq('servidor_id', sid)
+        .update({ vigente: true })
+        .eq('servidor_id', servidorId)
         .eq('rol', rol)
-        .maybeSingle();
+        .select();
 
-      if (errCheck) throw errCheck;
+      // Si no se actualizó ninguna fila (rol no existía), insertamos
+      if (!updateError && (!updateData || updateData.length === 0)) {
+        const { error: insertError } = await supabase
+          .from('servidores_roles')
+          .insert({
+            servidor_id: servidorId,
+            rol: rol,
+            vigente: true
+          });
 
-      if (existingRole) {
-        // Actualizar
-        const { error: errUpd } = await supabase
-          .from('servidores_roles')
-          .update({ vigente: true })
-          .eq('id', existingRole.id);
-        if (errUpd) throw errUpd;
-      } else {
-        // Insertar
-        const { error: errIns } = await supabase
-          .from('servidores_roles')
-          .insert({ servidor_id: sid, rol: rol, vigente: true });
-        if (errIns) throw errIns;
+        if (insertError) {
+          console.error(`Error insertando rol ${rol}:`, insertError);
+          throw insertError;
+        }
       }
 
-      // 3. Actualizar todas las asignaciones de maestro a no vigentes primero
+      // ===== PASO 3: Marcar asignaciones PTM previas como no vigentes =====
       await supabase
-        .from('asignaciones_maestro')
+        .from('asignaciones_maestro_ptm')
         .update({ vigente: false })
-        .eq('servidor_id', sid);
+        .eq('servidor_id', servidorId);
 
-      // 4. Insertar o actualizar la asignación de maestro con el día seleccionado
+      // ===== PASO 4: Insertar nueva asignación PTM vigente =====
       const { error: errAsig } = await supabase
-        .from('asignaciones_maestro')
-        .upsert({
-          servidor_id: sid,
-          etapa: 'Restauracion 1', // Valor por defecto
+        .from('asignaciones_maestro_ptm')
+        .insert({
+          servidor_id: servidorId,
+          etapa: 'Restauracion',
           dia: diaSeleccionado,
           vigente: true
-        }, {
-          onConflict: 'servidor_id,etapa,dia'
         });
 
       if (errAsig) throw errAsig;
 
+      // IMPORTANTE: cerrar carga ANTES de llamar onSuccess
+      setLoading(false);
       onSuccess();
     }
     catch (err: any) {
-      console.error(err);
+      console.error('Error al guardar:', err);
+      setLoading(false);
       alert("Error al guardar: " + err.message);
     }
-    finally { setLoading(false); }
   };
 
   // Mostrar cargando mientras se obtiene el día actual en modo edición
@@ -1187,11 +1220,12 @@ function ModalConfirmarDesactivar({ maestro, onClose, onSuccess }: { maestro: Ma
     try {
       const { error } = await supabase.from('servidores').update({ activo: false }).eq('id', maestro.id);
       if (error) throw error;
+      setLoading(false);
       onSuccess();
     } catch (err: any) {
-      alert("Error al desactivar: " + err.message);
-    } finally {
+      console.error(err);
       setLoading(false);
+      alert("Error al desactivar: " + err.message);
     }
   };
 
@@ -1205,15 +1239,40 @@ function ModalConfirmarDesactivar({ maestro, onClose, onSuccess }: { maestro: Ma
 
     setLoading(true);
     try {
-      // Intentar eliminar. Si hay FKs sin cascade, esto fallará y el catch lo capturará.
+      // PASO 1: Eliminar asignaciones PTM primero (para evitar FK constraint)
+      await supabase
+        .from('asignaciones_maestro_ptm')
+        .delete()
+        .eq('servidor_id', maestro.id);
+
+      // PASO 2: Eliminar asignaciones de academia (si las tiene)
+      await supabase
+        .from('asignaciones_maestro')
+        .delete()
+        .eq('servidor_id', maestro.id);
+
+      // PASO 3: Eliminar asignaciones de academia
+      await supabase
+        .from('asignaciones_academia')
+        .delete()
+        .eq('servidor_id', maestro.id);
+
+      // PASO 4: Eliminar roles
+      await supabase
+        .from('servidores_roles')
+        .delete()
+        .eq('servidor_id', maestro.id);
+
+      // PASO 5: Ahora sí, eliminar el servidor
       const { error } = await supabase.from('servidores').delete().eq('id', maestro.id);
       if (error) throw error;
+
+      setLoading(false);
       onSuccess();
     } catch (err: any) {
       console.error(err);
-      setError("No se pudo eliminar: " + (err.message || 'Error desconocido.'));
-    } finally {
       setLoading(false);
+      setError("No se pudo eliminar: " + (err.message || 'Error desconocido.'));
     }
   };
 

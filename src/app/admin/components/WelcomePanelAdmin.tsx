@@ -1,8 +1,8 @@
 'use client';
 
-import React from 'react';
-import { Users, UserPlus, ClipboardList, GraduationCap, Folder, LogOut, type LucideIcon } from 'lucide-react';
-import { motion, Variants } from 'framer-motion';
+import React, { useState } from 'react';
+import { Users, UserPlus, ClipboardList, GraduationCap, Folder, LogOut, CheckSquare, Sparkles, type LucideIcon } from 'lucide-react';
+import { motion, Variants, AnimatePresence } from 'framer-motion';
 
 // Colores para las carpetas/tarjetas de secciones
 const sectionColors = {
@@ -81,6 +81,17 @@ export default function WelcomePanelAdmin({
     const sectionsContainerDelay = cardDelay + 100;
     const animationDuration = 500;
     const easing = 'cubic-bezier(0.25, 0.1, 0.25, 1)';
+
+    // Estado para controlar si se muestra el menú de carpetas (para directores)
+    const isDirector = userRole === 'Director';
+    const [showDirectorMenu, setShowDirectorMenu] = useState(!isDirector);
+
+    // Si el usuario es director, asegurar que mostramos la tarjeta inicial al cargar el dato
+    React.useEffect(() => {
+        if (userRole === 'Director') {
+            setShowDirectorMenu(false);
+        }
+    }, [userRole]);
 
     // Definir secciones administrativas
     const sections: AdminSection[] = [
@@ -182,8 +193,8 @@ export default function WelcomePanelAdmin({
                         );
                     } else if (userRole) {
                         return (
-                            <p className="mt-1.5 text-sm md:text-base text-indigo-700 font-medium">
-                                {userRole}
+                            <p className="mt-1.5 text-sm md:text-base text-indigo-700 font-semibold tracking-wide">
+                                {userRole === 'Director' ? 'Director Académico' : userRole}
                             </p>
                         );
                     }
@@ -195,86 +206,122 @@ export default function WelcomePanelAdmin({
                 </p>
             </div>
 
-            {/* Título Paneles */}
-            <h2
-                className={`
-          text-base md:text-lg font-semibold mt-5 md:mt-6 mb-4 md:mb-5 text-gray-800
-          transition-all duration-${animationDuration} ease-[${easing}]
-          ${isActive ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-3'}
-        `}
-                style={{ transitionDelay: `${isActive ? sectionsContainerDelay - 50 : 0}ms` }}
-            >
-                Tus Paneles de Gestión
-            </h2>
-
-            {/* Contenedor de Tarjetas de Secciones */}
-            <div className="w-full max-w-full md:max-w-4xl px-2 md:px-0">
-                <div
-                    className={`
-            transition-opacity duration-${animationDuration} ease-[${easing}]
-            ${isActive ? 'opacity-100' : 'opacity-0'}
-          `}
-                    style={{ transitionDelay: `${isActive ? sectionsContainerDelay : 0}ms` }}
-                >
+            {/* Título Paneles - Solo mostrar si NO es director O si ya entró al menú */}
+            <AnimatePresence mode="wait">
+                {!showDirectorMenu && isDirector ? (
                     <motion.div
-                        className="flex flex-wrap md:flex-nowrap items-center justify-center gap-3 md:gap-5 w-full"
-                        variants={LIST_WRAPPER_VARIANTS}
-                        initial="hidden"
-                        animate={isActive ? "visible" : "hidden"}
+                        key="director-card"
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -20 }}
+                        transition={{ duration: 0.5, ease: "easeOut", delay: 0.2 }}
+                        className="mt-3 relative z-20"
                     >
-                        {filteredSections.map((section) => (
-                            <motion.div key={section.id} variants={SECTION_ITEM_VARIANTS}>
-                                <SectionCard
-                                    title={section.title}
-                                    icon={section.icon}
-                                    color={section.color}
-                                    description={section.description}
-                                    badge={section.badge}
-                                    onSelect={() => onSelectSection(section.id)}
-                                />
-                            </motion.div>
-                        ))}
+                        <DirectorAccessCard onEnter={() => setShowDirectorMenu(true)} />
                     </motion.div>
-
-                    {/* Botón Premium de Cambiar Perfil */}
-                    <motion.div
-                        className="flex justify-center mt-6"
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={isActive ? { opacity: 1, y: 0 } : { opacity: 0, y: 10 }}
-                        transition={{ duration: 0.5, delay: 0.4 }}
-                    >
-                        <button
-                            onClick={() => {
-                                if (isMultiRole) {
-                                    window.location.href = '/login/portal';
-                                } else {
-                                    onLogout();
-                                }
-                            }}
-                            className="group relative flex items-center gap-2 px-5 py-2.5 rounded-2xl
-                bg-gradient-to-r from-white/60 via-white/40 to-white/60 
-                border border-white/60 backdrop-blur-xl shadow-lg
-                hover:from-white/70 hover:via-white/50 hover:to-white/70
-                hover:shadow-xl hover:shadow-indigo-500/20 hover:border-indigo-400/40
-                hover:-translate-y-0.5
-                active:translate-y-0 active:scale-95
-                transition-all duration-300 ease-out"
+                ) : (
+                    <>
+                        <motion.h2
+                            key="title"
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            className={`
+                                text-base md:text-lg font-semibold mt-5 md:mt-6 mb-4 md:mb-5 text-gray-800
+                                transition-all duration-${animationDuration} ease-[${easing}]
+                                ${isActive ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-3'}
+                            `}
+                            style={{ transitionDelay: `${isActive ? sectionsContainerDelay - 50 : 0}ms` }}
                         >
-                            <svg className="w-4 h-4 text-gray-600 group-hover:text-indigo-600 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
-                            </svg>
-                            <span className="text-sm font-semibold text-gray-700 group-hover:text-indigo-600 transition-colors">
-                                Cambiar Perfil
-                            </span>
-                        </button>
-                    </motion.div>
-                </div>
-            </div>
+                            Tus Paneles de Gestión
+                        </motion.h2>
+
+                        {/* Contenedor de Tarjetas de Secciones */}
+                        <div key="sections" className="w-full max-w-full md:max-w-4xl px-2 md:px-0">
+                            <div
+                                className={`
+                                    transition-opacity duration-${animationDuration} ease-[${easing}]
+                                    ${isActive ? 'opacity-100' : 'opacity-0'}
+                                `}
+                                style={{ transitionDelay: `${isActive ? sectionsContainerDelay : 0}ms` }}
+                            >
+                                <motion.div
+                                    className="flex flex-wrap md:flex-nowrap items-center justify-center gap-3 md:gap-5 w-full"
+                                    variants={LIST_WRAPPER_VARIANTS}
+                                    initial="hidden"
+                                    animate={isActive ? "visible" : "hidden"}
+                                >
+                                    {filteredSections.map((section) => (
+                                        <motion.div key={section.id} variants={SECTION_ITEM_VARIANTS}>
+                                            <SectionCard
+                                                title={section.title}
+                                                icon={section.icon}
+                                                color={section.color}
+                                                description={section.description}
+                                                badge={section.badge}
+                                                onSelect={() => onSelectSection(section.id)}
+                                            />
+                                        </motion.div>
+                                    ))}
+                                </motion.div>
+
+                                {/* Botón Premium de Cambiar Perfil */}
+                                <motion.div
+                                    className="flex justify-center mt-6"
+                                    initial={{ opacity: 0, y: 10 }}
+                                    animate={isActive ? { opacity: 1, y: 0 } : { opacity: 0, y: 10 }}
+                                    transition={{ duration: 0.5, delay: 0.4 }}
+                                >
+                                    <button
+                                        onClick={() => {
+                                            if (isMultiRole) {
+                                                window.location.href = '/login/portal';
+                                            } else {
+                                                onLogout();
+                                            }
+                                        }}
+                                        className="group relative flex items-center gap-2 px-5 py-2.5 rounded-2xl
+                                        bg-gradient-to-r from-white/60 via-white/40 to-white/60 
+                                        border border-white/60 backdrop-blur-xl shadow-lg
+                                        hover:from-white/70 hover:via-white/50 hover:to-white/70
+                                        hover:shadow-xl hover:shadow-indigo-500/20 hover:border-indigo-400/40
+                                        hover:-translate-y-0.5
+                                        active:translate-y-0 active:scale-95
+                                        transition-all duration-300 ease-out"
+                                    >
+                                        <svg className="w-4 h-4 text-gray-600 group-hover:text-indigo-600 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                            <path strokeLinecap="round" strokeLinejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                                        </svg>
+                                        <span className="text-sm font-semibold text-gray-700 group-hover:text-indigo-600 transition-colors">
+                                            Cambiar Perfil
+                                        </span>
+                                    </button>
+                                </motion.div>
+                            </div>
+                        </div>
+                    </>
+                )}
+            </AnimatePresence>
         </div>
     );
 }
 
-// Componente de Tarjeta de Sección
+function DirectorAccessCard({ onEnter }: { onEnter: () => void }) {
+    return (
+        <button
+            onClick={onEnter}
+            className="group relative w-full max-w-[220px] mx-auto rounded-[1.5rem] overflow-hidden shadow-2xl transition-all duration-500 hover:scale-[1.02] hover:shadow-blue-900/20 focus:outline-none focus:ring-4 focus:ring-blue-400/30"
+        >
+            <img
+                src="/director-access-card.png"
+                alt="Gestión de Maestros y Estudiantes - Ingresar"
+                className="w-full h-auto object-cover"
+            />
+
+            {/* Overlay sutil al hacer hover para indicar interactividad */}
+            <div className="absolute inset-0 bg-black/0 group-hover:bg-white/10 transition-colors duration-300" />
+        </button>
+    );
+}// Componente de Tarjeta de Sección
 interface SectionCardProps {
     title: string;
     icon: LucideIcon;

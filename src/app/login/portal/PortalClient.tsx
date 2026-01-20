@@ -8,7 +8,7 @@ import { Fire, Student } from '@phosphor-icons/react';
 import Image from 'next/image';
 
 type Asignacion = {
-    tipo: 'maestro' | 'contacto' | 'logistica' | 'director' | 'administrador';
+    tipo: 'maestro' | 'contacto' | 'logistica' | 'director' | 'administrador' | 'estudiante_ptm';
     etapa: string;
     dia: string;
     semana?: number;
@@ -79,6 +79,14 @@ const AdminIcon = () => (
     </div>
 );
 
+
+
+const EstudianteIcon = () => (
+    <div className="relative w-24 h-24 flex items-center justify-center">
+        <Student size={64} weight="duotone" className="text-emerald-400 drop-shadow-md" />
+    </div>
+);
+
 export default function PortalClient({ nombre, asignaciones }: { nombre: string, asignaciones: Asignacion[] }) {
     const router = useRouter();
     const [loadingKey, setLoadingKey] = useState<string | null>(null);
@@ -116,7 +124,9 @@ export default function PortalClient({ nombre, asignaciones }: { nombre: string,
             case 'maestro': return 'Coordinador';
             case 'logistica': return 'Logística';
             case 'director': return 'Consolidación';
+
             case 'administrador': return 'Gestor Académico';
+            case 'estudiante_ptm': return 'Maestro';
         }
     };
 
@@ -206,7 +216,9 @@ export default function PortalClient({ nombre, asignaciones }: { nombre: string,
                                                 {a.tipo === 'maestro' && <MaestroIcon variant={variant} />}
                                                 {a.tipo === 'logistica' && <LogisticaIcon />}
                                                 {a.tipo === 'director' && <DirectorIcon />}
+
                                                 {a.tipo === 'administrador' && <AdminIcon />}
+                                                {a.tipo === 'estudiante_ptm' && <EstudianteIcon />}
                                             </div>
                                         </>
                                     );
@@ -239,7 +251,9 @@ export default function PortalClient({ nombre, asignaciones }: { nombre: string,
                                         Acceso Administrativo
                                     </span>
                                 ) : (
-                                    <div className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-full border backdrop-blur-md ${a.dia.toLowerCase().includes('todos')
+                                    <div className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-full border backdrop-blur-md ${a.tipo === 'estudiante_ptm'
+                                        ? 'bg-emerald-500/10 border-emerald-500/20'
+                                        : a.dia.toLowerCase().includes('todos')
                                             ? 'bg-gradient-to-r from-amber-500/20 via-yellow-400/20 to-amber-500/20 border-amber-400/40'
                                             : a.dia.toLowerCase().includes('domingo')
                                                 ? 'bg-emerald-500/10 border-emerald-500/20'
@@ -249,7 +263,9 @@ export default function PortalClient({ nombre, asignaciones }: { nombre: string,
                                                         ? 'bg-gradient-to-r from-fuchsia-500/20 to-pink-500/20 border-fuchsia-500/30'
                                                         : 'bg-white/5 border-white/10'
                                         }`}>
-                                        <div className={`w-2 h-2 rounded-full shadow-[0_0_8px_currentcolor] ${a.dia.toLowerCase().includes('todos')
+                                        <div className={`w-2 h-2 rounded-full shadow-[0_0_8px_currentcolor] ${a.tipo === 'estudiante_ptm'
+                                            ? 'bg-emerald-400 text-emerald-400'
+                                            : a.dia.toLowerCase().includes('todos')
                                                 ? 'bg-gradient-to-r from-amber-400 to-yellow-300 text-amber-400'
                                                 : a.dia.toLowerCase().includes('domingo')
                                                     ? 'bg-emerald-400 text-emerald-400'
@@ -259,7 +275,9 @@ export default function PortalClient({ nombre, asignaciones }: { nombre: string,
                                                             ? 'bg-fuchsia-400 text-fuchsia-400'
                                                             : 'bg-slate-400 text-slate-400'
                                             }`} />
-                                        <span className={`text-xs font-semibold tracking-wide ${a.dia.toLowerCase().includes('todos')
+                                        <span className={`text-xs font-semibold tracking-wide ${a.tipo === 'estudiante_ptm'
+                                            ? 'text-emerald-100'
+                                            : a.dia.toLowerCase().includes('todos')
                                                 ? 'bg-gradient-to-r from-amber-300 via-yellow-200 to-amber-300 bg-clip-text text-transparent drop-shadow-[0_0_12px_rgba(251,191,36,0.6)]'
                                                 : 'text-white'
                                             }`}>

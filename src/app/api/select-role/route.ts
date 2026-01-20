@@ -87,6 +87,20 @@ export async function POST(req: Request) {
             newPayload = { ...newPayload, dia: data.dia, franja: data.franja };
             redirectUrl = `/login/logistica?dia=${encodeURIComponent(data.dia)}`;
 
+        } else if (tipo === 'estudiante_ptm') {
+            const { data, error } = await supabase
+                .from('servidores_roles')
+                .select('rol')
+                .eq('servidor_id', servidorId)
+                .eq('vigente', true)
+                .eq('rol', 'Maestro Ptm')
+                .maybeSingle();
+
+            if (error || !data) throw new Error('Rol de Maestro no encontrado o no vigente');
+
+            newPayload = { ...newPayload, rol: 'Maestro Ptm' };
+            redirectUrl = '/restauracion/estudiante';
+
         } else if (tipo === 'director' || tipo === 'administrador') {
             // Verificar que el servidor tiene el rol administrativo vigente
 

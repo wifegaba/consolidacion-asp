@@ -282,15 +282,15 @@ export default function PanelMatricular({ maestros, cursos, estudiantes, inscrip
                                             {selectedIds[e.id] && <Check size={12} className="text-white" />}
                                         </div>
                                         <div className="flex-1">
-                                            <div className="flex items-center gap-2">
-                                                <p className="text-sm font-medium">{e.nombre}</p>
+                                            <div className="flex items-center gap-3">
+                                                <p className="text-base font-bold text-gray-900">{e.nombre}</p>
                                                 {e.suspendedCourseId && (
-                                                    <span className="text-[9px] uppercase tracking-wider font-bold bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded border border-amber-200">
+                                                    <span className="text-[10px] uppercase tracking-wider font-bold bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded border border-amber-200">
                                                         Susp. {cursos.find(c => c.id === e.suspendedCourseId)?.nombre}
                                                     </span>
                                                 )}
                                                 {e.dia && (
-                                                    <span className={`text-[10px] uppercase tracking-wider font-bold px-2.5 py-1 rounded-lg shadow-sm ${e.dia === 'Domingo' ? 'bg-blue-100 text-blue-700 border border-blue-200' :
+                                                    <span className={`text-[11px] uppercase tracking-widest font-black px-3 py-1.5 rounded-xl shadow-md ${e.dia === 'Domingo' ? 'bg-blue-100 text-blue-700 border border-blue-200' :
                                                         e.dia === 'Martes' ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' :
                                                             'bg-pink-100 text-pink-700 border border-pink-200'
                                                         }`}>
@@ -298,7 +298,7 @@ export default function PanelMatricular({ maestros, cursos, estudiantes, inscrip
                                                     </span>
                                                 )}
                                             </div>
-                                            <p className="text-xs text-gray-500">{e.telefono || 'Sin teléfono'}</p>
+                                            <p className="text-xs text-gray-500 font-medium mt-0.5">{e.telefono || 'Sin teléfono'}</p>
                                         </div>
                                     </motion.div>
                                 ))}

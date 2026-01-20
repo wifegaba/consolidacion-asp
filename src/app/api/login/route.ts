@@ -46,7 +46,9 @@ export async function POST(req: Request) {
       rolMaestroPtmResult,
       contactosResult,
       maestrosResult,
-      logisticaResult
+      logisticaResult,
+      maestroPtmDiaResult,
+      academiaResult
     ] = await Promise.all([
       // Consulta para el rol de Director
       supabase
@@ -94,7 +96,23 @@ export async function POST(req: Request) {
         .from('asignaciones_logistica')
         .select('dia:dia_culto, franja') // Alias dia_culto -> dia for compatibility
         .eq('servidor_id', servidorId)
+        .eq('vigente', true),
+
+      // NEW: Consulta para asignaciones Maestro PTM (Día)
+      supabase
+        .from('asignaciones_maestro_ptm')
+        .select('dia')
+        .eq('servidor_id', servidorId)
         .eq('vigente', true)
+        .maybeSingle(),
+
+      // NEW: Consulta para asignaciones Academia (Curso/Etapa)
+      supabase
+        .from('asignaciones_academia')
+        .select('curso:cursos(nombre)')
+        .eq('servidor_id', servidorId)
+        .eq('vigente', true)
+        .maybeSingle()
     ]);
 
     // Verificar si alguna de las consultas CRÍTICAS falló
@@ -112,25 +130,24 @@ export async function POST(req: Request) {
     const maestros = maestrosResult.data || [];
     const logistica = logisticaResult.data || [];
 
+    // NEW: Datos de Maestro PTM
+    const maestroPtmDia = maestroPtmDiaResult.data?.dia || '';
+    const maestroPtmEtapa = (academiaResult.data?.curso as any)?.nombre || 'Maestro';
+
     // --- LÓGICA DE DECISIÓN ---
 
     // Contar roles administrativos
     const rolesAdmin = [rolDirector, rolAdministrador].filter(Boolean).length;
 
-    // Prioridad 1: ¿Es Estudiante? (tiene precedencia sobre todo)
-    if (rolMaestroPtm) {
-      const token = jwt.sign({ cedula, rol: 'Maestro Ptm', servidorId }, secret, { expiresIn: '8h' });
-      const res = NextResponse.json({ redirect: '/restauracion/estudiante' });
-      res.cookies.set(isProd ? '__Host-session' : 'session', token, { httpOnly: true, secure: isProd, sameSite: 'lax', path: '/', maxAge: 60 * 60 * 8 });
-      return res;
-    }
+    // Prioridad 1: Ahora integrada en la lógica general del portal
+    // if (rolMaestroPtm)... removido para permitir portal multimodal
 
     // Prioridad 2: Roles Administrativos (Director / Administrador)
     if (rolesAdmin > 0) {
       const totalAsignaciones = contactos.length + maestros.length + logistica.length;
 
-      // Si tiene múltiples roles administrativos O roles admin + roles operativos, va al portal
-      if (rolesAdmin > 1 || (rolesAdmin > 0 && totalAsignaciones > 0)) {
+      // Si tiene múltiples roles administrativos O roles admin + roles operativos/maestro, va al portal
+      if (rolesAdmin > 1 || (rolesAdmin > 0 && (totalAsignaciones > 0 || rolMaestroPtm))) {
         // OPTIMIZACIÓN: Incluir asignaciones en el token para evitar queries en el portal
         const asignaciones = [
           ...contactos.map((c: any) => ({ tipo: 'contacto', etapa: c.etapa, dia: c.dia, semana: c.semana })),
@@ -142,6 +159,11 @@ export async function POST(req: Request) {
             etapa: 'Administrador',
             dia: rolAdministrador.dia_acceso,
             cursos: rolAdministrador.cursos_asignados
+          }] : []),
+          ...(rolMaestroPtm ? [{
+            tipo: 'estudiante_ptm',
+            etapa: maestroPtmEtapa,
+            dia: maestroPtmDia
           }] : [])
         ];
         const token = jwt.sign({ cedula, roles: ['portal'], servidorId, nombre: servidor.nombre, asignaciones }, secret, { expiresIn: '8h' });
@@ -168,7 +190,7 @@ export async function POST(req: Request) {
 
     // Prioridad 3: Roles Operativos (Timoteo, Coordinador, Logística)
     // Contamos el TOTAL de asignaciones individuales
-    const totalAsignaciones = contactos.length + maestros.length + logistica.length;
+    const totalAsignaciones = contactos.length + maestros.length + logistica.length + (rolMaestroPtm ? 1 : 0);
 
     if (totalAsignaciones > 0) {
       // Si tiene MÁS de una asignación (total > 1), enviamos al PORTAL
@@ -177,7 +199,12 @@ export async function POST(req: Request) {
         const asignaciones = [
           ...contactos.map((c: any) => ({ tipo: 'contacto', etapa: c.etapa, dia: c.dia, semana: c.semana })),
           ...maestros.map((m: any) => ({ tipo: 'maestro', etapa: m.etapa, dia: m.dia })),
-          ...logistica.map((l: any) => ({ tipo: 'logistica', dia: l.dia, franja: l.franja }))
+          ...logistica.map((l: any) => ({ tipo: 'logistica', dia: l.dia, franja: l.franja })),
+          ...(rolMaestroPtm ? [{
+            tipo: 'estudiante_ptm',
+            etapa: maestroPtmEtapa,
+            dia: maestroPtmDia
+          }] : [])
         ];
         const token = jwt.sign({ cedula, roles: ['portal'], servidorId, nombre: servidor.nombre, asignaciones }, secret, { expiresIn: '8h' });
         const res = NextResponse.json({ redirect: '/login/portal' });
@@ -201,7 +228,12 @@ export async function POST(req: Request) {
       } else if (logistica.length === 1) {
         rolName = 'logistica';
         redirect = '/login/logistica';
+        rolName = 'logistica';
+        redirect = '/login/logistica';
         extraData = { dia: logistica[0].dia };
+      } else if (rolMaestroPtm) {
+        rolName = 'Maestro Ptm';
+        redirect = '/restauracion/estudiante';
       }
 
       const tokenPayload = {
