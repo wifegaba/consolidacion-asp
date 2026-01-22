@@ -1,10 +1,11 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { ClipboardList, Search, UserX, UserCheck2, UserCog, UserMinus, Check, AlertTriangle, Loader2, Phone, MessageCircle, Trash2 } from 'lucide-react';
+import { ClipboardList, Search, UserX, UserCheck2, UserCog, UserMinus, Check, AlertTriangle, Loader2, Phone, MessageCircle, Trash2, FileText, MessageSquare } from 'lucide-react';
 import { AnimatePresence, motion, Variants } from 'framer-motion';
 import { supabase } from '../../../lib/supabaseClient';
 import { GlassCard, CardHeader, FormSelect, GLASS_STYLES, ModalTemplate } from '../page';
+import { HojaDeVidaPanel } from '../../restauracion/estudiante/components/HojaDeVidaPanel';
 import type { MaestroConCursos, Curso, Estudiante, Inscripcion, EstudianteInscrito } from '../page';
 
 // Animaciones premium para las listas de pendientes y matriculados
@@ -125,67 +126,69 @@ export default function PanelConsultarEstudiantes({ maestros, cursos, estudiante
     }, [procesados, search, selectedMaestroId, selectedCourseId, currentUser]);
 
     return (
-        <GlassCard className="h-full flex flex-col relative">
-            <CardHeader Icon={ClipboardList} title="Estudiantes" subtitle="Base de datos de matrículas." />
+        <>
+            <GlassCard className="h-full flex flex-col relative">
+                <CardHeader Icon={ClipboardList} title="Estudiantes" subtitle="Base de datos de matrículas." />
 
-            <div className="p-4 md:p-6 grid grid-cols-1 md:grid-cols-4 gap-4 shrink-0">
-                <div className="relative md:col-span-2">
-                    <input type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar estudiante..." className={`w-full rounded-lg px-4 py-2.5 pl-10 ${GLASS_STYLES.input}`} />
-                    <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
-                </div>
-                <div className={cursos.length <= 1 ? "hidden md:block" : ""}>
-                    <FormSelect value={selectedCourseId} onChange={(e: any) => setSelectedCourseId(e.target.value)} label="">
-                        <option value="">Todos los Niveles</option>
-                        {cursos.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+                <div className="p-4 md:p-6 grid grid-cols-1 md:grid-cols-4 gap-4 shrink-0">
+                    <div className="relative md:col-span-2">
+                        <input type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar estudiante..." className={`w-full rounded-lg px-4 py-2.5 pl-10 ${GLASS_STYLES.input}`} />
+                        <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+                    </div>
+                    <div className={cursos.length <= 1 ? "hidden md:block" : ""}>
+                        <FormSelect value={selectedCourseId} onChange={(e: any) => setSelectedCourseId(e.target.value)} label="">
+                            <option value="">Todos los Niveles</option>
+                            {cursos.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+                        </FormSelect>
+                    </div>
+                    <FormSelect value={selectedMaestroId} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setSelectedMaestroId(e.target.value)} label="">
+                        <option value="">Todos los Maestros</option>
+                        {maestros.filter(m => m.rol === 'Maestro Ptm').map(m => <option key={m.id} value={m.id}>{m.nombre}</option>)}
                     </FormSelect>
                 </div>
-                <FormSelect value={selectedMaestroId} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setSelectedMaestroId(e.target.value)} label="">
-                    <option value="">Todos los Maestros</option>
-                    {maestros.filter(m => m.rol === 'Maestro Ptm').map(m => <option key={m.id} value={m.id}>{m.nombre}</option>)}
-                </FormSelect>
-            </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 px-4 pb-4 md:px-6 md:pb-6 flex-1 min-h-0 overflow-hidden">
-                <div className="flex flex-col h-full min-h-0">
-                    <div className="mb-2 flex items-center gap-2 text-rose-700 font-semibold shrink-0"><UserX size={18} /> Pendientes ({pendientes.length})</div>
-                    <div className={`flex-1 overflow-y-auto rounded-xl ${GLASS_STYLES.input} p-0 border-2 border-white/50`}>
-                        {loading ? <div className="p-4 text-center">Cargando...</div> : pendientes.length === 0 ? <div className="p-8 text-center text-gray-500">No hay pendientes</div> : (
-                            <motion.div
-                                key={`pendientes-${search}-${pendientes.length}`}
-                                variants={LIST_WRAPPER_VARIANTS}
-                                initial="hidden"
-                                animate="visible"
-                            >
-                                {pendientes.map(e => (
-                                    <motion.div key={e.id} variants={LIST_ITEM_VARIANTS}>
-                                        <EstudianteRow e={e} onClick={() => setSelectedStudent(e)} />
-                                    </motion.div>
-                                ))}
-                            </motion.div>
-                        )}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 px-4 pb-4 md:px-6 md:pb-6 flex-1 min-h-0 overflow-hidden">
+                    <div className="flex flex-col h-full min-h-0">
+                        <div className="mb-2 flex items-center gap-2 text-rose-700 font-semibold shrink-0"><UserX size={18} /> Pendientes ({pendientes.length})</div>
+                        <div className={`flex-1 overflow-y-auto rounded-xl ${GLASS_STYLES.input} p-0 border-2 border-white/50`}>
+                            {loading ? <div className="p-4 text-center">Cargando...</div> : pendientes.length === 0 ? <div className="p-8 text-center text-gray-500">No hay pendientes</div> : (
+                                <motion.div
+                                    key={`pendientes-${search}-${pendientes.length}`}
+                                    variants={LIST_WRAPPER_VARIANTS}
+                                    initial="hidden"
+                                    animate="visible"
+                                >
+                                    {pendientes.map(e => (
+                                        <motion.div key={e.id} variants={LIST_ITEM_VARIANTS}>
+                                            <EstudianteRow e={e} onClick={() => setSelectedStudent(e)} />
+                                        </motion.div>
+                                    ))}
+                                </motion.div>
+                            )}
+                        </div>
+                    </div>
+
+                    <div className="flex flex-col h-full min-h-0">
+                        <div className="mb-2 flex items-center gap-2 text-blue-700 font-semibold shrink-0"><UserCheck2 size={18} /> Matriculados ({matriculados.length})</div>
+                        <div className={`flex-1 overflow-y-auto rounded-xl ${GLASS_STYLES.input} p-0 border-2 border-white/50`}>
+                            {loading ? <div className="p-4 text-center">Cargando...</div> : matriculados.length === 0 ? <div className="p-8 text-center text-gray-500">No hay matriculados</div> : (
+                                <motion.div
+                                    key={`matriculados-${search}-${matriculados.length}`}
+                                    variants={LIST_WRAPPER_VARIANTS}
+                                    initial="hidden"
+                                    animate="visible"
+                                >
+                                    {matriculados.map(e => (
+                                        <motion.div key={e.id} variants={LIST_ITEM_VARIANTS}>
+                                            <EstudianteRow e={e} matriculado fotoUrl={e.foto_path ? fotoUrls[e.foto_path] : undefined} onClick={() => setSelectedStudent(e)} />
+                                        </motion.div>
+                                    ))}
+                                </motion.div>
+                            )}
+                        </div>
                     </div>
                 </div>
-
-                <div className="flex flex-col h-full min-h-0">
-                    <div className="mb-2 flex items-center gap-2 text-blue-700 font-semibold shrink-0"><UserCheck2 size={18} /> Matriculados ({matriculados.length})</div>
-                    <div className={`flex-1 overflow-y-auto rounded-xl ${GLASS_STYLES.input} p-0 border-2 border-white/50`}>
-                        {loading ? <div className="p-4 text-center">Cargando...</div> : matriculados.length === 0 ? <div className="p-8 text-center text-gray-500">No hay matriculados</div> : (
-                            <motion.div
-                                key={`matriculados-${search}-${matriculados.length}`}
-                                variants={LIST_WRAPPER_VARIANTS}
-                                initial="hidden"
-                                animate="visible"
-                            >
-                                {matriculados.map(e => (
-                                    <motion.div key={e.id} variants={LIST_ITEM_VARIANTS}>
-                                        <EstudianteRow e={e} matriculado fotoUrl={e.foto_path ? fotoUrls[e.foto_path] : undefined} onClick={() => setSelectedStudent(e)} />
-                                    </motion.div>
-                                ))}
-                            </motion.div>
-                        )}
-                    </div>
-                </div>
-            </div>
+            </GlassCard>
 
             <AnimatePresence>
                 {selectedStudent && (
@@ -196,10 +199,13 @@ export default function PanelConsultarEstudiantes({ maestros, cursos, estudiante
                         fotoUrl={selectedStudent.foto_path ? fotoUrls[selectedStudent.foto_path] : undefined}
                         onClose={() => setSelectedStudent(null)}
                         onSuccess={() => { setSelectedStudent(null); onDataUpdated(); }}
+                        onRefresh={() => { onDataUpdated(); }}
+                        currentUser={currentUser}
+                        currentUserRole={currentUser.rol}
                     />
                 )}
             </AnimatePresence>
-        </GlassCard>
+        </>
     );
 }
 
@@ -234,7 +240,7 @@ function EstudianteRow({ e, matriculado, fotoUrl, onClick }: { e: EstudianteInsc
     );
 }
 
-function ModalDetalleEstudiante({ estudiante, maestros, fotoUrl, onClose, onSuccess }: { estudiante: EstudianteInscrito, maestros: MaestroConCursos[], fotoUrl?: string, onClose: () => void, onSuccess: () => void }) {
+function ModalDetalleEstudiante({ estudiante, maestros, fotoUrl, onClose, onSuccess, onRefresh, currentUser, currentUserRole }: { estudiante: EstudianteInscrito, maestros: MaestroConCursos[], fotoUrl?: string, onClose: () => void, onSuccess: () => void, onRefresh: () => void, currentUser: any, currentUserRole?: string }) {
     const [loading, setLoading] = useState(false);
     const [selectedMaestro, setSelectedMaestro] = useState(estudiante.maestro?.id || '');
     const [isActiveState, setIsActiveState] = useState(!!estudiante.inscripcion_id);
@@ -242,6 +248,7 @@ function ModalDetalleEstudiante({ estudiante, maestros, fotoUrl, onClose, onSucc
     const [confirmData, setConfirmData] = useState<{ isOpen: boolean; title: string; message: string; onConfirm: () => void } | null>(null);
     const [secureConfirmData, setSecureConfirmData] = useState<{ isOpen: boolean; studentName: string; onConfirm: () => void } | null>(null);
     const [alertData, setAlertData] = useState<{ isOpen: boolean; title: string; message: string; type: 'error' | 'info' } | null>(null);
+    const [showHojaDeVida, setShowHojaDeVida] = useState(false);
 
     // Filtrar maestros disponibles (mismo rol 'Maestro Ptm')
     const maestrosDisponibles = useMemo(() => maestros.filter(m => m.rol === 'Maestro Ptm'), [maestros]);
@@ -329,8 +336,26 @@ function ModalDetalleEstudiante({ estudiante, maestros, fotoUrl, onClose, onSucc
 
     const avatar = fotoUrl || generateAvatar(estudiante.nombre);
 
+    if (showHojaDeVida) {
+        return (
+            <ModalTemplate onClose={() => setShowHojaDeVida(false)} title="Hoja de Vida" className="max-w-4xl w-full h-[85vh]" position="top">
+                <div className="flex-1 w-full overflow-hidden p-0 bg-slate-50 flex flex-col min-h-0">
+                    <HojaDeVidaPanel
+                        row={estudiante as any}
+                        signedUrl={fotoUrl || null}
+                        onUpdated={(updated) => { onRefresh(); }}
+                        onDeleted={() => { onSuccess(); onClose(); }}
+                        className="flex-1 shadow-none border-0 rounded-none w-full h-full"
+                        currentUserName={(currentUser as any).nombre || (currentUser as any).name || (currentUser as any).email || 'Admin'}
+                        currentUserRole={currentUserRole}
+                    />
+                </div>
+            </ModalTemplate>
+        );
+    }
+
     return (
-        <ModalTemplate onClose={onClose} title="Detalle del Estudiante">
+        <ModalTemplate onClose={onClose} title="Detalle del Estudiante" position="top">
             <div className="flex flex-col h-full bg-slate-50/50">
                 {/* Header Premium Compacto */}
                 <div className="p-4 flex flex-col items-center justify-center bg-white/60 border-b border-white/50 space-y-1 relative">
@@ -358,6 +383,27 @@ function ModalDetalleEstudiante({ estudiante, maestros, fotoUrl, onClose, onSucc
                         )}
                     </div>
 
+                    {/* Premium Observaciones Label */}
+                    {/* Premium Observaciones Label - Diseño Alta Gama Refinado */}
+                    {/* Premium Observaciones Label - Estilo 'More Info' Compacto */}
+                    <button
+                        onClick={() => setShowHojaDeVida(true)}
+                        className="group relative flex items-center justify-between gap-4 pl-6 pr-1.5 py-1.5 rounded-full transition-all duration-500 ease-out cursor-pointer mb-3 shadow-[0_4px_12px_rgba(59,130,246,0.3)] hover:shadow-[0_12px_40px_-8px_rgba(16,185,129,0.6)] bg-gradient-to-r from-blue-600 to-emerald-500 hover:from-blue-500 hover:to-emerald-400 border border-white/20 hover:-translate-y-0.5 active:scale-95 active:translate-y-0"
+                    >
+                        {/* Texto Blanco */}
+                        <span className="text-[11px] font-bold text-white tracking-widest uppercase drop-shadow-sm">
+                            Hoja de Vida
+                        </span>
+
+                        {/* Badge Blanco a la derecha (Icono + Contador) */}
+                        <div className="flex items-center justify-center h-7 min-w-[42px] px-2.5 bg-white rounded-full shadow-sm gap-1.5 transition-transform group-hover:scale-105">
+                            <MessageSquare size={12} className="text-emerald-500 stroke-[2.5]" />
+                            <span className={`text-[11px] font-extrabold ${(estudiante as any).notas ? 'text-emerald-600' : 'text-gray-300'}`}>
+                                {((estudiante as any).notas ? (estudiante as any).notas.split('\n').filter((l: string) => l.startsWith('[')).length : 0)}
+                            </span>
+                        </div>
+                    </button>
+
                     {/* Action Buttons */}
                     {/* Action Buttons */}
                     <div className="flex items-center gap-3 mt-1">
@@ -371,6 +417,7 @@ function ModalDetalleEstudiante({ estudiante, maestros, fotoUrl, onClose, onSucc
                                 </a>
                             </>
                         )}
+
                         <button onClick={handleEliminar} className="flex items-center justify-center w-10 h-10 rounded-full bg-rose-50 text-rose-600 hover:bg-rose-100 hover:scale-110 transition-all shadow-sm border border-rose-200" title="Eliminar del Sistema">
                             <Trash2 size={18} />
                         </button>

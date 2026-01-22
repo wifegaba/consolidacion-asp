@@ -810,7 +810,7 @@ export default function EstudiantePage() {
                   {/* Pestaña Hoja de Vida */}
                   <div className={getTabPanelClasses('hojaDeVida')}>
                     {selectedStudent ? (
-                      <MemoizedHojaDeVida key={selectedStudent.id} row={selectedStudent} signedUrl={signedUrl} onUpdated={onUpdated} onDeleted={handleHojaDeVidaDelete} className="animate-slideIn" />
+                      <MemoizedHojaDeVida key={selectedStudent.id} row={selectedStudent} signedUrl={signedUrl} onUpdated={onUpdated} onDeleted={handleHojaDeVidaDelete} className="animate-slideIn" currentUserName={currentUserName} />
                     ) : (
                       <div className="p-6 text-center text-gray-600">No seleccionado.</div>
                     )}

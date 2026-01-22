@@ -24,6 +24,7 @@ import ComponenteGestionarMaestros from './components/GestionServidores'; // Asu
 import PanelMatricular from './components/PanelMatricular';
 import PanelConsultarEstudiantes from './components/PanelConsultarEstudiantes';
 import PanelPromovidos from './components/PanelPromovidos';
+import PanelDashboard, { DashboardStats } from './components/PanelDashboard';
 import WelcomePanelAdmin from './components/WelcomePanelAdmin';
 import { PresenceToast, type Toast } from './components/PresenceToast';
 import { usePresence } from '../../hooks/usePresence';
@@ -48,9 +49,9 @@ export type AsignacionMaestro = { id: string; servidor_id: string; curso_id: num
 export type MaestroDataRaw = Maestro & { asignaciones: AsignacionMaestro[]; observaciones_count: { count: number }[]; servidores_roles: { rol: string }[]; };
 export type MaestroConCursos = Maestro & { asignaciones: AsignacionMaestro[]; obs_count: number; rol: string | null; dia_asignado?: string | null; };
 export type Estudiante = { id: string; nombre: string; cedula: string; telefono?: string | null; foto_path?: string | null; dia?: string; };
-export type Inscripcion = { id: number; entrevista_id: string; curso_id: number; servidor_id: string | null; cursos?: Pick<Curso, 'nombre' | 'color'> | null; };
+export type Inscripcion = { id: number; entrevista_id: string; curso_id: number; servidor_id: string | null; cursos?: Pick<Curso, 'nombre' | 'color'> | null; estado?: string; };
 export type EstudianteInscrito = Estudiante & { maestro: MaestroConCursos | null; curso: Curso | null; inscripcion_id: number | null; };
-export type AdminTab = 'bienvenida' | 'matricular' | 'maestros' | 'servidores' | 'consultar' | 'promovidos';
+export type AdminTab = 'bienvenida' | 'dashboard' | 'matricular' | 'maestros' | 'servidores' | 'consultar' | 'promovidos';
 
 // --- HELPERS ---
 function bustUrl(u?: string | null) {
@@ -62,9 +63,9 @@ function bustUrl(u?: string | null) {
 
 // --- VARIANTES DE ANIMACIÓN ---
 const fadeTransition: Variants = {
-  hidden: { opacity: 0, y: 10 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: "easeOut" } },
-  exit: { opacity: 0, y: -10, transition: { duration: 0.2 } }
+  hidden: { opacity: 0, y: 0 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.2, ease: "easeOut" } },
+  exit: { opacity: 0, transition: { duration: 0.1 } }
 };
 
 export const modalVariants: Variants = {
@@ -191,7 +192,7 @@ export default function AdminPage() {
       const [{ data: mData }, { data: cData }, { data: eData }, { data: iData }] = await Promise.all([
         supabase.from('servidores').select(`id, nombre, cedula, telefono, email, activo, asignaciones:asignaciones_academia (id, servidor_id, curso_id, cursos ( nombre, color )), observaciones_count:servidores_observaciones!servidor_id(count), servidores_roles ( rol )`).order('nombre', { ascending: true }),
         supabase.from('cursos').select('id, nombre, color, orden').order('orden', { ascending: true }),
-        supabase.from('entrevistas').select('id, nombre, cedula, telefono, foto_path, dia').order('nombre', { ascending: true }),
+        supabase.from('entrevistas').select('*').order('nombre', { ascending: true }),
         supabase.from('inscripciones').select('id, entrevista_id, curso_id, servidor_id, estado')
       ]);
 
@@ -267,7 +268,70 @@ export default function AdminPage() {
     return inscripciones.filter(i => (i as any).estado === 'promovido').length;
   }, [inscripciones]);
 
+  // Filtro centralizado de maestros visibles (lógica compartida con PanelGestionarMaestros)
+  const maestrosVisibles = useMemo(() => {
+    return maestros.filter(m => {
+      // 1. Filtro base: Solo Maestro Ptm (coincidiendo con visual)
+      if (m.rol !== 'Maestro Ptm') return false;
 
+      // 2. Filtro por rol y cursos (Director ve todos)
+      if (!currentUser.rol || currentUser.rol === 'Director') {
+        // Pasa
+      } else {
+        if (currentUser.cursosAcceso && currentUser.cursosAcceso.length > 0) {
+          const pasaCursos = m.asignaciones.length === 0 || m.asignaciones.some(a => currentUser.cursosAcceso?.includes(a.cursos?.nombre || ''));
+          if (!pasaCursos) return false;
+        }
+      }
+
+      // 3. Filtro por día
+      const diaAcceso = currentUser.diaAcceso;
+      if (!diaAcceso || diaAcceso === 'Todos') {
+        return true;
+      } else {
+        const diasUsuario = diaAcceso.split(',').map(d => d.trim());
+        if (!m.dia_asignado) return true;
+        return diasUsuario.includes(m.dia_asignado);
+      }
+    });
+  }, [maestros, currentUser]);
+
+  // Cálculo de estadísticas para el Dashboard en tiempo real
+  const dashboardStats = useMemo<DashboardStats>(() => {
+    // 1. Totales Básicos
+    const totalEstudiantes = estudiantes.length;
+    // Usamos maestrosVisibles para coherencia visual, filtrando activos
+    const totalMaestros = maestrosVisibles.filter(m => m.activo).length;
+
+    // 2. Estado Académico
+    const inscripcionesActivas = inscripciones.filter((i: any) => i.estado === 'activo');
+    const estudiantesActivos = inscripcionesActivas.length;
+    const promovidos = inscripciones.filter((i: any) => i.estado === 'promovido' || i.estado === 'graduado').length;
+
+    // 3. Distribución por Curso (basada en inscripciones activas)
+    const conteoPorCurso: Record<number, number> = {};
+    inscripcionesActivas.forEach((i: any) => {
+      const cId = i.curso_id;
+      conteoPorCurso[cId] = (conteoPorCurso[cId] || 0) + 1;
+    });
+
+    const distribucion = cursos.map(c => ({
+      label: c.nombre,
+      val: conteoPorCurso[c.id] || 0,
+      color: c.color,
+      id: c.id
+    })).sort((a, b) => b.val - a.val);
+
+    return {
+      totalEstudiantes,
+      totalMaestros,
+      estudiantesActivos,
+      promovidos,
+      promedioNotas: 8.7, // Dato simulado
+      tasaAsistencia: 92.3, // Dato simulado
+      distribucion
+    };
+  }, [estudiantes, maestrosVisibles, inscripciones, cursos]);
 
   // Presence Notifications (Centralizado)
   const { toasts, handleDismissToast } = useGlobalPresence(currentUser.name, currentUser.id);
@@ -290,8 +354,8 @@ export default function AdminPage() {
         {/* FIX: En móvil es h-full y rounded-none. En desktop es h-[92vh] (ampliado) y rounded-3xl */}
         <div className={`w-full max-w-[1500px] h-full md:h-[92vh] flex flex-col md:flex-row md:rounded-3xl overflow-hidden ${GLASS_STYLES.container}`}>
 
-          {/* SIDEBAR (Desktop) - Oculto en vista de bienvenida */}
-          {activeTab !== 'bienvenida' && (
+          {/* SIDEBAR (Desktop) - Oculto en vista de bienvenida y dashboard */}
+          {activeTab !== 'bienvenida' && activeTab !== 'dashboard' && (
             <aside className="hidden md:flex w-64 flex-col border-r border-white/20 bg-gradient-to-b from-blue-600 via-blue-700 to-indigo-900 backdrop-blur-xl p-4 shadow-2xl z-20">
               <nav className="flex flex-col gap-2 flex-1">
                 <TabButton Icon={Home} label="Bienvenida" isActive={false} onClick={() => setActiveTab('bienvenida')} />
@@ -343,7 +407,7 @@ export default function AdminPage() {
               {/* Botón Logout Flotante ELIMINADO */}
 
               <AnimatePresence mode="wait">
-                <motion.div key={activeTab} variants={fadeTransition} initial="hidden" animate="visible" exit="exit" className="h-full flex flex-col">
+                <motion.div key={activeTab} variants={fadeTransition} initial="hidden" animate="visible" exit="exit" className="h-auto min-h-full flex flex-col">
                   {activeTab === 'bienvenida' && (
                     <WelcomePanelAdmin
                       userName={currentUser.name}
@@ -355,6 +419,15 @@ export default function AdminPage() {
                       promovidosCount={promovidosCount}
                       currentUser={currentUser}
                       isActive={currentUser.isLoaded}
+                    />
+                  )}
+                  {activeTab === 'dashboard' && (
+                    <PanelDashboard
+                      onClose={() => setActiveTab('bienvenida')}
+                      stats={dashboardStats}
+                      estudiantes={estudiantes}
+                      inscripciones={inscripciones}
+                      fotoUrls={fotoUrls}
                     />
                   )}
                   {/* {activeTab === 'servidores' && <ServidoresPage />} */}
@@ -371,41 +444,7 @@ export default function AdminPage() {
                   )}
                   {activeTab === 'maestros' && (
                     <PanelGestionarMaestros
-                      maestros={maestros.filter(m => {
-                        const isMaestro = m.rol === 'Maestro Ptm';
-                        if (!isMaestro) return false;
-
-                        // Filtro por rol (Director ve todos)
-                        if (!currentUser.rol || currentUser.rol === 'Director') {
-                          // Director ve todos los maestros
-                        } else {
-                          // Filtro por cursos para no-directores
-                          if (!currentUser.cursosAcceso || currentUser.cursosAcceso.length === 0) {
-                            // Sin restricción de cursos
-                          } else {
-                            // Mostrar si el maestro no tiene asignaciones (para poder asignarle)
-                            // o si comparte al menos uno de los cursos del usuario
-                            const pasaCursosFiltro = m.asignaciones.length === 0 || m.asignaciones.some(a => currentUser.cursosAcceso?.includes(a.cursos?.nombre || ''));
-                            if (!pasaCursosFiltro) return false;
-                          }
-                        }
-
-                        // Filtro por día
-                        const diaAcceso = currentUser.diaAcceso;
-                        if (!diaAcceso || diaAcceso === 'Todos') {
-                          // Usuario tiene acceso a todos los días - ve todos los maestros
-                          return true;
-                        } else {
-                          // Usuario tiene días específicos
-                          const diasUsuario = diaAcceso.split(',').map(d => d.trim());
-
-                          // Si el maestro no tiene día asignado, mostrarlo (para poder asignarle uno)
-                          if (!m.dia_asignado) return true;
-
-                          // Mostrar solo si el día del maestro está en los días del usuario
-                          return diasUsuario.includes(m.dia_asignado);
-                        }
-                      })}
+                      maestros={maestrosVisibles}
                       loading={isLoading}
                       onCrear={() => setModalMaestro('new')}
                       onEditar={(m) => setModalMaestro(m)}
@@ -466,8 +505,8 @@ export default function AdminPage() {
               </AnimatePresence>
             </div>
 
-            {/* Barra de Navegación Móvil (Sticky Bottom) - Solo visible si NO estamos en bienvenida */}
-            {activeTab !== 'bienvenida' && (
+            {/* Barra de Navegación Móvil (Sticky Bottom) - Solo visible si NO estamos en bienvenida ni dashboard */}
+            {activeTab !== 'bienvenida' && activeTab !== 'dashboard' && (
               <div className="md:hidden border-t border-white/20 bg-gradient-to-r from-blue-900 via-indigo-900 to-blue-900 backdrop-blur-xl flex justify-between py-1 px-1 pb-safe shrink-0 z-30 shadow-[0_-5px_20px_rgba(30,58,138,0.5)]">
                 <MobileTab Icon={Home} label="Inicio" isActive={false} onClick={() => setActiveTab('bienvenida')} />
                 {/* <MobileTab Icon={Server} label="Servidores" isActive={activeTab === 'servidores'} onClick={() => setActiveTab('servidores')} /> */}
@@ -788,16 +827,18 @@ export function FormInput({ id, label, value, onChange, type = "text", disabled,
    ==========================================================================
 */
 
-export function ModalTemplate({ children, onClose, title }: { children: React.ReactNode, onClose: () => void, title: string }) {
+export function ModalTemplate({ children, onClose, title, className = "max-w-lg", position = "center" }: { children: React.ReactNode, onClose: () => void, title: string, className?: string, position?: 'center' | 'top' }) {
+  const alignClass = position === 'center' ? 'items-center' : 'items-start pt-2 md:pt-4';
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md" onClick={onClose}>
+    <div className={`fixed inset-0 z-50 flex justify-center p-4 bg-slate-900/40 backdrop-blur-md ${alignClass}`} onClick={onClose}>
       <motion.div
         variants={modalVariants}
         initial="hidden"
         animate="visible"
         exit="exit"
         onClick={e => e.stopPropagation()}
-        className="relative w-full max-w-lg rounded-3xl overflow-hidden flex flex-col max-h-[92vh] shadow-2xl border border-white/10"
+        className={`relative w-full ${className} rounded-3xl overflow-hidden flex flex-col max-h-[92vh] shadow-2xl border border-white/10`}
         style={{
           background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 50%, #e2e8f0 100%)'
         }}
@@ -819,14 +860,14 @@ export function ModalTemplate({ children, onClose, title }: { children: React.Re
         />
 
         {/* Contenido del modal con z-index para estar sobre los gradientes */}
-        <div className="relative z-10 flex flex-col h-full bg-white/40 backdrop-blur-xl rounded-3xl">
-          <div className="p-5 flex justify-between items-center border-b border-white/30 bg-gradient-to-r from-white/50 via-white/30 to-white/50 backdrop-blur-sm">
-            <h3 className="font-bold text-gray-900 text-xl tracking-tight">{title}</h3>
+        <div className="relative z-10 flex flex-col h-full bg-white/40 backdrop-blur-xl rounded-3xl overflow-hidden">
+          <div className="px-5 py-3 flex justify-between items-center border-b border-white/30 bg-gradient-to-r from-white/50 via-white/30 to-white/50 backdrop-blur-sm shrink-0">
+            <h3 className="font-bold text-gray-900 text-lg tracking-tight">{title}</h3>
             <button
               onClick={onClose}
-              className="p-2 hover:bg-white/60 rounded-full text-gray-600 hover:text-gray-900 transition-all active:scale-95"
+              className="p-1.5 hover:bg-white/60 rounded-full text-gray-600 hover:text-gray-900 transition-all active:scale-95"
             >
-              <X size={22} />
+              <X size={20} />
             </button>
           </div>
           {children}
@@ -1019,7 +1060,7 @@ function ModalCrearEditarMaestro({ maestroInicial, currentUser, onClose, onSucce
     <ModalTemplate onClose={onClose} title={isEdit ? "Editar Maestro" : "Nuevo Maestro"}>
       <form onSubmit={save} className="p-6 space-y-4 flex-1 overflow-y-auto">
         <FormInput id="n" label="Nombre" value={nom} onChange={setNom} />
-        <FormInput id="c" label="Cédula" value={ced} onChange={setCed} disabled={isEdit} />
+        <FormInput id="c" label="Cédula" value={ced} onChange={setCed} />
         <FormInput id="t" label="Teléfono" value={tel} onChange={setTel} placeholder="Ej: 3001234567" />
         <FormInput id="rol-display" label="Rol" value="Maestro Proceso Transformacional" onChange={() => { }} disabled />
 
