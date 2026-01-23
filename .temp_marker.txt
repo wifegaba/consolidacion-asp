@@ -1,0 +1,1 @@
+// Este comentario marca el inicio - se elimina todo desde aquí

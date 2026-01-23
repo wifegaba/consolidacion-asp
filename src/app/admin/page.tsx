@@ -1,4 +1,4 @@
-/*
+﻿/*
   ARCHIVO: app/admin/page.tsx
   ESTADO: FINAL - FULL RESPONSIVE FIX
   DESCRIPCIÓN: 
@@ -15,12 +15,12 @@ import {
   Users, UserPlus, Server, Search, Plus, X, Loader2, Check,
   Edit2, Trash2, BookOpen, MessageSquarePlus, type LucideIcon,
   ChevronDown, AlertTriangle, ClipboardList, UserX, UserCheck2,
-  Phone, MessageCircle, GraduationCap, LogOut, Home
+  Phone, MessageCircle, GraduationCap, LogOut, Home, Filter, Camera, User
 } from 'lucide-react';
 import { LogoutButton } from '../../components/ui/LogoutButton';
 import { PremiumActionButton } from './components/PremiumActionButton';
 // import ServidoresPage from '../panel/servidores/page'; // REMOVIDO: causaba errores de compilación
-import ComponenteGestionarMaestros from './components/GestionServidores'; // Asumo que este es el nombre real o similar
+// import ComponenteGestionarMaestros from './components/GestionServidores'; // Asumo que este es el nombre real o similar
 import PanelMatricular from './components/PanelMatricular';
 import PanelConsultarEstudiantes from './components/PanelConsultarEstudiantes';
 import PanelPromovidos from './components/PanelPromovidos';
@@ -43,12 +43,17 @@ export const GLASS_STYLES = {
 
 // --- TIPOS DE DATOS ---
 export type Observacion = { id: string; observacion: string; created_at: string; creador: { nombre: string; } | null; };
-export type Maestro = { id: string; nombre: string; cedula: string; telefono: string | null; email: string | null; activo: boolean; };
+export type Maestro = { id: string; nombre: string; cedula: string; telefono: string | null; email: string | null; activo: boolean; foto_url?: string | null; };
 export type Curso = { id: number; nombre: string; color: string; orden?: number };
+
+// ... (Resto de tipos sin cambios)
+
+
+
 export type AsignacionMaestro = { id: string; servidor_id: string; curso_id: number; cursos: Pick<Curso, 'nombre' | 'color'> | null; };
 export type MaestroDataRaw = Maestro & { asignaciones: AsignacionMaestro[]; observaciones_count: { count: number }[]; servidores_roles: { rol: string }[]; };
 export type MaestroConCursos = Maestro & { asignaciones: AsignacionMaestro[]; obs_count: number; rol: string | null; dia_asignado?: string | null; };
-export type Estudiante = { id: string; nombre: string; cedula: string; telefono?: string | null; foto_path?: string | null; dia?: string; };
+export type Estudiante = { id: string; nombre: string; cedula: string; telefono?: string | null; foto_path?: string | null; dia?: string; origen?: string; };
 export type Inscripcion = { id: number; entrevista_id: string; curso_id: number; servidor_id: string | null; cursos?: Pick<Curso, 'nombre' | 'color'> | null; estado?: string; };
 export type EstudianteInscrito = Estudiante & { maestro: MaestroConCursos | null; curso: Curso | null; inscripcion_id: number | null; };
 export type AdminTab = 'bienvenida' | 'dashboard' | 'matricular' | 'maestros' | 'servidores' | 'consultar' | 'promovidos';
@@ -190,7 +195,7 @@ export default function AdminPage() {
     setIsLoading(true);
     try {
       const [{ data: mData }, { data: cData }, { data: eData }, { data: iData }] = await Promise.all([
-        supabase.from('servidores').select(`id, nombre, cedula, telefono, email, activo, asignaciones:asignaciones_academia (id, servidor_id, curso_id, cursos ( nombre, color )), observaciones_count:servidores_observaciones!servidor_id(count), servidores_roles ( rol )`).order('nombre', { ascending: true }),
+        supabase.from('servidores').select(`id, nombre, cedula, telefono, email, activo, foto_url, asignaciones:asignaciones_academia (id, servidor_id, curso_id, cursos ( nombre, color )), observaciones_count:servidores_observaciones!servidor_id(count), servidores_roles ( rol )`).order('nombre', { ascending: true }),
         supabase.from('cursos').select('id, nombre, color, orden').order('orden', { ascending: true }),
         supabase.from('entrevistas').select('*').order('nombre', { ascending: true }),
         supabase.from('inscripciones').select('id, entrevista_id, curso_id, servidor_id, estado')
@@ -220,6 +225,19 @@ export default function AdminPage() {
 
       setMaestros(processedMaestros);
       setCursos((cData as Curso[]) || []);
+
+
+
+
+
+
+
+
+
+
+
+
+
       setEstudiantes((eData as Estudiante[]) || []);
 
       setInscripciones((iData as Inscripcion[]) || []);
@@ -260,9 +278,40 @@ export default function AdminPage() {
         .filter(i => (i as any).estado === 'activo' || (i as any).estado === 'promovido')
         .map(i => i.entrevista_id)
     );
-    // Usar la lista filtrada para el conteo también
-    return estudiantesFiltrados.filter(e => !activeIds.has(e.id)).length;
-  }, [estudiantesFiltrados, inscripciones]);
+
+    // Determinar permisos del usuario
+    const isDirector = !currentUser.rol || currentUser.rol === 'Director';
+    const cursosPermitidos = currentUser.cursosAcceso || [];
+
+    // Obtener mapa de cursos suspendidos
+    const suspendedMap = new Map<string, number>();
+    inscripciones.forEach(i => {
+      if ((i as any).estado === 'inactivo') {
+        suspendedMap.set(i.entrevista_id, i.curso_id);
+      }
+    });
+
+    // Filtrar estudiantes no activos considerando cursos asignados
+    return estudiantesFiltrados.filter(e => {
+      if (activeIds.has(e.id)) return false;
+
+      // Si es Director, contar todos
+      if (isDirector || cursosPermitidos.length === 0) return true;
+
+      // Verificar acceso por curso
+      const suspendedCourseId = suspendedMap.get(e.id);
+      if (suspendedCourseId) {
+        const curso = cursos.find(c => c.id === suspendedCourseId);
+        if (curso && !cursosPermitidos.includes(curso.nombre)) {
+          return false;
+        }
+      } else if (!cursosPermitidos.includes('Restauración 1')) {
+        return false;
+      }
+
+      return true;
+    }).length;
+  }, [estudiantesFiltrados, inscripciones, currentUser, cursos]);
 
   const promovidosCount = useMemo(() => {
     return inscripciones.filter(i => (i as any).estado === 'promovido').length;
@@ -440,6 +489,7 @@ export default function AdminPage() {
                       inscripciones={inscripciones}
                       onMatriculaExitosa={onDataUpdated}
                       loading={isLoading}
+                      currentUser={currentUser}
                     />
                   )}
                   {activeTab === 'maestros' && (
@@ -471,6 +521,7 @@ export default function AdminPage() {
                           alert('Error al reactivar: ' + err.message);
                         }
                       }}
+                      currentUser={currentUser}
                     />
                   )}
                   {activeTab === 'promovidos' && (
@@ -611,11 +662,78 @@ export function CardHeader({ Icon, title, subtitle, children }: { Icon: LucideIc
    ==========================================================================
 */
 
+/* Componente Switch Premium estilo Apple */
+interface AppleSwitchFilterProps {
+  label: string;
+  checked: boolean;
+  onChange: () => void;
+  color?: 'emerald' | 'blue' | 'indigo' | 'violet' | 'rose';
+}
 
+function AppleSwitchFilter({ label, checked, onChange, color = 'blue' }: AppleSwitchFilterProps) {
+  const colorClasses = {
+    emerald: {
+      bg: 'bg-emerald-500',
+      shadow: 'shadow-emerald-500/50',
+      glow: 'shadow-[0_0_20px_rgba(16,185,129,0.6)]'
+    },
+    blue: {
+      bg: 'bg-blue-500',
+      shadow: 'shadow-blue-500/50',
+      glow: 'shadow-[0_0_20px_rgba(59,130,246,0.6)]'
+    },
+    indigo: {
+      bg: 'bg-indigo-500',
+      shadow: 'shadow-indigo-500/50',
+      glow: 'shadow-[0_0_20px_rgba(99,102,241,0.6)]'
+    },
+    violet: {
+      bg: 'bg-violet-500',
+      shadow: 'shadow-violet-500/50',
+      glow: 'shadow-[0_0_20px_rgba(139,92,246,0.6)]'
+    },
+    rose: {
+      bg: 'bg-rose-500',
+      shadow: 'shadow-rose-500/50',
+      glow: 'shadow-[0_0_20px_rgba(244,63,94,0.6)]'
+    }
+  };
+
+  const colors = colorClasses[color];
+
+  return (
+    <div className="flex flex-col items-center justify-center gap-2 p-2 rounded-xl bg-white/60 backdrop-blur-sm border border-white/80 shadow-sm hover:shadow-md transition-all w-full">
+      <span className="text-xs font-bold text-gray-700 text-center">{label}</span>
+
+      {/* Switch Container */}
+      <button
+        onClick={onChange}
+        className={`
+          relative inline-flex h-5 w-9 items-center rounded-full transition-all duration-300 ease-in-out
+          ${checked ? `${colors.bg} ${colors.shadow}` : 'bg-gray-300'}
+          ${checked ? colors.glow : ''}
+          focus:outline-none focus:ring-2 focus:ring-offset-1 ${checked ? 'focus:ring-' + color + '-500' : 'focus:ring-gray-400'}
+        `}
+        type="button"
+        role="switch"
+        aria-checked={checked}
+      >
+        {/* Sliding Circle */}
+        <span
+          className={`
+            inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow-sm transition-all duration-300 ease-in-out
+            ${checked ? 'translate-x-4' : 'translate-x-1'}
+          `}
+        />
+      </button>
+    </div>
+  );
+}
 
 
 
 interface PanelMaestrosProps {
+
   maestros: MaestroConCursos[];
   loading: boolean;
   onCrear: () => void;
@@ -624,147 +742,263 @@ interface PanelMaestrosProps {
   onObs: (m: MaestroConCursos) => void;
   onDesactivar: (m: MaestroConCursos) => void;
   onReactivar: (m: MaestroConCursos) => void;
+  currentUser: { rol?: string; cursosAcceso?: string[] };
 }
-function PanelGestionarMaestros({ maestros, loading, onCrear, onEditar, onAsignar, onObs, onDesactivar, onReactivar }: PanelMaestrosProps) {
+function PanelGestionarMaestros({ maestros, loading, onCrear, onEditar, onAsignar, onObs, onDesactivar, onReactivar, currentUser }: PanelMaestrosProps) {
   const [search, setSearch] = useState('');
-  const filtered = maestros.filter(m => !search || m.nombre.toLowerCase().includes(search.toLowerCase()));
+  const [dropdownAbierto, setDropdownAbierto] = useState(false);
+
+  // Estados para los filtros de curso
+  const [filtrosCursos, setFiltrosCursos] = useState({
+    'Restauración 1': true,
+    'Fundamentos 1': true,
+    'Fundamentos 2': true,
+    'Restauración 2': true,
+    'Escuela de Siervos': true,
+  });
+
+  // Aplicar filtros de búsqueda y cursos
+  const filtered = maestros.filter(m => {
+    // Filtro de búsqueda
+    if (search && !m.nombre.toLowerCase().includes(search.toLowerCase())) {
+      return false;
+    }
+
+    // Filtro de cursos - mostrar maestro si tiene al menos un curso activo seleccionado
+    // o si no tiene cursos asignados
+    if (m.asignaciones.length === 0) return true;
+
+    const tieneCursoActivo = m.asignaciones.some(asig => {
+      const nombreCurso = asig.cursos?.nombre;
+      return nombreCurso && filtrosCursos[nombreCurso as keyof typeof filtrosCursos];
+    });
+
+    return tieneCursoActivo;
+  });
+
+  const toggleFiltro = (curso: keyof typeof filtrosCursos) => {
+    setFiltrosCursos(prev => ({ ...prev, [curso]: !prev[curso] }));
+  };
+
+  // Contar cuántos filtros están activos
+  const filtrosActivos = Object.values(filtrosCursos).filter(Boolean).length;
 
   return (
-    <GlassCard className="h-full flex flex-col">
-      <motion.div
-        className="flex flex-col h-full"
-        variants={LIST_WRAPPER_VARIANTS}
-        initial="hidden"
-        animate="visible"
-      >
+    <motion.div
+      className={`${GLASS_STYLES.panel} rounded-2xl flex flex-col h-full relative`}
+      variants={LIST_WRAPPER_VARIANTS}
+      initial="hidden"
+      animate="visible"
+    >
+      <div className="relative z-30 shrink-0">
         <motion.div variants={LIST_ITEM_VARIANTS}>
           <CardHeader Icon={Users} title="Gestionar Maestros" subtitle="Administración docente." >
-            <button onClick={onCrear} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-semibold shadow-md shadow-blue-500/30 flex items-center gap-2"><Plus size={16} /> Nuevo</button>
-          </CardHeader>
-        </motion.div>
+            <div className="flex gap-2 items-center flex-wrap">
+              {/* Botón Nuevo */}
+              <button onClick={onCrear} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-semibold shadow-md shadow-blue-500/30 flex items-center gap-2">
+                <Plus size={16} /> Nuevo
+              </button>
 
-        <motion.div variants={LIST_ITEM_VARIANTS} className="px-6 pt-4 shrink-0">
-          <input type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar..." className={`w-full rounded-lg px-4 py-2 ${GLASS_STYLES.input}`} />
-        </motion.div>
-
-        <div className="p-6 flex-1 overflow-y-auto min-h-0">
-          {loading ? (
-            <div className="flex flex-col items-center justify-center p-10 text-gray-400">
-              <Loader2 className="animate-spin mb-2" size={32} />
-              <p>Cargando maestros...</p>
-            </div>
-          ) : filtered.length === 0 ? (
-            <div className="flex flex-col items-center justify-center p-10 text-gray-400 text-center">
-              <div className="bg-gray-100 p-4 rounded-full mb-3">
-                <Search size={32} className="text-gray-300" />
-              </div>
-              <p className="font-bold text-gray-500">No se encontraron maestros</p>
-              <p className="text-sm">Intenta ajustar los filtros de búsqueda o crea uno nuevo.</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              {filtered.map(m => (
-                <motion.div
-                  key={m.id}
-                  variants={LIST_ITEM_VARIANTS}
-                  initial="hidden"
-                  animate="visible"
-                  className={`relative p-4 rounded-2xl bg-gradient-to-br from-white/90 via-white/60 to-white/80 border border-white/60 shadow-lg hover:shadow-xl transition-all backdrop-blur-sm ${!m.activo ? 'opacity-60' : ''}`}
-                >
-                  {/* Badge de estado inactivo */}
-                  {!m.activo && (
-                    <div className="absolute top-2 right-2">
-                      <span className="bg-red-100 text-red-700 text-[9px] font-bold px-2 py-0.5 rounded-full border border-red-300 uppercase tracking-wide">
-                        Inactivo
+              {/* Botón Dropdown Cursos - Solo visible si el usuario tiene acceso a TODOS los cursos */}
+              {(currentUser.rol === 'Director' || !currentUser.cursosAcceso || currentUser.cursosAcceso.length === 0 || currentUser.cursosAcceso.length >= 5) && (
+                <div className="relative">
+                  <button
+                    onClick={() => setDropdownAbierto(!dropdownAbierto)}
+                    className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white px-4 py-2 rounded-lg text-sm font-semibold shadow-md shadow-indigo-500/30 flex items-center gap-2 transition-all"
+                  >
+                    <Filter size={16} />
+                    Cursos
+                    {filtrosActivos < 5 && (
+                      <span className="ml-1 bg-white/20 w-5 h-5 flex items-center justify-center rounded-full text-xs">
+                        {filtrosActivos}
                       </span>
+                    )}
+                    <ChevronDown size={16} className={`transition-transform ${dropdownAbierto ? 'rotate-180' : ''}`} />
+                  </button>
+
+                  {/* Dropdown Panel - ANCHO REDUCIDO y Z-INDEX ALTO */}
+                  {dropdownAbierto && (
+                    <div className="absolute top-full right-0 mt-2 w-[260px] bg-white/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/60 p-3 z-50 animate-in fade-in slide-in-from-top-2 duration-200">
+                      <div className="space-y-1.5">
+                        <AppleSwitchFilter
+                          label="Restauración 1"
+                          checked={filtrosCursos['Restauración 1']}
+                          onChange={() => toggleFiltro('Restauración 1')}
+                          color="emerald"
+                        />
+                        <AppleSwitchFilter
+                          label="Fundamentos 1"
+                          checked={filtrosCursos['Fundamentos 1']}
+                          onChange={() => toggleFiltro('Fundamentos 1')}
+                          color="blue"
+                        />
+                        <AppleSwitchFilter
+                          label="Fundamentos 2"
+                          checked={filtrosCursos['Fundamentos 2']}
+                          onChange={() => toggleFiltro('Fundamentos 2')}
+                          color="indigo"
+                        />
+                        <AppleSwitchFilter
+                          label="Restauración 2"
+                          checked={filtrosCursos['Restauración 2']}
+                          onChange={() => toggleFiltro('Restauración 2')}
+                          color="violet"
+                        />
+                        <AppleSwitchFilter
+                          label="Escuela de Siervos"
+                          checked={filtrosCursos['Escuela de Siervos']}
+                          onChange={() => toggleFiltro('Escuela de Siervos')}
+                          color="rose"
+                        />
+                      </div>
                     </div>
                   )}
+                </div>
+              )}
 
-                  {/* Layout Horizontal */}
-                  <div className="flex items-center gap-4">
-                    {/* Avatar */}
-                    <div className="h-12 w-12 shrink-0 rounded-full bg-gradient-to-br from-indigo-500 to-blue-500 flex items-center justify-center text-white font-bold text-lg shadow-md">
-                      {m.nombre.charAt(0)}
-                    </div>
+              {/* Contador Premium "Crystal Prism" */}
+              <div className="relative group cursor-default">
+                {/* Aura Brillante (Glow multicolor suave) */}
+                <div className="absolute -inset-0.5 bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-600 rounded-full blur opacity-30 group-hover:opacity-60 transition duration-500 group-hover:duration-200 animate-pulse"></div>
 
-                    {/* Información Principal */}
-                    <div className="flex-1 min-w-0">
-                      <p className="font-bold text-gray-900 text-sm truncate">{m.nombre}</p>
-                      <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                        <span className="text-xs text-gray-600">{m.cedula}</span>
-                        {m.asignaciones.length > 0 && (
-                          <span className="text-[10px] bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full border border-indigo-200 font-bold">
-                            {m.asignaciones[0].cursos?.nombre}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Botones de Comunicación */}
-                    {m.telefono && (
-                      <div className="flex items-center gap-2 shrink-0">
-                        <button
-                          onClick={(e) => { e.stopPropagation(); window.location.href = `tel:${m.telefono!.replace(/\s+/g, '')}`; }}
-                          className="h-9 w-9 rounded-full bg-white flex items-center justify-center text-sky-600 hover:scale-110 hover:shadow-md transition-all shadow-sm border border-sky-100"
-                          title="Llamar"
-                        >
-                          <Phone size={18} />
-                        </button>
-                        <button
-                          onClick={(e) => { e.stopPropagation(); window.open(`https://wa.me/${m.telefono!.replace(/\D/g, '')}`, '_blank'); }}
-                          className="h-9 w-9 rounded-full bg-white flex items-center justify-center text-emerald-600 hover:scale-110 hover:shadow-md transition-all shadow-sm border border-emerald-100"
-                          title="WhatsApp"
-                        >
-                          <MessageCircle size={18} />
-                        </button>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Botones de Acción */}
-                  <div className="flex gap-2 mt-3 flex-wrap">
-                    <PremiumActionButton
-                      onClick={() => onObs(m)}
-                      Icon={MessageSquarePlus}
-                      color="violet"
-                      label="OBSERVACIONES"
-                      badgeCount={m.obs_count}
-                    />
-                    <PremiumActionButton
-                      onClick={() => onAsignar(m)}
-                      Icon={BookOpen}
-                      color="amber"
-                      label="CURSOS"
-                    />
-                    <PremiumActionButton
-                      onClick={() => onEditar(m)}
-                      Icon={Edit2}
-                      color="sky"
-                      label="EDITAR"
-                    />
-                    {m.activo ? (
-                      <PremiumActionButton
-                        onClick={() => onDesactivar(m)}
-                        Icon={Trash2}
-                        color="rose"
-                        label="ELIMINAR"
-                      />
-                    ) : (
-                      <PremiumActionButton
-                        onClick={() => onReactivar(m)}
-                        Icon={UserCheck2}
-                        color="emerald"
-                        label="REACTIVAR"
-                      />
-                    )}
-                  </div>
-                </motion.div>
-              ))}
+                {/* Esfera de Cristal */}
+                <div className="relative w-9 h-9 rounded-full bg-white/80 backdrop-blur-md border border-white/60 flex items-center justify-center shadow-sm">
+                  <span className="text-xs font-black text-transparent bg-clip-text bg-gradient-to-br from-blue-600 to-purple-600">
+                    {filtered.length}
+                  </span>
+                </div>
+              </div>
             </div>
-          )}
-        </div>
+          </CardHeader>
+        </motion.div>
+      </div>
+
+      <motion.div variants={LIST_ITEM_VARIANTS} className="px-6 pb-2 shrink-0 z-20 relative">
+        <input type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar..." className={`w-full rounded-lg px-4 py-2 ${GLASS_STYLES.input}`} />
       </motion.div>
-    </GlassCard>
+
+      <div className="flex-1 overflow-y-auto min-h-0 relative z-10 p-6 pt-4 rounded-b-2xl">
+        {loading ? (
+          <div className="flex flex-col items-center justify-center p-10 text-gray-400">
+            <Loader2 className="animate-spin mb-2" size={32} />
+            <p>Cargando maestros...</p>
+          </div>
+        ) : filtered.length === 0 ? (
+          <div className="flex flex-col items-center justify-center p-10 text-gray-400 text-center">
+            <div className="bg-gray-100 p-4 rounded-full mb-3">
+              <Search size={32} className="text-gray-300" />
+            </div>
+            <p className="font-bold text-gray-500">No se encontraron maestros</p>
+            <p className="text-sm">Intenta ajustar los filtros de búsqueda o crea uno nuevo.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {filtered.map(m => (
+              <motion.div
+                key={m.id}
+                variants={LIST_ITEM_VARIANTS}
+                initial="hidden"
+                animate="visible"
+                className={`relative p-4 rounded-2xl bg-gradient-to-br from-white/90 via-white/60 to-white/80 border border-white/60 shadow-lg hover:shadow-xl transition-all backdrop-blur-sm ${!m.activo ? 'opacity-60' : ''}`}
+              >
+                {/* Badge de estado inactivo */}
+                {!m.activo && (
+                  <div className="absolute top-2 right-2">
+                    <span className="bg-red-100 text-red-700 text-[9px] font-bold px-2 py-0.5 rounded-full border border-red-300 uppercase tracking-wide">
+                      Inactivo
+                    </span>
+                  </div>
+                )}
+
+                {/* Layout Horizontal */}
+                <div className="flex items-center gap-4">
+                  {/* Avatar */}
+                  <div className="h-12 w-12 shrink-0 rounded-full bg-gradient-to-br from-indigo-500 to-blue-500 flex items-center justify-center text-white font-bold text-lg shadow-md overflow-hidden relative border-2 border-white">
+                    {m.foto_url ? (
+                      <img src={m.foto_url} alt={m.nombre} className="w-full h-full object-cover" />
+                    ) : (
+                      <span>{m.nombre.charAt(0)}</span>
+                    )}
+                  </div>
+
+                  {/* Información Principal */}
+                  <div className="flex-1 min-w-0">
+                    <p className="font-bold text-gray-900 text-sm truncate">{m.nombre}</p>
+                    <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                      <span className="text-xs text-gray-600">{m.cedula}</span>
+                      {m.asignaciones.length > 0 && (
+                        <span className="text-[10px] bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full border border-indigo-200 font-bold">
+                          {m.asignaciones[0].cursos?.nombre}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Botones de Comunicación */}
+                  {m.telefono && (
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        onClick={(e) => { e.stopPropagation(); window.location.href = `tel:${m.telefono!.replace(/\s+/g, '')}`; }}
+                        className="h-9 w-9 rounded-full bg-white flex items-center justify-center text-sky-600 hover:scale-110 hover:shadow-md transition-all shadow-sm border border-sky-100"
+                        title="Llamar"
+                      >
+                        <Phone size={18} />
+                      </button>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); window.open(`https://wa.me/${m.telefono!.replace(/\D/g, '')}`, '_blank'); }}
+                        className="h-9 w-9 rounded-full bg-white flex items-center justify-center text-emerald-600 hover:scale-110 hover:shadow-md transition-all shadow-sm border border-emerald-100"
+                        title="WhatsApp"
+                      >
+                        <MessageCircle size={18} />
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* Botones de Acción */}
+                <div className="flex gap-2 mt-3 flex-wrap">
+                  <PremiumActionButton
+                    onClick={() => onObs(m)}
+                    Icon={MessageSquarePlus}
+                    color="violet"
+                    label="OBSERVACIONES"
+                    badgeCount={m.obs_count}
+                  />
+                  <PremiumActionButton
+                    onClick={() => onAsignar(m)}
+                    Icon={BookOpen}
+                    color="amber"
+                    label="CURSOS"
+                  />
+                  <PremiumActionButton
+                    onClick={() => onEditar(m)}
+                    Icon={Edit2}
+                    color="sky"
+                    label="EDITAR"
+                  />
+                  {m.activo ? (
+                    <PremiumActionButton
+                      onClick={() => onDesactivar(m)}
+                      Icon={Trash2}
+                      color="rose"
+                      label="ELIMINAR"
+                    />
+                  ) : (
+                    <PremiumActionButton
+                      onClick={() => onReactivar(m)}
+                      Icon={UserCheck2}
+                      color="emerald"
+                      label="REACTIVAR"
+                    />
+                  )}
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        )}
+      </div>
+    </motion.div>
+
   );
 }
 
@@ -883,13 +1117,43 @@ function ModalCrearEditarMaestro({ maestroInicial, currentUser, onClose, onSucce
   const [ced, setCed] = useState(maestroInicial?.cedula || '');
   const [tel, setTel] = useState(maestroInicial?.telefono || '');
   const [rol, setRol] = useState(maestroInicial?.rol || 'Maestro Ptm');
+  const [fotoUrl, setFotoUrl] = useState(maestroInicial?.foto_url || null);
   const [loading, setLoading] = useState(false);
+  const [uploadingFoto, setUploadingFoto] = useState(false);
   const [loadingDiaActual, setLoadingDiaActual] = useState(isEdit);
 
   // Estados para selector de día
   const [diaSeleccionado, setDiaSeleccionado] = useState<"Domingo" | "Martes" | "Jueves" | "Virtual" | null>(null);
   const [diasHabilitados, setDiasHabilitados] = useState<("Domingo" | "Martes" | "Jueves" | "Virtual")[]>([]);
   const [esSoloLectura, setEsSoloLectura] = useState(false);
+
+  // Función para subir foto
+  const uploadAvatar = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    try {
+      setUploadingFoto(true);
+      if (!event.target.files || event.target.files.length === 0) {
+        throw new Error('Debe seleccionar una imagen.');
+      }
+
+      const file = event.target.files[0];
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Math.random()}.${fileExt}`;
+      const filePath = `${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('servidores-fotos')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data } = supabase.storage.from('servidores-fotos').getPublicUrl(filePath);
+      setFotoUrl(data.publicUrl);
+    } catch (error: any) {
+      alert('Error: ' + error.message);
+    } finally {
+      setUploadingFoto(false);
+    }
+  };
 
   // Cargar día actual del maestro si está en modo edición
   useEffect(() => {
@@ -980,7 +1244,7 @@ function ModalCrearEditarMaestro({ maestroInicial, currentUser, onClose, onSucce
 
     setLoading(true);
     try {
-      // ===== PASO 1: Crear o Actualizar Servidor =====
+      // ===== PASO 1: Crear o Actualizar Servidor (Datos Básicos) =====
       const { data: servidorId, error: rpcError } = await supabase.rpc('fn_upsert_servidor', {
         p_cedula: ced.trim(),
         p_nombre: nom.trim(),
@@ -990,6 +1254,16 @@ function ModalCrearEditarMaestro({ maestroInicial, currentUser, onClose, onSucce
 
       if (rpcError) throw rpcError;
       if (!servidorId) throw new Error('No se pudo obtener el ID del servidor');
+
+      // ===== PASO 1.5: Guardar Foto (Actualización directa) =====
+      if (fotoUrl) {
+        const { error: fotoErr } = await supabase
+          .from('servidores')
+          .update({ foto_url: fotoUrl })
+          .eq('id', servidorId);
+
+        if (fotoErr) console.error("Error guardando foto:", fotoErr);
+      }
 
       // ===== PASO 2: Asignar Rol "Maestro Ptm" SIN afectar otros roles =====
       const { data: updateData, error: updateError } = await supabase
@@ -1059,6 +1333,25 @@ function ModalCrearEditarMaestro({ maestroInicial, currentUser, onClose, onSucce
   return (
     <ModalTemplate onClose={onClose} title={isEdit ? "Editar Maestro" : "Nuevo Maestro"}>
       <form onSubmit={save} className="p-6 space-y-4 flex-1 overflow-y-auto">
+
+        {/* FOTO DE PERFIL */}
+        <div className="flex flex-col items-center mb-6">
+          <div className="relative group">
+            {fotoUrl ? (
+              <img src={fotoUrl} alt="Avatar" className="w-24 h-24 rounded-full object-cover border-4 border-white shadow-lg bg-gray-100" />
+            ) : (
+              <div className="w-24 h-24 rounded-full bg-slate-100 flex items-center justify-center border-4 border-white shadow-lg text-slate-300">
+                <User size={40} />
+              </div>
+            )}
+            <label className="absolute bottom-0 right-0 bg-blue-600 text-white p-2 rounded-full cursor-pointer hover:bg-blue-700 shadow-md transition-transform hover:scale-110">
+              {uploadingFoto ? <Loader2 size={16} className="animate-spin" /> : <Camera size={16} />}
+              <input type="file" accept="image/*" className="hidden" onChange={uploadAvatar} disabled={uploadingFoto} />
+            </label>
+          </div>
+          <span className="text-xs font-medium text-gray-500 mt-2">Foto de Perfil</span>
+        </div>
+
         <FormInput id="n" label="Nombre" value={nom} onChange={setNom} />
         <FormInput id="c" label="Cédula" value={ced} onChange={setCed} />
         <FormInput id="t" label="Teléfono" value={tel} onChange={setTel} placeholder="Ej: 3001234567" />

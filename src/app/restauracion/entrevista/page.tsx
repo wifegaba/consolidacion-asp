@@ -79,8 +79,8 @@ type FormValues = {
 /* =========================================
    Constantes / utilidades
 ========================================= */
-const DIAS: Dia[] = ["Domingo","Lunes","Martes","Miércoles","Jueves","Viernes","Sábado"];
-const ESTADOS: EstadoCivil[] = ["soltero","casado","union","viudo"];
+const DIAS: Dia[] = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
+const ESTADOS: EstadoCivil[] = ["soltero", "casado", "union", "viudo"];
 const ESCOLARIDAD = [
   "No lee / No escribe",
   "Primaria",
@@ -182,7 +182,7 @@ export default function EntrevistaPage() {
       try {
         const raw = localStorage.getItem(key);
         if (raw) setState({ ...(JSON.parse(raw) as T) });
-      } catch {}
+      } catch { }
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
@@ -193,7 +193,7 @@ export default function EntrevistaPage() {
       timeout.current = window.setTimeout(() => {
         try {
           localStorage.setItem(key, JSON.stringify(state));
-        } catch {}
+        } catch { }
       }, 450);
       return () => {
         if (timeout.current) window.clearTimeout(timeout.current);
@@ -572,12 +572,12 @@ export default function EntrevistaPage() {
     switch (key) {
       case 'nombre': return vNombre(v);
       case 'cedula': return vCedula(v);
-      case 'email':  return vEmail(v);
+      case 'email': return vEmail(v);
       case 'fechaNac': return vFecha(v);
       default: return undefined;
     }
   }
-  const VALIDATION_ORDER: FieldKey[] = ['nombre','cedula','email','fechaNac','direccion'];
+  const VALIDATION_ORDER: FieldKey[] = ['nombre', 'cedula', 'email', 'fechaNac', 'direccion'];
   function validateFirstInvalid(values: typeof INITIAL): ActiveError {
     for (const k of VALIDATION_ORDER) {
       const msg = validateField(k, values);
@@ -621,7 +621,7 @@ export default function EntrevistaPage() {
     }
     try {
       setSaving(true);
-      await guardarEntrevista(values, values.foto ?? undefined);
+      await guardarEntrevista({ ...values, origen: 'Contactos' }, values.foto ?? undefined);
       setOkMsg('Guardado con éxito.');
       setShowSaved(true);
       setTimeout(() => setShowSaved(false), 1700);
@@ -1014,26 +1014,26 @@ export default function EntrevistaPage() {
                               ))}
                             </select>
                           </Field>
-                          
+
                           {/* --- CAMPO NUEVO --- */}
                           <div className="flex flex-col gap-1.5 md:col-span-2">
                             <label className="label-premium">¿Labora actualmente?</label>
                             <div className="flex gap-3 flex-wrap">
-                              <Chip 
-                                checked={values.laboraActualmente === "si"} 
+                              <Chip
+                                checked={values.laboraActualmente === "si"}
                                 onClick={() => onChange("laboraActualmente", "si")}
                               >
                                 Sí
                               </Chip>
-                              <Chip 
-                                checked={values.laboraActualmente === "no"} 
+                              <Chip
+                                checked={values.laboraActualmente === "no"}
                                 onClick={() => onChange("laboraActualmente", "no")}
                               >
                                 No
                               </Chip>
                             </div>
                           </div>
-                          
+
                         </div>
                       </div>
                     </section>
@@ -1091,19 +1091,19 @@ export default function EntrevistaPage() {
                             onChange={(e) => onChange("pastor", e.target.value)}
                           />
                         </Field>
-                        
+
                         {/* --- CAMPO NUEVO (Sí/No) --- */}
                         <div className="flex flex-col gap-1.5">
                           <label className="label-premium">¿Viene de otra iglesia?</label>
                           <div className="flex gap-3 flex-wrap">
-                            <Chip 
-                              checked={values.vieneOtraIglesia === "si"} 
+                            <Chip
+                              checked={values.vieneOtraIglesia === "si"}
                               onClick={() => onChange("vieneOtraIglesia", "si")}
                             >
                               Sí
                             </Chip>
-                            <Chip 
-                              checked={values.vieneOtraIglesia === "no"} 
+                            <Chip
+                              checked={values.vieneOtraIglesia === "no"}
                               onClick={() => onChange("vieneOtraIglesia", "no")}
                             >
                               No
@@ -1136,7 +1136,7 @@ export default function EntrevistaPage() {
                             onChange={(e) => onChange("metaPersonal", e.target.value)}
                           />
                         </Field>
-                        
+
                         <Field label="¿Padece alguna enfermedad?" icon="note">
                           <input
                             ref={el => { fieldRefs.current["enfermedad"] = el; }}
@@ -1165,19 +1165,19 @@ export default function EntrevistaPage() {
                             disabled={values.tratamientoClinico !== "si"}
                           />
                         </Field>
-                        
+
                         <Field label="¿Con quién convive?" icon="home">
-                           <select
-                              ref={el => { fieldRefs.current["convivencia"] = el; }}
-                              className="input-premium"
-                              value={values.convivencia ?? ""}
-                              onChange={(e) => onChange("convivencia", (e.target.value || undefined) as any)}
-                            >
-                              <option value="">Seleccione</option>
-                              {CONVIVENCIA.map((op) => (
-                                <option key={op} value={op}>{op.charAt(0).toUpperCase() + op.slice(1)}</option>
-                              ))}
-                            </select>
+                          <select
+                            ref={el => { fieldRefs.current["convivencia"] = el; }}
+                            className="input-premium"
+                            value={values.convivencia ?? ""}
+                            onChange={(e) => onChange("convivencia", (e.target.value || undefined) as any)}
+                          >
+                            <option value="">Seleccione</option>
+                            {CONVIVENCIA.map((op) => (
+                              <option key={op} value={op}>{op.charAt(0).toUpperCase() + op.slice(1)}</option>
+                            ))}
+                          </select>
                         </Field>
 
                         <Field label="Retiros PTIMD asistidos" icon="cap">
@@ -1219,7 +1219,7 @@ export default function EntrevistaPage() {
                         <div className="flex flex-col gap-1.5">
                           <label className="label-premium">¿Nuevo nacimiento?</label>
                           <div className="flex gap-3 flex-wrap">
-                            {(["si","no","no_sabe"] as const).map((op) => (
+                            {(["si", "no", "no_sabe"] as const).map((op) => (
                               <Chip key={op} checked={values.nacimientoEspiritu === op} onClick={() => onChange("nacimientoEspiritu", op)}>
                                 {op === "no_sabe" ? "No sabe" : op.toUpperCase()}
                               </Chip>
@@ -1229,7 +1229,7 @@ export default function EntrevistaPage() {
                         <div className="flex flex-col gap-1.5">
                           <label className="label-premium">¿Bautizado en agua?</label>
                           <div className="flex gap-3">
-                            {(["si","no"] as const).map((op) => (
+                            {(["si", "no"] as const).map((op) => (
                               <Chip key={op} checked={values.bautizoAgua === op} onClick={() => onChange("bautizoAgua", op)}>
                                 {op.toUpperCase()}
                               </Chip>
@@ -1239,18 +1239,18 @@ export default function EntrevistaPage() {
                         <div className="flex flex-col gap-1.5">
                           <label className="label-premium">¿Bautismo del Espíritu?</label>
                           <div className="flex gap-3">
-                            {(["si","no"] as const).map((op) => (
+                            {(["si", "no"] as const).map((op) => (
                               <Chip key={op} checked={values.bautismoEspiritu === op} onClick={() => onChange("bautismoEspiritu", op)}>
                                 {op.toUpperCase()}
                               </Chip>
                             ))}
                           </div>
                         </div>
-                        
+
                         <div className="flex flex-col gap-1.5">
                           <label className="label-premium">¿Ayuna?</label>
                           <div className="flex gap-3">
-                            {(["si","no"] as const).map((op) => (
+                            {(["si", "no"] as const).map((op) => (
                               <Chip key={op} checked={values.ayuna === op} onClick={() => onChange("ayuna", op)}>
                                 {op.toUpperCase()}
                               </Chip>
@@ -1280,35 +1280,35 @@ export default function EntrevistaPage() {
                           />
                           <span className="text-sm text-slate-700">Tiene Biblia</span>
                         </label>
-                        
+
                         {/* --- CAMPO NUEVO --- */}
                         <Field label="Tiempo de oración diaria" icon="time">
-                           <select
-                              ref={el => { fieldRefs.current["tiempoOracion"] = el; }}
-                              className="input-premium"
-                              value={values.tiempoOracion ?? ""}
-                              onChange={(e) => onChange("tiempoOracion", e.target.value)}
-                            >
-                              <option value="">Seleccione</option>
-                              {TIEMPO_ORACION.map((op) => (
-                                <option key={op} value={op}>{op}</option>
-                              ))}
-                            </select>
+                          <select
+                            ref={el => { fieldRefs.current["tiempoOracion"] = el; }}
+                            className="input-premium"
+                            value={values.tiempoOracion ?? ""}
+                            onChange={(e) => onChange("tiempoOracion", e.target.value)}
+                          >
+                            <option value="">Seleccione</option>
+                            {TIEMPO_ORACION.map((op) => (
+                              <option key={op} value={op}>{op}</option>
+                            ))}
+                          </select>
                         </Field>
-                        
+
                         {/* --- CAMPO NUEVO --- */}
                         <Field label="¿Cada cuánto lee la Biblia?" icon="note">
-                           <select
-                              ref={el => { fieldRefs.current["frecuenciaLecturaBiblia"] = el; }}
-                              className="input-premium"
-                              value={values.frecuenciaLecturaBiblia ?? ""}
-                              onChange={(e) => onChange("frecuenciaLecturaBiblia", e.target.value)}
-                            >
-                              <option value="">Seleccione</option>
-                              {LECTURA_BIBLIA.map((op) => (
-                                <option key={op} value={op}>{op}</option>
-                              ))}
-                            </select>
+                          <select
+                            ref={el => { fieldRefs.current["frecuenciaLecturaBiblia"] = el; }}
+                            className="input-premium"
+                            value={values.frecuenciaLecturaBiblia ?? ""}
+                            onChange={(e) => onChange("frecuenciaLecturaBiblia", e.target.value)}
+                          >
+                            <option value="">Seleccione</option>
+                            {LECTURA_BIBLIA.map((op) => (
+                              <option key={op} value={op}>{op}</option>
+                            ))}
+                          </select>
                         </Field>
 
                       </div>
@@ -1332,7 +1332,7 @@ export default function EntrevistaPage() {
                             onChange={(e) => onChange("cambiosFisicos", e.target.value)}
                           />
                         </Field>
-                        
+
                         {/* --- CAMPO NUEVO --- */}
                         <Field label="Cambios emocionales" icon="note">
                           <input
@@ -1365,11 +1365,11 @@ export default function EntrevistaPage() {
                             onChange={(e) => onChange("maestroEncargado", e.target.value)}
                           />
                         </Field>
-                        
+
                         <div className="flex flex-col gap-1.5">
                           <label className="label-premium">Promovido</label>
                           <div className="flex gap-3">
-                            {(["si","no"] as const).map((op) => (
+                            {(["si", "no"] as const).map((op) => (
                               <Chip key={op} checked={values.promovido === op} onClick={() => onChange("promovido", op)}>
                                 {op.toUpperCase()}
                               </Chip>
@@ -1397,14 +1397,14 @@ export default function EntrevistaPage() {
                           Limpiar
                         </button>
                         <button
-  id="btn-guardar-mobile"
-  type="button"
-  onClick={() => (document.getElementById("form-entrevista") as HTMLFormElement | null)?.requestSubmit()}
-  className="btn-primary btn-mobile-action mx-2"
-  disabled={saving}
->
-  {saving ? "Guardando…" : "Guardar"}
-</button>
+                          id="btn-guardar-mobile"
+                          type="button"
+                          onClick={() => (document.getElementById("form-entrevista") as HTMLFormElement | null)?.requestSubmit()}
+                          className="btn-primary btn-mobile-action mx-2"
+                          disabled={saving}
+                        >
+                          {saving ? "Guardando…" : "Guardar"}
+                        </button>
 
                       </div>
                     </section>
@@ -1430,12 +1430,12 @@ export default function EntrevistaPage() {
                     {isSeccionCompleta('personales') && (
                       <span className="inline-flex items-center justify-center ml-1">
                         <svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg" className="drop-shadow-[0_2px_6px_rgba(16,185,129,0.18)]">
-                          <circle cx="11" cy="11" r="10" fill="url(#mac2025green)"/>
-                          <path d="M7.5 11.5L10 14L15 9" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
+                          <circle cx="11" cy="11" r="10" fill="url(#mac2025green)" />
+                          <path d="M7.5 11.5L10 14L15 9" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
                           <defs>
                             <linearGradient id="mac2025green" x1="3" y1="3" x2="19" y2="19" gradientUnits="userSpaceOnUse">
-                              <stop stopColor="#34d399"/>
-                              <stop offset="1" stopColor="#10b981"/>
+                              <stop stopColor="#34d399" />
+                              <stop offset="1" stopColor="#10b981" />
                             </linearGradient>
                           </defs>
                         </svg>
@@ -1449,12 +1449,12 @@ export default function EntrevistaPage() {
                     {isSeccionCompleta('generales') && (
                       <span className="inline-flex items-center justify-center ml-1">
                         <svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg" className="drop-shadow-[0_2px_6px_rgba(16,185,129,0.18)]">
-                          <circle cx="11" cy="11" r="10" fill="url(#mac2025green)"/>
-                          <path d="M7.5 11.5L10 14L15 9" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
+                          <circle cx="11" cy="11" r="10" fill="url(#mac2025green)" />
+                          <path d="M7.5 11.5L10 14L15 9" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
                           <defs>
                             <linearGradient id="mac2025green" x1="3" y1="3" x2="19" y2="19" gradientUnits="userSpaceOnUse">
-                              <stop stopColor="#34d399"/>
-                              <stop offset="1" stopColor="#10b981"/>
+                              <stop stopColor="#34d399" />
+                              <stop offset="1" stopColor="#10b981" />
                             </linearGradient>
                           </defs>
                         </svg>
@@ -1468,12 +1468,12 @@ export default function EntrevistaPage() {
                     {isSeccionCompleta('espirituales') && (
                       <span className="inline-flex items-center justify-center ml-1">
                         <svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg" className="drop-shadow-[0_2px_6px_rgba(16,185,129,0.18)]">
-                          <circle cx="11" cy="11" r="10" fill="url(#mac2025green)"/>
-                          <path d="M7.5 11.5L10 14L15 9" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
+                          <circle cx="11" cy="11" r="10" fill="url(#mac2025green)" />
+                          <path d="M7.5 11.5L10 14L15 9" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
                           <defs>
                             <linearGradient id="mac2025green" x1="3" y1="3" x2="19" y2="19" gradientUnits="userSpaceOnUse">
-                              <stop stopColor="#34d399"/>
-                              <stop offset="1" stopColor="#10b981"/>
+                              <stop stopColor="#34d399" />
+                              <stop offset="1" stopColor="#10b981" />
                             </linearGradient>
                           </defs>
                         </svg>
@@ -1487,12 +1487,12 @@ export default function EntrevistaPage() {
                     {isSeccionCompleta('evaluacion') && (
                       <span className="inline-flex items-center justify-center ml-1">
                         <svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg" className="drop-shadow-[0_2px_6px_rgba(16,185,129,0.18)]">
-                          <circle cx="11" cy="11" r="10" fill="url(#mac2025green)"/>
-                          <path d="M7.5 11.5L10 14L15 9" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
+                          <circle cx="11" cy="11" r="10" fill="url(#mac2025green)" />
+                          <path d="M7.5 11.5L10 14L15 9" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
                           <defs>
                             <linearGradient id="mac2025green" x1="3" y1="3" x2="19" y2="19" gradientUnits="userSpaceOnUse">
-                              <stop stopColor="#34d399"/>
-                              <stop offset="1" stopColor="#10b981"/>
+                              <stop stopColor="#34d399" />
+                              <stop offset="1" stopColor="#10b981" />
                             </linearGradient>
                           </defs>
                         </svg>
@@ -1512,14 +1512,14 @@ export default function EntrevistaPage() {
                   Limpiar
                 </button>
                 <button
-  id="btn-guardar"
-  type="button"
-  onClick={() => (document.getElementById("form-entrevista") as HTMLFormElement | null)?.requestSubmit()}
-  className="btn-primary"
-  disabled={saving}
->
-  {saving ? "Guardando…" : "Guardar"}
-</button>          
+                  id="btn-guardar"
+                  type="button"
+                  onClick={() => (document.getElementById("form-entrevista") as HTMLFormElement | null)?.requestSubmit()}
+                  className="btn-primary"
+                  disabled={saving}
+                >
+                  {saving ? "Guardando…" : "Guardar"}
+                </button>
 
               </div>
             </div>
@@ -1535,7 +1535,7 @@ export default function EntrevistaPage() {
                 onClick={() => irA(sec as Seccion, 1)}
                 aria-label={`Ir a sección ${idx + 1}`}
               >
-                <span className="text-xs font-medium mt-0.5" style={{fontSize:'0.72rem'}}>
+                <span className="text-xs font-medium mt-0.5" style={{ fontSize: '0.72rem' }}>
                   {sec === 'personales' ? 'Personal' : sec === 'generales' ? 'General' : sec === 'espirituales' ? 'Espiritual' : 'Evaluación'}
                 </span>
               </button>
@@ -1826,7 +1826,7 @@ function Field({
 }: {
   label: string;
   children: React.ReactNode;
-  icon?: "user"|"id"|"phone"|"mail"|"clock"|"pin"|"home"|"heart"|"brief"|"cap"|"time"|"user2"|"pastor"|"note";
+  icon?: "user" | "id" | "phone" | "mail" | "clock" | "pin" | "home" | "heart" | "brief" | "cap" | "time" | "user2" | "pastor" | "note";
   full?: boolean;
 }) {
   return (
@@ -1860,19 +1860,19 @@ function Toggle({ label, checked, onChange }: { label: string; checked: boolean;
 function Icon({ kind }: { kind: NonNullable<Parameters<typeof Field>[0]["icon"]> }) {
   const common = "w-4 h-4 text-[#6c63ff]";
   switch (kind) {
-    case "user":   return (<svg className={common} viewBox="0 0 20 20" fill="currentColor"><circle cx="10" cy="7" r="3"/><path d="M4 16c0-3 3-5 6-5s6 2 6 5" /></svg>);
-    case "id":     return (<svg className={common} viewBox="0 0 20 20" fill="none" stroke="currentColor"><rect x="3" y="4" width="14" height="12" rx="3"/><circle cx="8" cy="10" r="2"/><path d="M12 8h3M12 12h3"/></svg>);
-    case "phone":  return (<svg className={common} viewBox="0 0 20 20" fill="none" stroke="currentColor"><path d="M3 4h4l2 4-3 2a12 12 0 0 0 6 6l2-3 4 2v4c0 1-1 2-2 2A15 15 0 0 1 3 6c0-1 1-2 2-2Z" strokeWidth="1.5"/></svg>);
-    case "mail":   return (<svg className={common} viewBox="0 0 20 20" fill="none" stroke="currentColor"><rect x="3" y="5" width="10" height="10" rx="2"/><path d="M3 7l7 5 7-5"/></svg>);
-    case "clock":  return (<svg className={common} viewBox="0 0 20 20" fill="none" stroke="currentColor"><circle cx="10" cy="10" r="8"/><path d="M10 6v4l3 2"/></svg>);
-    case "pin":    return (<svg className={common} viewBox="0 0 20 20" fill="none" stroke="currentColor"><path d="M10 18s6-4.35 6-9a6 6 0 1 0-12 0c0 4.65 6 9 6 9Z"/><circle cx="10" cy="9" r="2.5"/></svg>);
-    case "home":   return (<svg className={common} viewBox="0 0 20 20" fill="none" stroke="currentColor"><path d="M3 9.5 10 3l7 6.5v7.5a1 1 0 0 1-1 1h-4v-6H8v6H4a1 1 0 0 1-1-1Z"/></svg>);
-    case "heart":  return (<svg className={common} viewBox="0 0 20 20" fill="currentColor"><path d="M10 17s-6-3.5-6-8a4 4 0 0 1 7-2 4 4 0 0 1 7 2c0 4.5-6 8-6 8Z"/></svg>);
-    case "brief":  return (<svg className={common} viewBox="0 0 20 20" fill="none" stroke="currentColor"><rect x="3" y="6" width="14" height="10" rx="2"/><path d="M7 6V5a3 3 0 0 1 6 0v1"/></svg>);
-    case "cap":    return (<svg className={common} viewBox="0 0 20 20" fill="none" stroke="currentColor"><path d="M2 9l8-4 8 4-8 4-8-4Z"/><path d="M6 11v3c2.5 1.5 5.5 1.5 8 0v-3"/></svg>);
-    case "time":   return (<svg className={common} viewBox="0 0 20 20" fill="none" stroke="currentColor"><circle cx="10" cy="10" r="8"/><path d="M10 5v5l3 2"/></svg>);
-    case "user2":  return (<svg className={common} viewBox="0 0 20 20" fill="currentColor"><circle cx="7" cy="7" r="3"/><circle cx="14" cy="11" r="2.5"/><path d="M2.5 16c0-2.3 2.7-4 6-4s6 1.7 6 4"/></svg>);
-    case "pastor": return (<svg className={common} viewBox="0 0 20 20" fill="none" stroke="currentColor"><path d="M10 2v6M7 5h6"/><circle cx="10" cy="12" r="3"/><path d="M4 18c1.5-3 4-4 6-4s4.5 1 6 4"/></svg>);
-    case "note":   return (<svg className={common} viewBox="0 0 20 20" fill="none" stroke="currentColor"><rect x="4" y="3" width="12" height="14" rx="2"/><path d="M7 7h6M7 10h6M7 13h4"/></svg>);
+    case "user": return (<svg className={common} viewBox="0 0 20 20" fill="currentColor"><circle cx="10" cy="7" r="3" /><path d="M4 16c0-3 3-5 6-5s6 2 6 5" /></svg>);
+    case "id": return (<svg className={common} viewBox="0 0 20 20" fill="none" stroke="currentColor"><rect x="3" y="4" width="14" height="12" rx="3" /><circle cx="8" cy="10" r="2" /><path d="M12 8h3M12 12h3" /></svg>);
+    case "phone": return (<svg className={common} viewBox="0 0 20 20" fill="none" stroke="currentColor"><path d="M3 4h4l2 4-3 2a12 12 0 0 0 6 6l2-3 4 2v4c0 1-1 2-2 2A15 15 0 0 1 3 6c0-1 1-2 2-2Z" strokeWidth="1.5" /></svg>);
+    case "mail": return (<svg className={common} viewBox="0 0 20 20" fill="none" stroke="currentColor"><rect x="3" y="5" width="10" height="10" rx="2" /><path d="M3 7l7 5 7-5" /></svg>);
+    case "clock": return (<svg className={common} viewBox="0 0 20 20" fill="none" stroke="currentColor"><circle cx="10" cy="10" r="8" /><path d="M10 6v4l3 2" /></svg>);
+    case "pin": return (<svg className={common} viewBox="0 0 20 20" fill="none" stroke="currentColor"><path d="M10 18s6-4.35 6-9a6 6 0 1 0-12 0c0 4.65 6 9 6 9Z" /><circle cx="10" cy="9" r="2.5" /></svg>);
+    case "home": return (<svg className={common} viewBox="0 0 20 20" fill="none" stroke="currentColor"><path d="M3 9.5 10 3l7 6.5v7.5a1 1 0 0 1-1 1h-4v-6H8v6H4a1 1 0 0 1-1-1Z" /></svg>);
+    case "heart": return (<svg className={common} viewBox="0 0 20 20" fill="currentColor"><path d="M10 17s-6-3.5-6-8a4 4 0 0 1 7-2 4 4 0 0 1 7 2c0 4.5-6 8-6 8Z" /></svg>);
+    case "brief": return (<svg className={common} viewBox="0 0 20 20" fill="none" stroke="currentColor"><rect x="3" y="6" width="14" height="10" rx="2" /><path d="M7 6V5a3 3 0 0 1 6 0v1" /></svg>);
+    case "cap": return (<svg className={common} viewBox="0 0 20 20" fill="none" stroke="currentColor"><path d="M2 9l8-4 8 4-8 4-8-4Z" /><path d="M6 11v3c2.5 1.5 5.5 1.5 8 0v-3" /></svg>);
+    case "time": return (<svg className={common} viewBox="0 0 20 20" fill="none" stroke="currentColor"><circle cx="10" cy="10" r="8" /><path d="M10 5v5l3 2" /></svg>);
+    case "user2": return (<svg className={common} viewBox="0 0 20 20" fill="currentColor"><circle cx="7" cy="7" r="3" /><circle cx="14" cy="11" r="2.5" /><path d="M2.5 16c0-2.3 2.7-4 6-4s6 1.7 6 4" /></svg>);
+    case "pastor": return (<svg className={common} viewBox="0 0 20 20" fill="none" stroke="currentColor"><path d="M10 2v6M7 5h6" /><circle cx="10" cy="12" r="3" /><path d="M4 18c1.5-3 4-4 6-4s4.5 1 6 4" /></svg>);
+    case "note": return (<svg className={common} viewBox="0 0 20 20" fill="none" stroke="currentColor"><rect x="4" y="3" width="12" height="14" rx="2" /><path d="M7 7h6M7 10h6M7 13h4" /></svg>);
   }
 }

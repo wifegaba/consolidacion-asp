@@ -74,12 +74,12 @@ export function PremiumActionButton({ onClick, Icon, color, label, badgeCount, c
                 onClick={onClick}
                 onMouseEnter={() => setIsHovered(true)}
                 onMouseLeave={() => setIsHovered(false)}
-                className={`h-11 w-11 rounded-2xl bg-white flex items-center justify-center 
+                className={`h-9 w-9 rounded-xl bg-white flex items-center justify-center 
           ${theme.text} shadow-lg ${theme.shadow} 
           hover:scale-110 hover:shadow-xl ${theme.hoverShadow} 
           transition-all duration-300 border ${theme.border} relative group ${className}`}
             >
-                <Icon size={20} className={`${theme.fill} transition-colors`} strokeWidth={1.5} />
+                <Icon size={16} className={`${theme.fill} transition-colors`} strokeWidth={1.5} />
                 {badgeCount !== undefined && badgeCount > 0 && (
                     <span className={`absolute -top-1 -right-1 h-3 w-3 ${theme.badge} rounded-full border-2 border-white`} />
                 )}

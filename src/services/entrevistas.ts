@@ -71,19 +71,19 @@ export async function guardarEntrevista(values: any, file?: File) {
     promovido: values.promovido || null,
 
     // --- ¡AQUÍ COMIENZAN LOS 17 CAMPOS NUEVOS! ---
-    
+
     // (Nuevos - Personales)
     labora_actualmente: values.laboraActualmente || null,
-    
+
     // (Nuevos - Iglesia)
     viene_otra_iglesia: values.vieneOtraIglesia || null,
     otra_iglesia_nombre: values.otraIglesiaNombre || null,
-    
+
     // (Nuevos - Espirituales)
     tiempo_oracion: values.tiempoOracion || null,
     frecuencia_lectura_biblia: values.frecuenciaLecturaBiblia || null,
     motivo_ayuno: values.motivoAyuno || null,
-    
+
     // (Nuevos - Salud y Personal)
     meta_personal: values.metaPersonal || null,
     enfermedad: values.enfermedad || null,
@@ -93,11 +93,14 @@ export async function guardarEntrevista(values: any, file?: File) {
     convivencia: values.convivencia || null,
     recibe_consejeria: values.recibeConsejeria || null,
     motivo_consejeria: values.motivoConsejeria || null,
-    
+
     // (Nuevos - Evaluación)
     cambios_emocionales: values.cambiosEmocionales || null,
     desempeno_clase: values.desempenoClase || null,
-    maestro_encargado: values.maestroEncargado || null
+    maestro_encargado: values.maestroEncargado || null,
+
+    // (Nuevo - Origen del registro)
+    origen: values.origen || null
   };
 
   // 3. Ejecutar UPSERT en lugar de INSERT

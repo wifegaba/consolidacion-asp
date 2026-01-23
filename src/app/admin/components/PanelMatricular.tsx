@@ -37,9 +37,10 @@ interface PanelMatricularProps {
     inscripciones: Inscripcion[];
     onMatriculaExitosa: () => void;
     loading: boolean;
+    currentUser: { rol?: string; diaAcceso?: string; cursosAcceso?: string[] };
 }
 
-export default function PanelMatricular({ maestros, cursos, estudiantes, inscripciones, onMatriculaExitosa, loading }: PanelMatricularProps) {
+export default function PanelMatricular({ maestros, cursos, estudiantes, inscripciones, onMatriculaExitosa, loading, currentUser }: PanelMatricularProps) {
     const [cursoId, setCursoId] = useState('');
     const [maestroId, setMaestroId] = useState('');
     const [selectedIds, setSelectedIds] = useState<Record<string, boolean>>({});
@@ -78,11 +79,49 @@ export default function PanelMatricular({ maestros, cursos, estudiantes, inscrip
     }, [estudiantes, inscripciones]);
 
     const eDisponibles = useMemo(() => {
-        // Show ALL students that are not currently active (this includes suspended and never-enrolled)
-        return estudiantesConMetadata.filter(e =>
-            !e.isActive && (!search || e.nombre.toLowerCase().includes(search.toLowerCase()))
-        );
-    }, [estudiantesConMetadata, search]);
+        // Determinar permisos del usuario
+        const isDirector = !currentUser.rol || currentUser.rol === 'Director';
+        const cursosPermitidos = currentUser.cursosAcceso || [];
+        const diaAcceso = currentUser.diaAcceso;
+
+        const diasUsuario = diaAcceso && diaAcceso !== 'Todos'
+            ? diaAcceso.split(',').map(d => d.trim())
+            : [];
+
+        return estudiantesConMetadata.filter(e => {
+            // 1. Debe estar disponible (no activo)
+            if (e.isActive) return false;
+
+            // 2. Filtro por búsqueda
+            if (search && !e.nombre.toLowerCase().includes(search.toLowerCase())) {
+                return false;
+            }
+
+            // 3. Filtro por curso (si el usuario no es Director)
+            if (!isDirector && cursosPermitidos.length > 0) {
+                // Si el estudiante tiene un curso suspendido, verificar acceso
+                if (e.suspendedCourseId) {
+                    const curso = cursos.find(c => c.id === e.suspendedCourseId);
+                    if (curso && !cursosPermitidos.includes(curso.nombre)) {
+                        return false;
+                    }
+                }
+                // Si no tiene curso suspendido, por defecto es "Restauración 1"
+                // Solo mostrar si el usuario tiene acceso a "Restauración 1"
+                else if (!cursosPermitidos.includes('Restauración 1')) {
+                    return false;
+                }
+            }
+
+            // 4. Filtro por día del estudiante
+            if (!isDirector && diasUsuario.length > 0) {
+                if (!e.dia) return true; // Si no tiene día asignado, mostrar
+                return diasUsuario.includes(e.dia);
+            }
+
+            return true;
+        });
+    }, [estudiantesConMetadata, search, currentUser, cursos]);
 
     // Get allowed courses for selected students
     const cursosPermitidos = useMemo(() => {
@@ -271,37 +310,68 @@ export default function PanelMatricular({ maestros, cursos, estudiantes, inscrip
                                 initial="hidden"
                                 animate="visible"
                             >
-                                {eDisponibles.map(e => (
-                                    <motion.div
-                                        key={e.id}
-                                        variants={LIST_ITEM_VARIANTS}
-                                        onClick={() => handleStudentToggle(e.id)}
-                                        className={`flex items-center gap-3 p-3 cursor-pointer ${GLASS_STYLES.listItem} ${selectedIds[e.id] ? 'bg-blue-50/60' : ''}`}
-                                    >
-                                        <div className={`h-5 w-5 rounded border flex items-center justify-center ${selectedIds[e.id] ? 'bg-blue-500 border-blue-500' : 'border-gray-400'}`}>
-                                            {selectedIds[e.id] && <Check size={12} className="text-white" />}
-                                        </div>
-                                        <div className="flex-1">
-                                            <div className="flex items-center gap-3">
-                                                <p className="text-base font-bold text-gray-900">{e.nombre}</p>
-                                                {e.suspendedCourseId && (
-                                                    <span className="text-[10px] uppercase tracking-wider font-bold bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded border border-amber-200">
-                                                        Susp. {cursos.find(c => c.id === e.suspendedCourseId)?.nombre}
-                                                    </span>
-                                                )}
-                                                {e.dia && (
-                                                    <span className={`text-[11px] uppercase tracking-widest font-black px-3 py-1.5 rounded-xl shadow-md ${e.dia === 'Domingo' ? 'bg-blue-100 text-blue-700 border border-blue-200' :
-                                                        e.dia === 'Martes' ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' :
-                                                            'bg-pink-100 text-pink-700 border border-pink-200'
-                                                        }`}>
-                                                        {e.dia}
-                                                    </span>
-                                                )}
+                                {eDisponibles.map(e => {
+                                    // Lógica para determinar el origen a mostrar
+                                    // 1. Buscar si fue promovido de algún curso
+                                    const inscripcionPromovida = inscripciones
+                                        .filter(i => i.entrevista_id === e.id && (i as any).estado === 'promovido')
+                                        // Ordenar para obtener el más reciente (mayor ID)
+                                        .sort((a, b) => b.id - a.id)[0];
+
+                                    // 2. Obtener nombre del curso o usar el campo origen
+                                    const nombreCursoPrevio = inscripcionPromovida
+                                        ? cursos.find(c => c.id === inscripcionPromovida.curso_id)?.nombre
+                                        : null;
+
+                                    // Lógica simplificada solicitada:
+                                    // "simplemente cambia la etiqueta bienvenida por la etiqueta Restauracion 1"
+                                    // Si hay curso previo, úsalo. Si no, asume RESTAURACIÓN 1.
+                                    const labelOrigen = nombreCursoPrevio || 'Restauración 1';
+
+                                    // Helper simple para capitalizar
+                                    const formatLabel = (s: string) => s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
+
+                                    return (
+                                        <motion.div
+                                            key={e.id}
+                                            variants={LIST_ITEM_VARIANTS}
+                                            onClick={() => handleStudentToggle(e.id)}
+                                            className={`flex items-center gap-3 p-3 cursor-pointer ${GLASS_STYLES.listItem} ${selectedIds[e.id] ? 'bg-blue-50/60' : ''}`}
+                                        >
+                                            <div className={`h-5 w-5 rounded border flex items-center justify-center ${selectedIds[e.id] ? 'bg-blue-500 border-blue-500' : 'border-gray-400'}`}>
+                                                {selectedIds[e.id] && <Check size={12} className="text-white" />}
                                             </div>
-                                            <p className="text-xs text-gray-500 font-medium mt-0.5">{e.telefono || 'Sin teléfono'}</p>
-                                        </div>
-                                    </motion.div>
-                                ))}
+                                            <div className="flex-1">
+                                                <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                                                    <p className="text-base font-bold text-gray-900 mr-1">{e.nombre}</p>
+
+                                                    {e.suspendedCourseId && (
+                                                        <span className="text-[9px] md:text-[10px] font-bold bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded border border-purple-200">
+                                                            {formatLabel(cursos.find(c => c.id === e.suspendedCourseId)?.nombre || '')}
+                                                        </span>
+                                                    )}
+                                                    {e.dia && (
+                                                        <span className={`text-[9px] md:text-[11px] font-black px-2 py-1 md:px-3 md:py-1.5 rounded-lg md:rounded-xl shadow-sm ${e.dia === 'Domingo' ? 'bg-blue-100 text-blue-700 border border-blue-200' :
+                                                            e.dia === 'Martes' ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' :
+                                                                'bg-pink-100 text-pink-700 border border-pink-200'
+                                                            }`}>
+                                                            {formatLabel(e.dia)}
+                                                        </span>
+                                                    )}
+                                                    {labelOrigen && (
+                                                        <span className="text-[9px] md:text-[10px] font-bold bg-cyan-100 text-cyan-700 px-1.5 py-0.5 rounded border border-cyan-200 whitespace-nowrap">
+                                                            {formatLabel(labelOrigen)}
+                                                        </span>
+                                                    )}
+
+                                                    <span className="text-xs text-gray-500 font-medium ml-1">
+                                                        {e.telefono || 'Sin teléfono'}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </motion.div>
+                                    )
+                                })}
                             </motion.div>
                         )}
                     </div>

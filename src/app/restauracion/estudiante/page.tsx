@@ -609,6 +609,11 @@ export default function EstudiantePage() {
 
       if (error) throw error;
 
+      // ACTUALIZACIÓN DE ORIGEN: Si es Restauración 1, marcar origen como 'Maestros' para la siguiente matrícula
+      if (selectedCourse.title === 'Restauración 1') {
+        await supabase.from('entrevistas').update({ origen: 'Maestros' }).eq('id', selectedStudent.id);
+      }
+
       toast.success(`Promovido a ${nextCourse.name}`);
 
       // Actualizar estado local
