@@ -101,10 +101,10 @@ export default function LoginPage() {
         {/* Versículo */}
         <div className="mt-5 rounded-xl border border-white/50 bg-white/30 backdrop-blur-md shadow-inner p-4">
           <p className="text-[13.5px] sm:text-sm font-serif italic text-slate-800 text-center leading-relaxed">
-            "Recuerden que ustedes van a recibir la recompensa del Señor que Dios le prometió a su pueblo,
-            pues ustedes sirven a Cristo el Señor."
+            "Cuando hagan cualquier trabajo, háganlo de todo corazón, como si estuvieran trabajando para el Señor y no para los seres humanos.
+            Recuerden que ustedes van a recibir la recompensa del Señor que Dios le prometió a su pueblo, pues ustedes sirven a Cristo el Señor."
             <br />
-            <span className="font-bold not-italic">Colosenses 3:24</span>
+            <span className="font-bold not-italic">Colosenses 3:23-24</span>
           </p>
         </div>
 
