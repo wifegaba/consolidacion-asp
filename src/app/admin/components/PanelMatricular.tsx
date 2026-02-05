@@ -529,65 +529,63 @@ function ModalNuevoEstudiante({ cursos, maestros, onClose, onSuccess }: { cursos
     };
 
     return (
-
         <ModalTemplate onClose={onClose} title="Nuevo Estudiante">
-            <div className="flex flex-col h-full">
-                <div className="px-1 py-2">
-                    <p className="text-sm text-gray-500 mb-4 px-1">Ingresa los datos para matricular al nuevo estudiante.</p>
+            <div className="px-6 py-4">
+                <p className="text-sm text-gray-500 mb-4">Ingresa los datos para matricular al nuevo estudiante.</p>
 
-                    <div className="space-y-4">
+                <div className="space-y-4">
+                    <div>
+                        <label className="block text-xs font-bold text-gray-700 uppercase mb-1 ml-1">Nombre Completo</label>
+                        <input
+                            value={nombre}
+                            onChange={e => setNombre(e.target.value)}
+                            className={`w-full rounded-xl px-4 py-2.5 text-sm border border-gray-200 bg-white/50 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all`}
+                            placeholder="Ej: Juan Pérez"
+                        />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-xs font-bold text-gray-700 uppercase mb-1 ml-1">Nombre Completo</label>
+                            <label className="block text-xs font-bold text-gray-700 uppercase mb-1 ml-1">Cédula</label>
                             <input
-                                value={nombre}
-                                onChange={e => setNombre(e.target.value)}
+                                value={cedula}
+                                onChange={e => setCedula(e.target.value)}
                                 className={`w-full rounded-xl px-4 py-2.5 text-sm border border-gray-200 bg-white/50 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all`}
-                                placeholder="Ej: Juan Pérez"
+                                placeholder="123456789"
                             />
                         </div>
-
-                        <div className="grid grid-cols-2 gap-4">
-                            <div>
-                                <label className="block text-xs font-bold text-gray-700 uppercase mb-1 ml-1">Cédula</label>
-                                <input
-                                    value={cedula}
-                                    onChange={e => setCedula(e.target.value)}
-                                    className={`w-full rounded-xl px-4 py-2.5 text-sm border border-gray-200 bg-white/50 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all`}
-                                    placeholder="123456789"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-xs font-bold text-gray-700 uppercase mb-1 ml-1">Teléfono</label>
-                                <input
-                                    value={telefono}
-                                    onChange={e => setTelefono(e.target.value)}
-                                    className={`w-full rounded-xl px-4 py-2.5 text-sm border border-gray-200 bg-white/50 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all`}
-                                    placeholder="300 123 4567"
-                                />
-                            </div>
-                        </div>
-
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-3 border-t border-gray-100/50">
-                            <PremiumSelect
-                                label="Nivel / Curso"
-                                value={cursoId}
-                                onChange={(val) => { setCursoId(val); setMaestroId(''); }}
-                                options={cursos.map(c => ({ value: String(c.id), label: c.nombre }))}
-                                placeholder="Seleccionar Nivel..."
-                            />
-
-                            <PremiumSelect
-                                label="Maestro"
-                                value={maestroId}
-                                onChange={setMaestroId}
-                                options={maestrosDisponibles.map(m => ({ value: m.id, label: m.nombre }))}
-                                placeholder="Seleccionar Maestro..."
+                        <div>
+                            <label className="block text-xs font-bold text-gray-700 uppercase mb-1 ml-1">Teléfono</label>
+                            <input
+                                value={telefono}
+                                onChange={e => setTelefono(e.target.value)}
+                                className={`w-full rounded-xl px-4 py-2.5 text-sm border border-gray-200 bg-white/50 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all`}
+                                placeholder="300 123 4567"
                             />
                         </div>
                     </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-3 border-t border-gray-100/50">
+                        <PremiumSelect
+                            label="Nivel / Curso"
+                            value={cursoId}
+                            onChange={(val) => { setCursoId(val); setMaestroId(''); }}
+                            options={cursos.map(c => ({ value: String(c.id), label: c.nombre }))}
+                            placeholder="Seleccionar Nivel..."
+                        />
+
+                        <PremiumSelect
+                            label="Maestro"
+                            value={maestroId}
+                            onChange={setMaestroId}
+                            options={maestrosDisponibles.map(m => ({ value: m.id, label: m.nombre }))}
+                            placeholder="Seleccionar Maestro..."
+                        />
+                    </div>
                 </div>
 
-                <div className="mt-6 flex justify-end gap-3 pt-4 border-t border-gray-100">
+                {/* Botones de acción */}
+                <div className="mt-6 pt-4 flex justify-end gap-3 border-t border-gray-100">
                     <button onClick={onClose} className="px-5 py-2.5 rounded-xl border border-gray-200 text-gray-600 font-bold hover:bg-gray-50 transition-all text-sm">
                         Cancelar
                     </button>

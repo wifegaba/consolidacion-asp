@@ -435,6 +435,11 @@ export default function Contactos1Client(
   const [bancoObsItems, setBancoObsItems] = useState<any[]>([]);
   const [bancoObsTargetName, setBancoObsTargetName] = useState('');
 
+  // Estados para Modal de Eliminación Premium
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleteCandidate, setDeleteCandidate] = useState<BancoRow | null>(null);
+  const [isMultiDelete, setIsMultiDelete] = useState(false);
+
   /* ======== Depuración ======== */
   const [isDebugging, setIsDebugging] = useState(false);
   const [selectedDepuracionIds, setSelectedDepuracionIds] = useState<Set<string>>(new Set());
@@ -1728,12 +1733,20 @@ export default function Contactos1Client(
                   </button>
 
                   {isDebugging && selectedDepuracionIds.size > 0 && (
-                    <button
-                      onClick={() => setShowDepuracionModal(true)}
-                      className="inline-flex items-center gap-1 rounded-xl bg-indigo-600 text-white px-3 py-1 text-xs font-bold shadow-md hover:bg-indigo-700 transition"
-                    >
-                      Enviar ({selectedDepuracionIds.size})
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={eliminarMultiplesDeBanco}
+                        className="inline-flex items-center gap-1 rounded-xl bg-red-600 text-white px-3 py-1 text-xs font-bold shadow-md hover:bg-red-700 transition"
+                      >
+                        Eliminar ({selectedDepuracionIds.size})
+                      </button>
+                      <button
+                        onClick={() => setShowDepuracionModal(true)}
+                        className="inline-flex items-center gap-1 rounded-xl bg-indigo-600 text-white px-3 py-1 text-xs font-bold shadow-md hover:bg-indigo-700 transition"
+                      >
+                        Archivar ({selectedDepuracionIds.size})
+                      </button>
+                    </div>
                   )}
 
                   <button
@@ -2163,6 +2176,60 @@ export default function Contactos1Client(
           )}
         </AnimatePresence>
 
+        {/* Modal Confirmación Eliminación (Premium Red) */}
+        <AnimatePresence>
+          {showDeleteConfirm && (
+            <motion.div
+              key="delete-confirm-backdrop"
+              variants={MODAL_BACKDROP_VARIANTS}
+              initial="initial"
+              animate="animate"
+              exit="exit"
+              className="fixed inset-0 z-[120] flex items-start justify-center bg-black/60 backdrop-blur-sm px-4 pt-20"
+              onClick={() => setShowDeleteConfirm(false)}
+            >
+              <motion.div
+                key="delete-confirm-panel"
+                variants={MODAL_PANEL_VARIANTS}
+                onClick={(e) => e.stopPropagation()}
+                className="w-full max-w-sm bg-white rounded-3xl shadow-[0_20px_60px_-10px_rgba(220,38,38,0.3)] ring-1 ring-white/60 overflow-hidden"
+              >
+                <div className="bg-gradient-to-br from-red-50 to-white px-6 pt-8 pb-6 flex flex-col items-center text-center">
+                  <div className="h-16 w-16 mb-5 rounded-full bg-red-100 flex items-center justify-center shadow-inner">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" className="text-red-600 drop-shadow-sm">
+                      <path d="M19 7L18.1327 19.1425C18.0579 20.1891 17.187 21 16.1378 21H7.86224C6.81296 21 5.94208 20.1891 5.86732 19.1425L5 7M10 11V17M14 11V17M15 7V4C15 3.44772 14.5523 3 14 3H10C9.44772 3 9 3.44772 9 4V7M4 7H20" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </div>
+                  <h3 className="text-xl font-bold text-neutral-900 mb-2">¿Eliminar definitivamente?</h3>
+                  <p className="text-sm text-neutral-600 leading-relaxed px-2">
+                    {isMultiDelete
+                      ? `Estás a punto de borrar ${selectedDepuracionIds.size} registros de forma permanente.`
+                      : <>Estás a punto de borrar a <span className="font-bold text-neutral-900">{deleteCandidate?.nombre}</span> de forma permanente.</>
+                    }
+                    <br />
+                    <span className="text-red-600 font-medium mt-1 block">Esta acción no se puede deshacer.</span>
+                  </p>
+                </div>
+
+                <div className="bg-neutral-50 px-6 py-4 flex gap-3 border-t border-neutral-100">
+                  <button
+                    onClick={() => setShowDeleteConfirm(false)}
+                    className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-neutral-700 bg-white ring-1 ring-neutral-200 hover:bg-neutral-50 shadow-sm transition"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={procesarEliminacion}
+                    className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-600 hover:to-rose-700 shadow-[0_4px_12px_rgba(220,38,38,0.3)] transition transform active:scale-[0.98]"
+                  >
+                    Sí, eliminar
+                  </button>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         <style jsx global>{`
         @keyframes cardIn {
           0% { opacity: 0; transform: translateY(14px) scale(0.98); filter: blur(3px); }
@@ -2243,25 +2310,115 @@ export default function Contactos1Client(
     }
   }
 
+  /* ====== Handlers de Eliminación Robustos ====== */
+
+  function solicitarEliminar(row: BancoRow) {
+    setDeleteCandidate(row);
+    setIsMultiDelete(false);
+    setShowDeleteConfirm(true);
+  }
+
+  function solicitarEliminarMultiples() {
+    setIsMultiDelete(true);
+    setShowDeleteConfirm(true);
+  }
+
+  async function procesarEliminacion() {
+    console.log('[ELIMINAR] Iniciando procesarEliminacion (Vía API Segura)...');
+
+    setShowDeleteConfirm(false);
+
+    if (isMultiDelete) {
+      console.log('[ELIMINAR] Modo: Eliminación Múltiple');
+      setBancoLoading(true);
+      try {
+        const rows = bancoRows.filter(r => selectedDepuracionIds.has(r.progreso_id));
+        console.log('[ELIMINAR] Registros a eliminar:', rows.length);
+        let deletedCount = 0;
+
+        for (const row of rows) {
+          console.log(`[ELIMINAR] Procesando: ${row.nombre}`);
+
+          // LLAMADA A API SEGURA
+          const res = await fetch('/api/eliminar-registro', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              progreso_id: row.progreso_id,
+              persona_id: row.persona_id
+            }),
+          });
+
+          const json = await res.json();
+
+          if (!res.ok || json.error) {
+            console.error(`[ELIMINAR] ❌ Error en API para ${row.nombre}:`, json.error);
+            toast.error(`Error eliminando a ${row.nombre}`);
+            continue;
+          }
+
+          console.log(`[ELIMINAR] ✅ Eliminado OK (API):`, json);
+          deletedCount++;
+        }
+
+        if (deletedCount > 0) {
+          toast.success(`${deletedCount} registros eliminados permanentemente.`);
+          setBancoRows((prev) => prev.filter((r) => !selectedDepuracionIds.has(r.progreso_id)));
+          setSelectedDepuracionIds(new Set());
+        } else {
+          toast.error('No se pudieron eliminar los registros.');
+        }
+      } catch (e: any) {
+        console.error('[ELIMINAR] ❌ Error crítico:', e);
+        toast.error('Error de conexión al eliminar.');
+      } finally {
+        setBancoLoading(false);
+      }
+
+    } else if (deleteCandidate) {
+      console.log('[ELIMINAR] Modo: Eliminación Individual');
+      const row = deleteCandidate;
+      setDeleting((m) => ({ ...m, [row.progreso_id]: true }));
+
+      try {
+        // LLAMADA A API SEGURA
+        const res = await fetch('/api/eliminar-registro', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            progreso_id: row.progreso_id,
+            persona_id: row.persona_id
+          }),
+        });
+
+        const json = await res.json();
+
+        if (!res.ok || json.error) {
+          throw new Error(json.error || 'Error desconocido en servidor');
+        }
+
+        console.log('[ELIMINAR] ✅ Eliminado OK (API):', json);
+        toast.success(`${row.nombre} eliminado permanentemente.`);
+        setBancoRows((prev) => prev.filter((r) => r.progreso_id !== row.progreso_id));
+
+      } catch (e: any) {
+        console.error('[ELIMINAR] ❌ Error borrando individual:', e);
+        toast.error(`No se pudo eliminar a ${row.nombre}: ${e.message}`);
+      } finally {
+        setDeleting((m) => ({ ...m, [row.progreso_id]: false }));
+        setDeleteCandidate(null);
+      }
+    }
+  }
+
+  /* ====== Funciones Legacy reemplazadas por las de arriba ====== */
+  // Se mantienen firmas vacías o wrappers si es necesario para no romper referencias en JSX aun no editado
   async function eliminarDeBanco(row: BancoRow) {
-    if (!window.confirm(`¿Estás seguro de que quieres eliminar a ${row.nombre} permanentemente? Esta acción no se puede deshacer.`)) {
-      return;
-    }
+    solicitarEliminar(row);
+  }
 
-    setDeleting((m) => ({ ...m, [row.progreso_id]: true }));
-    try {
-      const { error } = await supabase.from('progreso').delete().eq('id', row.progreso_id);
-      if (error) throw error;
-
-      toast.success(`${row.nombre} ha sido eliminado(a) permanentemente.`);
-      setBancoRows((prev) => prev.filter((r) => r.progreso_id !== row.progreso_id));
-
-    } catch (e: any) {
-      console.error('Error al eliminar del banco de archivo:', e?.message);
-      toast.error(`No se pudo eliminar a ${row.nombre}.`);
-    } finally {
-      setDeleting((m) => ({ ...m, [row.progreso_id]: false }));
-    }
+  async function eliminarMultiplesDeBanco() {
+    solicitarEliminarMultiples();
   }
 
   async function fetchBancoObservaciones(row: BancoRow) {

@@ -11,13 +11,14 @@ import { supabase } from '@/lib/supabaseClient';
 
 /* ========= Tipos ========= */
 type AppEstudioDia = 'Domingo' | 'Martes' | 'Virtual' | 'Pendientes';
-type AppEtapa = 'Semillas' | 'Devocionales' | 'Restauracion';
+type AppEtapa = 'Semillas' | 'Devocionales' | 'Restauracion' | string;
 
 type Registro = {
     id: string;
     fecha: string;
     nombre: string;
     telefono: string | null;
+    cedula?: string | null; // Agregamos cédula
     preferencias: string | null;
     cultosSeleccionados: string | null;
     observaciones?: string | null;
@@ -679,6 +680,9 @@ export default function PersonaNueva({ servidorId }: { servidorId: string | null
             } else {
                 toast('❌ Error al guardar/actualizar: ' + (e?.message || 'Error desconocido'));
             }
+        } finally {
+            // Limpiar caché de búsqueda para que se reflejen los cambios inmediatamente
+            cacheSugs.clear();
         }
     };
 
@@ -744,37 +748,215 @@ export default function PersonaNueva({ servidorId }: { servidorId: string | null
                     id: r.id,
                     fecha: '',
                     nombre: r.nombre,
-                    telefono: r.telefono ?? null,
+                    telefono: r.telefono || null,
+                    cedula: r.cedula || null, // Agregamos cédula
                     preferencias: null,
                     cultosSeleccionados: null,
-                    observaciones: r.observaciones ?? null,
-                    estudioDia: r.estudio_dia ?? null,
-                    etapa: (r.etapa as AppEtapa) ?? null,
+                    observaciones: r.observaciones || null,
+                    estudioDia: r.estudio_dia || null,
+                    etapa: (r.etapa as AppEtapa) || null,
                     semana: (typeof r.semana === 'number' ? r.semana : null),
                 }));
+                // Helper para normalizar teléfonos (eliminar espacios, guiones, paréntesis y prefijos de país)
+                const normalizePhone = (phone: string | null): string | null => {
+                    if (!phone) return null;
+                    const digits = phone.replace(/\D/g, ''); // Solo dígitos
+                    // Si tiene más de 10 dígitos (ej: 573001234567), tomamos los últimos 10
+                    return digits.length > 10 ? digits.slice(-10) : digits;
+                };
+
                 const needStatus = arr.some(x => !x.etapa || x.semana == null);
                 if (needStatus) {
                     const ids = arr.map(x => x.id).filter(Boolean);
                     if (ids.length > 0) {
-                        const { data: estados, error: err2 } = await supabase
-                            .from('progreso')
-                            .select('persona_id, etapa, semana, creado_en')
-                            .eq('activo', true)
-                            .in('persona_id', ids)
-                            .order('creado_en', { ascending: false });
+                        const cedulas = arr.map(x => x.cedula).filter(Boolean) as string[];
+                        const phones = arr.map(x => x.telefono).filter(Boolean) as string[];
 
-                        if (!err2 && estados && estados.length) {
-                            const map = new Map<string, { etapa: AppEtapa | null; semana: number | null }>();
-                            for (const row of estados as any[]) {
-                                if (!map.has(row.persona_id)) {
-                                    map.set(row.persona_id, { etapa: row.etapa ?? null, semana: row.semana ?? null });
+                        // Crear lista de teléfonos normalizados + originales para búsqueda amplia
+                        const phonesNormalized = phones.map(p => normalizePhone(p)).filter(Boolean) as string[];
+                        const allPhones = [...new Set([...phones, ...phonesNormalized])];
+
+                        // Hacer consultas por separado para evitar errores de sintaxis SQL
+                        const [resProgreso, resEntrevistasByCedula, resEntrevistasByPhone] = await Promise.all([
+                            supabase
+                                .from('progreso')
+                                .select('persona_id, etapa, semana, creado_en')
+                                .in('persona_id', ids)
+                                .order('creado_en', { ascending: false }),
+                            // Buscar por CÉDULA
+                            cedulas.length > 0
+                                ? supabase.from('entrevistas').select('id, cedula, telefono').in('cedula', cedulas)
+                                : Promise.resolve({ data: [] }),
+                            // Buscar por TELÉFONO
+                            allPhones.length > 0
+                                ? supabase.from('entrevistas').select('id, cedula, telefono').in('telefono', allPhones)
+                                : Promise.resolve({ data: [] })
+                        ]);
+
+                        // Combinar resultados de entrevistas (cedula + phone)
+                        const entrevistasMap = new Map();
+                        const resEntrevistas = { data: [] as any[] };
+
+                        if (resEntrevistasByCedula.data) {
+                            resEntrevistasByCedula.data.forEach((e: any) => {
+                                if (!entrevistasMap.has(e.id)) {
+                                    entrevistasMap.set(e.id, e);
+                                    resEntrevistas.data.push(e);
                                 }
-                            }
-                            arr = arr.map(p => {
-                                const m = map.get(p.id);
-                                return m ? { ...p, etapa: p.etapa ?? m.etapa, semana: p.semana ?? m.semana } : p;
                             });
                         }
+
+                        if (resEntrevistasByPhone.data) {
+                            resEntrevistasByPhone.data.forEach((e: any) => {
+                                if (!entrevistasMap.has(e.id)) {
+                                    entrevistasMap.set(e.id, e);
+                                    resEntrevistas.data.push(e);
+                                }
+                            });
+                        }
+
+                        const map = new Map<string, { etapa: string | null; semana: number | null; inscripcion_id?: number }>();
+                        const cedulaToEntrevistaId = new Map<string, string>();
+                        const phoneToEntrevistaId = new Map<string, string>();
+
+                        console.log('🔍 DEBUG - Cédulas buscadas:', cedulas);
+                        console.log('🔍 DEBUG - Phones buscados:', { original: phones, normalized: phonesNormalized, all: allPhones });
+                        console.log('🔍 DEBUG - Entrevistas encontradas:', resEntrevistas.data?.length || 0);
+
+                        // Crear mapas por cédula Y por teléfono
+                        if (resEntrevistas.data) {
+                            resEntrevistas.data.forEach((e: any) => {
+                                // Mapear por cédula (prioridad 1)
+                                if (e.cedula) {
+                                    cedulaToEntrevistaId.set(e.cedula, e.id);
+                                    console.log(`🆔 Mapeando por cédula: ${e.cedula} -> ID: ${e.id}`);
+                                }
+                                // Mapear por teléfono (fallback)
+                                const normPhone = normalizePhone(e.telefono);
+                                if (normPhone) {
+                                    phoneToEntrevistaId.set(normPhone, e.id);
+                                    console.log(`📞 Mapeando por teléfono: ${e.telefono} -> ${normPhone} -> ID: ${e.id}`);
+                                }
+                            });
+                        }
+
+                        console.log('🗺️ DEBUG - cedulaToEntrevistaId Map size:', cedulaToEntrevistaId.size);
+                        console.log('🗺️ DEBUG - phoneToEntrevistaId Map size:', phoneToEntrevistaId.size);
+
+                        const entrevistaIds = [...new Set([...Array.from(cedulaToEntrevistaId.values()), ...Array.from(phoneToEntrevistaId.values())])];
+                        console.log('🎯 DEBUG - entrevistaIds (combinados):', entrevistaIds);
+
+                        // 1. Llenar con Progreso (base usando persona_id) - Lógica mejorada para buscar última etapa conocida
+                        if (!resProgreso.error && resProgreso.data) {
+                            for (const row of resProgreso.data as any[]) {
+                                const current = map.get(row.persona_id);
+                                if (!current) {
+                                    // Primer registro encontrado (el más reciente)
+                                    map.set(row.persona_id, { etapa: row.etapa ?? null, semana: row.semana ?? null });
+                                } else {
+                                    // Si ya tenemos un registro pero le falta información (etapa o semana son null),
+                                    // y este registro histórico SÍ tiene el dato, lo usamos (backfilling).
+                                    const improvedEtapa = current.etapa || row.etapa;
+                                    const improvedSemana = current.semana ?? row.semana; // Nullish coalescing para respetar semana 0
+
+                                    if (improvedEtapa !== current.etapa || improvedSemana !== current.semana) {
+                                        map.set(row.persona_id, { etapa: improvedEtapa, semana: improvedSemana });
+                                        console.log(`✨ Recuperada etapa/semana histórica para ${row.persona_id}:`, { from: current, to: { etapa: improvedEtapa, semana: improvedSemana } });
+                                    }
+                                }
+                            }
+                        }
+
+                        // 2. Buscar Inscripciones usando ENTREVISTA ID (no persona_id)
+                        const inscripcionesIds: number[] = [];
+                        const entrevistaToInscripcion = new Map<string, { etapa: string; inscripcion_id: number, created_at: string }>();
+
+                        if (entrevistaIds.length > 0) {
+                            console.log('🔎 Buscando inscripciones para:', entrevistaIds);
+                            const { data: resInscripciones } = await supabase
+                                .from('inscripciones')
+                                .select('id, entrevista_id, curso:cursos(nombre), created_at')
+                                .in('entrevista_id', entrevistaIds)
+                                .order('created_at', { ascending: false });
+
+                            console.log('📚 Inscripciones encontradas:', resInscripciones?.length || 0);
+
+                            if (resInscripciones) {
+                                for (const row of resInscripciones) {
+                                    const cursoNombre = Array.isArray(row.curso) ? row.curso[0]?.nombre : (row.curso as any)?.nombre;
+                                    if (cursoNombre && !entrevistaToInscripcion.has(row.entrevista_id)) {
+                                        entrevistaToInscripcion.set(row.entrevista_id, {
+                                            etapa: cursoNombre,
+                                            inscripcion_id: row.id,
+                                            created_at: row.created_at
+                                        });
+                                        inscripcionesIds.push(row.id);
+                                        console.log(`🎓 Inscripción: Entrevista ${row.entrevista_id} -> Curso: ${cursoNombre} (ID: ${row.id})`);
+                                    }
+                                }
+                            }
+                        }
+
+                        // 3. Buscar asistencias para calcular Semana (Academia)
+                        const inscripcionToSemana = new Map<number, number>();
+                        if (inscripcionesIds.length > 0) {
+                            const { data: resAsistencias } = await supabase
+                                .from('asistencias_academia')
+                                .select('inscripcion_id, asistencias')
+                                .in('inscripcion_id', inscripcionesIds);
+
+                            console.log('📊 Asistencias encontradas:', resAsistencias?.length || 0);
+
+                            if (resAsistencias) {
+                                resAsistencias.forEach((r: any) => {
+                                    let count = 0;
+                                    const grades = r.asistencias?.['1'] || {};
+                                    Object.values(grades).forEach(v => { if (v === 'si') count++; });
+                                    inscripcionToSemana.set(r.inscripcion_id, count);
+                                    console.log(`📈 Asistencia inscripción ${r.inscripcion_id}: ${count} clases`);
+                                });
+                            }
+                        }
+
+                        // 4. Fusionar datos
+                        arr = arr.map(p => {
+                            // Datos de progreso directo (Persona)
+                            let info = map.get(p.id) || { etapa: p.etapa, semana: p.semana };
+
+                            // Intentar enriquecer con Academia (vía cédula primero, teléfono como fallback)
+                            let entId: string | null = null;
+
+                            // Prioridad 1: Buscar por cédula
+                            if (p.cedula) {
+                                entId = cedulaToEntrevistaId.get(p.cedula) || null;
+                                console.log(`🔄 Procesando ${p.nombre} - Cédula: ${p.cedula} -> Entrevista ID: ${entId || 'NO ENCONTRADO'}`);
+                            }
+
+                            // Prioridad 2: Si no se encontró por cédula, intentar por teléfono
+                            if (!entId && p.telefono) {
+                                const normPhone = normalizePhone(p.telefono) ?? null;
+                                entId = normPhone ? phoneToEntrevistaId.get(normPhone) ?? null : null;
+                                console.log(`🔄 Intentando por teléfono ${p.nombre} - Tel: ${p.telefono} -> Normalizado: ${normPhone} -> Entrevista ID: ${entId || 'NO ENCONTRADO'}`);
+                            }
+
+                            if (entId) {
+                                const insc = entrevistaToInscripcion.get(entId);
+                                console.log(`  ➡️ Inscripción encontrada:`, insc || 'NINGUNA');
+                                if (insc) {
+                                    const semanaCalc = inscripcionToSemana.get(insc.inscripcion_id) ?? 0;
+                                    // Priorizar info de academia si existe
+                                    info = {
+                                        etapa: insc.etapa,
+                                        semana: Math.max(semanaCalc, 1) // Mostrar al menos semana 1 si está matriculado
+                                    };
+                                    console.log(`  ✅ ASIGNADO - Etapa: ${info.etapa}, Semana: ${info.semana}`);
+                                }
+                            } else {
+                                console.log(`  ❌ NO se encontró entrevista para este teléfono`);
+                            }
+
+                            return { ...p, etapa: info.etapa || null, semana: info.semana ?? null };
+                        });
                     }
                 }
                 if (!cancel) {

@@ -1061,18 +1061,28 @@ export function FormInput({ id, label, value, onChange, type = "text", disabled,
    ==========================================================================
 */
 
+import { createPortal } from 'react-dom';
+
 export function ModalTemplate({ children, onClose, title, className = "max-w-lg", position = "center" }: { children: React.ReactNode, onClose: () => void, title: string, className?: string, position?: 'center' | 'top' }) {
   const alignClass = position === 'center' ? 'items-center' : 'items-start pt-2 md:pt-4';
+  const [mounted, setMounted] = useState(false);
 
-  return (
-    <div className={`fixed inset-0 z-50 flex justify-center p-4 bg-slate-900/40 backdrop-blur-md ${alignClass}`} onClick={onClose}>
+  useEffect(() => {
+    setMounted(true);
+    return () => setMounted(false);
+  }, []);
+
+  if (!mounted) return null;
+
+  return createPortal(
+    <div className={`fixed inset-0 z-[9999] flex justify-center p-2 md:p-4 bg-slate-900/60 backdrop-blur-md ${alignClass}`} onClick={onClose}>
       <motion.div
         variants={modalVariants}
         initial="hidden"
         animate="visible"
         exit="exit"
         onClick={e => e.stopPropagation()}
-        className={`relative w-full ${className} rounded-3xl overflow-hidden flex flex-col max-h-[92vh] shadow-2xl border border-white/10`}
+        className={`relative w-full ${className} rounded-3xl overflow-hidden flex flex-col max-h-[96vh] md:max-h-[92vh] shadow-2xl border border-white/10`}
         style={{
           background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 50%, #e2e8f0 100%)'
         }}
@@ -1093,9 +1103,9 @@ export function ModalTemplate({ children, onClose, title, className = "max-w-lg"
           }}
         />
 
-        {/* Contenido del modal con z-index para estar sobre los gradientes */}
-        <div className="relative z-10 flex flex-col h-full bg-white/40 backdrop-blur-xl rounded-3xl overflow-hidden">
-          <div className="px-5 py-3 flex justify-between items-center border-b border-white/30 bg-gradient-to-r from-white/50 via-white/30 to-white/50 backdrop-blur-sm shrink-0">
+        {/* Contenido del modal con z-index para estar sobre los gradientes - CAMBIADO: overflow-auto en lugar de overflow-hidden */}
+        <div className="relative z-10 flex flex-col h-full bg-white/40 backdrop-blur-xl rounded-3xl overflow-auto">
+          <div className="px-5 py-3 flex justify-between items-center border-b border-white/30 bg-gradient-to-r from-white/50 via-white/30 to-white/50 backdrop-blur-sm shrink-0 sticky top-0 z-20">
             <h3 className="font-bold text-gray-900 text-lg tracking-tight">{title}</h3>
             <button
               onClick={onClose}
@@ -1107,7 +1117,8 @@ export function ModalTemplate({ children, onClose, title, className = "max-w-lg"
           {children}
         </div>
       </motion.div>
-    </div>
+    </div>,
+    document.body
   );
 }
 

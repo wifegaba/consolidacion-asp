@@ -103,11 +103,11 @@ const LeafPattern = () => {
 
 /* ================= Modal ================= */
 function Modal({
-                   open,
-                   onClose,
-                   seed,
-                   onSelect,
-               }: {
+    open,
+    onClose,
+    seed,
+    onSelect,
+}: {
     open: boolean;
     onClose: () => void;
     seed: SeedKey | null;
@@ -193,11 +193,11 @@ function Modal({
 
 /* =============== Tarjeta Semilla =============== */
 function SeedCard({
-                      index,
-                      id,
-                      onClick,
-                      selected = false,
-                  }: {
+    index,
+    id,
+    onClick,
+    selected = false,
+}: {
     index: number;
     id: string;
     onClick: () => void;
@@ -257,33 +257,48 @@ function SeedCard({
 
 /* =============== Tarjeta Semana =============== */
 function WeekCard({
-                      week,
-                      onPick,
-                      delay = 0,
-                  }: {
+    week,
+    onPick,
+    delay = 0,
+    counts,
+}: {
     week: Week;
     onPick: (day: Day) => void;
     delay?: number;
+    counts?: Record<string, number>;
 }) {
     return (
         <div
-            className="w-full animate-cardIn rounded-2xl bg-white/90 backdrop-blur-sm ring-1 ring-black/5 shadow-[0_16px_40px_-18px_rgba(16,24,40,.35)] px-5 py-5 flex items-center justify-between gap-5 relative overflow-hidden hover:shadow-[0_24px_50px_-20px_rgba(16,24,40,.45)] transition"
+            className="w-full animate-cardIn rounded-[24px] bg-gradient-to-br from-white via-white to-[#F4F7FB] ring-1 ring-white/60 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.08)] px-4 py-3 flex items-center justify-between gap-3 relative overflow-hidden group hover:shadow-[0_25px_60px_-10px_rgba(0,0,0,0.12)] transition-all duration-500"
             style={{ animationDelay: `${delay}ms` }}
         >
-            <div className="min-w-[100px]">
-                <div className="text-[15px] md:text-[16px] lg:text-[18px] font-semibold text-neutral-700 leading-none">Semana</div>
-                <div className="text-[34px] md:text-[38px] font-extrabold text-neutral-900 leading-tight">{week}</div>
+            {/* Decoración de fondo sutil */}
+            <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-blue-50/50 to-purple-50/50 blur-[40px] rounded-full pointer-events-none -mr-10 -mt-10" />
+
+            <div className="relative z-10 min-w-[70px]">
+                <div className="text-[12px] uppercase tracking-widest font-bold text-neutral-400 leading-none mb-1">Semana</div>
+                <div className="text-[42px] font-black text-transparent bg-clip-text bg-gradient-to-r from-neutral-900 to-neutral-600 leading-[0.9] tracking-tight filter drop-shadow-sm">{week}</div>
             </div>
-            <div className="flex flex-col gap-2">
-                {(['Domingo', 'Martes', 'Virtual'] as Day[]).map((txt) => (
-                    <button
-                        key={txt}
-                        onClick={() => onPick(txt)}
-                        className="px-3.5 py-1.5 rounded-lg text-sm font-semibold bg-neutral-100 ring-1 ring-black/10 shadow-sm hover:bg-gradient-to-r hover:from-white hover:to-neutral-100 hover:shadow-md transition"
-                    >
-                        {txt}
-                    </button>
-                ))}
+
+            <div className="relative z-10 flex flex-col gap-2 w-full max-w-[150px]">
+                {(['Domingo', 'Martes', 'Virtual'] as Day[]).map((txt) => {
+                    const count = counts?.[txt] || 0;
+                    return (
+                        <button
+                            key={txt}
+                            onClick={() => onPick(txt)}
+                            className="group/btn relative w-full flex items-center justify-between px-3 py-1.5 rounded-xl border border-neutral-200/60 bg-white/60 hover:bg-white hover:border-blue-300/50 shadow-sm hover:shadow-lg hover:shadow-blue-500/10 transition-all duration-300 overflow-hidden"
+                        >
+                            <span className="text-[13px] font-semibold text-neutral-600 group-hover/btn:text-neutral-900 transition-colors">{txt}</span>
+
+                            {count > 0 && (
+                                <span className="ml-2 flex items-center justify-center h-[20px] min-w-[20px] px-1.5 text-[11px] font-bold text-white bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full shadow-[0_2px_8px_-1px_rgba(59,130,246,0.4)]">
+                                    {count}
+                                </span>
+                            )}
+                        </button>
+                    );
+                })}
             </div>
         </div>
     );
@@ -291,9 +306,9 @@ function WeekCard({
 
 /* =============== Lista de llamadas =============== */
 function CallsList({
-                       items,
-                       onSelect,
-                   }: {
+    items,
+    onSelect,
+}: {
     items: {
         id: string;
         nombre: string;
@@ -358,11 +373,11 @@ function CallsList({
 
 /* =============== Formulario seguimiento =============== */
 function FollowUpForm({
-                          contact,
-                          prevHist,
-                          onSubmit,
-                          busy,
-                      }: {
+    contact,
+    prevHist,
+    onSubmit,
+    busy,
+}: {
     contact: { progresoId: string; nombre: string; tel: string | null; semana: Week; dia: Day };
     prevHist?: (Resultado | null)[];
     onSubmit: (payload: { resultado: Resultado; notas?: string }) => Promise<void>;
@@ -487,10 +502,10 @@ function FollowUpForm({
 
 /* =============== Panel de asistencias =============== */
 function AttendancePanel({
-                             modulo,
-                             dia,
-                             onExit,
-                         }: {
+    modulo,
+    dia,
+    onExit,
+}: {
     modulo: SeedKey;
     dia: Day;
     onExit: () => void;
@@ -608,6 +623,33 @@ export default function PageSemillas() {
     const [selectedProgreso, setSelectedProgreso] = useState<string | null>(null);
     const [savingCall, setSavingCall] = useState(false);
 
+    // Estado para contadores: { '1': { 'Domingo': 5 }, ... }
+    const [counts, setCounts] = useState<Record<string, Record<string, number>>>({});
+
+    // Cargar conteos al cambiar de semilla
+    useEffect(() => {
+        if (!seed) return;
+        const fetchCounts = async () => {
+            const { data } = await supabase
+                .from(V_PENDIENTES_BASE)
+                .select('semana, dia')
+                .eq('etapa', 'Semillas')
+                .eq('modulo', seed);
+
+            if (!data) return;
+
+            const map: Record<string, Record<string, number>> = {};
+            data.forEach((r: any) => {
+                const s = String(r.semana); // asegurar string key
+                const d = r.dia;
+                if (!map[s]) map[s] = {};
+                map[s][d] = (map[s][d] || 0) + 1;
+            });
+            setCounts(map);
+        };
+        void fetchCounts();
+    }, [seed]);
+
     const loadPendientes = useCallback(
         async (modulo: SeedKey, semana: Week, dia: Day) => {
             setLoadingPend(true);
@@ -679,200 +721,203 @@ export default function PageSemillas() {
     }, [selectedProgreso, pendientes, activeWeek, activeDay]);
 
     return (
- <main
- className="min-h-screen w-full flex justify-center items-start px-5 md:px-8 pt-2 pb-6 animate-premiumFade"
-  style={{
-    fontFamily: `-apple-system, BlinkMacSystemFont, 'SF Pro Display', Inter, 'Helvetica Neue', Arial, sans-serif`,
-  }}
->
-  {/* Tarjeta principal */}
-  <div className="relative z-10 w-full max-w-[1200px] rounded-2xl overflow-hidden shadow-[0_8px_30px_rgba(0,0,0,0.12)] ring-1 ring-black/5">
+        <main
+            className="min-h-screen w-full flex justify-center items-start px-5 md:px-8 pt-2 pb-6 animate-premiumFade"
+            style={{
+                fontFamily: `-apple-system, BlinkMacSystemFont, 'SF Pro Display', Inter, 'Helvetica Neue', Arial, sans-serif`,
+            }}
+        >
+            {/* Tarjeta principal */}
+            <div className="relative z-10 w-full max-w-[1200px] rounded-2xl overflow-hidden shadow-[0_8px_30px_rgba(0,0,0,0.12)] ring-1 ring-black/5">
 
-  {/* Fondo transparente */}
-<div className="absolute inset-0 bg-transparent"></div>
+                {/* Fondo transparente */}
+                <div className="absolute inset-0 bg-transparent"></div>
 
 
-    {/* Contenido */}
-    <div className="relative p-8 md:p-12 space-y-6">
-      <header className="mb-4 md:mb-6">
-        <h1 className="text-[26px] md:text-[34px] font-semibold tracking-tight text-neutral-900">
-          Panel de Semillas
-        </h1>
-        <p className="text-neutral-700 text-sm md:text-base">
-          Gestión rápida de módulos y seguimiento.
-        </p>
-      </header>
+                {/* Contenido */}
+                <div className="relative p-8 md:p-12 space-y-6">
+                    <header className="mb-4 md:mb-6">
+                        <h1 className="text-[26px] md:text-[34px] font-semibold tracking-tight text-neutral-900">
+                            Panel de Semillas
+                        </h1>
+                        <p className="text-neutral-700 text-sm md:text-base">
+                            Gestión rápida de módulos y seguimiento.
+                        </p>
+                    </header>
 
-      {/* Semillas */}
-                <div className="flex flex-col gap-4 md:flex-row md:flex-nowrap md:items-stretch md:gap-6">
-                    <div className="w-full md:basis-1/4 md:min-w-0">
-                        <SeedCard index={0} id="1" onClick={() => handleOpen(1)} selected={selectedSeedCard === 1} />
+                    {/* Semillas */}
+                    <div className="flex flex-col gap-4 md:flex-row md:flex-nowrap md:items-stretch md:gap-6">
+                        <div className="w-full md:basis-1/4 md:min-w-0">
+                            <SeedCard index={0} id="1" onClick={() => handleOpen(1)} selected={selectedSeedCard === 1} />
+                        </div>
+                        <div className="w-full md:basis-1/4 md:min-w-0">
+                            <SeedCard index={1} id="2" onClick={() => handleOpen(2)} selected={selectedSeedCard === 2} />
+                        </div>
+                        <div className="w-full md:basis-1/4 md:min-w-0">
+                            <SeedCard index={2} id="3" onClick={() => handleOpen(3)} selected={selectedSeedCard === 3} />
+                        </div>
+                        <div className="w-full md:basis-1/4 md:min-w-0">
+                            <SeedCard index={3} id="4" onClick={() => handleOpen(4)} selected={selectedSeedCard === 4} />
+                        </div>
                     </div>
-                    <div className="w-full md:basis-1/4 md:min-w-0">
-                        <SeedCard index={1} id="2" onClick={() => handleOpen(2)} selected={selectedSeedCard === 2} />
-                    </div>
-                    <div className="w-full md:basis-1/4 md:min-w-0">
-                        <SeedCard index={2} id="3" onClick={() => handleOpen(3)} selected={selectedSeedCard === 3} />
-                    </div>
-                    <div className="w-full md:basis-1/4 md:min-w-0">
-                        <SeedCard index={3} id="4" onClick={() => handleOpen(4)} selected={selectedSeedCard === 4} />
-                    </div>
-                </div>
 
-   
-  
 
-                {/* CONTENIDO */}
-                {mode === 'contactos' ? (
-                    contactView === 'panel' && activeWeek && activeDay && seed ? (
-                        <>
-                            <div className="mt-6 md:mt-7 flex items-baseline gap-3">
-                                <h2 className="text-lg md:text-xl font-semibold text-neutral-900 animate-cardIn">Llamadas pendientes Semilla {seed}</h2>
-                                <span className="text-neutral-500 text-sm animate-cardIn" style={{ animationDelay: '60ms' }}>
-                  Semana {activeWeek} • {activeDay}
-                </span>
-                                <button
-                                    className="ml-auto rounded-lg px-3 py-1.5 text-sm ring-1 ring-black/10 bg-white shadow-sm hover:shadow-md transition"
-                                    onClick={() => {
-                                        setContactView('weeks');
-                                        setSelectedProgreso(null);
-                                    }}
-                                >
-                                    Volver
-                                </button>
-                            </div>
 
-                            <div className="mt-3 grid grid-cols-1 lg:grid-cols-2 gap-5 md:gap-6">
-                                {loadingPend ? (
-                                    <section className="rounded-[16px] bg-white ring-1 ring-black/5 p-6 text-center text-neutral-500 shadow-[0_10px_28px_-14px_rgba(16,24,40,.28)]">
-                                        Cargando…
-                                    </section>
-                                ) : (
-                                    <CallsList
-                                        items={pendientes.map((p) => ({
-                                            id: p.progreso_id,
-                                            nombre: p.nombre,
-                                            tel: p.telefono,
-                                            history: [p.llamada1 ?? null, p.llamada2 ?? null, p.llamada3 ?? null],
-                                        }))}
-                                        onSelect={(id) => setSelectedProgreso(id)}
-                                    />
-                                )}
 
-                                {selectedContact ? (
-                                    <FollowUpForm
-                                        key={selectedContact.progresoId} contact={{
-                                            progresoId: selectedContact.progresoId,
-                                            nombre: selectedContact.nombre,
-                                            tel: selectedContact.tel,
-                                            semana: selectedContact.semana,
-                                            dia: selectedContact.dia,
+                    {/* CONTENIDO */}
+                    {mode === 'contactos' ? (
+                        contactView === 'panel' && activeWeek && activeDay && seed ? (
+                            <>
+                                <div className="mt-6 md:mt-7 flex items-baseline gap-3">
+                                    <h2 className="text-lg md:text-xl font-semibold text-neutral-900 animate-cardIn">Llamadas pendientes Semilla {seed}</h2>
+                                    <span className="text-neutral-500 text-sm animate-cardIn" style={{ animationDelay: '60ms' }}>
+                                        Semana {activeWeek} • {activeDay}
+                                    </span>
+                                    <button
+                                        className="ml-auto rounded-lg px-3 py-1.5 text-sm ring-1 ring-black/10 bg-white shadow-sm hover:shadow-md transition"
+                                        onClick={() => {
+                                            setContactView('weeks');
+                                            setSelectedProgreso(null);
                                         }}
-                                        prevHist={selectedContact.hist}
-                                        busy={savingCall}
-                                        onSubmit={async ({ resultado, notas }) => {
-                                            if (!seed || !activeWeek || !activeDay || !selectedContact) return;
-                                            setSavingCall(true);
-                                            try {
-                                                const { error } = await supabase.rpc(RPC_GUARDAR_LLAMADA, {
-                                                    p_progreso: selectedContact.progresoId,
-                                                    p_semana: activeWeek,
-                                                    p_dia: activeDay,
-                                                    p_resultado: resultado,
-                                                    p_notas: notas ?? null,
-                                                });
-                                                if (error) throw error;
-
-                                                await loadPendientes(seed, activeWeek, activeDay);
-                                                setSelectedProgreso(null);
-                                            } catch (e: any) {
-                                                alert(e?.message ?? 'Error al guardar');
-                                            } finally {
-                                                setSavingCall(false);
-                                            }
-                                        }}
-                                    />
-                                ) : (
-                                    <section className="animate-cardIn rounded-[16px] bg-white shadow-[0_10px_28px_-14px_rgba(16,24,40,.28)] ring-1 ring-black/5 grid place-items-center text-neutral-500">
-                                        <div className="p-6 text-center">Selecciona un nombre de la lista para ver/editar el detalle.</div>
-                                    </section>
-                                )}
-                            </div>
-                        </>
-                    ) : (
-                        <>
-                            <h2 className="mt-6 md:mt-7 text-lg md:text-xl font-semibold text-neutral-900 animate-cardIn" style={{ animationDelay: '20ms' }}>
-                                Llamadas pendientes
-                            </h2>
-                            <div className="flex flex-col gap-4 md:flex-row md:flex-nowrap md:items-stretch md:gap-6 mt-3">
-                                <div className="w-full md:basis-1/3 md:min-w-0">
-                                    <WeekCard
-                                        week={1}
-                                        onPick={(day) => {
-                                            setActiveWeek(1);
-                                            setActiveDay(day);
-                                            setContactView('panel');
-                                        }}
-                                    />
+                                    >
+                                        Volver
+                                    </button>
                                 </div>
-                                <div className="w-full md:basis-1/3 md:min-w-0">
-                                    <WeekCard
-                                        week={2}
-                                        delay={80}
-                                        onPick={(day) => {
-                                            setActiveWeek(2);
-                                            setActiveDay(day);
-                                            setContactView('panel');
-                                        }}
-                                    />
+
+                                <div className="mt-3 grid grid-cols-1 lg:grid-cols-2 gap-5 md:gap-6">
+                                    {loadingPend ? (
+                                        <section className="rounded-[16px] bg-white ring-1 ring-black/5 p-6 text-center text-neutral-500 shadow-[0_10px_28px_-14px_rgba(16,24,40,.28)]">
+                                            Cargando…
+                                        </section>
+                                    ) : (
+                                        <CallsList
+                                            items={pendientes.map((p) => ({
+                                                id: p.progreso_id,
+                                                nombre: p.nombre,
+                                                tel: p.telefono,
+                                                history: [p.llamada1 ?? null, p.llamada2 ?? null, p.llamada3 ?? null],
+                                            }))}
+                                            onSelect={(id) => setSelectedProgreso(id)}
+                                        />
+                                    )}
+
+                                    {selectedContact ? (
+                                        <FollowUpForm
+                                            key={selectedContact.progresoId} contact={{
+                                                progresoId: selectedContact.progresoId,
+                                                nombre: selectedContact.nombre,
+                                                tel: selectedContact.tel,
+                                                semana: selectedContact.semana,
+                                                dia: selectedContact.dia,
+                                            }}
+                                            prevHist={selectedContact.hist}
+                                            busy={savingCall}
+                                            onSubmit={async ({ resultado, notas }) => {
+                                                if (!seed || !activeWeek || !activeDay || !selectedContact) return;
+                                                setSavingCall(true);
+                                                try {
+                                                    const { error } = await supabase.rpc(RPC_GUARDAR_LLAMADA, {
+                                                        p_progreso: selectedContact.progresoId,
+                                                        p_semana: activeWeek,
+                                                        p_dia: activeDay,
+                                                        p_resultado: resultado,
+                                                        p_notas: notas ?? null,
+                                                    });
+                                                    if (error) throw error;
+
+                                                    await loadPendientes(seed, activeWeek, activeDay);
+                                                    setSelectedProgreso(null);
+                                                } catch (e: any) {
+                                                    alert(e?.message ?? 'Error al guardar');
+                                                } finally {
+                                                    setSavingCall(false);
+                                                }
+                                            }}
+                                        />
+                                    ) : (
+                                        <section className="animate-cardIn rounded-[16px] bg-white shadow-[0_10px_28px_-14px_rgba(16,24,40,.28)] ring-1 ring-black/5 grid place-items-center text-neutral-500">
+                                            <div className="p-6 text-center">Selecciona un nombre de la lista para ver/editar el detalle.</div>
+                                        </section>
+                                    )}
                                 </div>
-                                <div className="w-full md:basis-1/3 md:min-w-0">
-                                    <WeekCard
-                                        week={3}
-                                        delay={160}
-                                        onPick={(day) => {
-                                            setActiveWeek(3);
-                                            setActiveDay(day);
-                                            setContactView('panel');
-                                        }}
-                                    />
-                                </div>
-                            </div>
-                        </>
-                    )
-                ) : mode === 'asistencias' ? (
-                    <div className="mt-2 md:mt-3">
-                        {seed ? (
-                            <AttendancePanel modulo={seed} dia="Domingo" onExit={() => setMode('default')} />
+                            </>
                         ) : (
-                            <section className="rounded-[16px] bg-white ring-1 ring-black/5 p-6 text-center text-neutral-500 shadow-[0_10px_28px_-14px_rgba(16,24,40,.28)]">
-                                Selecciona una Semilla para ver asistencias.
+                            <>
+                                <h2 className="mt-6 md:mt-7 text-lg md:text-xl font-semibold text-neutral-900 animate-cardIn" style={{ animationDelay: '20ms' }}>
+                                    Llamadas pendientes
+                                </h2>
+                                <div className="flex flex-col gap-4 md:flex-row md:flex-nowrap md:items-stretch md:gap-6 mt-3">
+                                    <div className="w-full md:flex-1 md:min-w-0">
+                                        <WeekCard
+                                            week={1}
+                                            counts={counts['1']}
+                                            onPick={(day) => {
+                                                setActiveWeek(1);
+                                                setActiveDay(day);
+                                                setContactView('panel');
+                                            }}
+                                        />
+                                    </div>
+                                    <div className="w-full md:flex-1 md:min-w-0">
+                                        <WeekCard
+                                            week={2}
+                                            delay={80}
+                                            counts={counts['2']}
+                                            onPick={(day) => {
+                                                setActiveWeek(2);
+                                                setActiveDay(day);
+                                                setContactView('panel');
+                                            }}
+                                        />
+                                    </div>
+                                    <div className="w-full md:flex-1 md:min-w-0">
+                                        <WeekCard
+                                            week={3}
+                                            delay={160}
+                                            counts={counts['3']}
+                                            onPick={(day) => {
+                                                setActiveWeek(3);
+                                                setActiveDay(day);
+                                                setContactView('panel');
+                                            }}
+                                        />
+                                    </div>
+                                </div>
+                            </>
+                        )
+                    ) : mode === 'asistencias' ? (
+                        <div className="mt-2 md:mt-3">
+                            {seed ? (
+                                <AttendancePanel modulo={seed} dia="Domingo" onExit={() => setMode('default')} />
+                            ) : (
+                                <section className="rounded-[16px] bg-white ring-1 ring-black/5 p-6 text-center text-neutral-500 shadow-[0_10px_28px_-14px_rgba(16,24,40,.28)]">
+                                    Selecciona una Semilla para ver asistencias.
+                                </section>
+                            )}
+                        </div>
+                    ) : (
+                        <div className="mt-2 md:mt-3 grid grid-cols-1 lg:grid-cols-2 gap-5 md:gap-6">
+                            <section className="rounded-[16px] bg-white shadow-[0_10px_28px_-14px_rgba(16,24,40,.28)] ring-1 ring-black/5">
+                                <header className="px-4 md:px-5 py-3 border-b border-black/5">
+                                    <h2 className="text-base md:text-lg font-semibold text-neutral-900">Total Llamadas Pendientes Semillas</h2>
+                                    <p className="text-neutral-500 text-xs md:text-sm">Tareas para hoy.</p>
+                                </header>
+                                <div className="px-4 md:px-5 py-6 text-neutral-500 text-sm">Selecciona una Semilla para comenzar.</div>
                             </section>
-                        )}
-                    </div>
-                ) : (
-                    <div className="mt-2 md:mt-3 grid grid-cols-1 lg:grid-cols-2 gap-5 md:gap-6">
-                        <section className="rounded-[16px] bg-white shadow-[0_10px_28px_-14px_rgba(16,24,40,.28)] ring-1 ring-black/5">
-                            <header className="px-4 md:px-5 py-3 border-b border-black/5">
-                                <h2 className="text-base md:text-lg font-semibold text-neutral-900">Total Llamadas Pendientes Semillas</h2>
-                                <p className="text-neutral-500 text-xs md:text-sm">Tareas para hoy.</p>
-                            </header>
-                            <div className="px-4 md:px-5 py-6 text-neutral-500 text-sm">Selecciona una Semilla para comenzar.</div>
-                        </section>
 
-                        <section className="rounded-[16px] bg-white shadow-[0_10px_28px_-14px_rgba(16,24,40,.28)] ring-1 ring-black/5">
-                            <header className="px-4 md:px-5 py-3 border-b border-black/5">
-                                <h2 className="text-base md:text-lg font-semibold text-neutral-900">Asistencia programada Domingo, Martes</h2>
-                                <p className="text-neutral-500 text-xs md:text-sm">Usa el modal para entrar al listado real.</p>
-                            </header>
-                            <div className="px-4 md:px-5 py-6 text-neutral-500 text-sm">Abre una Semilla y elige “Asistencias”.</div>
-                        </section>
-                    </div>
-                )}
+                            <section className="rounded-[16px] bg-white shadow-[0_10px_28px_-14px_rgba(16,24,40,.28)] ring-1 ring-black/5">
+                                <header className="px-4 md:px-5 py-3 border-b border-black/5">
+                                    <h2 className="text-base md:text-lg font-semibold text-neutral-900">Asistencia programada Domingo, Martes</h2>
+                                    <p className="text-neutral-500 text-xs md:text-sm">Usa el modal para entrar al listado real.</p>
+                                </header>
+                                <div className="px-4 md:px-5 py-6 text-neutral-500 text-sm">Abre una Semilla y elige “Asistencias”.</div>
+                            </section>
+                        </div>
+                    )}
 
-                <div className="h-4" />
+                    <div className="h-4" />
+                </div>
             </div>
-             </div>
 
             {/* Estilos locales */}
             <style jsx global>{`
