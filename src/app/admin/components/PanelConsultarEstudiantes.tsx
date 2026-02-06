@@ -78,6 +78,16 @@ export default function PanelConsultarEstudiantes({ maestros, cursos, estudiante
         });
     }, [estudiantes, inscripciones, maestros, cursos]);
 
+    // Sincronizar selectedStudent cuando los datos se actualizan (ej. al guardar hoja de vida)
+    React.useEffect(() => {
+        if (selectedStudent) {
+            const fresh = procesados.find(p => p.id === selectedStudent.id);
+            if (fresh && fresh !== selectedStudent) {
+                setSelectedStudent(fresh);
+            }
+        }
+    }, [procesados, selectedStudent]);
+
     const { pendientes, matriculados } = useMemo(() => {
         const q = search.toLowerCase();
         const match = (e: Estudiante) => !q || e.nombre.toLowerCase().includes(q) || e.cedula?.includes(q);

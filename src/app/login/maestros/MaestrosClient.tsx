@@ -2417,21 +2417,15 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
   }
 
   async function procesarEliminacion() {
-    console.log('[ELIMINAR-MAESTROS] Iniciando procesarEliminacion (Vía API Segura)...');
-
     setShowDeleteConfirm(false);
 
     if (isMultiDelete) {
-      console.log('[ELIMINAR-MAESTROS] Modo: Eliminación Múltiple');
       setBancoLoading(true);
       try {
         const rows = bancoRows.filter(r => selectedDepuracionIds.has(r.progreso_id));
-        console.log('[ELIMINAR-MAESTROS] Registros a eliminar:', rows.length);
         let deletedCount = 0;
 
         for (const row of rows) {
-          console.log(`[ELIMINAR-MAESTROS] Procesando: ${row.nombre}`);
-
           const res = await fetch('/api/eliminar-registro', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -2444,12 +2438,11 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
           const json = await res.json();
 
           if (!res.ok || json.error) {
-            console.error(`[ELIMINAR-MAESTROS] ❌ Error en API para ${row.nombre}:`, json.error);
+            console.error(`Error borrando ${row.nombre}:`, json.error);
             toast.error(`Error eliminando ${row.nombre}`);
             continue;
           }
 
-          console.log(`[ELIMINAR-MAESTROS] ✅ Eliminado OK (API):`, json);
           deletedCount++;
         }
 
@@ -2461,14 +2454,13 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
           toast.error('No se eliminaron registros.');
         }
       } catch (e: any) {
-        console.error('[ELIMINAR-MAESTROS] ❌ Error crítico:', e);
+        console.error('Error eliminación múltiple:', e);
         toast.error('Error de conexión al eliminar.');
       } finally {
         setBancoLoading(false);
       }
 
     } else if (deleteCandidate) {
-      console.log('[ELIMINAR-MAESTROS] Modo: Eliminación Individual');
       const row = deleteCandidate;
       setDeleting((m) => ({ ...m, [row.progreso_id]: true }));
 
@@ -2488,12 +2480,11 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
           throw new Error(json.error || 'Error desconocido en servidor');
         }
 
-        console.log('[ELIMINAR-MAESTROS] ✅ Eliminado OK (API):', json);
         toast.success(`${row.nombre} eliminado permanentemente.`);
         setBancoRows((prev) => prev.filter((r) => r.progreso_id !== row.progreso_id));
 
       } catch (e: any) {
-        console.error('[ELIMINAR-MAESTROS] ❌ Error:', e);
+        console.error('Error borrando:', e);
         toast.error(`No se pudo eliminar: ${e.message}`);
       } finally {
         setDeleting((m) => ({ ...m, [row.progreso_id]: false }));

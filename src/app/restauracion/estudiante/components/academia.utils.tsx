@@ -305,6 +305,7 @@ type CEProps = {
   edit: boolean;
   placeholder?: string;
   onInput?: (e: React.FormEvent<HTMLSpanElement>) => void;
+  onChange?: (value: string) => void;
   className?: string;
 };
 export function CEField({
@@ -312,6 +313,7 @@ export function CEField({
   edit,
   placeholder = "",
   onInput,
+  onChange,
   className,
 }: CEProps) {
   const ref = useRef<HTMLSpanElement>(null);
@@ -319,10 +321,10 @@ export function CEField({
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
-    const current = el.innerText ?? "";
+    const current = el.textContent ?? "";
     const next = value ?? "";
     if (current !== next && !document.activeElement?.isSameNode(el)) {
-      el.innerText = next;
+      el.textContent = next;
     }
   }, [value, edit]);
 
@@ -337,7 +339,10 @@ export function CEField({
       ref={ref}
       contentEditable={edit}
       suppressContentEditableWarning
-      onInput={onInput}
+      onInput={(e) => {
+        if (onInput) onInput(e);
+        if (onChange) onChange(e.currentTarget.textContent || '');
+      }}
       onPaste={onPaste}
       spellCheck={false}
       className={classNames(

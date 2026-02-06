@@ -5,7 +5,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   User, Edit2, SquarePen, Save, Trash2, Landmark, BookOpen,
   HeartPulse, ClipboardList, NotebookPen, IdCard, Phone, Mail,
-  MapPin, Calendar, GraduationCap, Loader2, MessageSquare, Send, Clock
+  MapPin, Calendar, GraduationCap, Loader2, MessageSquare, Send, Clock, Check
 } from 'lucide-react';
 import { supabase } from '../../../../lib/supabaseClient';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -120,15 +120,14 @@ export function HojaDeVidaPanel({
   }
 
   useEffect(() => setLocalSignedUrl(signedUrl), [signedUrl]);
-  useEffect(() => setForm(row), [row?.id]);
+  useEffect(() => setForm(row), [row]);
 
   // Helpers de estado
   function setF<K extends keyof Entrevista>(k: K, v: Entrevista[K]) {
     setForm((f) => ({ ...f, [k]: v }));
   }
-  const onCE = (k: keyof Entrevista) => (e: React.FormEvent<HTMLSpanElement>) => {
-    const t = (e.currentTarget.innerText || '').trim();
-    setF(k, t as any);
+  const onCE = (k: keyof Entrevista) => (val: string) => {
+    setF(k, val as any);
   };
   const onBool = (k: keyof Entrevista) => (v: 'si' | 'no' | null) => {
     setF(k, v === 'si' ? true : v === 'no' ? false : null);
@@ -136,6 +135,9 @@ export function HojaDeVidaPanel({
   const onBoolString = (k: keyof Entrevista) => (v: 'si' | 'no' | null) => {
     setF(k, v);
   };
+
+  // Acciones
+  const [saveSuccess, setSaveSuccess] = useState(false);
 
   // Acciones
   async function handleUpdate() {
@@ -165,7 +167,14 @@ export function HojaDeVidaPanel({
       const { data, error } = await supabase.from('entrevistas').update(payload).eq('id', form.id).select('*').single();
       if (error) throw error;
       onUpdated(data as Entrevista);
-      setEdit(false);
+
+      // Activar animación de éxito
+      setSaveSuccess(true);
+      setTimeout(() => {
+        setSaveSuccess(false);
+        setEdit(false);
+      }, 2000);
+
     } catch (e: any) { console.error(e); alert(e?.message ?? 'Error actualizando'); } finally { setSaving(false); }
   }
 
@@ -226,37 +235,103 @@ export function HojaDeVidaPanel({
             <div className="absolute top-4 left-4 flex gap-2 z-20">
               <button
                 onClick={handleUpdate}
-                disabled={saving}
-                className="group relative w-[110px] md:w-[80px] h-[34px] md:h-[28px] rounded-full transition-transform active:scale-95 outline-none shadow-lg"
+                disabled={saving || saveSuccess}
+                className={classNames(
+                  "group relative h-[34px] md:h-[28px] rounded-full transition-all duration-500 outline-none shadow-lg overflow-hidden",
+                  // Ancho dinámico
+                  saveSuccess ? "w-[120px] md:w-[100px] cursor-default" : "w-[110px] md:w-[80px] active:scale-95"
+                )}
               >
                 {/* Body Background & Shadows */}
                 <div className={classNames(
-                  "absolute inset-0 rounded-full overflow-hidden border border-white/20",
-                  edit ? "bg-gradient-to-r from-emerald-500 to-teal-500" : "bg-gradient-to-r from-blue-600 to-indigo-600"
+                  "absolute inset-0 transition-colors duration-500 ease-out border border-white/20",
+                  saveSuccess
+                    ? "bg-gradient-to-r from-emerald-500 to-green-500"
+                    : edit
+                      ? "bg-gradient-to-r from-emerald-500 to-teal-500"
+                      : "bg-gradient-to-r from-blue-600 to-indigo-600"
                 )}>
                   {/* Inner Shadow for Depth */}
                   <div className="absolute inset-0 shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)]"></div>
+
                   {/* Gloss Overlay */}
                   <div className="absolute right-0 top-0 bottom-0 w-[50%] bg-gradient-to-l from-white/20 to-transparent skew-x-12 opacity-60"></div>
-                  {/* Light Sweep Animation */}
-                  <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 ease-in-out bg-gradient-to-r from-transparent via-white/50 to-transparent w-[150%]" />
+
+                  {/* Success Shine Animation */}
+                  {saveSuccess && (
+                    <div className="absolute inset-0 -translate-x-full animate-[shimmer_1.5s_infinite] bg-gradient-to-r from-transparent via-white/50 to-transparent w-[150%]" />
+                  )}
+
+                  {/* Light Sweep Animation (Hover) */}
+                  {!saveSuccess && (
+                    <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 ease-in-out bg-gradient-to-r from-transparent via-white/50 to-transparent w-[150%]" />
+                  )}
                 </div>
 
                 {/* Knob Content */}
-                <div className="absolute inset-y-0 left-0.5 flex items-center">
+                <div className={classNames(
+                  "absolute inset-y-0 left-0.5 flex items-center transition-all duration-500",
+                  saveSuccess ? "translate-x-[88px] md:translate-x-[72px]" : "translate-x-0"
+                )}>
                   <div className={classNames(
-                    "h-[28px] w-[28px] md:h-[22px] md:w-[22px] rounded-full bg-gradient-to-b from-white to-gray-200 border-2 border-white shadow-md flex items-center justify-center z-10",
-                    edit ? "text-emerald-600" : "text-blue-600"
+                    "h-[28px] w-[28px] md:h-[22px] md:w-[22px] rounded-full shadow-md flex items-center justify-center z-10 transition-colors duration-300 border-2 border-white",
+                    saveSuccess ? "bg-white text-emerald-600 scale-110" : "bg-gradient-to-b from-white to-gray-200",
+                    !saveSuccess && (edit ? "text-emerald-600" : "text-blue-600")
                   )}>
-                    {edit ? (saving ? <Loader2 size={12} className="animate-spin md:w-3 md:h-3" /> : <Save size={12} className="md:w-3 md:h-3" />) : <Edit2 size={12} className="md:w-3 md:h-3" />}
+                    <AnimatePresence mode="wait">
+                      {saveSuccess ? (
+                        <motion.div
+                          key="success"
+                          initial={{ scale: 0 }}
+                          animate={{ scale: 1 }}
+                          exit={{ scale: 0 }}
+                        >
+                          <Check size={14} strokeWidth={4} className="md:w-3.5 md:h-3.5" />
+                        </motion.div>
+                      ) : edit ? (
+                        saving ? (
+                          <motion.div key="loading" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+                            <Loader2 size={12} className="animate-spin md:w-3 md:h-3" />
+                          </motion.div>
+                        ) : (
+                          <motion.div key="save" initial={{ scale: 0 }} animate={{ scale: 1 }}>
+                            <Save size={12} className="md:w-3 md:h-3" />
+                          </motion.div>
+                        )
+                      ) : (
+                        <motion.div key="edit" initial={{ scale: 0 }} animate={{ scale: 1 }}>
+                          <Edit2 size={12} className="md:w-3 md:h-3" />
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
                   </div>
                 </div>
 
                 {/* Text */}
-                <div className="absolute inset-0 flex items-center justify-center pl-6 md:pl-5">
-                  <span className="text-[9px] md:text-[7px] font-black text-white uppercase tracking-widest drop-shadow-md">
-                    {edit ? (saving ? "Guardando" : "Guardar") : "Editar"}
-                  </span>
+                <div className="absolute inset-0 flex items-center justify-center pl-6 md:pl-5 pointer-events-none">
+                  <AnimatePresence mode="wait">
+                    {saveSuccess ? (
+                      <motion.span
+                        key="saved-text"
+                        initial={{ y: 10, opacity: 0 }}
+                        animate={{ y: 0, opacity: 1 }}
+                        exit={{ y: -10, opacity: 0 }}
+                        className="text-[9px] md:text-[8px] font-black text-white uppercase tracking-widest drop-shadow-md pr-6 md:pr-4"
+                      >
+                        ¡GUARDADO!
+                      </motion.span>
+                    ) : (
+                      <motion.span
+                        key="normal-text"
+                        initial={{ y: 10, opacity: 0 }}
+                        animate={{ y: 0, opacity: 1 }}
+                        exit={{ y: -10, opacity: 0 }}
+                        className="text-[9px] md:text-[7px] font-black text-white uppercase tracking-widest drop-shadow-md"
+                      >
+                        {edit ? (saving ? "Guardando" : "Guardar") : "Editar"}
+                      </motion.span>
+                    )}
+                  </AnimatePresence>
                 </div>
               </button>
             </div>
@@ -282,13 +357,13 @@ export function HojaDeVidaPanel({
             {/* Nombre & Título */}
             <div className="w-full mt-2 space-y-1">
               {edit ? (
-                <CEField value={form.nombre} edit={true} onInput={onCE('nombre')} placeholder="Tu Nombre" className="text-2xl font-bold text-slate-800 block border-b border-indigo-500/50 text-center bg-transparent tracking-tight" />
+                <CEField value={form.nombre} edit={true} onChange={onCE('nombre')} placeholder="Tu Nombre" className="text-2xl font-bold text-slate-800 block border-b border-indigo-500/50 text-center bg-transparent tracking-tight" />
               ) : (
                 <h2 className="text-lg font-bold text-transparent bg-clip-text bg-gradient-to-r from-slate-800 to-blue-600 tracking-tight leading-tight">{form.nombre || 'Sin Nombre'}</h2>
               )}
 
               {edit ? (
-                <CEField value={form.ocupacion} edit={true} onInput={onCE('ocupacion')} placeholder="Profesión" className="text-xs text-blue-700 block border-b border-blue-500/30 text-center bg-transparent font-medium" />
+                <CEField value={form.ocupacion} edit={true} onChange={onCE('ocupacion')} placeholder="Profesión" className="text-xs text-blue-700 block border-b border-blue-500/30 text-center bg-transparent font-medium" />
               ) : (
                 <p className="text-xs text-blue-600 font-medium tracking-wide uppercase">{form.ocupacion || 'Sin Ocupación'}</p>
               )}
@@ -331,9 +406,9 @@ export function HojaDeVidaPanel({
           <div className="hidden md:block px-4 py-4 overflow-y-auto custom-scrollbar">
             <div className="space-y-3">
               <h3 className="text-[10px] font-bold text-slate-600 uppercase tracking-[0.25em] border-b border-slate-300 pb-1 mb-2">Contacto</h3>
-              <ContactRow icon={<IdCard size={16} />} label="Cédula" value={form.cedula} edit={edit} onInput={onCE('cedula')} />
-              <ContactRow icon={<Phone size={16} />} label="Teléfono" value={form.telefono} edit={edit} onInput={onCE('telefono')} color="text-cyan-400" />
-              <ContactRow icon={<Mail size={16} />} label="Email" value={form.email} edit={edit} onInput={onCE('email')} color="text-blue-400" />
+              <ContactRow icon={<IdCard size={16} />} label="Cédula" value={form.cedula} edit={edit} onChange={onCE('cedula')} />
+              <ContactRow icon={<Phone size={16} />} label="Teléfono" value={form.telefono} edit={edit} onChange={onCE('telefono')} color="text-cyan-400" />
+              <ContactRow icon={<Mail size={16} />} label="Email" value={form.email} edit={edit} onChange={onCE('email')} color="text-blue-400" />
             </div>
           </div>
         </aside>
@@ -354,9 +429,9 @@ export function HojaDeVidaPanel({
                 <div className="md:hidden block mb-6 bg-white/40 backdrop-blur-xl p-5 rounded-2xl border border-white/20 shadow-sm">
                   <div className="space-y-3">
                     <h3 className="text-[10px] font-bold text-slate-600 uppercase tracking-[0.25em] border-b border-slate-300 pb-1 mb-2">Contacto</h3>
-                    <ContactRow icon={<IdCard size={16} />} label="Cédula" value={form.cedula} edit={edit} onInput={onCE('cedula')} />
-                    <ContactRow icon={<Phone size={16} />} label="Teléfono" value={form.telefono} edit={edit} onInput={onCE('telefono')} color="text-cyan-400" />
-                    <ContactRow icon={<Mail size={16} />} label="Email" value={form.email} edit={edit} onInput={onCE('email')} color="text-blue-400" />
+                    <ContactRow icon={<IdCard size={16} />} label="Cédula" value={form.cedula} edit={edit} onChange={onCE('cedula')} />
+                    <ContactRow icon={<Phone size={16} />} label="Teléfono" value={form.telefono} edit={edit} onChange={onCE('telefono')} color="text-cyan-400" />
+                    <ContactRow icon={<Mail size={16} />} label="Email" value={form.email} edit={edit} onChange={onCE('email')} color="text-blue-400" />
                   </div>
                 </div>
 
@@ -375,42 +450,42 @@ export function HojaDeVidaPanel({
                   <div className="grid grid-cols-1 gap-5">
                     {/* === TARJETAS DE CRISTAL === */}
                     <GlassSection title="Datos Demográficos" icon={<User size={20} />} color="indigo">
-                      <DarkRow label="Fecha Nacimiento" icon={<Calendar size={14} />} value={form.fecha_nac} edit={edit} onInput={onCE('fecha_nac')} />
-                      <DarkRow label="Lugar Nacimiento" icon={<MapPin size={14} />} value={form.lugar_nac} edit={edit} onInput={onCE('lugar_nac')} />
-                      <DarkRow label="Dirección" value={form.direccion} edit={edit} onInput={onCE('direccion')} />
+                      <DarkRow label="Fecha Nacimiento" icon={<Calendar size={14} />} value={form.fecha_nac} edit={edit} onChange={onCE('fecha_nac')} />
+                      <DarkRow label="Lugar Nacimiento" icon={<MapPin size={14} />} value={form.lugar_nac} edit={edit} onChange={onCE('lugar_nac')} />
+                      <DarkRow label="Dirección" value={form.direccion} edit={edit} onChange={onCE('direccion')} />
                       <DarkRowSelect label="Estado Civil" value={form.estado_civil} edit={edit} onChange={(v: any) => setF('estado_civil', v)} options={ESTADOS} />
                       <DarkRowSelect label="Convivencia" value={form.convivencia} edit={edit} onChange={(v: any) => setF('convivencia', v)} options={CONVIVENCIA} />
-                      <DarkRow label="Escolaridad" icon={<GraduationCap size={14} />} value={form.escolaridad} edit={edit} onInput={onCE('escolaridad')} />
-                      <DarkRow label="Ocupación" value={form.ocupacion} edit={edit} onInput={onCE('ocupacion')} />
+                      <DarkRow label="Escolaridad" icon={<GraduationCap size={14} />} value={form.escolaridad} edit={edit} onChange={onCE('escolaridad')} />
+                      <DarkRow label="Ocupación" value={form.ocupacion} edit={edit} onChange={onCE('ocupacion')} />
                       <DarkRowBool label="Labora actualmente" value={form.labora_actualmente} edit={edit} onChange={onBoolString('labora_actualmente')} />
                     </GlassSection>
 
                     <GlassSection title="Vida Eclesiástica" icon={<Landmark size={20} />} color="cyan">
                       <DarkRowBool label="¿Se congrega?" value={form.se_congrega} edit={edit} onChange={onBoolString('se_congrega')} />
                       <DarkRowSelect label="Día servicio" value={form.dia_congrega} edit={edit} onChange={(v: any) => setF('dia_congrega', v)} options={DIAS} disabled={form.se_congrega !== 'si'} />
-                      <DarkRow label="Tiempo asistiendo" value={form.tiempo_iglesia} edit={edit} onInput={onCE('tiempo_iglesia')} />
-                      <DarkRow label="Invitado por" value={form.invito} edit={edit} onInput={onCE('invito')} />
-                      <DarkRow label="Pastor" value={form.pastor} edit={edit} onInput={onCE('pastor')} />
+                      <DarkRow label="Tiempo asistiendo" value={form.tiempo_iglesia} edit={edit} onChange={onCE('tiempo_iglesia')} />
+                      <DarkRow label="Invitado por" value={form.invito} edit={edit} onChange={onCE('invito')} />
+                      <DarkRow label="Pastor" value={form.pastor} edit={edit} onChange={onCE('pastor')} />
                       <DarkRowBool label="De otra iglesia" value={form.viene_otra_iglesia} edit={edit} onChange={onBoolString('viene_otra_iglesia')} />
-                      {form.viene_otra_iglesia === 'si' && <DarkRow label="¿Cuál iglesia?" value={form.otra_iglesia_nombre} edit={edit} onInput={onCE('otra_iglesia_nombre')} />}
+                      {form.viene_otra_iglesia === 'si' && <DarkRow label="¿Cuál iglesia?" value={form.otra_iglesia_nombre} edit={edit} onChange={onCE('otra_iglesia_nombre')} />}
                     </GlassSection>
 
                     <GlassSection title="Vida Espiritual" icon={<BookOpen size={20} />} color="amber">
                       <DarkRowBool label="Bautizo agua" value={form.bautizo_agua} edit={edit} onChange={onBoolString('bautizo_agua')} />
                       <DarkRowBool label="Tiene Biblia" value={form.tiene_biblia} edit={edit} onChange={onBool('tiene_biblia')} />
                       <DarkRowBool label="Ayuna" value={form.ayuna} edit={edit} onChange={onBoolString('ayuna')} />
-                      {form.ayuna === 'si' && <DarkRow label="Motivo Ayuno" value={form.motivo_ayuno} edit={edit} onInput={onCE('motivo_ayuno')} />}
+                      {form.ayuna === 'si' && <DarkRow label="Motivo Ayuno" value={form.motivo_ayuno} edit={edit} onChange={onCE('motivo_ayuno')} />}
                       <DarkRowSelect label="Tiempo oración" value={form.tiempo_oracion} edit={edit} onChange={(v: any) => setF('tiempo_oracion', v)} options={TIEMPO_ORACION} />
                       <DarkRowSelect label="Lectura Bíblica" value={form.frecuencia_lectura_biblia} edit={edit} onChange={(v: any) => setF('frecuencia_lectura_biblia', v)} options={LECTURA_BIBLIA} />
                     </GlassSection>
 
                     <GlassSection title="Salud y Bienestar" icon={<HeartPulse size={20} />} color="rose">
-                      <DarkRow label="Meta Personal" value={form.meta_personal} edit={edit} onInput={onCE('meta_personal')} />
-                      <DarkRow label="Enfermedad" value={form.enfermedad} edit={edit} onInput={onCE('enfermedad')} />
+                      <DarkRow label="Meta Personal" value={form.meta_personal} edit={edit} onChange={onCE('meta_personal')} />
+                      <DarkRow label="Enfermedad" value={form.enfermedad} edit={edit} onChange={onCE('enfermedad')} />
                       <DarkRowBool label="Tratamiento clínico" value={form.tratamiento_clinico} edit={edit} onChange={onBoolString('tratamiento_clinico')} />
-                      {form.tratamiento_clinico === 'si' && <DarkRow label="Motivo trat." value={form.motivo_tratamiento} edit={edit} onInput={onCE('motivo_tratamiento')} />}
+                      {form.tratamiento_clinico === 'si' && <DarkRow label="Motivo trat." value={form.motivo_tratamiento} edit={edit} onChange={onCE('motivo_tratamiento')} />}
                       <DarkRowBool label="Recibe consejería" value={form.recibe_consejeria} edit={edit} onChange={onBoolString('recibe_consejeria')} />
-                      {form.recibe_consejeria === 'si' && <DarkRow label="Motivo cons." value={form.motivo_consejeria} edit={edit} onInput={onCE('motivo_consejeria')} />}
+                      {form.recibe_consejeria === 'si' && <DarkRow label="Motivo cons." value={form.motivo_consejeria} edit={edit} onChange={onCE('motivo_consejeria')} />}
                     </GlassSection>
 
                     {/* Ancho Completo */}
@@ -419,12 +494,12 @@ export function HojaDeVidaPanel({
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-2">
                           <div>
                             <DarkRowBool label="Participa activamente" value={form.interviene} edit={edit} onChange={onBool('interviene')} />
-                            <DarkRow label="Maestro Encargado" value={form.maestro_encargado} edit={edit} onInput={onCE('maestro_encargado')} />
-                            <DarkRow label="Retiros Asistidos" value={form.retiros_asistidos} edit={edit} onInput={onCE('retiros_asistidos')} />
+                            <DarkRow label="Maestro Encargado" value={form.maestro_encargado} edit={edit} onChange={onCE('maestro_encargado')} />
+                            <DarkRow label="Retiros Asistidos" value={form.retiros_asistidos} edit={edit} onChange={onCE('retiros_asistidos')} />
                           </div>
                           <div>
-                            <DarkRow label="Cambios físicos" value={form.cambios_fisicos} edit={edit} onInput={onCE('cambios_fisicos')} />
-                            <DarkRow label="Desempeño general" value={form.desempeno_clase} edit={edit} onInput={onCE('desempeno_clase')} />
+                            <DarkRow label="Cambios físicos" value={form.cambios_fisicos} edit={edit} onChange={onCE('cambios_fisicos')} />
+                            <DarkRow label="Desempeño general" value={form.desempeno_clase} edit={edit} onChange={onCE('desempeno_clase')} />
                           </div>
                         </div>
                       </GlassSection>
@@ -620,8 +695,8 @@ export function HojaDeVidaPanel({
               </motion.div>
             )}
           </AnimatePresence>
-        </main>
-      </div>
+        </main >
+      </div >
     </div >
   );
 }
@@ -630,7 +705,7 @@ export function HojaDeVidaPanel({
 //  COMPONENTES LOCALES CON ESTILO "GLASS" REFINADO
 // ============================================================================
 
-function ContactRow({ icon, label, value, edit, onInput, color = "text-slate-400" }: any) {
+function ContactRow({ icon, label, value, edit, onInput, onChange, color = "text-slate-400" }: any) {
   return (
     <div className="group flex items-center gap-3 p-2 rounded-xl hover:bg-white/60 transition-all border border-transparent hover:border-white/40">
       <div className={classNames(
@@ -643,7 +718,7 @@ function ContactRow({ icon, label, value, edit, onInput, color = "text-slate-400
       <div className="flex flex-col flex-1 min-w-0">
         <span className="text-[9px] text-slate-600 font-bold uppercase tracking-widest mb-0.5">{label}</span>
         <div className="text-sm text-slate-800 font-medium truncate">
-          {edit ? <CEField value={value} edit={true} onInput={onInput} className="border-b border-slate-600 block w-full bg-transparent" /> : (value || '—')}
+          {edit ? <CEField value={value} edit={true} onInput={onInput} onChange={onChange} className="border-b border-slate-600 block w-full bg-transparent" /> : (value || '—')}
         </div>
       </div>
     </div>
@@ -706,7 +781,7 @@ function GlassSection({ title, icon, color, children }: any) {
   );
 }
 
-function DarkRow({ label, value, edit, onInput, icon }: any) {
+function DarkRow({ label, value, edit, onInput, onChange, icon }: any) {
   return (
     <div className="flex flex-col sm:flex-row sm:items-start justify-between py-3 border-b border-slate-200 last:border-0 gap-2 hover:bg-white/40 px-3 -mx-3 rounded-lg transition-colors">
       <div className="flex items-center gap-2 text-xs font-medium text-slate-600 uppercase w-[160px] flex-shrink-0 tracking-wide mt-0.5">
@@ -715,7 +790,7 @@ function DarkRow({ label, value, edit, onInput, icon }: any) {
       </div>
       <div className="text-sm text-slate-700 font-light flex-1 sm:text-right break-words leading-relaxed">
         {edit ? (
-          <CEField value={value} edit={true} onInput={onInput} className="inline-block min-w-[50px] text-left sm:text-right border-b border-blue-500/50 px-1 focus:border-blue-400 transition-colors" />
+          <CEField value={value} edit={true} onInput={onInput} onChange={onChange} className="inline-block min-w-[50px] text-left sm:text-right border-b border-blue-500/50 px-1 focus:border-blue-400 transition-colors" />
         ) : (
           value || <span className="text-slate-400 text-xs">—</span>
         )}

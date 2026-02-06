@@ -390,8 +390,17 @@ export default function EstudiantePage() {
 
   // --- Actualizaciones de Hoja de Vida ---
   const onUpdated = useCallback((r: Entrevista & { _tempPreview?: string | null }) => {
-    setStudents((xs) => xs.map((x) => (x.id === r.id ? { ...x, ...r } : x)));
-    setSelectedStudent(prev => prev ? { ...prev, ...r } : null);
+    console.log('[EstudiantePage] onUpdated recibido:', r);
+    setStudents((xs) => {
+      const updated = xs.map((x) => (x.id === r.id ? { ...x, ...r } : x));
+      // console.log('[EstudiantePage] Students array actualizado. Longitud:', updated.length);
+      return updated;
+    });
+    setSelectedStudent(prev => {
+      const next = prev ? { ...prev, ...r } : null;
+      console.log('[EstudiantePage] selectedStudent actualizado:', next);
+      return next;
+    });
 
     if (r._tempPreview) {
       setSignedUrl(r._tempPreview);

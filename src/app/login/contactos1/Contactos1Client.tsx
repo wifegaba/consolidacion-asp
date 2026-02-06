@@ -2324,21 +2324,15 @@ export default function Contactos1Client(
   }
 
   async function procesarEliminacion() {
-    console.log('[ELIMINAR] Iniciando procesarEliminacion (Vía API Segura)...');
-
     setShowDeleteConfirm(false);
 
     if (isMultiDelete) {
-      console.log('[ELIMINAR] Modo: Eliminación Múltiple');
       setBancoLoading(true);
       try {
         const rows = bancoRows.filter(r => selectedDepuracionIds.has(r.progreso_id));
-        console.log('[ELIMINAR] Registros a eliminar:', rows.length);
         let deletedCount = 0;
 
         for (const row of rows) {
-          console.log(`[ELIMINAR] Procesando: ${row.nombre}`);
-
           // LLAMADA A API SEGURA
           const res = await fetch('/api/eliminar-registro', {
             method: 'POST',
@@ -2352,12 +2346,10 @@ export default function Contactos1Client(
           const json = await res.json();
 
           if (!res.ok || json.error) {
-            console.error(`[ELIMINAR] ❌ Error en API para ${row.nombre}:`, json.error);
+            console.error(`Error borrando ${row.nombre}:`, json.error);
             toast.error(`Error eliminando a ${row.nombre}`);
             continue;
           }
-
-          console.log(`[ELIMINAR] ✅ Eliminado OK (API):`, json);
           deletedCount++;
         }
 
@@ -2369,14 +2361,13 @@ export default function Contactos1Client(
           toast.error('No se pudieron eliminar los registros.');
         }
       } catch (e: any) {
-        console.error('[ELIMINAR] ❌ Error crítico:', e);
+        console.error('Error eliminación múltiple:', e);
         toast.error('Error de conexión al eliminar.');
       } finally {
         setBancoLoading(false);
       }
 
     } else if (deleteCandidate) {
-      console.log('[ELIMINAR] Modo: Eliminación Individual');
       const row = deleteCandidate;
       setDeleting((m) => ({ ...m, [row.progreso_id]: true }));
 
@@ -2397,13 +2388,12 @@ export default function Contactos1Client(
           throw new Error(json.error || 'Error desconocido en servidor');
         }
 
-        console.log('[ELIMINAR] ✅ Eliminado OK (API):', json);
         toast.success(`${row.nombre} eliminado permanentemente.`);
         setBancoRows((prev) => prev.filter((r) => r.progreso_id !== row.progreso_id));
 
       } catch (e: any) {
-        console.error('[ELIMINAR] ❌ Error borrando individual:', e);
-        toast.error(`No se pudo eliminar a ${row.nombre}: ${e.message}`);
+        console.error('Error borrando individual:', e);
+        toast.error(`No se pudo eliminar a ${row.nombre}.`);
       } finally {
         setDeleting((m) => ({ ...m, [row.progreso_id]: false }));
         setDeleteCandidate(null);

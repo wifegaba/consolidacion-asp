@@ -5,6 +5,35 @@ import { getServerSupabase } from '@/lib/supabaseClient';
 
 const normalizeCedula = (raw: string) => raw?.trim() ?? '';
 
+// Helper para registrar accesos (fire-and-forget, no bloquea el login)
+async function registrarAuditoria(params: {
+  supabase: any;
+  servidorId: string;
+  cedula: string;
+  nombre: string;
+  rol: string;
+  userAgent: string;
+}) {
+  try {
+    const { error } = await params.supabase.from('auditoria_accesos').insert({
+      servidor_id: params.servidorId,
+      cedula: params.cedula,
+      nombre: params.nombre,
+      rol_usado: params.rol,
+      user_agent: params.userAgent
+    });
+
+    if (error) {
+      console.error('[AUDITORÍA] ❌ Error:', error.message);
+    } else {
+      console.log(`[AUDITORÍA] ✅ ${params.nombre} - ${params.rol}`);
+    }
+  } catch (e: any) {
+    console.error('[AUDITORÍA] ❌ Error crítico:', e.message);
+  }
+}
+
+
 export async function POST(req: Request) {
   const isProd = process.env.NODE_ENV === 'production';
   const secret = process.env.JWT_SECRET;
@@ -174,13 +203,35 @@ export async function POST(req: Request) {
 
       // Si solo tiene UN rol administrativo (y ningún operativo), redirige directo
       if (rolDirector) {
+        console.log('🔍 DEBUG: Intentando registrar auditoría para Director');
+        // Registrar acceso (ahora con await para garantizar ejecución)
+        await registrarAuditoria({
+          supabase,
+          servidorId,
+          cedula,
+          nombre: servidor.nombre,
+          rol: 'Director',
+          userAgent: req.headers.get('user-agent') || 'Unknown'
+        });
+
         const token = jwt.sign({ cedula, rol: 'Director', servidorId }, secret, { expiresIn: '8h' });
-        const res = NextResponse.json({ redirect: '/panel' });
+        const res = NextResponse.json({ redirect: '/admin' });
         res.cookies.set(isProd ? '__Host-session' : 'session', token, { httpOnly: true, secure: isProd, sameSite: 'lax', path: '/', maxAge: 60 * 60 * 8 });
         return res;
       }
 
       if (rolAdministrador) {
+        console.log('🔍 DEBUG: Intentando registrar auditoría para Administrador');
+        // Registrar acceso (ahora con await)
+        await registrarAuditoria({
+          supabase,
+          servidorId,
+          cedula,
+          nombre: servidor.nombre,
+          rol: 'Administrador',
+          userAgent: req.headers.get('user-agent') || 'Unknown'
+        });
+
         const token = jwt.sign({ cedula, rol: 'Administrador', servidorId }, secret, { expiresIn: '8h' });
         const res = NextResponse.json({ redirect: '/admin' });
         res.cookies.set(isProd ? '__Host-session' : 'session', token, { httpOnly: true, secure: isProd, sameSite: 'lax', path: '/', maxAge: 60 * 60 * 8 });
@@ -206,6 +257,18 @@ export async function POST(req: Request) {
             dia: maestroPtmDia
           }] : [])
         ];
+
+        console.log('🔍 DEBUG: Intentando registrar auditoría para Portal (múltiples roles)');
+        // Registrar acceso (ahora con await)
+        await registrarAuditoria({
+          supabase,
+          servidorId,
+          cedula,
+          nombre: servidor.nombre,
+          rol: 'Usuario Portal (Múltiples Roles)',
+          userAgent: req.headers.get('user-agent') || 'Unknown'
+        });
+
         const token = jwt.sign({ cedula, roles: ['portal'], servidorId, nombre: servidor.nombre, asignaciones }, secret, { expiresIn: '8h' });
         const res = NextResponse.json({ redirect: '/login/portal' });
         res.cookies.set(isProd ? '__Host-session' : 'session', token, { httpOnly: true, secure: isProd, sameSite: 'lax', path: '/', maxAge: 60 * 60 * 8 });
@@ -242,6 +305,17 @@ export async function POST(req: Request) {
         servidorId,
         ...extraData
       };
+
+      console.log(`🔍 DEBUG: Intentando registrar auditoría para rol único: ${rolName}`);
+      // Registrar acceso (ahora con await)
+      await registrarAuditoria({
+        supabase,
+        servidorId,
+        cedula,
+        nombre: servidor.nombre,
+        rol: rolName,
+        userAgent: req.headers.get('user-agent') || 'Unknown'
+      });
 
       const token = jwt.sign(tokenPayload, secret, { expiresIn: '8h' });
       const res = NextResponse.json({ redirect });
