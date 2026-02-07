@@ -17,14 +17,26 @@ export default function AuditoriaPage() {
     const [logs, setLogs] = useState<Log[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
+    const [currentPage, setCurrentPage] = useState(1);
+    const [totalPages, setTotalPages] = useState(1);
 
-    const fetchLogs = async () => {
+    const fetchLogs = async (page = 1) => {
         setLoading(true);
         try {
-            const res = await fetch('/api/auditoria');
+            const res = await fetch(`/api/auditoria?page=${page}&limit=10`);
             const json = await res.json();
+
             if (json.error) throw new Error(json.error);
-            setLogs(json.data || []);
+
+            // Si la API devuelve el formato nuevo con meta:
+            if (json.meta) {
+                setLogs(json.data || []);
+                setTotalPages(json.meta.totalPages);
+                setCurrentPage(json.meta.page);
+            } else {
+                // Fallback para formato antiguo
+                setLogs(json.data || []);
+            }
         } catch (e: any) {
             console.error(e);
             setError(e.message || 'Error cargando logs. ¿Existe la tabla auditoria_accesos?');
@@ -34,29 +46,37 @@ export default function AuditoriaPage() {
     };
 
     useEffect(() => {
-        fetchLogs();
+        fetchLogs(1);
         // Auto refresh cada 30s
-        const interval = setInterval(fetchLogs, 30000);
+        const interval = setInterval(() => fetchLogs(currentPage), 30000); // Refresca página actual
         return () => clearInterval(interval);
-    }, []);
+    }, [currentPage]); // Re-ejecutar si cambia página
+
+    const handlePageChange = (newPage: number) => {
+        if (newPage >= 1 && newPage <= totalPages) {
+            fetchLogs(newPage);
+        }
+    };
 
     return (
         <div className="min-h-screen bg-neutral-950 text-emerald-500 p-6 font-mono selection:bg-emerald-900 selection:text-white">
             <div className="max-w-7xl mx-auto">
-                <header className="flex items-center justify-between mb-8 border-b border-emerald-900/50 pb-4">
+                <header className="flex items-center justify-between mb-8 border-b border-green-900/50 pb-4">
                     <div>
-                        <h1 className="text-2xl font-bold tracking-tight text-emerald-400">
-                            <span className="mr-2 opacity-50">///</span>
-                            SYSTEM ACCESS LOGS
+                        <h1 className="text-4xl font-mono text-green-400 font-bold tracking-tighter mb-2 glitch-text">
+                            /// AUDITORIA CRM MINISTERIAL
                         </h1>
-                        <p className="text-xs text-emerald-700 mt-1 uppercase tracking-widest">
-                            Top Secret • Authorized Personnel Only
-                        </p>
+                        <div className="flex items-center gap-2 text-xs font-mono text-green-700 tracking-widest">
+                            <span className="animate-pulse">●</span>
+                            <span>TOP SECRET</span>
+                            <span>•</span>
+                            <span>AUTHORIZED PERSONNEL ONLY</span>
+                        </div>
                     </div>
                     <button
-                        onClick={fetchLogs}
+                        onClick={() => fetchLogs(currentPage)}
                         disabled={loading}
-                        className="px-4 py-2 text-xs border border-emerald-800 hover:bg-emerald-900/30 transition rounded text-emerald-400 disabled:opacity-50"
+                        className="px-4 py-2 border border-green-800 text-green-500 font-mono text-sm hover:bg-green-900/20 active:bg-green-900/40 transition-colors uppercase tracking-wider disabled:opacity-50"
                     >
                         {loading ? 'SYNCING...' : 'REFRESH_DATA'}
                     </button>
@@ -127,6 +147,27 @@ export default function AuditoriaPage() {
                             )}
                         </tbody>
                     </table>
+                </div>
+                <div className="mt-6 flex justify-between items-center text-xs font-mono select-none">
+                    <button
+                        onClick={() => handlePageChange(currentPage - 1)}
+                        disabled={currentPage === 1 || loading}
+                        className="px-4 py-2 border border-green-900 text-green-600 hover:text-green-400 hover:border-green-500 disabled:opacity-30 disabled:hover:text-green-600 disabled:hover:border-green-900 transition-colors uppercase"
+                    >
+                        &lt; ANTERIOR
+                    </button>
+
+                    <div className="text-green-800 tracking-widest">
+                        [ PAGINA <span className="text-green-400">{currentPage}</span> DE <span className="text-green-400">{totalPages || 1}</span> ]
+                    </div>
+
+                    <button
+                        onClick={() => handlePageChange(currentPage + 1)}
+                        disabled={currentPage >= totalPages || loading}
+                        className="px-4 py-2 border border-green-900 text-green-600 hover:text-green-400 hover:border-green-500 disabled:opacity-30 disabled:hover:text-green-600 disabled:hover:border-green-900 transition-colors uppercase"
+                    >
+                        SIGUIENTE &gt;
+                    </button>
                 </div>
             </div>
         </div>

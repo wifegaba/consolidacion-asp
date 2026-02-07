@@ -195,6 +195,24 @@ export async function POST(req: Request) {
             dia: maestroPtmDia
           }] : [])
         ];
+
+        // Determinar rol principal para auditoría
+        let rolAudit = 'Usuario Portal (Múltiples Roles)';
+        if (rolDirector) rolAudit = 'Director (Portal)';
+        else if (rolAdministrador) rolAudit = 'Gestor Académico (Portal)';
+
+        console.log(`🔍 DEBUG: Intentando registrar auditoría para ${rolAudit}`);
+
+        // Registrar acceso (ahora con await)
+        await registrarAuditoria({
+          supabase,
+          servidorId,
+          cedula,
+          nombre: servidor.nombre,
+          rol: rolAudit,
+          userAgent: req.headers.get('user-agent') || 'Unknown'
+        });
+
         const token = jwt.sign({ cedula, roles: ['portal'], servidorId, nombre: servidor.nombre, asignaciones }, secret, { expiresIn: '8h' });
         const res = NextResponse.json({ redirect: '/login/portal' });
         res.cookies.set(isProd ? '__Host-session' : 'session', token, { httpOnly: true, secure: isProd, sameSite: 'lax', path: '/', maxAge: 60 * 60 * 8 });
