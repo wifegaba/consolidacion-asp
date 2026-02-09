@@ -81,6 +81,7 @@ type EstudianteInscrito = Entrevista & {
   progress?: number; // 0 - 100
   missedClasses?: number[]; // Array de números de clase perdidas (ej: [1, 3, 5])
   missedCount?: number; // Total de inasistencias
+  missedDates?: Record<number, string>; // Mapa de clase_numero -> fecha real de inasistencia
 };
 
 function createDefaultGradePlaceholders(count = 5): GradePlaceholder[] {
@@ -140,6 +141,10 @@ export default function EstudiantePage() {
 
   // Estado para modal de pendientes
   const [showPendingModal, setShowPendingModal] = useState(false);
+
+  // Estado para modal de nivelación individual (desde sidebar)
+  const [showNivelarModal, setShowNivelarModal] = useState(false);
+  const [nivelarStudent, setNivelarStudent] = useState<EstudianteInscrito | null>(null);
 
 
   const [currentUserName, setCurrentUserName] = useState('');
@@ -270,8 +275,8 @@ export default function EstudiantePage() {
         const inscripcionIds = loadedStudents.map(s => s.inscripcion_id);
         const fotoPaths = [...new Set(loadedStudents.map((s) => s.foto_path).filter(Boolean) as string[])];
 
-        // Ejecutar ambas queries en paralelo
-        const [asistenciasResult, fotosResult] = await Promise.all([
+        // Ejecutar todas las queries en paralelo (asistencias, fotos, e inasistencias con fechas reales)
+        const [asistenciasResult, fotosResult, inasistenciasResult] = await Promise.all([
           // Query asistencias
           supabase
             .from('asistencias_academia')
@@ -280,7 +285,19 @@ export default function EstudiantePage() {
           // Query fotos (solo si hay fotos)
           fotoPaths.length > 0
             ? supabase.storage.from("entrevistas-fotos").createSignedUrls(fotoPaths, 60 * 60)
-            : Promise.resolve({ data: null })
+            : Promise.resolve({ data: null }),
+          // Query fechas reales de inasistencia
+          (async () => {
+            try {
+              return await supabase
+                .from('inasistencias_academia')
+                .select('inscripcion_id, clase_numero, fecha_inasistencia')
+                .in('inscripcion_id', inscripcionIds)
+                .eq('nivelado', false);
+            } catch {
+              return { data: null };
+            }
+          })()
         ]);
 
         // Procesar asistencias
@@ -288,6 +305,17 @@ export default function EstudiantePage() {
           acc[curr.inscripcion_id] = curr.asistencias;
           return acc;
         }, {} as Record<string, any>);
+
+        // Procesar fechas reales de inasistencia
+        const inasistenciaDateMap: Record<string, Record<number, string>> = {};
+        if (inasistenciasResult && 'data' in inasistenciasResult && inasistenciasResult.data) {
+          (inasistenciasResult.data as any[]).forEach((row: any) => {
+            if (!inasistenciaDateMap[row.inscripcion_id]) {
+              inasistenciaDateMap[row.inscripcion_id] = {};
+            }
+            inasistenciaDateMap[row.inscripcion_id][row.clase_numero] = row.fecha_inasistencia;
+          });
+        }
 
         // Calcular progreso y clases perdidas
         loadedStudents.forEach(student => {
@@ -307,6 +335,7 @@ export default function EstudiantePage() {
           student.progress = percentage;
           student.missedClasses = missedClasses;
           student.missedCount = missedClasses.length;
+          student.missedDates = inasistenciaDateMap[student.inscripcion_id] || {};
         });
 
         // Procesar fotos
@@ -493,18 +522,23 @@ export default function EstudiantePage() {
       const newTopicGrades = { ...(prev[topicId] || {}), [gradeId]: value };
       const newState = { ...prev, [topicId]: newTopicGrades };
 
-      // Actualizar progreso en tiempo real en la lista de estudiantes (Sidebar)
+      // Actualizar progreso y missedCount en tiempo real en la lista de estudiantes (Sidebar)
       if (selectedInscripcionId) {
         let totalChecks = 0;
+        const missed: number[] = [];
         // Calcular sobre el topic 1 (Asistencia) del nuevo estado
         const attendanceGrades = newState[1] || {};
-        Object.values(attendanceGrades).forEach(val => { if (val === 'si') totalChecks++; });
+        for (let i = 1; i <= 12; i++) {
+          const val = attendanceGrades[i];
+          if (val === 'si') totalChecks++;
+          if (val === 'no') missed.push(i);
+        }
         const progress = Math.min(100, Math.round((totalChecks / 12) * 100));
 
         setStudents(currentStudents =>
           currentStudents.map(s =>
             s.inscripcion_id === selectedInscripcionId
-              ? { ...s, progress }
+              ? { ...s, progress, missedClasses: missed, missedCount: missed.length }
               : s
           )
         );
@@ -555,13 +589,18 @@ export default function EstudiantePage() {
       if (error) throw error;
 
       // 3. ACTUALIZACIÓN OPTIMISTA DEL UI (La clave de la fluidez)
-      // Recalcular progreso inmediatamente
+      // Recalcular progreso y missedCount inmediatamente
       let totalChecks = 0;
+      const missedArr: number[] = [];
       const attendanceGrades = newStudentGrades[1] || {};
-      Object.values(attendanceGrades).forEach(val => { if (val === 'si') totalChecks++; });
+      for (let i = 1; i <= 12; i++) {
+        const val = attendanceGrades[i];
+        if (val === 'si') totalChecks++;
+        if (val === 'no') missedArr.push(i);
+      }
       const newProgress = Math.min(100, Math.round((totalChecks / 12) * 100));
 
-      setStudents(prev => prev.map(s => s.inscripcion_id === inscripcion_id ? { ...s, progress: newProgress } : s));
+      setStudents(prev => prev.map(s => s.inscripcion_id === inscripcion_id ? { ...s, progress: newProgress, missedClasses: missedArr, missedCount: missedArr.length } : s));
 
       // Si el estudiante que estamos marcando es el que tenemos abierto en el panel principal,
       // actualizamos el estado local 'studentGrades' inmediatamente.
@@ -644,6 +683,93 @@ export default function EstudiantePage() {
     cancelAttendanceMode();
     setIsAttendanceCompleted(true);
   }, [cancelAttendanceMode, toast]);
+
+  // --- Nivelación Individual desde Sidebar ---
+  const handleOpenNivelarModal = useCallback((student: EstudianteInscrito) => {
+    setNivelarStudent(student);
+    setShowNivelarModal(true);
+  }, []);
+
+  const handleNivelarClase = useCallback(async (student: EstudianteInscrito, claseNumero: number) => {
+    if (!selectedCourse || !user?.servidorId) return;
+
+    try {
+      // 1. Obtener grades actuales de BD
+      const { data: currentData } = await supabase
+        .from('asistencias_academia')
+        .select('asistencias')
+        .eq('inscripcion_id', student.inscripcion_id)
+        .single();
+
+      const currentGrades = (currentData?.asistencias as StudentGrades) || {};
+      const newTopicGrades = { ...(currentGrades[1] || {}), [claseNumero]: 'si' };
+      const newStudentGrades = { ...currentGrades, [1]: newTopicGrades };
+
+      // 2. Guardar en BD
+      const { error: saveError } = await supabase
+        .from('asistencias_academia')
+        .upsert({
+          inscripcion_id: student.inscripcion_id,
+          asistencias: newStudentGrades,
+          updated_at: new Date().toISOString()
+        }, { onConflict: 'inscripcion_id' });
+
+      if (saveError) throw saveError;
+
+      // 3. Llamar RPC de nivelación
+      await supabase.rpc('fn_nivelar_inasistencia', {
+        p_inscripcion_id: student.inscripcion_id,
+        p_curso_id: selectedCourse.id,
+        p_clase_numero: claseNumero,
+        p_nivelado_por: user.servidorId
+      });
+
+      // 4. Recalcular progreso y missedClasses
+      let totalChecks = 0;
+      const missedArr: number[] = [];
+      const attendanceGrades = newStudentGrades[1] || {};
+      for (let i = 1; i <= 12; i++) {
+        const val = attendanceGrades[i];
+        if (val === 'si') totalChecks++;
+        if (val === 'no') missedArr.push(i);
+      }
+      const newProgress = Math.min(100, Math.round((totalChecks / 12) * 100));
+
+      // 5. Calcular nuevas missedDates (quitando la clase nivelada)
+      const prevMissedDates = student.missedDates || {};
+      const newMissedDates = { ...prevMissedDates };
+      delete newMissedDates[claseNumero];
+
+      // 6. Actualizar UI optimista
+      setStudents(prev => prev.map(s =>
+        s.inscripcion_id === student.inscripcion_id
+          ? { ...s, progress: newProgress, missedClasses: missedArr, missedCount: missedArr.length, missedDates: newMissedDates }
+          : s
+      ));
+
+      // 6. Si este estudiante está seleccionado, actualizar también studentGrades
+      if (selectedInscripcionId === student.inscripcion_id) {
+        setStudentGrades(prev => ({
+          ...prev,
+          [1]: { ...(prev[1] || {}), [claseNumero]: 'si' }
+        }));
+        setInitialGrades(prev => ({
+          ...prev,
+          [1]: { ...(prev[1] || {}), [claseNumero]: 'si' }
+        }));
+      }
+
+      // 8. Actualizar el nivelarStudent para que el modal refleje el cambio
+      setNivelarStudent(prev => {
+        if (!prev || prev.inscripcion_id !== student.inscripcion_id) return prev;
+        return { ...prev, progress: newProgress, missedClasses: missedArr, missedCount: missedArr.length, missedDates: newMissedDates };
+      });
+
+      toast.success(`Clase #${claseNumero} nivelada correctamente`);
+    } catch (err: any) {
+      toast.error('Error al nivelar: ' + err.message);
+    }
+  }, [selectedCourse, user, supabase, toast, selectedInscripcionId]);
 
   // --- Helpers Visuales ---
   const getTabPanelClasses = (tabName: ActiveTab) => {
@@ -762,6 +888,7 @@ export default function EstudiantePage() {
               setShowConfirmation={setShowConfirmation}
               hasPendingStudents={hasPendingStudents}
               onShowPending={() => setShowPendingModal(true)}
+              onNivelarModal={handleOpenNivelarModal}
             />
           )}
 
@@ -906,6 +1033,17 @@ export default function EstudiantePage() {
           }}
         />
 
+        {/* Modal de Nivelación Individual Premium */}
+        <AnimatePresence>
+          {showNivelarModal && nivelarStudent && (
+            <NivelarIndividualModal
+              student={nivelarStudent}
+              fotoUrls={fotoUrls}
+              onClose={() => { setShowNivelarModal(false); setNivelarStudent(null); }}
+              onNivelarClase={handleNivelarClase}
+            />
+          )}
+        </AnimatePresence>
 
 
       </main>
@@ -1051,6 +1189,7 @@ function StudentSidebar({
   setShowConfirmation,
   hasPendingStudents,
   onShowPending,
+  onNivelarModal,
 }: {
   students: EstudianteInscrito[];
   selectedStudentId: string | null;
@@ -1071,6 +1210,7 @@ function StudentSidebar({
   setShowConfirmation: (show: boolean) => void;
   hasPendingStudents: boolean;
   onShowPending: () => void;
+  onNivelarModal: (student: EstudianteInscrito) => void;
 }) {
   const isDetailView = mainState === 'creating' || mainState === 'viewing';
   const [currentAttendanceStudentIndex, setCurrentAttendanceStudentIndex] = useState(0);
@@ -1162,6 +1302,9 @@ function StudentSidebar({
                 } catch (e) { console.error("Fallo al marcar", e); } finally { setIsMarkingStudentId(null); }
               }}
               onSelectStudent={onSelectStudent}
+              onNivelar={(s: EstudianteInscrito) => {
+                onNivelarModal(s);
+              }}
             />
           ))
         )}
@@ -1186,7 +1329,7 @@ function StudentSidebar({
   );
 }
 
-function StudentSidebarItem({ student, fotoUrls, isActive, isAttendanceModeActive, isCurrentAttendanceTarget, isCompleted, isLoading, onMarkAttendance, onSelectStudent, index = 0 }: any) {
+function StudentSidebarItem({ student, fotoUrls, isActive, isAttendanceModeActive, isCurrentAttendanceTarget, isCompleted, isLoading, onMarkAttendance, onSelectStudent, onNivelar, index = 0 }: any) {
   // Helper: Acortar nombre a "Nombre Apellido"
   const getShortName = (fullName: string | null | undefined): string => {
     if (!fullName) return 'Sin Nombre';
@@ -1195,21 +1338,38 @@ function StudentSidebarItem({ student, fotoUrls, isActive, isAttendanceModeActiv
     return `${parts[0]} ${parts[1]}`;
   };
 
-  const containerClasses = ['group relative flex items-center gap-4 rounded-2xl h-16 md:h-14 pl-0 pr-4 transition-all border cursor-pointer overflow-visible'];
+  const hasMissed = (student.missedCount ?? 0) > 0 && !isAttendanceModeActive;
+  const containerClasses = [`group relative flex items-center gap-4 rounded-2xl ${hasMissed ? 'h-[88px] md:h-[76px]' : 'h-[72px] md:h-[62px]'} pl-0 pr-4 transition-all duration-300 ease-out cursor-pointer overflow-visible`];
 
   if (isAttendanceModeActive) {
     if (isCurrentAttendanceTarget) {
-      containerClasses.push('border-blue-500/50 bg-blue-500/10 text-white shadow-[0_0_20px_-5px_rgba(59,130,246,0.4)] ring-1 ring-blue-500/50');
+      containerClasses.push(
+        'border border-blue-400/60 bg-gradient-to-br from-blue-500/15 via-indigo-500/10 to-blue-600/15',
+        'text-white shadow-[0_0_24px_-6px_rgba(59,130,246,0.5),inset_0_1px_0_rgba(255,255,255,0.06)]',
+        'ring-1 ring-blue-400/50 backdrop-blur-md'
+      );
     } else if (isCompleted) {
-      containerClasses.push('border-slate-800/30 bg-slate-900/20 opacity-40');
+      containerClasses.push('border border-slate-700/20 bg-slate-900/20 opacity-40 backdrop-blur-sm');
     } else {
-      containerClasses.push('border-slate-800/50 bg-slate-900/40 text-slate-100 opacity-70');
+      containerClasses.push('border border-slate-700/40 bg-slate-900/30 text-slate-100 opacity-70 backdrop-blur-sm');
     }
   } else {
     if (isActive) {
-      containerClasses.push('border-blue-500/50 bg-blue-600/20 text-white shadow-[0_8px_25px_-10px_rgba(30,64,175,0.6)] ring-1 ring-blue-500/40');
+      containerClasses.push(
+        'border border-indigo-400/50 bg-gradient-to-br from-indigo-500/20 via-blue-500/15 to-violet-500/10',
+        'text-white backdrop-blur-xl',
+        'shadow-[0_8px_32px_-8px_rgba(99,102,241,0.5),0_2px_8px_-2px_rgba(99,102,241,0.3),inset_0_1px_0_rgba(255,255,255,0.08)]',
+        'ring-1 ring-indigo-400/40'
+      );
     } else {
-      containerClasses.push('border-slate-800/40 bg-slate-900/40 text-slate-300 hover:bg-slate-800/60 hover:text-white hover:border-slate-700/60');
+      containerClasses.push(
+        'border border-slate-700/40 bg-gradient-to-br from-slate-800/50 via-slate-900/40 to-slate-800/50',
+        'text-slate-300 backdrop-blur-md',
+        'shadow-[0_2px_12px_-4px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.03)]',
+        'hover:border-slate-500/50 hover:bg-gradient-to-br hover:from-slate-700/60 hover:via-slate-800/50 hover:to-slate-700/60',
+        'hover:text-white hover:shadow-[0_8px_24px_-6px_rgba(99,102,241,0.25),0_2px_8px_-2px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.06)]',
+        'hover:ring-1 hover:ring-slate-500/30'
+      );
     }
   }
 
@@ -1219,20 +1379,19 @@ function StudentSidebarItem({ student, fotoUrls, isActive, isAttendanceModeActiv
       animate={{ opacity: 1, x: 0, y: 0, scale: 1 }}
       transition={{
         duration: 0.5,
-        delay: 0.1 + (index * 0.045), // Efecto Stagger Premium Manual
+        delay: 0.1 + (index * 0.045),
         ease: EASE_SMOOTH,
       }}
       onClick={(e) => { if (!isAttendanceModeActive) { e.preventDefault(); onSelectStudent(student); } }}
-      className="relative pl-11 md:pl-6"
     >
-      {/* Avatar posicionado para sobresalir */}
-      <div className="absolute left-0 top-1/2 -translate-y-1/2 z-10">
-        <StudentAvatar fotoPath={student.foto_path} nombre={student.nombre} fotoUrls={fotoUrls} />
-      </div>
-
-      {/* Tarjeta que empieza desde el centro del avatar */}
+      {/* Tarjeta con avatar integrado */}
       <div className={classNames(...containerClasses)}>
-        <div className="flex-1 min-w-0 flex flex-col justify-center gap-2 pl-14 md:pl-12">
+        {/* Avatar dentro de la tarjeta */}
+        <div className="flex-shrink-0 pl-3 md:pl-2.5">
+          <StudentAvatar fotoPath={student.foto_path} nombre={student.nombre} fotoUrls={fotoUrls} />
+        </div>
+
+        <div className="flex-1 min-w-0 flex flex-col justify-center gap-1.5 pr-1">
           <span className="block text-[15px] md:text-[13.5px] font-semibold leading-tight tracking-[-0.01em] truncate">{getShortName(student.nombre)}</span>
 
           {/* Barra de Progreso Elegante */}
@@ -1254,8 +1413,45 @@ function StudentSidebarItem({ student, fotoUrls, isActive, isAttendanceModeActiv
               {student.progress || 0}%
             </span>
           </div>
+
+          {/* Barra de Inasistencias Premium - Rojo Gradiente */}
+          {(student.missedCount ?? 0) > 0 && !isAttendanceModeActive && (
+            <div className="w-full max-w-[160px] md:max-w-[120px] flex items-center gap-1.5">
+              <div className="flex-1 h-1.5 md:h-1 bg-slate-700/20 rounded-full overflow-hidden backdrop-blur-sm shadow-[inset_0_1px_2px_rgba(0,0,0,0.15)]">
+                <motion.div
+                  initial={{ width: 0 }}
+                  animate={{ width: `${Math.min(100, Math.round(((student.missedCount || 0) / 12) * 100))}%` }}
+                  transition={{ duration: 0.8, ease: "easeOut", delay: 0.2 }}
+                  className={classNames(
+                    "h-full rounded-full relative",
+                    isActive
+                      ? "bg-gradient-to-r from-red-300 via-rose-300 to-orange-200 shadow-[0_0_10px_rgba(239,68,68,0.5)]"
+                      : "bg-gradient-to-r from-red-500 via-rose-500 to-orange-400 shadow-[0_0_8px_rgba(239,68,68,0.35)]"
+                  )}
+                />
+              </div>
+              <span className={classNames("text-[9px] md:text-[8px] font-bold tabular-nums", isActive ? "text-red-200" : "text-red-400/80")}>
+                {student.missedCount}
+              </span>
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); onNivelar && onNivelar(student); }}
+                className={classNames(
+                  "flex-shrink-0 px-2 py-0.5 rounded-lg text-[8px] md:text-[7px] font-bold uppercase tracking-wider transition-all duration-300 active:scale-90",
+                  "bg-gradient-to-r from-red-500 via-rose-500 to-orange-500 text-white",
+                  "shadow-[0_2px_10px_-2px_rgba(239,68,68,0.5),0_0_0_1px_rgba(239,68,68,0.2)]",
+                  "hover:shadow-[0_4px_16px_-2px_rgba(239,68,68,0.6),0_0_0_1px_rgba(239,68,68,0.3)]",
+                  "hover:from-red-600 hover:via-rose-600 hover:to-orange-600",
+                  "border border-red-400/20",
+                  "backdrop-blur-sm"
+                )}
+              >
+                Nivelar
+              </button>
+            </div>
+          )}
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 pr-1">
           {isAttendanceModeActive ? (
             isCurrentAttendanceTarget ? (
               isLoading ? <Loader2 size={24} className="text-indigo-500 animate-spin" /> : (
@@ -1280,16 +1476,16 @@ function StudentSidebarItem({ student, fotoUrls, isActive, isAttendanceModeActiv
 function StudentAvatar({ fotoPath, nombre, fotoUrls }: any) {
   const url = (fotoPath ? fotoUrls[fotoPath] : null) ?? generateAvatar(nombre ?? 'NN');
   return (
-    <div className="relative -my-4 md:-my-3 flex-shrink-0">
+    <div className="relative flex-shrink-0">
       <img
         key={url}
         src={url}
         alt={nombre ?? 'Estudiante'}
-        className="h-16 w-16 md:h-14 md:w-14 rounded-full border-2 border-slate-500/60 ring-[3px] ring-slate-900/80 object-cover shadow-[0_8px_24px_-8px_rgba(0,0,0,0.5)]"
+        className="h-14 w-14 md:h-12 md:w-12 rounded-full border-2 border-slate-600/50 ring-2 ring-slate-500/20 object-cover shadow-[0_4px_16px_-4px_rgba(0,0,0,0.4)]"
         onError={(e) => { const t = e.currentTarget; const fb = generateAvatar(nombre ?? 'NN'); if (t.src !== fb) t.src = fb; }}
       />
       {/* Halo premium */}
-      <div className="absolute inset-0 rounded-full ring-1 ring-blue-400/30 pointer-events-none" />
+      <div className="absolute inset-0 rounded-full ring-1 ring-blue-400/20 pointer-events-none" />
     </div>
   );
 }
@@ -1382,6 +1578,256 @@ function PremiumAttendanceButton({ noteNumber, value, onChange }: any) {
       {/* Ring de enfoque en hover */}
       <div className="pointer-events-none absolute inset-0 rounded-2xl ring-1 ring-black/5 group-hover:ring-black/10 transition-all" />
     </button>
+  );
+}
+
+// ======================= MODAL NIVELAR INDIVIDUAL - APPLE 2026 =======================
+function NivelarIndividualModal({ student, fotoUrls, onClose, onNivelarClase }: {
+  student: EstudianteInscrito;
+  fotoUrls: Record<string, string>;
+  onClose: () => void;
+  onNivelarClase: (student: EstudianteInscrito, claseNumero: number) => Promise<void>;
+}) {
+  const [levelingClass, setLevelingClass] = useState<number | null>(null);
+  const missedClasses = student.missedClasses || [];
+  const missedDates = student.missedDates || {};
+
+  // Obtener fecha real de inasistencia o fecha actual del sistema
+  const getClassDate = (classNum: number): string => {
+    try {
+      // Prioridad 1: Fecha real de la tabla inasistencias_academia
+      if (missedDates[classNum]) {
+        const realDate = new Date(missedDates[classNum]);
+        if (!isNaN(realDate.getTime())) {
+          return realDate.toLocaleDateString('es-CO', {
+            weekday: 'short',
+            day: '2-digit',
+            month: 'short',
+            year: 'numeric'
+          });
+        }
+      }
+      // Fallback: Fecha actual del sistema
+      return new Date().toLocaleDateString('es-CO', {
+        weekday: 'short',
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric'
+      });
+    } catch {
+      return 'Fecha no disponible';
+    }
+  };
+
+  const handleNivelar = async (claseNum: number) => {
+    setLevelingClass(claseNum);
+    try {
+      await onNivelarClase(student, claseNum);
+    } finally {
+      setLevelingClass(null);
+    }
+  };
+
+  // Foto del estudiante
+  const photoUrl = (student.foto_path ? fotoUrls[student.foto_path] : null) ?? generateAvatar(student.nombre ?? 'NN');
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.2 }}
+      className="fixed inset-0 z-[9999] flex items-center justify-center p-4"
+      onClick={onClose}
+    >
+      {/* Backdrop Premium */}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="absolute inset-0 bg-black/60 backdrop-blur-xl"
+      />
+
+      {/* Modal Container */}
+      <motion.div
+        initial={{ scale: 0.92, opacity: 0, y: 40 }}
+        animate={{ scale: 1, opacity: 1, y: 0 }}
+        exit={{ scale: 0.95, opacity: 0, y: 20 }}
+        transition={{ type: 'spring', duration: 0.55, bounce: 0.25 }}
+        onClick={(e) => e.stopPropagation()}
+        className="relative w-full max-w-lg max-h-[85vh] overflow-hidden rounded-[2rem] bg-gradient-to-b from-white via-white to-gray-50/95 backdrop-blur-3xl shadow-[0_25px_80px_-15px_rgba(0,0,0,0.35),0_0_0_1px_rgba(255,255,255,0.6)] ring-1 ring-white/30"
+      >
+        {/* Decorative Background Orbs */}
+        <div className="pointer-events-none absolute -top-24 -right-24 h-56 w-56 rounded-full bg-gradient-to-br from-rose-200/40 via-pink-200/30 to-red-300/20 blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-24 -left-24 h-56 w-56 rounded-full bg-gradient-to-tr from-emerald-200/40 via-green-200/30 to-teal-200/20 blur-3xl" />
+        <div className="pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-40 w-40 rounded-full bg-gradient-to-br from-indigo-100/20 to-blue-100/10 blur-3xl" />
+
+        {/* Header - Student Info */}
+        <div className="relative px-6 pt-5 md:pt-7 pb-5 border-b border-gray-200/60 bg-gradient-to-b from-gray-50/80 to-transparent">
+          <button
+            onClick={onClose}
+            className="absolute top-4 right-4 md:top-6 md:right-6 p-2.5 rounded-2xl bg-gray-100/90 text-gray-400 hover:bg-gray-200 hover:text-gray-700 transition-all duration-200 active:scale-90 ring-1 ring-gray-200/50"
+          >
+            <X size={16} strokeWidth={2.5} />
+          </button>
+
+          <div className="flex items-center gap-4">
+            {/* Avatar Premium */}
+            <div className="relative flex-shrink-0">
+              <div className="absolute -inset-1 rounded-2xl bg-gradient-to-br from-rose-400/30 via-pink-400/20 to-indigo-400/30 blur-md opacity-60" />
+              <img
+                src={photoUrl}
+                alt={student.nombre || ''}
+                className="relative h-16 w-16 md:h-[72px] md:w-[72px] rounded-2xl object-cover shadow-[0_8px_24px_-4px_rgba(0,0,0,0.15)] ring-[3px] ring-white"
+                onError={(e) => { const t = e.currentTarget; const fb = generateAvatar(student.nombre ?? 'NN'); if (t.src !== fb) t.src = fb; }}
+              />
+              {/* Badge de fallas con pulse */}
+              <div className="absolute -top-2 -right-2">
+                <div className="absolute inset-0 h-7 w-7 rounded-full bg-red-500 animate-ping opacity-20" />
+                <div className="relative h-7 w-7 rounded-full bg-gradient-to-br from-red-500 to-rose-600 flex items-center justify-center shadow-[0_4px_12px_-2px_rgba(239,68,68,0.5)] ring-[3px] ring-white">
+                  <span className="text-[11px] font-black text-white">{missedClasses.length}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex-1 min-w-0">
+              <h2 className="text-xl md:text-2xl font-black tracking-tight text-gray-900 truncate">
+                {student.nombre || 'Sin Nombre'}
+              </h2>
+              <p className="text-[13px] text-gray-500 mt-0.5 font-medium">
+                {missedClasses.length} {missedClasses.length === 1 ? 'clase pendiente' : 'clases pendientes'} de nivelación
+              </p>
+            </div>
+          </div>
+
+          {/* Progress Summary - Glassmorphism Cards */}
+          <div className="mt-5 flex items-stretch gap-3">
+            <div className="flex-1 rounded-2xl bg-white/70 backdrop-blur-sm border border-gray-200/50 p-3 shadow-[0_2px_8px_-2px_rgba(0,0,0,0.05),inset_0_1px_0_rgba(255,255,255,0.8)]">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.08em]">Progreso</span>
+                <span className="text-[13px] font-black text-indigo-600">{student.progress || 0}%</span>
+              </div>
+              <div className="h-2 bg-gray-100 rounded-full overflow-hidden ring-1 ring-gray-200/30">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-indigo-500 via-blue-500 to-indigo-400 shadow-[0_0_12px_rgba(99,102,241,0.4)] transition-all duration-500"
+                  style={{ width: `${student.progress || 0}%` }}
+                />
+              </div>
+            </div>
+            <div className="flex-1 rounded-2xl bg-white/70 backdrop-blur-sm border border-gray-200/50 p-3 shadow-[0_2px_8px_-2px_rgba(0,0,0,0.05),inset_0_1px_0_rgba(255,255,255,0.8)]">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.08em]">Inasistencias</span>
+                <span className="text-[13px] font-black text-red-500">{Math.round((missedClasses.length / 12) * 100)}%</span>
+              </div>
+              <div className="h-2 bg-gray-100 rounded-full overflow-hidden ring-1 ring-gray-200/30">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-red-500 via-rose-500 to-orange-400 shadow-[0_0_12px_rgba(239,68,68,0.4)] transition-all duration-500"
+                  style={{ width: `${Math.round((missedClasses.length / 12) * 100)}%` }}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Classes List */}
+        <div className="relative overflow-y-auto max-h-[calc(90vh-380px)] md:max-h-[calc(85vh-400px)] px-4 md:px-6 py-4 space-y-3">
+          <AnimatePresence mode="popLayout">
+            {missedClasses.length === 0 ? (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="text-center py-10"
+              >
+                <div className="mx-auto mb-4 h-16 w-16 rounded-full bg-gradient-to-br from-emerald-100 to-green-100 flex items-center justify-center shadow-sm">
+                  <Check className="h-8 w-8 text-emerald-600" />
+                </div>
+                <h3 className="text-lg font-bold text-gray-900">¡Completamente Nivelado!</h3>
+                <p className="text-sm text-gray-500 mt-1">No quedan clases pendientes.</p>
+              </motion.div>
+            ) : (
+              missedClasses.map((classNum, idx) => {
+                const isLeveling = levelingClass === classNum;
+
+                return (
+                  <motion.div
+                    key={`missed-${classNum}`}
+                    layout
+                    initial={{ opacity: 0, y: 16, scale: 0.97 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, x: 80, scale: 0.95, transition: { duration: 0.3 } }}
+                    transition={{ delay: idx * 0.04, duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+                    className="relative group rounded-2xl bg-white border border-gray-200/70 p-4 shadow-[0_2px_12px_-4px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.9)] hover:shadow-[0_8px_30px_-8px_rgba(239,68,68,0.15),0_2px_8px_-2px_rgba(0,0,0,0.06)] hover:border-red-200/60 transition-all duration-300"
+                  >
+                    {/* Glow on hover */}
+                    <div className="pointer-events-none absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 bg-gradient-to-r from-red-50/60 via-transparent to-emerald-50/40 transition-opacity duration-300" />
+
+                    <div className="relative flex items-center gap-3">
+                      {/* Class Icon */}
+                      <div className="flex-shrink-0 h-12 w-12 md:h-13 md:w-13 rounded-xl bg-gradient-to-br from-red-100 via-rose-50 to-red-100 flex items-center justify-center shadow-[0_2px_8px_-2px_rgba(239,68,68,0.15),inset_0_1px_0_rgba(255,255,255,0.8)] ring-1 ring-red-200/40">
+                        <span className="text-red-600 font-black text-sm">#{classNum}</span>
+                      </div>
+
+                      {/* Info */}
+                      <div className="flex-1 min-w-0">
+                        <h4 className="font-bold text-gray-900 text-[14px] md:text-[15px]">
+                          Clase #{classNum}
+                        </h4>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          <svg className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                          </svg>
+                          <span className="text-[12px] text-gray-500 truncate">
+                            {getClassDate(classNum)}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Nivelar Button Premium */}
+                      <button
+                        type="button"
+                        onClick={() => handleNivelar(classNum)}
+                        disabled={isLeveling}
+                        className={classNames(
+                          "flex-shrink-0 flex items-center gap-1.5 px-5 py-2.5 md:px-6 md:py-3 rounded-xl text-[12px] md:text-[13px] font-bold transition-all duration-300 active:scale-90 disabled:cursor-not-allowed",
+                          isLeveling
+                            ? "bg-gray-100 text-gray-400 shadow-none"
+                            : "bg-gradient-to-r from-emerald-500 via-green-500 to-teal-500 text-white shadow-[0_4px_20px_-4px_rgba(16,185,129,0.5),0_0_0_1px_rgba(16,185,129,0.15)] hover:shadow-[0_8px_30px_-4px_rgba(16,185,129,0.6)] hover:from-emerald-600 hover:via-green-600 hover:to-teal-600 border border-emerald-400/20"
+                        )}
+                      >
+                        {isLeveling ? (
+                          <>
+                            <Loader2 size={14} className="animate-spin" />
+                            <span>Nivelando...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Check size={14} strokeWidth={3} />
+                            <span>Nivelar</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </motion.div>
+                );
+              })
+            )}
+          </AnimatePresence>
+        </div>
+
+        {/* Footer */}
+        <div className="relative border-t border-gray-200/60 bg-gradient-to-t from-gray-50/80 to-white/60 backdrop-blur-md px-6 py-4">
+          <button
+            onClick={onClose}
+            className="w-full rounded-2xl bg-gradient-to-b from-gray-800 to-gray-900 px-4 py-3.5 font-bold text-white shadow-[0_4px_16px_-4px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.1)] ring-1 ring-gray-700/50 transition-all hover:from-gray-700 hover:to-gray-800 hover:shadow-[0_8px_24px_-4px_rgba(0,0,0,0.4)] active:scale-[0.98]"
+          >
+            Cerrar
+          </button>
+        </div>
+
+        {/* Bottom Accent Line - Animated */}
+        <div className="h-1.5 w-full bg-gradient-to-r from-red-400 via-rose-500 via-50% to-emerald-500" />
+      </motion.div>
+    </motion.div>
   );
 }
 
