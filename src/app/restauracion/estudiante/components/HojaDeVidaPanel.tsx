@@ -852,11 +852,8 @@ function DarkRowDate({ label, value, edit, onChange, icon }: any) {
   // Helper to ensure YYYY-MM-DD format for the input
   const getInputValue = (val: string | null | undefined) => {
     if (!val) return "";
-    // If it's already YYYY-MM-DD, return it
     if (/^\d{4}-\d{2}-\d{2}$/.test(val)) return val;
-    // Try to parse it
     const date = new Date(val);
-    // basic check if valid date
     if (!isNaN(date.getTime())) {
       try {
         return date.toISOString().split('T')[0];
@@ -869,16 +866,11 @@ function DarkRowDate({ label, value, edit, onChange, icon }: any) {
 
   const displayValue = (val: string | null | undefined) => {
     if (!val) return <span className="text-slate-400 text-xs">—</span>;
-
-    // If matches YYYY-MM-DD
     if (typeof val === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(val)) {
       const [y, m, d] = val.split('-');
-      // Create date using local time constructor to avoid UTC shift
       const date = new Date(parseInt(y), parseInt(m) - 1, parseInt(d));
       return date.toLocaleDateString('es-CO', { year: 'numeric', month: 'long', day: 'numeric' });
     }
-
-    // Fallback for other formats
     const date = new Date(val);
     if (!isNaN(date.getTime())) {
       return date.toLocaleDateString('es-CO', { year: 'numeric', month: 'long', day: 'numeric' });
@@ -887,19 +879,19 @@ function DarkRowDate({ label, value, edit, onChange, icon }: any) {
   }
 
   return (
-    <div className="flex flex-col sm:flex-row sm:items-center justify-between py-3 border-b border-slate-200 last:border-0 gap-2 hover:bg-white/40 px-3 -mx-3 rounded-lg transition-colors">
-      <div className="flex items-center gap-2 text-xs font-medium text-slate-600 uppercase w-[160px] flex-shrink-0 tracking-wide mt-0.5">
+    <div className="flex flex-row items-center justify-between py-3 border-b border-slate-200 last:border-0 gap-2 hover:bg-white/40 px-3 -mx-3 rounded-lg transition-colors">
+      <div className="flex items-center gap-2 text-xs font-medium text-slate-600 uppercase w-auto sm:w-[160px] flex-shrink-0 tracking-wide mt-0.5">
         {icon && <span className="opacity-50">{icon}</span>}
         {label}
       </div>
-      <div className="text-sm text-slate-700 font-light flex-1 sm:text-right break-words leading-relaxed relative">
+      <div className="text-sm text-slate-700 font-light flex-1 text-right break-words leading-relaxed relative">
         {edit ? (
           <div className="relative inline-block w-full sm:w-auto">
             <input
               type="date"
               value={getInputValue(value)}
               onChange={(e) => onChange(e.target.value)}
-              className="w-full sm:w-auto text-sm text-left sm:text-right border-b border-blue-500/50 px-2 py-1 focus:border-blue-400 transition-colors bg-white/50 rounded-t-sm outline-none text-slate-700 font-medium appearance-none min-h-[30px] shadow-sm cursor-pointer"
+              className="w-full sm:w-auto text-sm text-right border-b border-blue-500/50 px-2 py-1 focus:border-blue-400 transition-colors bg-white/50 rounded-t-sm outline-none text-slate-700 font-medium appearance-none min-h-[30px] shadow-sm cursor-pointer"
             />
           </div>
         ) : (
