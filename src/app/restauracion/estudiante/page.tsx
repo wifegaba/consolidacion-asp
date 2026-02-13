@@ -1462,9 +1462,34 @@ function StudentSidebarItem({ student, fotoUrls, isActive, isAttendanceModeActiv
               )
             ) : isCompleted ? <Check size={24} className="text-green-600" /> : null
           ) : (
-            <div className="flex items-center gap-3 transition-opacity">
-              <button type="button" disabled={!student.telefono} onClick={(e) => { e.stopPropagation(); if (student.telefono) window.location.href = `tel:${student.telefono.replace(/\s+/g, '')}`; }} className="p-3 md:p-2 rounded-xl bg-slate-800/80 hover:bg-blue-600 text-blue-400 hover:text-white transition-all disabled:opacity-20 active:scale-95 shadow-lg"><Phone size={20} className="md:w-4 md:h-4" /></button>
-              <button type="button" disabled={!student.telefono} onClick={(e) => { e.stopPropagation(); if (student.telefono) window.open(`https://wa.me/${student.telefono.replace(/\D/g, '')}`, '_blank'); }} className="p-3 md:p-2 rounded-xl bg-slate-800/80 hover:bg-green-600 text-green-400 hover:text-white transition-all disabled:opacity-20 active:scale-95 shadow-lg"><MessageCircle size={20} className="md:w-4 md:h-4" /></button>
+            <div className="flex items-center gap-2.5 transition-opacity">
+              {/* Botón Llamar — Liquid Glass */}
+              <button
+                type="button"
+                disabled={!student.telefono}
+                onClick={(e) => { e.stopPropagation(); if (student.telefono) window.location.href = `tel:${student.telefono.replace(/\s+/g, '')}`; }}
+                className="group/call relative p-3 md:p-2.5 rounded-2xl backdrop-blur-xl bg-white/[0.04] border border-white/[0.08] hover:border-blue-400/40 text-blue-400 hover:text-blue-300 transition-all duration-300 disabled:opacity-20 active:scale-90 hover:scale-105 shadow-[0_2px_12px_-3px_rgba(0,0,0,0.3)] hover:shadow-[0_4px_20px_-4px_rgba(59,130,246,0.35)]"
+              >
+                {/* Glow radial de fondo */}
+                <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-blue-500/10 via-transparent to-cyan-500/5 opacity-0 group-hover/call:opacity-100 transition-opacity duration-300" />
+                {/* Reflejo superior liquid */}
+                <div className="absolute inset-x-0 top-0 h-1/2 rounded-t-2xl bg-gradient-to-b from-white/[0.07] to-transparent pointer-events-none" />
+                <Phone size={20} className="md:w-[18px] md:h-[18px] relative z-10 drop-shadow-[0_0_6px_rgba(59,130,246,0.3)]" />
+              </button>
+
+              {/* Botón WhatsApp — Liquid Glass */}
+              <button
+                type="button"
+                disabled={!student.telefono}
+                onClick={(e) => { e.stopPropagation(); if (student.telefono) window.open(`https://wa.me/${student.telefono.replace(/\D/g, '')}`, '_blank'); }}
+                className="group/wa relative p-3 md:p-2.5 rounded-2xl backdrop-blur-xl bg-white/[0.04] border border-white/[0.08] hover:border-emerald-400/40 text-emerald-400 hover:text-emerald-300 transition-all duration-300 disabled:opacity-20 active:scale-90 hover:scale-105 shadow-[0_2px_12px_-3px_rgba(0,0,0,0.3)] hover:shadow-[0_4px_20px_-4px_rgba(16,185,129,0.35)]"
+              >
+                {/* Glow radial de fondo */}
+                <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-emerald-500/10 via-transparent to-green-500/5 opacity-0 group-hover/wa:opacity-100 transition-opacity duration-300" />
+                {/* Reflejo superior liquid */}
+                <div className="absolute inset-x-0 top-0 h-1/2 rounded-t-2xl bg-gradient-to-b from-white/[0.07] to-transparent pointer-events-none" />
+                <MessageCircle size={20} className="md:w-[18px] md:h-[18px] relative z-10 drop-shadow-[0_0_6px_rgba(16,185,129,0.3)]" />
+              </button>
             </div>
           )}
         </div>
