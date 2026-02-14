@@ -1383,9 +1383,38 @@ function StudentSidebar({
             <span>Pendientes por Nivelar</span>
           </button>
         )}
-        <button onClick={onStartAttendance} className="flex w-full items-center justify-center gap-2 rounded-xl border py-2.5 text-sm font-medium transition-all border-blue-500/30 bg-blue-600/10 text-blue-100 shadow-[0_4px_20px_-8px_rgba(59,130,246,0.5)] hover:bg-blue-600/20 active:scale-95 disabled:opacity-50">
-          <UserCheck size={18} />
-          <span>{isAttendanceCompleted ? "Asistencia Tomada" : "Tomar Asistencia"}</span>
+        <button
+          onClick={onStartAttendance}
+          className={`
+            group relative flex w-full items-center justify-center gap-2.5
+            rounded-full py-3.5 px-6 text-sm font-semibold
+            overflow-hidden
+            transition-all duration-300 ease-out
+            /* —— Vidrio esmerilado con tinte sage —— */
+            bg-gradient-to-b from-[#d4ddd6] via-[#c8d3ca] to-[#b8c5bb]
+            /* —— Sombras neumórficas externas (flotación) —— */
+            shadow-[0_6px_16px_-4px_rgba(0,0,0,0.15),0_2px_4px_rgba(0,0,0,0.08),inset_0_2px_0_rgba(255,255,255,0.6),inset_0_-2px_4px_rgba(0,0,0,0.06)]
+            /* —— Hover: presión sutil —— */
+            hover:shadow-[0_4px_12px_-3px_rgba(0,0,0,0.12),0_1px_3px_rgba(0,0,0,0.06),inset_0_2px_0_rgba(255,255,255,0.7),inset_0_-2px_4px_rgba(0,0,0,0.05)]
+            hover:from-[#d8e1da] hover:via-[#ccd7ce] hover:to-[#bcc9bf]
+            active:shadow-[0_2px_6px_-2px_rgba(0,0,0,0.1),inset_0_2px_6px_rgba(0,0,0,0.08),inset_0_1px_0_rgba(255,255,255,0.5)]
+            active:from-[#c8d3ca] active:via-[#c0ccb2] active:to-[#b0bdb3]
+            disabled:opacity-50 disabled:pointer-events-none
+            text-gray-700
+          `}
+        >
+          {/* ── Reflejo convexo superior (curvatura del vidrio) ── */}
+          <div className="absolute inset-x-[6px] top-[3px] h-[45%] rounded-full bg-gradient-to-b from-white/70 via-white/30 to-transparent pointer-events-none" />
+
+          {/* ── Línea inferior teal/aqua (reflejo acumulado en la base del vidrio) ── */}
+          <div className="absolute bottom-[2px] inset-x-[8px] h-[3px] rounded-full bg-gradient-to-r from-transparent via-teal-400/50 to-transparent pointer-events-none transition-all duration-500 group-hover:via-teal-400/90" />
+          <div className="absolute bottom-0 inset-x-[12px] h-[8px] rounded-full bg-gradient-to-r from-transparent via-teal-400/0 to-transparent pointer-events-none transition-all duration-500 group-hover:via-teal-400/40 blur-[4px]" />
+
+          {/* ── Borde interior sutil ── */}
+          <div className="absolute inset-[1px] rounded-full border border-white/30 pointer-events-none" />
+
+          <UserCheck size={17} className="relative z-10 text-gray-600" />
+          <span className="relative z-10 text-gray-700">{isAttendanceCompleted ? "Asistencia Tomada ✓" : "Tomar Asistencia"}</span>
         </button>
       </div>
     </aside>
@@ -1922,12 +1951,103 @@ function NivelarIndividualModal({ student, fotoUrls, onClose, onNivelarClase }: 
 function ModalTomarAsistencia({ topics, onClose, onSelectClass }: any) {
   const clases = topics.find((t: any) => t.id === 1)?.grades || [];
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[100] flex items-center justify-center p-4" onClick={onClose}>
-      <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" />
-      <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} transition={{ duration: 0.2 }} className="relative w-full max-w-lg flex flex-col rounded-3xl border border-white/70 bg-white/70 backdrop-blur-2xl shadow-2xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
-        <div className="flex-shrink-0 p-5 border-b border-white/60"><h2 className="text-xl font-semibold text-gray-900">Tomar Asistencia</h2><p className="text-sm text-gray-700">Selecciona la clase:</p></div>
-        <div className="flex-1 overflow-y-auto max-h-[50vh] p-4"><div className="grid grid-cols-4 gap-3">{clases.map((clase: any, index: number) => (<button key={clase.id} onClick={() => onSelectClass(clase.id)} className="flex items-center justify-center h-16 rounded-2xl bg-white/70 text-indigo-700 font-semibold shadow-md ring-1 ring-black/5 hover:bg-white active:scale-95">Clase #{index + 1}</button>))}</div></div>
-        <div className="flex-shrink-0 p-4 border-t border-white/60 bg-white/40 flex justify-end"><button onClick={onClose} className="px-4 py-2 text-sm font-semibold text-gray-700 bg-white/70 rounded-lg hover:bg-white">Cancelar</button></div>
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-[100] flex items-center justify-center p-4"
+      onClick={onClose}
+    >
+      {/* ── Backdrop oscuro con blur ── */}
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-md" />
+
+      {/* ── Modal Container ── */}
+      <motion.div
+        initial={{ scale: 0.92, opacity: 0, y: 20 }}
+        animate={{ scale: 1, opacity: 1, y: 0 }}
+        exit={{ scale: 0.92, opacity: 0, y: 20 }}
+        transition={{ type: 'spring', damping: 28, stiffness: 350 }}
+        className="relative w-full max-w-lg flex flex-col rounded-3xl overflow-hidden
+          bg-gradient-to-b from-[#d6ddd8] via-[#ccd5ce] to-[#c0cac3]
+          shadow-[0_24px_80px_-12px_rgba(0,0,0,0.3),0_8px_24px_-8px_rgba(0,0,0,0.15),inset_0_2px_0_rgba(255,255,255,0.5),inset_0_-1px_3px_rgba(0,0,0,0.06)]
+        "
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* ── Reflejo convexo superior del modal ── */}
+        <div className="absolute inset-x-0 top-0 h-[40%] rounded-t-3xl bg-gradient-to-b from-white/40 via-white/15 to-transparent pointer-events-none" />
+
+        {/* ── Resplandores de fondo decorativos ── */}
+        <div className="absolute -top-16 -right-16 w-48 h-48 rounded-full bg-gradient-to-br from-indigo-400/15 to-transparent blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-12 -left-12 w-40 h-40 rounded-full bg-gradient-to-tr from-teal-400/10 to-transparent blur-3xl pointer-events-none" />
+
+        {/* ── Header ── */}
+        <div className="relative z-10 flex-shrink-0 px-6 pt-6 pb-4">
+          <div>
+            <h2 className="text-lg font-bold text-gray-800 tracking-tight">Tomar Asistencia</h2>
+            <p className="text-xs text-gray-500 font-medium">Selecciona la clase</p>
+          </div>
+          {/* Línea separadora con acento */}
+          <div className="mt-4 h-[1px] bg-gradient-to-r from-transparent via-gray-400/30 to-transparent" />
+        </div>
+
+        {/* ── Grid de Clases ── */}
+        <div className="relative z-10 flex-1 overflow-y-auto max-h-[55vh] px-5 pb-4">
+          <div className="grid grid-cols-4 gap-2.5">
+            {clases.map((clase: any, index: number) => (
+              <motion.button
+                key={clase.id}
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.03, duration: 0.3 }}
+                onClick={() => onSelectClass(clase.id)}
+                className="
+                  group relative flex items-center justify-center
+                  h-14 rounded-2xl
+                  bg-gradient-to-b from-white/60 via-white/40 to-white/25
+                  shadow-[0_3px_10px_-3px_rgba(0,0,0,0.1),0_1px_3px_rgba(0,0,0,0.06),inset_0_1.5px_0_rgba(255,255,255,0.7),inset_0_-1px_2px_rgba(0,0,0,0.04)]
+                  border border-white/50
+                  text-gray-700 font-bold text-[13px] tracking-wide
+                  transition-all duration-300 ease-out
+                  hover:from-white/70 hover:via-white/50 hover:to-white/35
+                  hover:shadow-[0_4px_14px_-3px_rgba(0,0,0,0.12),0_2px_4px_rgba(0,0,0,0.06),inset_0_1.5px_0_rgba(255,255,255,0.8),inset_0_-1px_2px_rgba(0,0,0,0.04)]
+                  hover:border-white/70
+                  active:shadow-[0_1px_4px_-1px_rgba(0,0,0,0.08),inset_0_2px_4px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.5)]
+                  active:from-white/40 active:via-white/30 active:to-white/20
+                  overflow-hidden
+                "
+              >
+                {/* Reflejo superior de la cápsula */}
+                <div className="absolute inset-x-[4px] top-[2px] h-[40%] rounded-full bg-gradient-to-b from-white/60 to-transparent pointer-events-none" />
+                {/* Glow teal inferior en hover */}
+                <div className="absolute bottom-[1px] inset-x-[6px] h-[2px] rounded-full bg-gradient-to-r from-transparent via-teal-400/0 to-transparent pointer-events-none transition-all duration-400 group-hover:via-teal-400/50" />
+                <span className="relative z-10">Clase #{index + 1}</span>
+              </motion.button>
+            ))}
+          </div>
+        </div>
+
+        {/* ── Footer ── */}
+        <div className="relative z-10 flex-shrink-0 px-5 pb-5 pt-2 flex justify-end">
+          <div className="h-[1px] absolute top-0 left-5 right-5 bg-gradient-to-r from-transparent via-gray-400/25 to-transparent" />
+          <button
+            onClick={onClose}
+            className="
+              group relative px-5 py-2.5 rounded-full text-sm font-semibold text-gray-600
+              bg-gradient-to-b from-white/50 via-white/30 to-white/15
+              shadow-[0_3px_10px_-3px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.04),inset_0_1.5px_0_rgba(255,255,255,0.6),inset_0_-1px_2px_rgba(0,0,0,0.04)]
+              border border-white/40
+              transition-all duration-300 ease-out
+              hover:from-white/60 hover:via-white/40 hover:to-white/25
+              hover:text-gray-700 hover:border-white/60
+              active:shadow-[0_1px_3px_-1px_rgba(0,0,0,0.06),inset_0_2px_4px_rgba(0,0,0,0.06)]
+              overflow-hidden
+            "
+          >
+            <div className="absolute inset-x-[3px] top-[2px] h-[40%] rounded-full bg-gradient-to-b from-white/50 to-transparent pointer-events-none" />
+            <div className="absolute bottom-[1px] inset-x-[6px] h-[2px] rounded-full bg-gradient-to-r from-transparent via-teal-400/0 to-transparent pointer-events-none transition-all duration-400 group-hover:via-teal-400/50" />
+            <span className="relative z-10">Cancelar</span>
+          </button>
+        </div>
       </motion.div>
     </motion.div>
   );
