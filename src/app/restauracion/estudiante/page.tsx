@@ -225,6 +225,25 @@ export default function EstudiantePage() {
         .sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
         .map(curso => ({ id: curso.id, title: curso.nombre, color: curso.color || 'blue' }));
 
+      // Consultar conteo de estudiantes activos por curso
+      const courseIds = loadedCourses.map(c => c.id);
+      if (courseIds.length > 0) {
+        const { data: countData } = await supabase
+          .from('inscripciones')
+          .select('curso_id', { count: 'exact', head: false })
+          .in('curso_id', courseIds)
+          .eq('servidor_id', servidorId)
+          .eq('estado', 'activo');
+
+        if (countData) {
+          const counts: Record<number, number> = {};
+          countData.forEach((row: any) => {
+            counts[row.curso_id] = (counts[row.curso_id] || 0) + 1;
+          });
+          loadedCourses.forEach(c => { c.studentCount = counts[c.id] || 0; });
+        }
+      }
+
       setCourses(loadedCourses);
       setLoadingCourses(false);
     }

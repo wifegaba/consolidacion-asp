@@ -78,25 +78,78 @@ export type ActiveTab = 'grades' | 'reports' | 'hojaDeVida';
 
 export type MainPanelState = 'welcome' | 'courseWelcome' | 'creating' | 'viewing';
 
-// (Definición de folderColors necesaria para el tipo Course)
+// (Definición de folderColors — paleta premium para liquid glass)
 export const folderColors = {
-  blue: 'text-blue-500/80 fill-blue-500/20',
-  indigo: 'text-indigo-500/80 fill-indigo-500/20',
-  teal: 'text-teal-500/80 fill-teal-500/20',
-  purple: 'text-purple-500/80 fill-purple-500/20',
-  pink: 'text-pink-500/80 fill-pink-500/20',
-  // Añadimos 'default' o un color de fallback si es necesario
-  default: 'text-gray-500/80 fill-gray-500/20',
+  blue: {
+    icon: 'text-blue-400 fill-blue-400/15',
+    glow: 'from-blue-500/20 to-cyan-400/10',
+    border: 'hover:border-blue-400/30',
+    shadow: 'hover:shadow-blue-500/15',
+    accent: 'bg-blue-500',
+    focusRing: 'focus:ring-blue-500/30',
+    bgGlow: 'from-blue-500/10 to-blue-600/5',
+    bgGlowHover: 'group-hover:from-blue-500/15 group-hover:to-blue-600/10',
+  },
+  indigo: {
+    icon: 'text-indigo-400 fill-indigo-400/15',
+    glow: 'from-indigo-500/20 to-violet-400/10',
+    border: 'hover:border-indigo-400/30',
+    shadow: 'hover:shadow-indigo-500/15',
+    accent: 'bg-indigo-500',
+    focusRing: 'focus:ring-indigo-500/30',
+    bgGlow: 'from-indigo-500/10 to-indigo-600/5',
+    bgGlowHover: 'group-hover:from-indigo-500/15 group-hover:to-indigo-600/10',
+  },
+  teal: {
+    icon: 'text-teal-400 fill-teal-400/15',
+    glow: 'from-teal-500/20 to-emerald-400/10',
+    border: 'hover:border-teal-400/30',
+    shadow: 'hover:shadow-teal-500/15',
+    accent: 'bg-teal-500',
+    focusRing: 'focus:ring-teal-500/30',
+    bgGlow: 'from-teal-500/10 to-teal-600/5',
+    bgGlowHover: 'group-hover:from-teal-500/15 group-hover:to-teal-600/10',
+  },
+  purple: {
+    icon: 'text-purple-400 fill-purple-400/15',
+    glow: 'from-purple-500/20 to-fuchsia-400/10',
+    border: 'hover:border-purple-400/30',
+    shadow: 'hover:shadow-purple-500/15',
+    accent: 'bg-purple-500',
+    focusRing: 'focus:ring-purple-500/30',
+    bgGlow: 'from-purple-500/10 to-purple-600/5',
+    bgGlowHover: 'group-hover:from-purple-500/15 group-hover:to-purple-600/10',
+  },
+  pink: {
+    icon: 'text-pink-400 fill-pink-400/15',
+    glow: 'from-pink-500/20 to-rose-400/10',
+    border: 'hover:border-pink-400/30',
+    shadow: 'hover:shadow-pink-500/15',
+    accent: 'bg-pink-500',
+    focusRing: 'focus:ring-pink-500/30',
+    bgGlow: 'from-pink-500/10 to-pink-600/5',
+    bgGlowHover: 'group-hover:from-pink-500/15 group-hover:to-pink-600/10',
+  },
+  default: {
+    icon: 'text-slate-400 fill-slate-400/15',
+    glow: 'from-slate-500/20 to-gray-400/10',
+    border: 'hover:border-slate-400/30',
+    shadow: 'hover:shadow-slate-500/15',
+    accent: 'bg-slate-500',
+    focusRing: 'focus:ring-slate-500/30',
+    bgGlow: 'from-slate-500/10 to-slate-600/5',
+    bgGlowHover: 'group-hover:from-slate-500/15 group-hover:to-slate-600/10',
+  },
 };
 
 // --- MODIFICADO ---
 // Este tipo ahora coincide con la tabla 'cursos' de la BD
 export type Course = {
-  id: number; // <-- AÑADIDO: Coincide con la BD
+  id: number;
   title: string;
-  color: string; // <-- Cambiado a string genérico para aceptar 'blue', 'indigo', etc.
+  color: string;
   hasSpecialBadge?: boolean;
-  // 'onSelect' se elimina de aquí. Es una prop del componente, no parte del modelo.
+  studentCount?: number;
 };
 // --- FIN MODIFICACIÓN ---
 

@@ -2,7 +2,7 @@
 
 import React from 'react';
 // --- CAMBIO: Importar Loader2 y Framer Motion ---
-import { BookMarked, Folder, Star, Loader2, LogOut } from 'lucide-react';
+import { BookMarked, Folder, Star, Loader2, LogOut, Users } from 'lucide-react';
 import { supabase } from '../../../../lib/supabaseClient';
 import { motion, Variants } from 'framer-motion';
 
@@ -62,7 +62,7 @@ export function WelcomePanel({
       {/* Tarjeta de Bienvenida */}
       <div
         className={`
-          group relative rounded-3xl border border-white/70 bg-white/55 px-6 md:px-12 pt-8 pb-6 md:pt-10 md:pb-8 shadow-xl backdrop-blur-xl w-full max-w-md md:w-auto md:min-w-[28rem] md:max-w-3xl
+          group relative rounded-3xl border border-white/70 bg-white/55 px-6 md:px-10 pt-5 pb-4 md:pt-6 md:pb-5 shadow-xl backdrop-blur-xl w-full max-w-md md:w-auto md:min-w-[28rem] md:max-w-3xl
           transition-all duration-${animationDuration} ease-[${easing}]
           ${isActive ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-4 scale-95'}
         `}
@@ -73,8 +73,8 @@ export function WelcomePanel({
         {/* Premium Background Gradients */}
         <div className="absolute -top-20 -left-20 h-64 w-64 rounded-full bg-gradient-to-br from-blue-400/30 via-indigo-400/20 to-transparent blur-[50px] pointer-events-none" />
         <div className="absolute -bottom-20 -right-20 h-64 w-64 rounded-full bg-gradient-to-tl from-purple-500/30 via-fuchsia-400/20 to-transparent blur-[50px] pointer-events-none" />
-        <BookMarked className="w-14 h-14 md:w-16 md:h-16 mx-auto text-indigo-500/90" />
-        <h1 className="mt-4 text-lg md:text-xl font-semibold tracking-tight text-gray-900 flex flex-col items-center gap-1">
+        <BookMarked className="w-10 h-10 md:w-12 md:h-12 mx-auto text-indigo-500/90" />
+        <h1 className="mt-2 text-lg md:text-xl font-semibold tracking-tight text-gray-900 flex flex-col items-center gap-0.5">
           <span>Bienvenido</span>
           {userName && (
             <span className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-600 bg-clip-text text-transparent animate-gradient-x pb-0.5">
@@ -82,7 +82,7 @@ export function WelcomePanel({
             </span>
           )}
         </h1>
-        <p className="mt-3 max-w-sm text-sm md:text-base text-gray-700 mx-auto leading-relaxed">Selecciona un curso para empezar a gestionar estudiantes y registrar calificaciones.</p>
+        <p className="mt-2 max-w-sm text-xs md:text-sm text-gray-700 mx-auto leading-relaxed">Selecciona un curso para empezar a gestionar estudiantes y registrar calificaciones.</p>
 
 
       </div>
@@ -137,6 +137,7 @@ export function WelcomePanel({
                     title={course.title}
                     color={course.color}
                     hasSpecialBadge={course.hasSpecialBadge}
+                    studentCount={course.studentCount}
                     onSelect={() => onSelectCourse(course)}
                   />
                 </motion.div>
@@ -186,11 +187,12 @@ export function CourseWelcomeMessage({
   );
 }
 
-// --- Componente 3: CourseFolder (Sin Cambios) ---
+// --- Componente 3: CourseFolder — Premium Dark Glass Card ---
 function CourseFolder({
   title,
   color = 'blue',
   hasSpecialBadge = false,
+  studentCount,
   onSelect,
   className = '',
   style = {}
@@ -198,59 +200,100 @@ function CourseFolder({
   title: string;
   color?: string;
   hasSpecialBadge?: boolean;
+  studentCount?: number;
   onSelect: () => void;
   className?: string;
   style?: React.CSSProperties;
 }) {
   const colorKey = color in folderColors ? color as keyof typeof folderColors : 'default';
-  const colorClasses = folderColors[colorKey];
-  const appleEase = 'ease-[cubic-bezier(0.2,0.8,0.2,1)]';
-  const duration = 'duration-300';
+  const theme = folderColors[colorKey];
+
+  // Mapeo de colores para badge y fondo del icono
+  const badgeColors: Record<string, { bg: string; text: string; label: string; iconBg: string; glow: string }> = {
+    blue: { bg: 'bg-blue-500', text: 'text-white', label: 'CURSO', iconBg: 'from-blue-500/30 to-blue-600/20', glow: 'shadow-blue-500/20' },
+    indigo: { bg: 'bg-indigo-500', text: 'text-white', label: 'CURSO', iconBg: 'from-indigo-500/30 to-indigo-600/20', glow: 'shadow-indigo-500/20' },
+    teal: { bg: 'bg-teal-500', text: 'text-white', label: 'CURSO', iconBg: 'from-teal-500/30 to-teal-600/20', glow: 'shadow-teal-500/20' },
+    purple: { bg: 'bg-purple-500', text: 'text-white', label: 'CURSO', iconBg: 'from-purple-500/30 to-purple-600/20', glow: 'shadow-purple-500/20' },
+    pink: { bg: 'bg-pink-500', text: 'text-white', label: 'CURSO', iconBg: 'from-pink-500/30 to-pink-600/20', glow: 'shadow-pink-500/20' },
+    default: { bg: 'bg-slate-500', text: 'text-white', label: 'CURSO', iconBg: 'from-slate-500/30 to-slate-600/20', glow: 'shadow-slate-500/20' },
+  };
+  const badge = badgeColors[colorKey] || badgeColors.default;
 
   return (
     <button
       type="button"
       onClick={onSelect}
       className={`
-        relative flex flex-col items-center justify-start w-36 h-36 md:w-44 md:h-44 
-        rounded-3xl p-4 
-        shadow-lg shadow-black/5
-        transition-all ${duration} ${appleEase}
-        hover:scale-[1.03] hover:-translate-y-1.5 
-        hover:shadow-xl hover:shadow-indigo-500/20
-        active:scale-[0.98] active:translate-y-0
-        focus:outline-none focus:ring-4 focus:ring-indigo-400/25 group text-center 
-        flex-shrink-0 
-        ${className} 
+        group relative flex flex-col items-center justify-center
+        w-40 h-52 md:w-48 md:h-60
+        rounded-2xl p-5 md:p-6
+        /* —— Dark Glass Base —— */
+        backdrop-blur-2xl 
+        bg-gradient-to-br from-slate-900/90 via-indigo-950/80 to-slate-900/90
+        border border-white/[0.08]
+        /* —— Sombras —— */
+        shadow-[0_8px_32px_-8px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.05)]
+        /* —— Transiciones —— */
+        transition-all duration-500 ease-[cubic-bezier(0.2,0.8,0.2,1)]
+        hover:border-white/[0.12]
+        hover:shadow-[0_8px_32px_-8px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.06)]
+        active:scale-[0.97] active:translate-y-0
+        focus:outline-none focus:ring-2 ${theme.focusRing}
+        text-center flex-shrink-0
+        overflow-hidden
+        ${className}
       `}
       style={style}
     >
-      <Folder
-        className={`
-          w-24 h-24 md:w-28 md:h-28 mb-2 md:mb-3 ${colorClasses} 
-          transition-all ${duration} ${appleEase}
-          drop-shadow-md 
-          group-hover:drop-shadow-lg 
-          group-hover:-translate-y-1
-        `}
-        strokeWidth={1}
-      />
+      {/* ── Resplandor de fondo sutil ── */}
+      <div className={`absolute -top-10 -right-10 w-32 h-32 rounded-full bg-gradient-to-br ${theme.bgGlow} blur-2xl pointer-events-none ${theme.bgGlowHover} transition-all duration-700`} />
+      <div className={`absolute -bottom-8 -left-8 w-24 h-24 rounded-full bg-gradient-to-tr ${theme.bgGlow} blur-2xl pointer-events-none`} />
 
-      <h4
-        className={`
-          text-xs md:text-sm font-semibold text-gray-800 w-full 
-          transition-colors ${duration} ease-out
-          group-hover:text-indigo-600
-        `}
-      >
+      {/* ── Reflejo superior ── */}
+      <div className="absolute inset-x-0 top-0 h-[40%] rounded-t-2xl bg-gradient-to-b from-white/[0.04] to-transparent pointer-events-none" />
+
+
+
+      {/* ── Contenedor del icono ── */}
+      <div className={`relative z-10 flex items-center justify-center w-16 h-16 md:w-20 md:h-20 rounded-xl bg-gradient-to-br ${badge.iconBg} backdrop-blur-md border border-white/[0.1] shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] transition-all duration-500 group-hover:border-white/[0.18] ${badge.glow} group-hover:shadow-lg`}>
+        <Folder
+          className={`
+            w-9 h-9 md:w-11 md:h-11 ${theme.icon}
+            transition-all duration-500 ease-[cubic-bezier(0.2,0.8,0.2,1)]
+            drop-shadow-[0_2px_6px_rgba(0,0,0,0.2)]
+            group-hover:scale-110
+          `}
+          strokeWidth={1.5}
+          fill="currentColor"
+          style={{ fillOpacity: 0.2 }}
+        />
+      </div>
+
+      {/* ── Título del curso ── */}
+      <h4 className="relative z-10 text-sm md:text-base font-semibold text-white/90 w-full truncate mt-4 group-hover:text-white transition-colors duration-300">
         {title}
       </h4>
 
+      {/* ── Cantidad de estudiantes ── */}
+      <div className="relative z-10 flex items-center justify-center gap-1.5 mt-1">
+        <Users size={13} className="text-slate-400" />
+        <span className="text-xs text-slate-400 font-medium">
+          {studentCount !== undefined ? `${studentCount} estudiante${studentCount !== 1 ? 's' : ''}` : 'Cargando...'}
+        </span>
+      </div>
+
+      {/* ── Badge Especial (Estrella) ── */}
       {hasSpecialBadge && (
-        <div className="absolute top-8 right-8 z-10 p-1.5 rounded-full bg-white/70 border border-yellow-300 shadow-lg backdrop-blur-md">
-          <Star size={20} className="text-yellow-500 fill-yellow-400/30 drop-shadow-sm" strokeWidth={1.5} />
+        <div className="absolute top-2 right-2 z-20 p-1 rounded-lg bg-white/[0.06] backdrop-blur-xl border border-yellow-400/30 shadow-[0_0_12px_rgba(234,179,8,0.15)]">
+          <Star size={14} className="text-yellow-400 fill-yellow-400/20 drop-shadow-[0_0_4px_rgba(234,179,8,0.4)]" strokeWidth={1.5} />
         </div>
       )}
+
+      {/* ── Sistema de iluminación inferior premium ── */}
+      {/* Línea de acento principal */}
+      <div className={`absolute bottom-0 inset-x-0 h-[2px] ${theme.accent} opacity-30 group-hover:opacity-100 transition-all duration-500 rounded-b-2xl`} />
+      {/* Resplandor difuso medio */}
+      <div className={`absolute bottom-0 inset-x-4 h-[6px] ${theme.accent} opacity-0 group-hover:opacity-40 blur-[4px] transition-all duration-500 rounded-b-2xl`} />
     </button>
   );
 }
