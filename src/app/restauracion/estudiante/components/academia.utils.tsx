@@ -150,6 +150,7 @@ export type Course = {
   color: string;
   hasSpecialBadge?: boolean;
   studentCount?: number;
+  attendanceRate?: number; // 0-100, porcentaje promedio de asistencia del curso
 };
 // --- FIN MODIFICACIÓN ---
 

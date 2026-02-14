@@ -228,19 +228,63 @@ export default function EstudiantePage() {
       // Consultar conteo de estudiantes activos por curso
       const courseIds = loadedCourses.map(c => c.id);
       if (courseIds.length > 0) {
-        const { data: countData } = await supabase
+        // 1) Obtener inscripciones activas con su curso_id
+        const { data: inscripcionesData } = await supabase
           .from('inscripciones')
-          .select('curso_id', { count: 'exact', head: false })
+          .select('id, curso_id')
           .in('curso_id', courseIds)
           .eq('servidor_id', servidorId)
           .eq('estado', 'activo');
 
-        if (countData) {
-          const counts: Record<number, number> = {};
-          countData.forEach((row: any) => {
-            counts[row.curso_id] = (counts[row.curso_id] || 0) + 1;
-          });
-          loadedCourses.forEach(c => { c.studentCount = counts[c.id] || 0; });
+        const inscripciones = inscripcionesData || [];
+
+        // Contar estudiantes por curso
+        const counts: Record<number, number> = {};
+        inscripciones.forEach((row: any) => {
+          counts[row.curso_id] = (counts[row.curso_id] || 0) + 1;
+        });
+        loadedCourses.forEach(c => { c.studentCount = counts[c.id] || 0; });
+
+        // 2) Calcular tasa de asistencia promedio por curso
+        if (inscripciones.length > 0) {
+          const inscripcionIds = inscripciones.map((r: any) => r.id);
+          const { data: asistData } = await supabase
+            .from('asistencias_academia')
+            .select('inscripcion_id, asistencias')
+            .in('inscripcion_id', inscripcionIds);
+
+          if (asistData && asistData.length > 0) {
+            // Mapear inscripcion_id -> curso_id
+            const inscToCurso: Record<string, number> = {};
+            inscripciones.forEach((r: any) => { inscToCurso[r.id] = r.curso_id; });
+
+            // Acumular asistencias por curso
+            const cursoStats: Record<number, { totalSi: number; totalClases: number }> = {};
+
+            asistData.forEach((row: any) => {
+              const cursoId = inscToCurso[row.inscripcion_id];
+              if (!cursoId) return;
+              if (!cursoStats[cursoId]) cursoStats[cursoId] = { totalSi: 0, totalClases: 0 };
+
+              const topicGrades = row.asistencias?.['1'] || {};
+              for (let i = 1; i <= 12; i++) {
+                const val = topicGrades[i];
+                if (val === 'si' || val === 'no') {
+                  cursoStats[cursoId].totalClases++;
+                  if (val === 'si') cursoStats[cursoId].totalSi++;
+                }
+              }
+            });
+
+            loadedCourses.forEach(c => {
+              const stats = cursoStats[c.id];
+              if (stats && stats.totalClases > 0) {
+                c.attendanceRate = Math.round((stats.totalSi / stats.totalClases) * 100);
+              } else {
+                c.attendanceRate = undefined; // Sin datos aún
+              }
+            });
+          }
         }
       }
 

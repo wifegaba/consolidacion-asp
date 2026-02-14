@@ -138,6 +138,7 @@ export function WelcomePanel({
                     color={course.color}
                     hasSpecialBadge={course.hasSpecialBadge}
                     studentCount={course.studentCount}
+                    attendanceRate={course.attendanceRate}
                     onSelect={() => onSelectCourse(course)}
                   />
                 </motion.div>
@@ -193,6 +194,7 @@ function CourseFolder({
   color = 'blue',
   hasSpecialBadge = false,
   studentCount,
+  attendanceRate,
   onSelect,
   className = '',
   style = {}
@@ -201,6 +203,7 @@ function CourseFolder({
   color?: string;
   hasSpecialBadge?: boolean;
   studentCount?: number;
+  attendanceRate?: number;
   onSelect: () => void;
   className?: string;
   style?: React.CSSProperties;
@@ -289,10 +292,38 @@ function CourseFolder({
         </div>
       )}
 
+      {/* ── Barra de progreso de asistencia ── */}
+      <div className="relative z-10 w-full mt-3">
+        {attendanceRate !== undefined ? (
+          <>
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-[10px] text-slate-500 font-medium">Asistencia</span>
+              <span className={`text-[10px] font-bold ${attendanceRate >= 70 ? 'text-emerald-400' :
+                  attendanceRate >= 40 ? 'text-amber-400' :
+                    'text-red-400'
+                }`}>
+                {attendanceRate}%
+              </span>
+            </div>
+            <div className="w-full h-1.5 rounded-full bg-white/[0.06] overflow-hidden">
+              <div
+                className={`h-full rounded-full transition-all duration-700 ease-out ${attendanceRate >= 70
+                    ? 'bg-gradient-to-r from-emerald-500 to-emerald-400 shadow-[0_0_8px_rgba(16,185,129,0.4)]'
+                    : attendanceRate >= 40
+                      ? 'bg-gradient-to-r from-amber-500 to-yellow-400 shadow-[0_0_8px_rgba(245,158,11,0.4)]'
+                      : 'bg-gradient-to-r from-red-600 to-red-400 shadow-[0_0_8px_rgba(239,68,68,0.4)]'
+                  }`}
+                style={{ width: `${attendanceRate}%` }}
+              />
+            </div>
+          </>
+        ) : (
+          <div className="w-full h-1.5 rounded-full bg-white/[0.04]" />
+        )}
+      </div>
+
       {/* ── Sistema de iluminación inferior premium ── */}
-      {/* Línea de acento principal */}
       <div className={`absolute bottom-0 inset-x-0 h-[2px] ${theme.accent} opacity-30 group-hover:opacity-100 transition-all duration-500 rounded-b-2xl`} />
-      {/* Resplandor difuso medio */}
       <div className={`absolute bottom-0 inset-x-4 h-[6px] ${theme.accent} opacity-0 group-hover:opacity-40 blur-[4px] transition-all duration-500 rounded-b-2xl`} />
     </button>
   );
