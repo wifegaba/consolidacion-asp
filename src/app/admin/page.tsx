@@ -1134,8 +1134,8 @@ function ModalCrearEditarMaestro({ maestroInicial, currentUser, onClose, onSucce
   const [loadingDiaActual, setLoadingDiaActual] = useState(isEdit);
 
   // Estados para selector de día
-  const [diaSeleccionado, setDiaSeleccionado] = useState<"Domingo" | "Martes" | "Jueves" | "Virtual" | null>(null);
-  const [diasHabilitados, setDiasHabilitados] = useState<("Domingo" | "Martes" | "Jueves" | "Virtual")[]>([]);
+  const [diaSeleccionado, setDiaSeleccionado] = useState<"Domingo" | "Martes" | "Jueves" | "Sábado" | "Virtual" | null>(null);
+  const [diasHabilitados, setDiasHabilitados] = useState<("Domingo" | "Martes" | "Jueves" | "Sábado" | "Virtual")[]>([]);
   const [esSoloLectura, setEsSoloLectura] = useState(false);
 
   // Función para subir foto
@@ -1213,19 +1213,19 @@ function ModalCrearEditarMaestro({ maestroInicial, currentUser, onClose, onSucce
     const diaAcceso = currentUser.diaAcceso;
 
     if (!diaAcceso || diaAcceso === "Todos") {
-      // Usuario tiene todos los días - puede seleccionar entre los 4
-      setDiasHabilitados(["Domingo", "Martes", "Jueves", "Virtual"]);
+      // Usuario tiene todos los días - puede seleccionar entre los 5
+      setDiasHabilitados(["Domingo", "Martes", "Jueves", "Sábado", "Virtual"]);
       setEsSoloLectura(false);
     } else {
       // Parsear días separados por coma (ej: "Domingo,Martes")
       const diasUsuario = diaAcceso
         .split(',')
         .map(d => d.trim())
-        .filter(d => ["Domingo", "Martes", "Jueves", "Virtual"].includes(d)) as ("Domingo" | "Martes" | "Jueves" | "Virtual")[];
+        .filter(d => ["Domingo", "Martes", "Jueves", "Sábado", "Virtual"].includes(d)) as ("Domingo" | "Martes" | "Jueves" | "Sábado" | "Virtual")[];
 
       if (diasUsuario.length === 0) {
         // Fallback: si no hay días válidos, habilitar todos
-        setDiasHabilitados(["Domingo", "Martes", "Jueves", "Virtual"]);
+        setDiasHabilitados(["Domingo", "Martes", "Jueves", "Sábado", "Virtual"]);
         setEsSoloLectura(false);
       } else if (diasUsuario.length === 1) {
         // Usuario tiene solo 1 día - solo lectura
@@ -1405,7 +1405,7 @@ function ModalCrearEditarMaestro({ maestroInicial, currentUser, onClose, onSucce
                   Por favor selecciona un día para continuar
                 </p>
               )}
-              {diasHabilitados.length < 4 && (
+              {diasHabilitados.length < 5 && (
                 <p className="text-xs text-gray-500 mt-2">
                   Solo puedes asignar en los días que tienes habilitados
                 </p>

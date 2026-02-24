@@ -353,7 +353,8 @@ export default function PanelMatricular({ maestros, cursos, estudiantes, inscrip
                                                     {e.dia && (
                                                         <span className={`text-[9px] md:text-[11px] font-black px-2 py-1 md:px-3 md:py-1.5 rounded-lg md:rounded-xl shadow-sm ${e.dia === 'Domingo' ? 'bg-blue-100 text-blue-700 border border-blue-200' :
                                                             e.dia === 'Martes' ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' :
-                                                                'bg-pink-100 text-pink-700 border border-pink-200'
+                                                                e.dia === 'Sábado' ? 'bg-amber-100 text-amber-700 border border-amber-200' :
+                                                                    'bg-pink-100 text-pink-700 border border-pink-200'
                                                             }`}>
                                                             {formatLabel(e.dia)}
                                                         </span>
