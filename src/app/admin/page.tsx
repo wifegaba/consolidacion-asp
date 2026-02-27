@@ -15,7 +15,7 @@ import {
   Users, UserPlus, Server, Search, Plus, X, Loader2, Check,
   Edit2, Trash2, BookOpen, MessageSquarePlus, type LucideIcon,
   ChevronDown, AlertTriangle, ClipboardList, UserX, UserCheck2,
-  Phone, MessageCircle, GraduationCap, LogOut, Home, Filter, Camera, User
+  Phone, MessageCircle, GraduationCap, LogOut, Home, Filter, Camera, User, Award
 } from 'lucide-react';
 import { LogoutButton } from '../../components/ui/LogoutButton';
 import { PremiumActionButton } from './components/PremiumActionButton';
@@ -24,6 +24,7 @@ import { PremiumActionButton } from './components/PremiumActionButton';
 import PanelMatricular from './components/PanelMatricular';
 import PanelConsultarEstudiantes from './components/PanelConsultarEstudiantes';
 import PanelPromovidos from './components/PanelPromovidos';
+import PanelGraduados from './components/PanelGraduados';
 import PanelDashboard, { DashboardStats } from './components/PanelDashboard';
 import WelcomePanelAdmin from './components/WelcomePanelAdmin';
 import { PresenceToast, type Toast } from './components/PresenceToast';
@@ -56,7 +57,7 @@ export type MaestroConCursos = Maestro & { asignaciones: AsignacionMaestro[]; ob
 export type Estudiante = { id: string; nombre: string; cedula: string; telefono?: string | null; foto_path?: string | null; dia?: string; origen?: string; };
 export type Inscripcion = { id: number; entrevista_id: string; curso_id: number; servidor_id: string | null; cursos?: Pick<Curso, 'nombre' | 'color'> | null; estado?: string; };
 export type EstudianteInscrito = Estudiante & { maestro: MaestroConCursos | null; curso: Curso | null; inscripcion_id: number | null; };
-export type AdminTab = 'bienvenida' | 'dashboard' | 'matricular' | 'maestros' | 'servidores' | 'consultar' | 'promovidos';
+export type AdminTab = 'bienvenida' | 'dashboard' | 'matricular' | 'maestros' | 'servidores' | 'consultar' | 'promovidos' | 'graduados';
 
 // --- HELPERS ---
 function bustUrl(u?: string | null) {
@@ -418,6 +419,7 @@ export default function AdminPage() {
                 )}
 
                 <TabButton Icon={ClipboardList} label="Estudiantes" isActive={activeTab === 'consultar'} onClick={() => setActiveTab('consultar')} />
+                <TabButton Icon={Award} label="Graduados" isActive={activeTab === 'graduados'} onClick={() => setActiveTab('graduados')} />
 
                 <div className="mt-2 pt-2 border-t border-white/20">
                   <LogoutButton
@@ -552,6 +554,15 @@ export default function AdminPage() {
                       currentUser={currentUser}
                     />
                   )}
+                  {activeTab === 'graduados' && (
+                    <PanelGraduados
+                      estudiantes={estudiantes}
+                      inscripciones={inscripciones}
+                      fotoUrls={fotoUrls}
+                      maestros={maestros}
+                      cursos={cursos}
+                    />
+                  )}
                 </motion.div>
               </AnimatePresence>
             </div>
@@ -569,6 +580,7 @@ export default function AdminPage() {
                 )}
 
                 <MobileTab Icon={ClipboardList} label="Estudiantes" isActive={activeTab === 'consultar'} onClick={() => setActiveTab('consultar')} />
+                <MobileTab Icon={Award} label="Graduados" isActive={activeTab === 'graduados'} onClick={() => setActiveTab('graduados')} />
 
                 {/* Botón de Perfil/Salir integrado */}
                 <LogoutButton
