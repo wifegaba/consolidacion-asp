@@ -69,9 +69,9 @@ function bustUrl(u?: string | null) {
 
 // --- VARIANTES DE ANIMACIÓN ---
 const fadeTransition: Variants = {
-  hidden: { opacity: 0, y: 0 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.2, ease: "easeOut" } },
-  exit: { opacity: 0, transition: { duration: 0.1 } }
+  hidden: { opacity: 0 },
+  visible: { opacity: 1, transition: { duration: 0.12, ease: "easeOut" } },
+  exit: { opacity: 0, transition: { duration: 0.08 } }
 };
 
 export const modalVariants: Variants = {
@@ -85,20 +85,20 @@ const EASE_SMOOTH = [0.16, 1, 0.3, 1] as const;
 
 const LIST_WRAPPER_VARIANTS: Variants = {
   hidden: {
-    transition: { staggerChildren: 0.05, staggerDirection: -1 }
+    transition: { staggerChildren: 0.02, staggerDirection: -1 }
   },
   visible: {
-    transition: { delayChildren: 0.1, staggerChildren: 0.08 }
+    transition: { delayChildren: 0.04, staggerChildren: 0.03 }
   }
 };
 
 const LIST_ITEM_VARIANTS: Variants = {
-  hidden: { opacity: 0, y: 20, scale: 0.95 },
+  hidden: { opacity: 0, y: 12, scale: 0.98 },
   visible: {
     opacity: 1,
     y: 0,
     scale: 1,
-    transition: { duration: 0.6, ease: EASE_SMOOTH }
+    transition: { duration: 0.35, ease: EASE_SMOOTH }
   }
 };
 
@@ -885,8 +885,51 @@ function PanelGestionarMaestros({ maestros, loading, onCrear, onEditar, onAsigna
         </motion.div>
       </div>
 
-      <motion.div variants={LIST_ITEM_VARIANTS} className="px-6 pb-2 shrink-0 z-20 relative">
-        <input type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar..." className={`w-full rounded-lg px-4 py-2 ${GLASS_STYLES.input}`} />
+      <motion.div variants={LIST_ITEM_VARIANTS} className="px-6 pt-4 pb-3 shrink-0 z-20 relative">
+        <div
+          className="relative group/search rounded-2xl overflow-hidden transition-all duration-300"
+          style={{
+            background: 'linear-gradient(145deg, rgba(224,247,250,0.5) 0%, rgba(255,255,255,0.8) 50%, rgba(236,253,245,0.4) 100%)',
+            boxShadow: '6px 6px 16px rgba(0,0,0,0.05), -3px -3px 12px rgba(255,255,255,0.85), inset 0 1px 1px rgba(255,255,255,0.7)',
+            border: '1.5px solid rgba(255,255,255,0.65)',
+          }}
+        >
+          {/* Brillo sutil de fondo */}
+          <div
+            className="absolute inset-0 rounded-2xl pointer-events-none opacity-50 group-focus-within/search:opacity-80 transition-opacity duration-500"
+            style={{
+              background: 'radial-gradient(ellipse at 10% 50%, rgba(165,224,237,0.25) 0%, transparent 60%), radial-gradient(ellipse at 90% 50%, rgba(196,231,214,0.2) 0%, transparent 60%)'
+            }}
+          />
+          {/* Borde brillante al hacer foco */}
+          <div
+            className="absolute inset-0 rounded-2xl pointer-events-none opacity-0 group-focus-within/search:opacity-100 transition-opacity duration-300"
+            style={{
+              boxShadow: 'inset 0 0 0 1.5px rgba(99,179,237,0.4), 0 0 16px rgba(99,179,237,0.15)'
+            }}
+          />
+          {/* Icono de lupa */}
+          <div className="absolute left-4 top-1/2 -translate-y-1/2 z-10 pointer-events-none">
+            <Search size={18} className="text-gray-400 group-focus-within/search:text-blue-500 transition-colors duration-300" />
+          </div>
+          {/* Input */}
+          <input
+            type="text"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Buscar maestro..."
+            className="relative z-[1] w-full bg-transparent rounded-2xl pl-11 pr-4 py-3 text-sm font-medium text-gray-800 placeholder-gray-400/80 outline-none transition-all duration-300"
+          />
+          {/* Botón limpiar */}
+          {search && (
+            <button
+              onClick={() => setSearch('')}
+              className="absolute right-3 top-1/2 -translate-y-1/2 z-10 p-1 rounded-full bg-gray-200/60 hover:bg-gray-300/70 text-gray-500 hover:text-gray-700 transition-all duration-200 active:scale-90"
+            >
+              <X size={14} />
+            </button>
+          )}
+        </div>
       </motion.div>
 
       <div className="flex-1 overflow-y-auto min-h-0 relative z-10 p-6 pt-4 rounded-b-2xl">
@@ -909,13 +952,25 @@ function PanelGestionarMaestros({ maestros, loading, onCrear, onEditar, onAsigna
               <motion.div
                 key={m.id}
                 variants={LIST_ITEM_VARIANTS}
-                initial="hidden"
-                animate="visible"
-                className={`relative p-4 rounded-2xl bg-gradient-to-br from-white/90 via-white/60 to-white/80 border border-white/60 shadow-lg hover:shadow-xl transition-all backdrop-blur-sm ${!m.activo ? 'opacity-60' : ''}`}
+                className={`relative p-4 rounded-3xl overflow-hidden transition-all duration-300 group/card ${!m.activo ? 'opacity-60' : ''}`}
+                style={{
+                  background: 'linear-gradient(145deg, rgba(224,247,250,0.7) 0%, rgba(236,253,245,0.5) 35%, rgba(255,255,255,0.85) 65%, rgba(240,249,255,0.6) 100%)',
+                  boxShadow: '8px 8px 20px rgba(0,0,0,0.06), -4px -4px 16px rgba(255,255,255,0.9), inset 0 1px 1px rgba(255,255,255,0.8)',
+                  border: '1.5px solid rgba(255,255,255,0.7)',
+                  backdropFilter: 'blur(16px)',
+                }}
               >
+                {/* Brillo interno sutil */}
+                <div
+                  className="absolute inset-0 rounded-3xl pointer-events-none opacity-60 group-hover/card:opacity-80 transition-opacity duration-500"
+                  style={{
+                    background: 'radial-gradient(ellipse at 20% 0%, rgba(165,224,237,0.35) 0%, transparent 50%), radial-gradient(ellipse at 80% 100%, rgba(196,231,214,0.25) 0%, transparent 50%)'
+                  }}
+                />
+
                 {/* Badge de estado inactivo */}
                 {!m.activo && (
-                  <div className="absolute top-2 right-2">
+                  <div className="absolute top-2 right-2 z-10">
                     <span className="bg-red-100 text-red-700 text-[9px] font-bold px-2 py-0.5 rounded-full border border-red-300 uppercase tracking-wide">
                       Inactivo
                     </span>
@@ -923,7 +978,7 @@ function PanelGestionarMaestros({ maestros, loading, onCrear, onEditar, onAsigna
                 )}
 
                 {/* Layout Horizontal */}
-                <div className="flex items-center gap-4">
+                <div className="relative z-[1] flex items-center gap-4">
                   {/* Avatar */}
                   <div className="h-12 w-12 shrink-0 rounded-full bg-gradient-to-br from-indigo-500 to-blue-500 flex items-center justify-center text-white font-bold text-lg shadow-md overflow-hidden relative border-2 border-white">
                     {m.foto_url ? (
@@ -951,14 +1006,14 @@ function PanelGestionarMaestros({ maestros, loading, onCrear, onEditar, onAsigna
                     <div className="flex items-center gap-2 shrink-0">
                       <button
                         onClick={(e) => { e.stopPropagation(); window.location.href = `tel:${m.telefono!.replace(/\s+/g, '')}`; }}
-                        className="h-9 w-9 rounded-full bg-white flex items-center justify-center text-sky-600 hover:scale-110 hover:shadow-md transition-all shadow-sm border border-sky-100"
+                        className="h-9 w-9 rounded-full bg-white/80 flex items-center justify-center text-sky-600 hover:scale-110 hover:shadow-md transition-all shadow-sm border border-sky-100/60 backdrop-blur-sm"
                         title="Llamar"
                       >
                         <Phone size={18} />
                       </button>
                       <button
                         onClick={(e) => { e.stopPropagation(); window.open(`https://wa.me/${m.telefono!.replace(/\D/g, '')}`, '_blank'); }}
-                        className="h-9 w-9 rounded-full bg-white flex items-center justify-center text-emerald-600 hover:scale-110 hover:shadow-md transition-all shadow-sm border border-emerald-100"
+                        className="h-9 w-9 rounded-full bg-white/80 flex items-center justify-center text-emerald-600 hover:scale-110 hover:shadow-md transition-all shadow-sm border border-emerald-100/60 backdrop-blur-sm"
                         title="WhatsApp"
                       >
                         <MessageCircle size={18} />
@@ -968,7 +1023,7 @@ function PanelGestionarMaestros({ maestros, loading, onCrear, onEditar, onAsigna
                 </div>
 
                 {/* Botones de Acción */}
-                <div className="flex gap-2 mt-3 flex-wrap">
+                <div className="relative z-[1] flex gap-2 mt-3 flex-wrap">
                   <PremiumActionButton
                     onClick={() => onObs(m)}
                     Icon={MessageSquarePlus}
