@@ -19,7 +19,7 @@ export type Entrevista = {
   fecha_nac?: string | null;
   lugar_nac?: string | null;
   direccion?: string | null;
-  estado_civil?: "soltero" | "casado" | "union" | "viudo" | null;
+  estado_civil?: "soltero" | "casado" | "union" | "viudo" | "separado" | null;
   ocupacion?: string | null;
   escolaridad?: string | null;
   se_congrega?: "si" | "no" | null;
@@ -157,7 +157,7 @@ export type Course = {
 
 // --- 2. CONSTANTES ---
 export const DIAS: ("Domingo" | "Lunes" | "Martes" | "Miércoles" | "Jueves" | "Viernes" | "Sábado")[] = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
-export const ESTADOS: ("soltero" | "casado" | "union" | "viudo")[] = ["soltero", "casado", "union", "viudo"];
+export const ESTADOS: ("soltero" | "casado" | "union" | "viudo" | "separado")[] = ["soltero", "casado", "union", "viudo", "separado"];
 export const TIEMPO_ORACION = ["Menos de 15 min", "15-30 min", "30-60 min", "Más de 1 hora", "No oro"];
 export const LECTURA_BIBLIA = ["Diariamente", "Varias veces por semana", "Semanalmente", "Ocasionalmente", "Casi nunca"];
 export const CONVIVENCIA = ["solo", "pareja", "hijos", "padres", "otro"];

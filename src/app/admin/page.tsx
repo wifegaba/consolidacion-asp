@@ -759,6 +759,29 @@ interface PanelMaestrosProps {
 function PanelGestionarMaestros({ maestros, loading, onCrear, onEditar, onAsignar, onObs, onDesactivar, onReactivar, currentUser }: PanelMaestrosProps) {
   const [search, setSearch] = useState('');
   const [dropdownAbierto, setDropdownAbierto] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      try {
+        if (!dropdownRef.current) return;
+        const target = event.target;
+        if (target instanceof Node) {
+          // Si el click ocurre fuera del dropdownRef, cerramos el menú.
+          if (!dropdownRef.current.contains(target)) {
+            setDropdownAbierto(false);
+          }
+        }
+      } catch (err) {
+        // Ignorar errores safely para que no produzca fallos visuales ("sale error")
+        console.error("Click-outside intercept error ignored", err);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside, true);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside, true);
+    };
+  }, []);
 
   // Estados para los filtros de curso
   const [filtrosCursos, setFiltrosCursos] = useState({
@@ -813,7 +836,7 @@ function PanelGestionarMaestros({ maestros, loading, onCrear, onEditar, onAsigna
 
               {/* Botón Dropdown Cursos - Solo visible si el usuario tiene acceso a TODOS los cursos */}
               {(currentUser.rol === 'Director' || !currentUser.cursosAcceso || currentUser.cursosAcceso.length === 0 || currentUser.cursosAcceso.length >= 5) && (
-                <div className="relative">
+                <div className="relative" ref={dropdownRef}>
                   <button
                     onClick={() => setDropdownAbierto(!dropdownAbierto)}
                     className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white px-4 py-2 rounded-lg text-sm font-semibold shadow-md shadow-indigo-500/30 flex items-center gap-2 transition-all"
@@ -948,119 +971,125 @@ function PanelGestionarMaestros({ maestros, loading, onCrear, onEditar, onAsigna
           </div>
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            {filtered.map(m => (
-              <motion.div
-                key={m.id}
-                variants={LIST_ITEM_VARIANTS}
-                className={`relative p-4 rounded-3xl overflow-hidden transition-all duration-300 group/card ${!m.activo ? 'opacity-60' : ''}`}
-                style={{
-                  background: 'linear-gradient(145deg, rgba(224,247,250,0.7) 0%, rgba(236,253,245,0.5) 35%, rgba(255,255,255,0.85) 65%, rgba(240,249,255,0.6) 100%)',
-                  boxShadow: '8px 8px 20px rgba(0,0,0,0.06), -4px -4px 16px rgba(255,255,255,0.9), inset 0 1px 1px rgba(255,255,255,0.8)',
-                  border: '1.5px solid rgba(255,255,255,0.7)',
-                  backdropFilter: 'blur(16px)',
-                }}
-              >
-                {/* Brillo interno sutil */}
-                <div
-                  className="absolute inset-0 rounded-3xl pointer-events-none opacity-60 group-hover/card:opacity-80 transition-opacity duration-500"
+            <AnimatePresence mode="popLayout">
+              {filtered.map(m => (
+                <motion.div
+                  key={m.id}
+                  layout
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  transition={{ duration: 0.3, ease: 'easeOut' }}
+                  className={`relative p-4 rounded-3xl overflow-hidden transition-all duration-300 group/card ${!m.activo ? 'opacity-60' : ''}`}
                   style={{
-                    background: 'radial-gradient(ellipse at 20% 0%, rgba(165,224,237,0.35) 0%, transparent 50%), radial-gradient(ellipse at 80% 100%, rgba(196,231,214,0.25) 0%, transparent 50%)'
+                    background: 'linear-gradient(145deg, rgba(224,247,250,0.7) 0%, rgba(236,253,245,0.5) 35%, rgba(255,255,255,0.85) 65%, rgba(240,249,255,0.6) 100%)',
+                    boxShadow: '8px 8px 20px rgba(0,0,0,0.06), -4px -4px 16px rgba(255,255,255,0.9), inset 0 1px 1px rgba(255,255,255,0.8)',
+                    border: '1.5px solid rgba(255,255,255,0.7)',
+                    backdropFilter: 'blur(16px)',
                   }}
-                />
+                >
+                  {/* Brillo interno sutil */}
+                  <div
+                    className="absolute inset-0 rounded-3xl pointer-events-none opacity-60 group-hover/card:opacity-80 transition-opacity duration-500"
+                    style={{
+                      background: 'radial-gradient(ellipse at 20% 0%, rgba(165,224,237,0.35) 0%, transparent 50%), radial-gradient(ellipse at 80% 100%, rgba(196,231,214,0.25) 0%, transparent 50%)'
+                    }}
+                  />
 
-                {/* Badge de estado inactivo */}
-                {!m.activo && (
-                  <div className="absolute top-2 right-2 z-10">
-                    <span className="bg-red-100 text-red-700 text-[9px] font-bold px-2 py-0.5 rounded-full border border-red-300 uppercase tracking-wide">
-                      Inactivo
-                    </span>
-                  </div>
-                )}
+                  {/* Badge de estado inactivo */}
+                  {!m.activo && (
+                    <div className="absolute top-2 right-2 z-10">
+                      <span className="bg-red-100 text-red-700 text-[9px] font-bold px-2 py-0.5 rounded-full border border-red-300 uppercase tracking-wide">
+                        Inactivo
+                      </span>
+                    </div>
+                  )}
 
-                {/* Layout Horizontal */}
-                <div className="relative z-[1] flex items-center gap-4">
-                  {/* Avatar */}
-                  <div className="h-12 w-12 shrink-0 rounded-full bg-gradient-to-br from-indigo-500 to-blue-500 flex items-center justify-center text-white font-bold text-lg shadow-md overflow-hidden relative border-2 border-white">
-                    {m.foto_url ? (
-                      <img src={m.foto_url} alt={m.nombre} className="w-full h-full object-cover" />
-                    ) : (
-                      <span>{m.nombre.charAt(0)}</span>
+                  {/* Layout Horizontal */}
+                  <div className="relative z-[1] flex items-center gap-4">
+                    {/* Avatar */}
+                    <div className="h-12 w-12 shrink-0 rounded-full bg-gradient-to-br from-indigo-500 to-blue-500 flex items-center justify-center text-white font-bold text-lg shadow-md overflow-hidden relative border-2 border-white">
+                      {m.foto_url ? (
+                        <img src={m.foto_url} alt={m.nombre} className="w-full h-full object-cover" />
+                      ) : (
+                        <span>{m.nombre.charAt(0)}</span>
+                      )}
+                    </div>
+
+                    {/* Información Principal */}
+                    <div className="flex-1 min-w-0">
+                      <p className="font-bold text-gray-900 text-sm truncate">{m.nombre}</p>
+                      <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                        <span className="text-xs text-gray-600">{m.cedula}</span>
+                        {m.asignaciones.length > 0 && (
+                          <span className="text-[10px] bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full border border-indigo-200 font-bold">
+                            {m.asignaciones[0].cursos?.nombre}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Botones de Comunicación */}
+                    {m.telefono && (
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button
+                          onClick={(e) => { e.stopPropagation(); window.location.href = `tel:${m.telefono!.replace(/\s+/g, '')}`; }}
+                          className="h-9 w-9 rounded-full bg-white/80 flex items-center justify-center text-sky-600 hover:scale-110 hover:shadow-md transition-all shadow-sm border border-sky-100/60 backdrop-blur-sm"
+                          title="Llamar"
+                        >
+                          <Phone size={18} />
+                        </button>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); window.open(`https://wa.me/${m.telefono!.replace(/\D/g, '')}`, '_blank'); }}
+                          className="h-9 w-9 rounded-full bg-white/80 flex items-center justify-center text-emerald-600 hover:scale-110 hover:shadow-md transition-all shadow-sm border border-emerald-100/60 backdrop-blur-sm"
+                          title="WhatsApp"
+                        >
+                          <MessageCircle size={18} />
+                        </button>
+                      </div>
                     )}
                   </div>
 
-                  {/* Información Principal */}
-                  <div className="flex-1 min-w-0">
-                    <p className="font-bold text-gray-900 text-sm truncate">{m.nombre}</p>
-                    <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                      <span className="text-xs text-gray-600">{m.cedula}</span>
-                      {m.asignaciones.length > 0 && (
-                        <span className="text-[10px] bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full border border-indigo-200 font-bold">
-                          {m.asignaciones[0].cursos?.nombre}
-                        </span>
-                      )}
-                    </div>
+                  {/* Botones de Acción */}
+                  <div className="relative z-[1] flex gap-2 mt-3 flex-wrap">
+                    <PremiumActionButton
+                      onClick={() => onObs(m)}
+                      Icon={MessageSquarePlus}
+                      color="violet"
+                      label="OBSERVACIONES"
+                      badgeCount={m.obs_count}
+                    />
+                    <PremiumActionButton
+                      onClick={() => onAsignar(m)}
+                      Icon={BookOpen}
+                      color="amber"
+                      label="CURSOS"
+                    />
+                    <PremiumActionButton
+                      onClick={() => onEditar(m)}
+                      Icon={Edit2}
+                      color="sky"
+                      label="EDITAR"
+                    />
+                    {m.activo ? (
+                      <PremiumActionButton
+                        onClick={() => onDesactivar(m)}
+                        Icon={Trash2}
+                        color="rose"
+                        label="ELIMINAR"
+                      />
+                    ) : (
+                      <PremiumActionButton
+                        onClick={() => onReactivar(m)}
+                        Icon={UserCheck2}
+                        color="emerald"
+                        label="REACTIVAR"
+                      />
+                    )}
                   </div>
-
-                  {/* Botones de Comunicación */}
-                  {m.telefono && (
-                    <div className="flex items-center gap-2 shrink-0">
-                      <button
-                        onClick={(e) => { e.stopPropagation(); window.location.href = `tel:${m.telefono!.replace(/\s+/g, '')}`; }}
-                        className="h-9 w-9 rounded-full bg-white/80 flex items-center justify-center text-sky-600 hover:scale-110 hover:shadow-md transition-all shadow-sm border border-sky-100/60 backdrop-blur-sm"
-                        title="Llamar"
-                      >
-                        <Phone size={18} />
-                      </button>
-                      <button
-                        onClick={(e) => { e.stopPropagation(); window.open(`https://wa.me/${m.telefono!.replace(/\D/g, '')}`, '_blank'); }}
-                        className="h-9 w-9 rounded-full bg-white/80 flex items-center justify-center text-emerald-600 hover:scale-110 hover:shadow-md transition-all shadow-sm border border-emerald-100/60 backdrop-blur-sm"
-                        title="WhatsApp"
-                      >
-                        <MessageCircle size={18} />
-                      </button>
-                    </div>
-                  )}
-                </div>
-
-                {/* Botones de Acción */}
-                <div className="relative z-[1] flex gap-2 mt-3 flex-wrap">
-                  <PremiumActionButton
-                    onClick={() => onObs(m)}
-                    Icon={MessageSquarePlus}
-                    color="violet"
-                    label="OBSERVACIONES"
-                    badgeCount={m.obs_count}
-                  />
-                  <PremiumActionButton
-                    onClick={() => onAsignar(m)}
-                    Icon={BookOpen}
-                    color="amber"
-                    label="CURSOS"
-                  />
-                  <PremiumActionButton
-                    onClick={() => onEditar(m)}
-                    Icon={Edit2}
-                    color="sky"
-                    label="EDITAR"
-                  />
-                  {m.activo ? (
-                    <PremiumActionButton
-                      onClick={() => onDesactivar(m)}
-                      Icon={Trash2}
-                      color="rose"
-                      label="ELIMINAR"
-                    />
-                  ) : (
-                    <PremiumActionButton
-                      onClick={() => onReactivar(m)}
-                      Icon={UserCheck2}
-                      color="emerald"
-                      label="REACTIVAR"
-                    />
-                  )}
-                </div>
-              </motion.div>
-            ))}
+                </motion.div>
+              ))}
+            </AnimatePresence>
           </div>
         )}
       </div>
