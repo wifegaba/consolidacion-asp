@@ -150,7 +150,7 @@ export function HojaDeVidaPanel({
         telefono: form.telefono ?? null, fecha_nac: form.fecha_nac ?? null, lugar_nac: form.lugar_nac ?? null,
         direccion: form.direccion ?? null, escolaridad: form.escolaridad ?? null, ocupacion: form.ocupacion ?? null,
         estado_civil: form.estado_civil ?? null, se_congrega: form.se_congrega ?? null,
-        dia_congrega: form.se_congrega === 'si' ? form.dia_congrega : null, tiempo_iglesia: form.tiempo_iglesia ?? null,
+        dia_congrega: form.dia_congrega ?? null, tiempo_iglesia: form.tiempo_iglesia ?? null,
         invito: form.invito ?? null, pastor: form.pastor ?? null, viene_otra_iglesia: form.viene_otra_iglesia ?? null,
         otra_iglesia_nombre: form.viene_otra_iglesia === 'si' ? form.otra_iglesia_nombre : null, convivencia: form.convivencia ?? null,
         bautizo_agua: form.bautizo_agua ?? null, tiene_biblia: form.tiene_biblia ?? null, ayuna: form.ayuna ?? null,
@@ -462,7 +462,7 @@ export function HojaDeVidaPanel({
 
                     <GlassSection title="Vida Eclesiástica" icon={<Landmark size={20} />} color="cyan">
                       <DarkRowBool label="¿Se congrega?" value={form.se_congrega} edit={edit} onChange={onBoolString('se_congrega')} />
-                      <DarkRowSelect label="Día servicio" value={form.dia_congrega} edit={edit} onChange={(v: any) => setF('dia_congrega', v)} options={DIAS} disabled={form.se_congrega !== 'si'} />
+                      <DarkRowSelect label="Día servicio" value={form.dia_congrega} edit={edit} onChange={(v: any) => setF('dia_congrega', v)} options={DIAS} />
                       <DarkRow label="Tiempo asistiendo" value={form.tiempo_iglesia} edit={edit} onChange={onCE('tiempo_iglesia')} />
                       <DarkRow label="Invitado por" value={form.invito} edit={edit} onChange={onCE('invito')} />
                       <DarkRow label="Pastor" value={form.pastor} edit={edit} onChange={onCE('pastor')} />
@@ -801,7 +801,7 @@ function DarkRow({ label, value, edit, onInput, onChange, icon }: any) {
 
 function DarkRowSelect({ label, value, edit, onChange, options, disabled }: any) {
   return (
-    <div className="flex items-center justify-between py-3 border-b border-slate-200 last:border-0 hover:bg-white/40 px-3 -mx-3 rounded-lg transition-colors">
+    <div className={`flex items-center justify-between py-3 border-b border-slate-200 last:border-0 hover:bg-white/40 px-3 -mx-3 rounded-lg transition-colors ${disabled && edit ? 'opacity-50' : ''}`}>
       <div className="text-xs font-medium text-slate-600 uppercase tracking-wide">{label}</div>
       <div className="text-sm text-slate-700">
         {edit ? (
@@ -809,15 +809,19 @@ function DarkRowSelect({ label, value, edit, onChange, options, disabled }: any)
             value={value ?? ""}
             onChange={(e) => onChange(e.target.value)}
             disabled={disabled}
-            className="bg-white border border-slate-300 rounded-md text-xs py-1.5 px-3 text-slate-700 focus:border-blue-500 outline-none shadow-sm"
+            className={`bg-white border rounded-md text-xs py-1.5 px-3 focus:border-blue-500 outline-none shadow-sm transition-all ${disabled ? 'border-slate-200 text-slate-400 bg-slate-50 cursor-not-allowed' : 'border-slate-300 text-slate-700 cursor-pointer hover:border-blue-300'}`}
           >
             <option value="">Seleccionar</option>
             {options.map((op: string) => (
-              <option key={op} value={op}>{op}</option>
+              <option key={op} value={op}>{op.charAt(0).toUpperCase() + op.slice(1).replace(/_/g, ' ')}</option>
             ))}
           </select>
         ) : (
-          value || <span className="text-slate-400 text-xs">—</span>
+          value ? (
+             <span className="capitalize font-medium text-slate-800">{value.replace(/_/g, ' ')}</span>
+          ) : (
+             <span className="text-slate-400 text-xs">—</span>
+          )
         )}
       </div>
     </div>
