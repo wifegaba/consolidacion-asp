@@ -269,8 +269,8 @@ export default function PanelMatricular({ maestros, cursos, estudiantes, inscrip
                     Crear Estudiante
                 </button>
             </CardHeader>
-            <div className="grid grid-cols-1 md:grid-cols-3 grid-rows-[auto_1fr] md:grid-rows-1 gap-6 p-6 flex-1 min-h-0 overflow-hidden">
-                <div className="flex flex-col gap-3 relative z-20 overflow-visible md:overflow-y-auto md:max-h-full">
+            <div className="grid grid-cols-1 md:grid-cols-3 grid-rows-[auto_1fr] md:grid-rows-1 gap-6 p-6 flex-1 min-h-0 overflow-visible">
+                <div className="flex flex-col gap-3 relative z-50">
                     <div className="space-y-3">
                         <label className="hidden text-xs font-bold text-gray-600 uppercase tracking-wider">Configuración</label>
                         <div className="hidden">
@@ -442,7 +442,7 @@ function PremiumSelect({ label, value, onChange, options, placeholder = "Selecci
                             animate={{ opacity: 1, y: 0, scale: 1 }}
                             exit={{ opacity: 0, y: -10, scale: 0.95 }}
                             transition={{ duration: 0.2, ease: "easeOut" }}
-                            className="absolute z-50 mt-1 w-full bg-white/95 backdrop-blur-xl border border-white/60 rounded-lg shadow-2xl overflow-hidden max-h-48 overflow-y-auto custom-scrollbar"
+                            className="absolute z-[100] mt-1 w-full bg-white/95 backdrop-blur-xl border border-white/60 rounded-lg shadow-2xl overflow-hidden max-h-[400px] overflow-y-auto custom-scrollbar"
                         >
                             {options.map((opt) => (
                                 <div

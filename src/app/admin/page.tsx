@@ -1,4 +1,4 @@
-﻿/*
+/*
   ARCHIVO: app/admin/page.tsx
   ESTADO: FINAL - FULL RESPONSIVE FIX
   DESCRIPCIÓN: 
@@ -1351,16 +1351,38 @@ function ModalCrearEditarMaestro({ maestroInicial, currentUser, onClose, onSucce
 
     setLoading(true);
     try {
-      // ===== PASO 1: Crear o Actualizar Servidor (Datos Básicos) =====
-      const { data: servidorId, error: rpcError } = await supabase.rpc('fn_upsert_servidor', {
-        p_cedula: ced.trim(),
-        p_nombre: nom.trim(),
-        p_telefono: tel.trim() || null,
-        p_email: null
-      });
+      let servidorId = maestroInicial?.id;
 
-      if (rpcError) throw rpcError;
-      if (!servidorId) throw new Error('No se pudo obtener el ID del servidor');
+      if (isEdit && servidorId) {
+        // ===== PASO 1: Actualizar Servidor Existente =====
+        const { error: updateError } = await supabase
+          .from('servidores')
+          .update({
+            cedula: ced.trim(),
+            nombre: nom.trim(),
+            telefono: tel.trim() || null
+          })
+          .eq('id', servidorId);
+
+        if (updateError) {
+          if (updateError.code === '23505' || updateError.message?.includes('duplicate key') || updateError.message?.includes('unique constraint')) {
+            throw new Error('Ya existe otro maestro o servidor registrado con esa cédula.');
+          }
+          throw updateError;
+        }
+      } else {
+        // ===== PASO 1: Crear Servidor (Datos Básicos) =====
+        const { data: newServidorId, error: rpcError } = await supabase.rpc('fn_upsert_servidor', {
+          p_cedula: ced.trim(),
+          p_nombre: nom.trim(),
+          p_telefono: tel.trim() || null,
+          p_email: null
+        });
+
+        if (rpcError) throw rpcError;
+        if (!newServidorId) throw new Error('No se pudo obtener el ID del servidor');
+        servidorId = newServidorId;
+      }
 
       // ===== PASO 1.5: Guardar Foto (Actualización directa) =====
       if (fotoUrl) {
@@ -1673,7 +1695,7 @@ function ModalConfirmarDesactivar({ maestro, onClose, onSuccess }: { maestro: Ma
   const handleEliminarDefinitivo = async () => {
     setError('');
 
-    if (password !== '93062015-4') {
+    if (password !== 'Asp2026*') {
       setError('Contraseña administrativa incorrecta.');
       return;
     }

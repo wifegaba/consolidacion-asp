@@ -579,7 +579,7 @@ function ModalSecureDelete({ studentName, onConfirm, onCancel }: { studentName: 
     const [error, setError] = useState('');
 
     const handleSubmit = () => {
-        if (password === '93062015-4') {
+        if (password === 'Asp2026*') {
             onConfirm();
         } else {
             setError('Contraseña incorrecta');

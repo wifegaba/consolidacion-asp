@@ -120,7 +120,7 @@ type ObservacionRow = {
 
 /* ========= Constantes / Helpers ========= */
 // (Toda tu lógica de Helpers permanece intacta)
-const ADMIN_PASSWORD = '1061355';
+const ADMIN_PASSWORD = 'Asp2026*';
 const MIN_SEARCH = 2;
 const defaultCultos = (): CultosMap => ({
     DOMINGO: 'DOMINGO',
@@ -1289,7 +1289,7 @@ export default function GestionServidores() {
             return;
         }
 
-        if (adminRolePassword !== '93062015-4') {
+        if (adminRolePassword !== 'Asp2026*') {
             setAdminRoleError('Contraseña incorrecta. Acceso denegado.');
             return;
         }
