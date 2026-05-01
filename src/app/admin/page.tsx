@@ -318,6 +318,10 @@ export default function AdminPage() {
     return inscripciones.filter(i => (i as any).estado === 'promovido').length;
   }, [inscripciones]);
 
+  const graduadosCount = useMemo(() => {
+    return inscripciones.filter(i => (i as any).estado === 'graduado').length;
+  }, [inscripciones]);
+
   // Filtro centralizado de maestros visibles (lógica compartida con PanelGestionarMaestros)
   const maestrosVisibles = useMemo(() => {
     return maestros.filter(m => {
@@ -419,7 +423,7 @@ export default function AdminPage() {
                 )}
 
                 <TabButton Icon={ClipboardList} label="Estudiantes" isActive={activeTab === 'consultar'} onClick={() => setActiveTab('consultar')} />
-                <TabButton Icon={Award} label="Graduados" isActive={activeTab === 'graduados'} onClick={() => setActiveTab('graduados')} />
+                <TabButton Icon={Award} label="Graduados" isActive={activeTab === 'graduados'} onClick={() => setActiveTab('graduados')} badge={graduadosCount} badgeColor="emerald" />
 
                 <div className="mt-2 pt-2 border-t border-white/20">
                   <LogoutButton
@@ -580,7 +584,7 @@ export default function AdminPage() {
                 )}
 
                 <MobileTab Icon={ClipboardList} label="Estudiantes" isActive={activeTab === 'consultar'} onClick={() => setActiveTab('consultar')} />
-                <MobileTab Icon={Award} label="Graduados" isActive={activeTab === 'graduados'} onClick={() => setActiveTab('graduados')} />
+                <MobileTab Icon={Award} label="Graduados" isActive={activeTab === 'graduados'} onClick={() => setActiveTab('graduados')} badge={graduadosCount} badgeColor="emerald" />
 
                 {/* Botón de Perfil/Salir integrado */}
                 <LogoutButton
@@ -628,26 +632,26 @@ export default function AdminPage() {
    ==========================================================================
 */
 
-interface TabButtonProps { Icon: LucideIcon; label: string; isActive: boolean; onClick: () => void; badge?: number; }
-function TabButton({ Icon, label, isActive, onClick, badge }: TabButtonProps) {
+interface TabButtonProps { Icon: LucideIcon; label: string; isActive: boolean; onClick: () => void; badge?: number; badgeColor?: 'rose' | 'emerald'; }
+function TabButton({ Icon, label, isActive, onClick, badge, badgeColor = 'rose' }: TabButtonProps) {
   return (
     <button onClick={onClick} className={`relative group flex items-center gap-3 rounded-xl px-4 py-3.5 text-sm font-medium transition-all duration-300 overflow-hidden ${isActive ? 'bg-gradient-to-r from-white/25 to-white/10 text-white shadow-lg border-t border-white/50 border-b border-white/10 backdrop-blur-md' : 'text-blue-100/70 hover:bg-white/10 hover:text-white'}`}>
       {isActive && <div className="absolute inset-0 bg-white/5 pointer-events-none" />}
       <Icon size={20} className={`transition-colors duration-300 ${isActive ? "text-white drop-shadow-md" : "text-blue-300/70 group-hover:text-white"}`} />
       <span className="relative z-10 tracking-wide">{label}</span>
       {isActive && <motion.div layoutId="active-glow" className="absolute left-0 w-1 h-8 bg-white/80 rounded-r-full shadow-[0_0_10px_rgba(255,255,255,0.5)]" />}
-      {badge !== undefined && badge > 0 && <span className="ml-auto flex h-5 min-w-[20px] items-center justify-center rounded-full bg-rose-500/90 border border-rose-400/50 px-1 text-[10px] font-bold text-white shadow-lg">{badge}</span>}
+      {badge !== undefined && badge > 0 && <span className={`ml-auto flex h-5 min-w-[20px] items-center justify-center rounded-full px-1 text-[10px] font-bold text-white shadow-lg ${badgeColor === 'emerald' ? 'bg-emerald-500/90 border border-emerald-400/50 shadow-emerald-500/40' : 'bg-rose-500/90 border border-rose-400/50 shadow-rose-500/40'}`}>{badge}</span>}
     </button>
   );
 }
 
-interface MobileTabProps { Icon: LucideIcon; label: string; isActive: boolean; onClick: () => void; badge?: number; }
-function MobileTab({ Icon, label, isActive, onClick, badge }: MobileTabProps) {
+interface MobileTabProps { Icon: LucideIcon; label: string; isActive: boolean; onClick: () => void; badge?: number; badgeColor?: 'rose' | 'emerald'; }
+function MobileTab({ Icon, label, isActive, onClick, badge, badgeColor = 'rose' }: MobileTabProps) {
   return (
     <button onClick={onClick} className="relative flex flex-1 flex-col items-center justify-center p-2 rounded-lg active:scale-95 transition-transform group">
       <div className={`p-1.5 rounded-lg transition-all duration-300 ${isActive ? 'bg-white/20 text-white shadow-[0_0_12px_rgba(255,255,255,0.4)] border border-white/20' : 'text-blue-300/60 group-hover:text-white group-hover:bg-white/10'}`}><Icon size={20} /></div>
       <span className={`text-[10px] font-bold mt-1 text-center leading-tight line-clamp-1 w-full transition-colors ${isActive ? 'text-white drop-shadow-md' : 'text-blue-300/60 group-hover:text-white'}`}>{label}</span>
-      {badge !== undefined && badge > 0 && <span className="absolute top-1 right-1/4 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-rose-500 border border-rose-400 text-[9px] font-bold text-white shadow-lg z-10">{badge}</span>}
+      {badge !== undefined && badge > 0 && <span className={`absolute top-1 right-1/4 flex h-4 min-w-[16px] items-center justify-center rounded-full text-[9px] font-bold text-white shadow-lg z-10 ${badgeColor === 'emerald' ? 'bg-emerald-500 border border-emerald-400 shadow-emerald-500/40' : 'bg-rose-500 border border-rose-400 shadow-rose-500/40'}`}>{badge}</span>}
       {isActive && <motion.div layoutId="active-mobile-glow" className="absolute inset-x-2 bottom-0 h-0.5 bg-gradient-to-r from-transparent via-white/80 to-transparent shadow-[0_0_8px_rgba(255,255,255,0.8)]" />}
     </button>
   );

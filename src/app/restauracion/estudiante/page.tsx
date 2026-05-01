@@ -688,16 +688,12 @@ export default function EstudiantePage() {
     if (!selectedStudent || !selectedCourse) return;
 
     const nextCourse = getNextCourse(selectedCourse.id);
-    if (!nextCourse) {
-      toast.error("No hay siguiente nivel definido.");
-      return;
-    }
 
     // Esperar un momento para que el confetti sea visible antes de mostrar el modal
     setTimeout(() => {
       setPromotionData({
         studentName: selectedStudent.nombre || '',
-        nextCourseName: nextCourse.name || ''
+        nextCourseName: nextCourse ? nextCourse.name : 'Graduado'
       });
       setShowGraduationModal(true);
     }, 600); // 600ms delay para que el confetti sea visible
@@ -708,14 +704,14 @@ export default function EstudiantePage() {
     if (!selectedStudent || !selectedCourse || !promotionData) return;
 
     const nextCourse = getNextCourse(selectedCourse.id);
-    if (!nextCourse) return;
+    const nuevoEstado = nextCourse ? 'promovido' : 'graduado';
 
     setShowGraduationModal(false);
 
     try {
       const { error } = await supabase
         .from('inscripciones')
-        .update({ estado: 'promovido' })
+        .update({ estado: nuevoEstado })
         .eq('id', selectedStudent.inscripcion_id);
 
       if (error) throw error;
@@ -725,11 +721,11 @@ export default function EstudiantePage() {
         await supabase.from('entrevistas').update({ origen: 'Maestros' }).eq('id', selectedStudent.id);
       }
 
-      toast.success(`Promovido a ${nextCourse.name}`);
+      toast.success(nextCourse ? `Promovido a ${nextCourse.name}` : `Estudiante Graduado exitosamente`);
 
       // Actualizar estado local
-      setStudents(prev => prev.map(s => s.id === selectedStudent.id ? { ...s, estado_inscripcion: 'promovido' } : s));
-      setSelectedStudent(prev => prev ? { ...prev, estado_inscripcion: 'promovido' } : null);
+      setStudents(prev => prev.map(s => s.id === selectedStudent.id ? { ...s, estado_inscripcion: nuevoEstado } : s));
+      setSelectedStudent(prev => prev ? { ...prev, estado_inscripcion: nuevoEstado } : null);
 
     } catch (e: any) {
       toast.error("Error al promover: " + e.message);
@@ -1165,7 +1161,7 @@ const MemoizedGradesTabContent = memo(({
         </div>
 
         {/* PROMOTION BANNER */}
-        {asistenciasPendientes === 0 && selectedCourse && selectedStudent?.estado_inscripcion !== 'promovido' && (
+        {asistenciasPendientes === 0 && selectedCourse && selectedStudent?.estado_inscripcion !== 'promovido' && selectedStudent?.estado_inscripcion !== 'graduado' && (
           <div className="relative mb-6 p-4 rounded-2xl bg-gradient-to-r from-emerald-50/80 via-teal-50/80 to-cyan-50/80 backdrop-blur-xl border border-emerald-200/60 shadow-lg ring-1 ring-emerald-100/50 flex flex-col md:flex-row md:items-center justify-between gap-4 animate-in fade-in slide-in-from-top-2 overflow-hidden">
             {/* Decorative Elements */}
             <div className="pointer-events-none absolute -top-10 -left-10 h-32 w-32 rounded-full bg-gradient-to-br from-emerald-400/10 to-teal-400/10 blur-2xl" />
@@ -1179,28 +1175,26 @@ const MemoizedGradesTabContent = memo(({
                 {selectedStudent?.nombre} ha completado todas las asistencias.
               </p>
             </div>
-            {getNextCourse(selectedCourse.id) && (
-              <div className="relative z-10 flex flex-col items-end gap-1 w-full md:w-auto">
-                <span className="text-xs font-semibold uppercase tracking-wider text-emerald-700/80 mr-1">
-                  Promover a
-                </span>
-                <ConfettiButton
-                  onClick={onPromote}
-                  className="w-full md:w-auto px-5 py-2 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-bold rounded-lg shadow-md transition-all active:scale-95 border border-emerald-400/20"
-                  confettiOptions={{
-                    particleCount: 150,
-                    spread: 120,
-                    startVelocity: 35,
-                    colors: ['#10b981', '#14b8a6', '#22c55e', '#fbbf24', '#f59e0b'],
-                    shapes: ['circle', 'square'],
-                    scalar: 1.2,
-                    zIndex: 10000,
-                  }}
-                >
-                  {getNextCourse(selectedCourse.id)?.name}
-                </ConfettiButton>
-              </div>
-            )}
+            <div className="relative z-10 flex flex-col items-end gap-1 w-full md:w-auto">
+              <span className="text-xs font-semibold uppercase tracking-wider text-emerald-700/80 mr-1">
+                {getNextCourse(selectedCourse.id) ? "Promover a" : "Estado Final"}
+              </span>
+              <ConfettiButton
+                onClick={onPromote}
+                className="w-full md:w-auto px-5 py-2 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-bold rounded-lg shadow-md transition-all active:scale-95 border border-emerald-400/20"
+                confettiOptions={{
+                  particleCount: 150,
+                  spread: 120,
+                  startVelocity: 35,
+                  colors: ['#10b981', '#14b8a6', '#22c55e', '#fbbf24', '#f59e0b'],
+                  shapes: ['circle', 'square'],
+                  scalar: 1.2,
+                  zIndex: 10000,
+                }}
+              >
+                {getNextCourse(selectedCourse.id) ? getNextCourse(selectedCourse.id)?.name : "Graduar Estudiante"}
+              </ConfettiButton>
+            </div>
           </div>
         )}
 

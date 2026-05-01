@@ -73,6 +73,7 @@ export default function PanelConsultarEstudiantes({ maestros, cursos, estudiante
                 maestro: (isActive && ins.servidor_id) ? mSet.get(ins.servidor_id) || null : null,
                 curso: (ins && ins.curso_id) ? cSet.get(ins.curso_id) || null : null,
                 inscripcion_id: isActive ? ins.id : null,
+                estado_inscripcion: ins ? ins.estado : null,
                 suspended_course: (!isActive && ins && ins.estado === 'inactivo') ? cSet.get(ins.curso_id) || null : null
             };
         });
@@ -102,7 +103,7 @@ export default function PanelConsultarEstudiantes({ maestros, cursos, estudiante
             : [];
 
         return {
-            pendientes: procesados.filter(e => !e.inscripcion_id && match(e)),
+            pendientes: procesados.filter(e => !e.inscripcion_id && e.estado_inscripcion !== 'graduado' && e.estado_inscripcion !== 'promovido' && match(e)),
             matriculados: procesados.filter(e => {
                 // Debe tener inscripción activa
                 if (!e.inscripcion_id) return false;

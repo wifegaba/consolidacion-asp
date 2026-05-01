@@ -196,25 +196,14 @@ function GraduadoCard({ graduado, fotoUrl }: { graduado: any, fotoUrl?: string }
                     {/* Elegant overlay line */}
                     <div className="absolute top-0 left-1/2 -translate-x-1/2 w-1/2 h-[1px] bg-gradient-to-r from-transparent via-amber-500/30 to-transparent" />
 
-                    <div className="flex items-center justify-between w-full px-2">
-                        <div className="flex items-center gap-2 max-w-[50%]">
-                            <div className="w-7 h-7 rounded-full bg-slate-800/80 flex items-center justify-center border border-white/10 shrink-0 shadow-inner">
-                                <GraduationCap size={14} className="text-amber-400" />
-                            </div>
-                            <span className="text-[11px] text-slate-300 font-medium truncate uppercase tracking-wider">
-                                {graduado.curso?.nombre || 'Escuela de Siervos'}
-                            </span>
+                    <div className="flex items-center justify-center w-full px-2 gap-2">
+                        <div className="w-8 h-8 rounded-full bg-slate-800/80 flex items-center justify-center border border-white/10 shrink-0 shadow-inner">
+                            <GraduationCap size={16} className="text-amber-400" />
                         </div>
-
                         {graduado.maestro && (
-                            <div className="flex items-center gap-2 max-w-[50%] justify-end text-right">
-                                <span className="text-[11px] text-slate-400 font-medium truncate">
-                                    {graduado.maestro.nombre.split(' ')[0]} {graduado.maestro.nombre.split(' ')[1] || ''}
-                                </span>
-                                <div className="w-7 h-7 rounded-full bg-slate-800/80 flex items-center justify-center border border-white/10 shrink-0 shadow-inner">
-                                    <User size={14} className="text-amber-400" />
-                                </div>
-                            </div>
+                            <span className="text-[10px] text-slate-300 font-medium uppercase tracking-wider line-clamp-2 text-left leading-tight">
+                                {graduado.maestro.nombre}
+                            </span>
                         )}
                     </div>
                 </div>
