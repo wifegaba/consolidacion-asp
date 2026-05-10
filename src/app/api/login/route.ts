@@ -61,7 +61,43 @@ export async function POST(req: Request) {
       .maybeSingle();
 
     if (errServ) throw new Error('Error al buscar servidor en la base de datos.');
-    if (!servidor) return NextResponse.json({ error: 'Cédula o usuario no encontrado.' }, { status: 404 });
+
+    // ── Caso especial: coordinador Kids que NO está en servidores ─────────────
+    if (!servidor) {
+      const { data: coordSolo } = await supabase
+        .from('kids_coordinadores')
+        .select('id, nombre, apellido, foto_url, grupo_asignado, activo')
+        .eq('cedula', cedula)
+        .eq('activo', true)
+        .maybeSingle();
+
+      if (coordSolo) {
+        const coordCookie = isProd ? '__Host-kids-coord-session' : 'kids_coord_session';
+        const tokenCoord  = jwt.sign(
+          {
+            tipo:     'kids_coord',
+            rol:      'coordinador',
+            id:       coordSolo.id,
+            cedula,
+            nombre:   coordSolo.nombre,
+            apellido: coordSolo.apellido,
+            foto_url: coordSolo.foto_url  ?? null,
+            grupo:    coordSolo.grupo_asignado,
+          },
+          secret,
+          { expiresIn: '8h' },
+        );
+        console.log(`[LOGIN] ✅ Coordinador Kids (solo): ${coordSolo.nombre} ${coordSolo.apellido}`);
+        const res = NextResponse.json({ redirect: '/kids/coordinador' });
+        res.cookies.set(coordCookie, tokenCoord, {
+          httpOnly: true, secure: isProd, sameSite: 'lax', path: '/', maxAge: 60 * 60 * 8,
+        });
+        return res;
+      }
+
+      return NextResponse.json({ error: 'Cédula o usuario no encontrado.' }, { status: 404 });
+    }
+
     if (!servidor.activo) return NextResponse.json({ error: 'Este usuario se encuentra inactivo.' }, { status: 403 });
 
     const servidorId = servidor.id;
@@ -338,6 +374,50 @@ export async function POST(req: Request) {
       const token = jwt.sign(tokenPayload, secret, { expiresIn: '8h' });
       const res = NextResponse.json({ redirect });
       res.cookies.set(isProd ? '__Host-session' : 'session', token, { httpOnly: true, secure: isProd, sameSite: 'lax', path: '/', maxAge: 60 * 60 * 8 });
+      return res;
+    }
+
+    // ── Último recurso: verificar acceso Kids (admin o coordinador) ──────────
+    const [kidsAdminRes, kidsCoordRes] = await Promise.all([
+      supabase
+        .from('kids_administradores')
+        .select('id')
+        .eq('cedula', cedula)
+        .eq('activo', true)
+        .maybeSingle(),
+      supabase
+        .from('kids_coordinadores')
+        .select('id')
+        .eq('cedula', cedula)
+        .eq('activo', true)
+        .maybeSingle(),
+    ]);
+
+    const kidsAdmin = kidsAdminRes.data;
+    const kidsCoord = kidsCoordRes.data;
+
+    if (kidsAdmin || kidsCoord) {
+      const rolAudit = kidsAdmin ? 'Kids Admin' : 'Kids Coordinador';
+      await registrarAuditoria({
+        supabase, servidorId, cedula,
+        nombre: servidor.nombre,
+        rol: rolAudit,
+        userAgent: req.headers.get('user-agent') || 'Unknown',
+      });
+
+      // Enviamos al portal con asignaciones vacías.
+      // El portal detecta automáticamente la tarjeta Kids y/o Coordinador.
+      const token = jwt.sign(
+        { cedula, roles: ['portal'], servidorId, nombre: servidor.nombre, asignaciones: [] },
+        secret,
+        { expiresIn: '8h' },
+      );
+      const res = NextResponse.json({ redirect: '/login/portal' });
+      res.cookies.set(
+        isProd ? '__Host-session' : 'session',
+        token,
+        { httpOnly: true, secure: isProd, sameSite: 'lax', path: '/', maxAge: 60 * 60 * 8 },
+      );
       return res;
     }
 

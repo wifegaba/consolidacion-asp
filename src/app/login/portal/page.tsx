@@ -41,7 +41,7 @@ export default async function PortalPage() {
 
             return {
                 ...a,
-                tipo: a.tipo as 'contacto' | 'maestro' | 'logistica' | 'director' | 'administrador',
+                tipo: a.tipo as 'contacto' | 'maestro' | 'logistica' | 'director' | 'administrador' | 'estudiante_ptm' | 'kids' | 'kids_coordinador',
                 etapa: a.etapa || 'Logística',
                 dia: a.dia || '',
                 cursos: a.cursos || [],
@@ -148,6 +148,46 @@ export default async function PortalPage() {
         ];
     }
 
+    // ── Kids Ministry + Coordinador check ───────────────────────────────────
+    // Verificar si el usuario es admin Kids y/o coordinador Kids.
+    // Se hace con la cédula extraída del JWT, independiente del servidor_id.
+    const cedulaPayload = payload.cedula as string | undefined;
+    if (cedulaPayload) {
+        const supabaseKids = getServerSupabase();
+        const [kidsAdminRes, kidsCoorRes] = await Promise.all([
+            supabaseKids
+                .from('kids_administradores')
+                .select('id')
+                .eq('cedula', cedulaPayload)
+                .eq('activo', true)
+                .maybeSingle(),
+            supabaseKids
+                .from('kids_coordinadores')
+                .select('id, grupo_asignado')
+                .eq('cedula', cedulaPayload)
+                .eq('activo', true)
+                .maybeSingle(),
+        ]);
+
+        if (kidsAdminRes.data) {
+            asignaciones.push({
+                tipo:  'kids' as const,
+                etapa: 'Kids Ministry',
+                dia:   '',
+                key:   'kids',
+            });
+        }
+
+        if (kidsCoorRes.data) {
+            asignaciones.push({
+                tipo:  'kids_coordinador' as const,
+                etapa: kidsCoorRes.data.grupo_asignado ?? 'Grupo asignado',
+                dia:   '',
+                key:   'kids_coordinador',
+            });
+        }
+    }
+
     if (asignaciones.length === 0) {
         return (
             <div className="min-h-screen grid place-items-center bg-slate-50">
@@ -161,6 +201,10 @@ export default async function PortalPage() {
     }
 
     // If only 1 assignment, redirect automatically (failsafe)
+    // NOTE: 'kids' is intentionally excluded — redirecting to /kids/login would
+    // create an infinite loop (/kids/login → /login → /login/portal → loop).
+    // Instead the portal renders the single Kids card and the click handler calls
+    // /api/kids/portal-login which sets the kids_session cookie and redirects correctly.
     if (asignaciones.length === 1) {
         const a: any = asignaciones[0];
         if (a.tipo === 'contacto') {
@@ -174,6 +218,7 @@ export default async function PortalPage() {
         } else if (a.tipo === 'administrador') {
             redirect('/admin');
         }
+        // 'kids' falls through → portal renders with the single Kids card
     }
 
     return (

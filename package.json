@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "download-bg-model": "node scripts/download-bg-model.mjs",
+    "postinstall": "node scripts/download-bg-model.mjs"
   },
   "dependencies": {
     "@imgly/background-removal": "^1.7.0",
@@ -17,6 +19,7 @@
     "canvas-confetti": "^1.9.4",
     "d3": "^7.9.0",
     "dotenv": "^17.2.3",
+    "face-api.js": "^0.22.2",
     "framer-motion": "^12.23.24",
     "jose": "^6.1.0",
     "jsonwebtoken": "^9.0.2",

@@ -8,7 +8,7 @@ import { Fire, Student } from '@phosphor-icons/react';
 import Image from 'next/image';
 
 type Asignacion = {
-    tipo: 'maestro' | 'contacto' | 'logistica' | 'director' | 'administrador' | 'estudiante_ptm';
+    tipo: 'maestro' | 'contacto' | 'logistica' | 'director' | 'administrador' | 'estudiante_ptm' | 'kids' | 'kids_coordinador';
     etapa: string;
     dia: string;
     semana?: number;
@@ -87,6 +87,77 @@ const EstudianteIcon = () => (
     </div>
 );
 
+const KidsIcon = () => (
+    <div className="relative w-24 h-24 flex items-center justify-center">
+        <svg width="68" height="68" viewBox="0 0 24 24" fill="none" className="drop-shadow-lg" style={{ filter: 'drop-shadow(0 0 14px rgba(13,148,136,0.7))' }}>
+            {/* Star shape */}
+            <path d="M12 2L14.4 8.26L21 9.27L16.5 13.64L17.76 20.29L12 17.27L6.24 20.29L7.5 13.64L3 9.27L9.6 8.26L12 2Z" fill="url(#kids-grad)" fillOpacity="0.95" />
+            {/* Inner glow circle */}
+            <circle cx="12" cy="12" r="3.5" fill="white" fillOpacity="0.25" />
+            <defs>
+                <linearGradient id="kids-grad" x1="3" y1="2" x2="21" y2="20" gradientUnits="userSpaceOnUse">
+                    <stop stopColor="#0d9488" />
+                    <stop offset="1" stopColor="#0891b2" />
+                </linearGradient>
+            </defs>
+        </svg>
+        {/* "Kids." text badge */}
+        <div style={{
+            position: 'absolute', bottom: 6, right: 2,
+            background: 'rgba(13,148,136,0.25)',
+            border: '1px solid rgba(13,148,136,0.5)',
+            borderRadius: 8, padding: '1px 7px',
+            fontSize: 10, fontWeight: 800, color: '#5eead4',
+            letterSpacing: 1, backdropFilter: 'blur(6px)',
+        }}>
+            Kids.
+        </div>
+    </div>
+);
+
+const KidsCoordinadorIcon = ({ etapa }: { etapa: string }) => (
+    <div className="relative w-24 h-24 flex items-center justify-center">
+        {/* Outer ring glow */}
+        <div style={{
+            position: 'absolute', inset: 0,
+            borderRadius: '50%',
+            background: 'radial-gradient(circle, rgba(192,132,252,0.35) 0%, transparent 70%)',
+            filter: 'blur(8px)',
+        }} />
+        {/* Icon */}
+        <svg width="64" height="64" viewBox="0 0 24 24" fill="none"
+            style={{ filter: 'drop-shadow(0 0 12px rgba(192,132,252,0.8))' }}>
+            <defs>
+                <linearGradient id="coord-grad" x1="2" y1="2" x2="22" y2="22" gradientUnits="userSpaceOnUse">
+                    <stop stopColor="#f9a8d4" />
+                    <stop offset="0.5" stopColor="#c084fc" />
+                    <stop offset="1" stopColor="#818cf8" />
+                </linearGradient>
+            </defs>
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"
+                stroke="url(#coord-grad)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+            <circle cx="9" cy="7" r="4"
+                stroke="url(#coord-grad)" strokeWidth="2" fill="none"/>
+            <path d="M23 21v-2a4 4 0 0 0-3-3.87"
+                stroke="url(#coord-grad)" strokeWidth="2" strokeLinecap="round" fill="none"/>
+            <path d="M16 3.13a4 4 0 0 1 0 7.75"
+                stroke="url(#coord-grad)" strokeWidth="2" strokeLinecap="round" fill="none"/>
+        </svg>
+        {/* Group badge */}
+        <div style={{
+            position: 'absolute', bottom: 4, left: '50%', transform: 'translateX(-50%)',
+            background: 'rgba(192,132,252,0.25)',
+            border: '1px solid rgba(192,132,252,0.55)',
+            borderRadius: 8, padding: '1px 8px',
+            fontSize: 9, fontWeight: 800, color: '#e9d5ff',
+            letterSpacing: 0.8, backdropFilter: 'blur(6px)',
+            whiteSpace: 'nowrap',
+        }}>
+            {etapa}
+        </div>
+    </div>
+);
+
 export default function PortalClient({ nombre, asignaciones }: { nombre: string, asignaciones: Asignacion[] }) {
     const router = useRouter();
     const [loadingKey, setLoadingKey] = useState<string | null>(null);
@@ -96,6 +167,31 @@ export default function PortalClient({ nombre, asignaciones }: { nombre: string,
         setLoadingKey(a.key);
 
         try {
+            // ── Kids Admin: endpoint propio que crea kids_session ────────────────────
+            if (a.tipo === 'kids') {
+                const res = await fetch('/api/kids/portal-login', {
+                    method: 'POST',
+                    credentials: 'include',
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Error al acceder a Kids');
+                if (data.redirect) router.push(data.redirect);
+                return;
+            }
+
+            // ── Kids Coordinador: endpoint propio que crea kids_coord_session ────────
+            if (a.tipo === 'kids_coordinador') {
+                const res = await fetch('/api/kids/coordinador-portal-login', {
+                    method: 'POST',
+                    credentials: 'include',
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Error al acceder como coordinador');
+                if (data.redirect) router.push(data.redirect);
+                return;
+            }
+
+            // ── Resto de roles — flujo normal ─────────────────────────────────────────
             const res = await fetch('/api/select-role', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -120,13 +216,14 @@ export default function PortalClient({ nombre, asignaciones }: { nombre: string,
 
     const getTitle = (type: Asignacion['tipo']) => {
         switch (type) {
-            case 'contacto': return 'Timoteo';
-            case 'maestro': return 'Coordinador';
-            case 'logistica': return 'Logística';
-            case 'director': return 'Consolidación';
-
-            case 'administrador': return 'Gestor Académico';
-            case 'estudiante_ptm': return 'Maestro';
+            case 'contacto':          return 'Timoteo';
+            case 'maestro':           return 'Coordinador';
+            case 'logistica':         return 'Logística';
+            case 'director':          return 'Consolidación';
+            case 'administrador':     return 'Gestor Académico';
+            case 'estudiante_ptm':    return 'Maestro';
+            case 'kids':              return 'Kids';
+            case 'kids_coordinador':  return 'Grupo a Cargo';
         }
     };
 
@@ -216,9 +313,10 @@ export default function PortalClient({ nombre, asignaciones }: { nombre: string,
                                                 {a.tipo === 'maestro' && <MaestroIcon variant={variant} />}
                                                 {a.tipo === 'logistica' && <LogisticaIcon />}
                                                 {a.tipo === 'director' && <DirectorIcon />}
-
                                                 {a.tipo === 'administrador' && <AdminIcon />}
                                                 {a.tipo === 'estudiante_ptm' && <EstudianteIcon />}
+                                                {a.tipo === 'kids' && <KidsIcon />}
+                                                {a.tipo === 'kids_coordinador' && <KidsCoordinadorIcon etapa={a.etapa} />}
                                             </div>
                                         </>
                                     );
@@ -229,7 +327,7 @@ export default function PortalClient({ nombre, asignaciones }: { nombre: string,
                                 {getTitle(a.tipo)}
                             </h3>
 
-                            {!['director', 'administrador'].includes(a.tipo) && (
+                            {!['director', 'administrador', 'kids', 'kids_coordinador'].includes(a.tipo) && (
                                 <p className="text-blue-100/90 font-medium tracking-wide mb-4 uppercase text-sm drop-shadow-sm">
                                     {a.etapa}
                                 </p>
@@ -246,7 +344,17 @@ export default function PortalClient({ nombre, asignaciones }: { nombre: string,
                             )}
 
                             <div className="mt-auto pt-4 border-t border-white/10 w-full">
-                                {!a.dia ? (
+                                {a.tipo === 'kids' ? (
+                                    <span className="text-xs font-bold tracking-[0.2em] uppercase"
+                                        style={{ color: '#5eead4' }}>
+                                        Módulo Kids Ministry
+                                    </span>
+                                ) : a.tipo === 'kids_coordinador' ? (
+                                    <span className="text-xs font-bold tracking-[0.2em] uppercase"
+                                        style={{ color: '#e9d5ff' }}>
+                                        Coordinadora Kids
+                                    </span>
+                                ) : !a.dia ? (
                                     <span className="text-blue-100/50 text-xs font-bold tracking-[0.2em] uppercase">
                                         Acceso Administrativo
                                     </span>

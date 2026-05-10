@@ -135,7 +135,7 @@ const cultosOpciones: Record<DiaKey, string[]> = {
     SÁBADO: ['Ayuno Familiar', 'Jóvenes'],
 };
 const ROLES_FILA_1 = ['Logistica', 'Contactos', 'Maestros'];
-const ROLES_FILA_2 = ['Director', 'Administrador'];
+const ROLES_FILA_2 = ['Director', 'Administrador', 'Adm Kids'];
 const ROLE_UI_LABEL: Record<string, string> = {
     Maestros: 'Coordinadores',
     Contactos: 'Timoteos',
@@ -777,7 +777,7 @@ export default function GestionServidores() {
             applyPick(results[focusIndex]);
         }
     };
-    const pickResult = (s: ServidorRow) => {
+    const pickResult = async (s: ServidorRow) => {
         setForm(prev => ({
             ...prev,
             nombre: s.nombre ?? '',
@@ -840,6 +840,19 @@ export default function GestionServidores() {
                 // Intentar obtener culto desde logistica_turnos
                 // (no lo tenemos en este select, así que omitir detalles)
                 newRolesAgregados.push({ rol: 'Logistica', detalles: {} });
+            }
+        }
+
+        // Verificar si también es Administrador Kids
+        if (s.cedula) {
+            const { data: kidsAdmin } = await supabase
+                .from('kids_administradores')
+                .select('id')
+                .eq('cedula', s.cedula)
+                .eq('activo', true)
+                .maybeSingle();
+            if (kidsAdmin) {
+                newRolesAgregados.push({ rol: 'Adm Kids', detalles: {} });
             }
         }
 
@@ -1001,11 +1014,20 @@ export default function GestionServidores() {
             if (!servidorId) throw new Error('No se pudo obtener el ID del servidor tras la operación.');
 
             // Limpieza inicial: Marcar todo como no vigente para este servidor
+            const kidsEnRoles = form.rolesAgregados.some(r => r.rol === 'Adm Kids');
             await Promise.all([
                 supabase.from('asignaciones_contacto').update({ vigente: false }).eq('servidor_id', servidorId),
                 supabase.from('asignaciones_maestro').update({ vigente: false }).eq('servidor_id', servidorId),
                 supabase.from('asignaciones_logistica').update({ vigente: false }).eq('servidor_id', servidorId),
-                supabase.from('servidores_roles').update({ vigente: false }).eq('servidor_id', servidorId)
+                supabase.from('servidores_roles').update({ vigente: false }).eq('servidor_id', servidorId),
+                // Si Kids NO está en la lista, desactivar via API (service_role key)
+                ...(!kidsEnRoles ? [
+                    fetch('/api/kids/administradores/upsert', {
+                        method:  'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body:    JSON.stringify({ cedula: ced, activo: false }),
+                    })
+                ] : [])
             ]);
 
             // Guardar cada rol agregado
@@ -1055,6 +1077,30 @@ export default function GestionServidores() {
                 } else if (rolEs(item.rol as any, 'Director') || rolEs(item.rol as any, 'Administrador')) {
                     // Director y Administrador no tienen tablas de asignaciones específicas
                     // Solo se registran en servidores_roles (se hace más abajo)
+                } else if (item.rol === 'Adm Kids') {
+                    // Upsert via API (usa service_role key para pasar RLS)
+                    const partes   = trim(form.nombre).split(' ');
+                    const nombre   = partes[0] ?? trim(form.nombre);
+                    const apellido = partes.slice(1).join(' ') || nombre;
+
+                    const kidsRes  = await fetch('/api/kids/administradores/upsert', {
+                        method:  'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body:    JSON.stringify({
+                            cedula:   ced,
+                            nombre,
+                            apellido,
+                            telefono: trim(form.telefono) || null,
+                        }),
+                    });
+
+                    if (!kidsRes.ok) {
+                        const kidsJson = await kidsRes.json().catch(() => ({}));
+                        throw new Error(kidsJson.error || 'Error al guardar rol Kids');
+                    }
+
+                    // 'Adm Kids' no se registra en servidores_roles
+                    continue;
                 }
 
                 // 2. Insertar en tabla de roles
@@ -1256,7 +1302,7 @@ export default function GestionServidores() {
         }
 
         // Interceptar roles administrativos (Director y Administrador)
-        if (valor === 'Director' || valor === 'Administrador') {
+        if (valor === 'Director' || valor === 'Administrador' || valor === 'Adm Kids') {
             setPendingAdminRole(valor);
             setAdminRolePassword('');
             setAdminRoleError(null);
@@ -1321,6 +1367,24 @@ export default function GestionServidores() {
                 showToast('success', 'Director seleccionado correctamente');
 
                 // Cerrar modal
+                setAdminRoleModalVisible(false);
+                setAdminRolePassword('');
+                setAdminRoleError(null);
+                setPendingAdminRole(null);
+
+            } else if (pendingAdminRole === 'Adm Kids') {
+                // Adm Kids: asignar rol directamente, sin config adicional
+                setForm((prev) => ({
+                    ...prev,
+                    rol: 'Adm Kids',
+                    cultoSeleccionado: '',
+                    cultos: defaultCultos(),
+                    destino: [],
+                    observaciones: '',
+                }));
+
+                showToast('success', 'Rol Adm Kids seleccionado');
+
                 setAdminRoleModalVisible(false);
                 setAdminRolePassword('');
                 setAdminRoleError(null);
@@ -1526,11 +1590,16 @@ export default function GestionServidores() {
                                             data-role={r}
                                         >
                                             <span className="srv-role-btn-icon">
-                                                {r === 'Logistica' && <ShieldCheck size={16} />}
-                                                {r === 'Contactos' && <Users size={16} />}
-                                                {r === 'Maestros' && <ClipboardList size={16} />}
-                                                {r === 'Director' && <Crown size={16} />}
-                                                {r === 'Administrador' && <Shield size={16} />}
+                                                {r === 'Logistica'    && <ShieldCheck size={16} />}
+                                                {r === 'Contactos'    && <Users size={16} />}
+                                                {r === 'Maestros'     && <ClipboardList size={16} />}
+                                                {r === 'Director'     && <Crown size={16} />}
+                                                {r === 'Administrador'&& <Shield size={16} />}
+                                                {r === 'Adm Kids'     && (
+                                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                                                        <path d="M12 2L14.4 8.26L21 9.27L16.5 13.64L17.76 20.29L12 17.27L6.24 20.29L7.5 13.64L3 9.27L9.6 8.26L12 2Z"/>
+                                                    </svg>
+                                                )}
                                             </span>
                                             <span className="srv-role-btn-label">
                                                 {uiRoleLabel(r)}
@@ -3216,6 +3285,12 @@ export default function GestionServidores() {
                 .srv-role-btn-pill[data-role="Administrador"] {
                     background: linear-gradient(90deg, #00c6ff 0%, #0072ff 100%);
                     box-shadow: 0 4px 10px rgba(0, 114, 255, 0.4);
+                }
+
+                /* Adm Kids - Teal/Mint (paleta del módulo Kids) */
+                .srv-role-btn-pill[data-role="Adm Kids"] {
+                    background: linear-gradient(90deg, #0d9488 0%, #0891b2 100%);
+                    box-shadow: 0 4px 10px rgba(13, 148, 136, 0.45);
                 }
 
                 /* --- BOTÓN GUARDAR PREMIUM (Simplified) --- */
