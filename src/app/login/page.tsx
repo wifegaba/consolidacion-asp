@@ -1,7 +1,7 @@
 'use client';
 
 import Image from 'next/image';
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
 // IMPORTACIÓN SIMULADA DE ÍCONOS MODERNOS
@@ -15,6 +15,7 @@ const EyeOffIcon = (props: React.SVGProps<SVGSVGElement>) => (
 
 
 const normalizeCedula = (raw: string) => raw.trim();
+
 
 export default function LoginPage() {
   const router = useRouter();
@@ -30,8 +31,17 @@ export default function LoginPage() {
     setShowPassword(prev => !prev);
   };
 
+  useEffect(() => {
+    // no-op: kept for future use
+  }, []);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    await submitCedula();
+  };
+
+  // Submit sin evento (para que lo dispare el keypad personalizado)
+  const submitCedula = async () => {
     if (pendingRef.current) return;
     setErrorMsg(null);
 
@@ -196,8 +206,8 @@ export default function LoginPage() {
             <label htmlFor="cedula" className="sr-only">Cédula o Usuario</label>
             <input
               id="cedula"
-              type="text"
-              inputMode="text"
+              type="tel"
+              inputMode="numeric"
               autoComplete="off"
               placeholder="Ingrese su cédula o usuario"
               value={cedula}
@@ -226,6 +236,8 @@ export default function LoginPage() {
             <div className="text-[13px] text-red-600 text-center">{errorMsg}</div>
           )}
 
+          {/* Nota: el input está configurado para mostrar teclado numérico nativo en móviles */}
+
           <button
             type="submit"
             disabled={loading || pendingRef.current}
@@ -234,6 +246,8 @@ export default function LoginPage() {
             {loading ? 'Validando…' : 'Ingresar'}
           </button>
         </form>
+
+        {/* teclado personalizado eliminado; uso del teclado nativo móvil */}
 
         <p className="mt-4 text-xs text-center text-slate-500">
           Su acceso está protegido con sesión segura.
