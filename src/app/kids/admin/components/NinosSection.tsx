@@ -710,7 +710,6 @@ export default function NinosSection({ usuario }: Props) {
               overflowY:            'auto',
               padding:              '20px 20px 32px',
               boxShadow:            '0 -12px 50px rgba(109,40,217,.18), 0 -1px 0 rgba(255,255,255,.9)',
-              position:             'relative',
             } as React.CSSProperties
           : {
               width:                290,
@@ -1053,6 +1052,7 @@ export default function NinosSection({ usuario }: Props) {
           disabled={saving}
           saving={saving}
           label={editNino ? 'Actualizar' : 'Guardar'}
+          compact={isMobile}
         />
 
       </div>
@@ -1132,11 +1132,6 @@ function NinoCard({
   const grad  = CHILD_GRADIENTS[idx % CHILD_GRADIENTS.length]
   const grupo = nino.grupo ? (GRUPO_COLORS[nino.grupo] ?? { bg:'#f3f4f6', color:'#6b7280', border:'#e5e7eb' }) : null
 
-  /* Compute "última asistencia" label — just use creado_en as placeholder */
-  const creado   = new Date(nino.creado_en)
-  const diffDays = Math.floor((Date.now() - creado.getTime()) / 86400000)
-  const asistLabel = diffDays === 0 ? 'Hoy' : diffDays === 1 ? 'Ayer' : creado.toLocaleDateString('es-CO', { day:'numeric', month:'short' })
-
   return (
     <div
       onMouseEnter={() => setHov(true)}
@@ -1189,22 +1184,42 @@ function NinoCard({
         )}
       </div>
 
-      {/* Avatar */}
+      {/* Avatar — aro premium */}
       <div style={{
-        width:72, height:72, borderRadius:'50%',
-        background: nino.foto_url && !imgBroken ? 'transparent' : grad,
-        overflow:'hidden',
-        marginBottom:10,
-        boxShadow:`0 4px 14px ${grad.includes('60a5fa') ? 'rgba(96,165,250,.35)' : 'rgba(0,0,0,.15)'}`,
-        display:'flex', alignItems:'center', justifyContent:'center',
-        fontSize:22, fontWeight:800, color:'#fff',
-        flexShrink:0,
+        /* ── Aro de color (ring externo) ── */
+        padding:      3,
+        borderRadius: '50%',
+        background:   grad,
+        marginBottom: 12,
+        flexShrink:   0,
+        boxShadow:    hov
+          ? `0 0 0 2.5px rgba(255,255,255,.95), 0 6px 26px rgba(0,0,0,.16), 0 0 18px rgba(124,58,237,.28)`
+          : `0 0 0 2.5px rgba(255,255,255,.88), 0 4px 16px rgba(0,0,0,.11)`,
+        transition:   'box-shadow .2s cubic-bezier(.4,0,.2,1)',
+        filter:       hov ? 'drop-shadow(0 0 7px rgba(124,58,237,.35))' : 'none',
       }}>
-        {nino.foto_url && !imgBroken
-          ? <img src={nino.foto_url} alt="" style={{ width:'100%', height:'100%', objectFit:'cover' }}
-              onError={() => setImgBroken(true)} />
-          : ini
-        }
+        {/* ── Separador blanco (gap) ── */}
+        <div style={{
+          padding:      2,
+          borderRadius: '50%',
+          background:   '#fff',
+          display:      'flex', alignItems:'center', justifyContent:'center',
+        }}>
+          {/* ── Foto / iniciales ── */}
+          <div style={{
+            width:68, height:68, borderRadius:'50%',
+            background: nino.foto_url && !imgBroken ? 'transparent' : grad,
+            overflow:'hidden',
+            display:'flex', alignItems:'center', justifyContent:'center',
+            fontSize:20, fontWeight:800, color:'#fff',
+          }}>
+            {nino.foto_url && !imgBroken
+              ? <img src={nino.foto_url} alt="" style={{ width:'100%', height:'100%', objectFit:'cover' }}
+                  onError={() => setImgBroken(true)} />
+              : ini
+            }
+          </div>
+        </div>
       </div>
 
       {/* Name */}
@@ -1224,15 +1239,27 @@ function NinoCard({
         </div>
       )}
 
-      {/* Group badge */}
-      {grupo && (
+      {/* Group badge — azul premium */}
+      {nino.grupo && (
         <div style={{
-          padding:'4px 12px', borderRadius:50,
-          background: grupo.bg, color: grupo.color,
-          border:`1px solid ${grupo.border}`,
-          fontSize:10, fontWeight:700, marginBottom:8,
-          whiteSpace:'nowrap',
+          display:     'flex',
+          alignItems:  'center',
+          gap:         5,
+          padding:     '4px 12px',
+          borderRadius: 50,
+          background:  'linear-gradient(135deg,rgba(59,130,246,.13) 0%,rgba(99,102,241,.10) 100%)',
+          border:      '1px solid rgba(99,102,241,.30)',
+          boxShadow:   '0 2px 10px rgba(99,102,241,.14), inset 0 1px 0 rgba(255,255,255,.75)',
+          fontSize:    10,
+          fontWeight:  700,
+          color:       '#4338ca',
+          marginBottom: 8,
+          whiteSpace:  'nowrap',
+          backdropFilter: 'blur(6px)',
         }}>
+          <svg width="8" height="8" viewBox="0 0 24 24" fill="#6366f1">
+            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+          </svg>
           {nino.grupo}
         </div>
       )}
@@ -1255,30 +1282,6 @@ function NinoCard({
         </div>
       )}
 
-      {/* Last attendance */}
-      <div style={{ fontSize:10, color:'#9ca3af', marginBottom:8 }}>
-        Última asistencia: {asistLabel}
-      </div>
-
-      {/* Attendance badge */}
-      <div style={{
-        display:'flex', alignItems:'center', gap:5,
-        padding:'4px 12px', borderRadius:50,
-        background: nino.activo ? '#f0fdf4' : '#fff1f2',
-        border:`1px solid ${nino.activo ? '#bbf7d0' : '#fecdd3'}`,
-      }}>
-        <div style={{
-          width:7, height:7, borderRadius:'50%',
-          background: nino.activo ? '#22c55e' : '#f43f5e',
-          boxShadow:`0 0 6px ${nino.activo ? 'rgba(34,197,94,.6)' : 'rgba(244,63,94,.5)'}`,
-        }} />
-        <span style={{
-          fontSize:10, fontWeight:700,
-          color: nino.activo ? '#16a34a' : '#dc2626',
-        }}>
-          {nino.activo ? 'Presente' : 'Ausente'}
-        </span>
-      </div>
     </div>
   )
 }
@@ -1379,19 +1382,20 @@ function UserAvatar({ usuario }: { usuario: { nombre:string; apellido:string; fo
 
 /* ── Button3DGreen — Botón animado tipo 3D con efecto "hundido" al presionar ── */
 function Button3DGreen({
-  onClick, disabled, saving, label,
+  onClick, disabled, saving, label, compact,
 }: {
   onClick:  () => void
   disabled: boolean
   saving:   boolean
   label:    string
+  compact?: boolean
 }) {
   const [pressed, setPressed] = useState(false)
   const isDown = pressed && !disabled
 
   return (
     <div
-      style={{ marginTop: 18, userSelect: 'none', WebkitUserSelect: 'none' } as React.CSSProperties}
+      style={{ marginTop: compact ? 12 : 18, userSelect: 'none', WebkitUserSelect: 'none' } as React.CSSProperties}
       onMouseDown={() => !disabled && setPressed(true)}
       onMouseUp={()   => setPressed(false)}
       onMouseLeave={()=> setPressed(false)}
@@ -1402,7 +1406,7 @@ function Button3DGreen({
       {/* ── Anillo metálico exterior ── */}
       <div style={{
         borderRadius:  50,
-        padding:       5,
+        padding:       compact ? 3 : 5,
         background:    saving
           ? 'linear-gradient(180deg,#d1d5db 0%,#9ca3af 50%,#c4c4c4 100%)'
           : 'linear-gradient(175deg,#e8e8e8 0%,#a8a8a8 42%,#bebebe 58%,#e0e0e0 100%)',
@@ -1415,8 +1419,8 @@ function Button3DGreen({
       }}>
         {/* ── Domo verde interior ── */}
         <div style={{
-          borderRadius: 44,
-          padding:      '15px 0',
+          borderRadius: compact ? 40 : 44,
+          padding:      compact ? '9px 0' : '15px 0',
           background:   saving
             ? 'linear-gradient(180deg,#9ca3af 0%,#6b7280 100%)'
             : isDown
@@ -1465,7 +1469,7 @@ function Button3DGreen({
           {/* Ícono guardar */}
           {!saving && (
             <svg
-              width="16" height="16" viewBox="0 0 24 24"
+              width={compact ? 13 : 16} height={compact ? 13 : 16} viewBox="0 0 24 24"
               fill="none" stroke="#fff" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"
               style={{ position:'relative', zIndex:1, filter:'drop-shadow(0 1px 3px rgba(0,0,0,.35))',
                        transform: isDown ? 'translateY(1px)' : 'none', transition:'transform .09s' }}
@@ -1478,10 +1482,10 @@ function Button3DGreen({
 
           {/* Texto */}
           <span style={{
-            fontSize:    14,
+            fontSize:    compact ? 11 : 14,
             fontWeight:  800,
             color:       '#fff',
-            letterSpacing:'0.6px',
+            letterSpacing: compact ? '0.3px' : '0.6px',
             textShadow: '0 1px 5px rgba(0,0,0,.45)',
             position:    'relative',
             zIndex:       1,
