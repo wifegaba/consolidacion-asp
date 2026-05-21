@@ -1,7 +1,8 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
+import Image from 'next/image'
 import { type KidsMaestro }     from '../admin/components/MaestroModal'
 import { type KidsCoordinador } from '../admin/components/CoordinadorModal'
 import ObservacionesModal       from '../admin/components/ObservacionesModal'
@@ -22,12 +23,14 @@ const GRADIENTS = [
 export default function CoordinadorPage() {
   const router = useRouter()
 
-  const [coord,     setCoord]     = useState<KidsCoordinador | null>(null)
-  const [maestros,  setMaestros]  = useState<KidsMaestro[]>([])
-  const [obsCounts, setObsCounts] = useState<Record<string, number>>({})
-  const [obsModal,  setObsModal]  = useState<KidsMaestro | null>(null)
-  const [loading,   setLoading]   = useState(true)
-  const [isMobile,  setIsMobile]  = useState(false)
+  const [coord,        setCoord]      = useState<KidsCoordinador | null>(null)
+  const [maestros,     setMaestros]   = useState<KidsMaestro[]>([])
+  const [obsCounts,    setObsCounts]  = useState<Record<string, number>>({})
+  const [obsModal,     setObsModal]   = useState<KidsMaestro | null>(null)
+  const [loading,      setLoading]    = useState(true)
+  const [isMobile,     setIsMobile]   = useState(false)
+  const [logoNavOpen,  setLogoNavOpen] = useState(false)
+  const [logoPressed,  setLogoPressed] = useState(false)
 
   /* ── Responsive ── */
   useEffect(() => {
@@ -133,9 +136,10 @@ export default function CoordinadorPage() {
         minHeight:     '100vh',
         background:    'linear-gradient(145deg,#b2f0e0 0%,#d4c8ff 50%,#b3dcf7 100%)',
         display:       'flex',
-        alignItems:    isMobile ? 'flex-start' : 'center',
-        justifyContent:'center',
-        padding:       isMobile ? 0 : '24px 16px',
+        flexDirection: 'column',
+        alignItems:    'center',
+        justifyContent: isMobile ? 'flex-start' : 'center',
+        padding:       isMobile ? 0 : '16px',
         position:      'relative',
         overflow:      'hidden',
       }}>
@@ -148,18 +152,178 @@ export default function CoordinadorPage() {
           <div style={{ position:'absolute', top:'15%', left:'30%',   width:160, height:160, borderRadius:'50%', background:'radial-gradient(circle,rgba(59,130,246,.22) 0%,transparent 68%)', filter:'blur(20px)' }}/>
         </div>
 
+        {/* ══════════════════════════════════════════
+            LOGO NAV — centrado, items a los lados
+        ══════════════════════════════════════════ */}
+        <div style={{
+          position:  'relative',
+          width:     '100%',
+          maxWidth:  640,
+          height:    110,
+          flexShrink: 0,
+          zIndex:    10,
+        }}>
+          {/* Items izquierda: Mi Panel + Salir */}
+          {([
+            { key: 'coord', label: 'Mi Panel', active: true,  onClick: () => setLogoNavOpen(false) },
+            { key: 'salir', label: 'Salir',    active: false, onClick: () => { setLogoNavOpen(false); handleLogout() } },
+          ]).map((item, i) => {
+            const leftPx = 96 + i * 52
+            return (
+              <div
+                key={item.key}
+                onClick={item.onClick}
+                style={{
+                  position:     'absolute',
+                  left:         `calc(50% - ${leftPx}px)`,
+                  top:          42,
+                  display:      'flex',
+                  flexDirection:'column',
+                  alignItems:   'center',
+                  gap:          4,
+                  cursor:       'pointer',
+                  pointerEvents: logoNavOpen ? 'auto' : 'none',
+                  opacity:      logoNavOpen ? 1 : 0,
+                  transform:    logoNavOpen
+                    ? 'scale(1) translateX(0)'
+                    : `scale(0.4) translateX(${leftPx - 22}px)`,
+                  transition: `opacity .26s ${i * 65}ms, transform .30s cubic-bezier(.34,1.56,.64,1) ${i * 65}ms`,
+                  zIndex: 1,
+                }}
+              >
+                <div style={{
+                  width:44, height:44, borderRadius:'50%',
+                  background: item.active
+                    ? ['linear-gradient(rgba(255,255,255,.96),rgba(255,255,255,.96)) padding-box',
+                       'linear-gradient(135deg,#60a5fa 0%,#a78bfa 35%,#f472b6 65%,#67e8f9 100%) border-box'].join(',')
+                    : 'rgba(255,255,255,0.92)',
+                  border: item.active ? '2px solid transparent' : '2px solid rgba(0,0,0,0.09)',
+                  boxShadow: item.active
+                    ? '-3px 0 14px rgba(96,165,250,.42), 3px 0 14px rgba(244,114,182,.36), 0 6px 18px rgba(167,139,250,.30), inset 0 1.5px 0 rgba(255,255,255,1)'
+                    : '0 3px 12px rgba(0,0,0,0.13)',
+                  display:'flex', alignItems:'center', justifyContent:'center',
+                  backdropFilter:'blur(8px)',
+                }}>
+                  <CoordNavIcon type="coord" active={item.active} />
+                </div>
+                <span style={{ fontSize:9, fontWeight:700, color: item.active ? '#7c3aed' : item.key === 'salir' ? '#ef4444' : '#6b7280', whiteSpace:'nowrap' }}>
+                  {item.label}
+                </span>
+              </div>
+            )
+          })}
+
+          {/* ── Logo central ── */}
+          <div
+            onPointerDown={() => setLogoPressed(true)}
+            onPointerUp={() => { setLogoPressed(false); setLogoNavOpen(v => !v) }}
+            onPointerLeave={() => setLogoPressed(false)}
+            onPointerCancel={() => setLogoPressed(false)}
+            style={{
+              position:  'absolute',
+              left:      '50%',
+              top:       8,
+              transform: `translateX(-50%) ${
+                logoPressed ? 'scale(0.86)' : logoNavOpen ? 'scale(0.93)' : 'scale(1)'
+              }`,
+              transition: logoPressed
+                ? 'transform .08s ease'
+                : 'transform .38s cubic-bezier(.34,1.56,.64,1)',
+              cursor: 'pointer',
+              zIndex:  2,
+              filter:  logoNavOpen
+                ? 'drop-shadow(0 0 16px rgba(96,165,250,0.65)) drop-shadow(0 0 14px rgba(244,114,182,0.55)) drop-shadow(0 4px 10px rgba(167,139,250,0.55))'
+                : logoPressed
+                  ? 'drop-shadow(0 2px 6px rgba(0,0,0,0.3))'
+                  : 'drop-shadow(0 4px 14px rgba(0,0,0,0.18))',
+            } as React.CSSProperties}
+          >
+            <CoordLogoCircle size={96} />
+          </div>
+
+          {/* Items derecha: Niños + Asistencias */}
+          {([
+            { key: 'ninos',        label: 'Niños',   active: false, onClick: () => { setLogoNavOpen(false); router.push('/kids/ninos') } },
+            { key: 'asistencias',  label: 'Asist.',  active: false, onClick: () => { setLogoNavOpen(false); router.push('/kids/asistencias') } },
+          ]).map((item, i) => {
+            const leftPx = 52 + i * 52
+            return (
+              <div
+                key={item.key}
+                onClick={item.onClick}
+                style={{
+                  position:     'absolute',
+                  left:         `calc(50% + ${leftPx}px)`,
+                  top:          42,
+                  display:      'flex',
+                  flexDirection:'column',
+                  alignItems:   'center',
+                  gap:          4,
+                  cursor:       'pointer',
+                  pointerEvents: logoNavOpen ? 'auto' : 'none',
+                  opacity:      logoNavOpen ? 1 : 0,
+                  transform:    logoNavOpen
+                    ? 'scale(1) translateX(0)'
+                    : `scale(0.4) translateX(-${leftPx + 22}px)`,
+                  transition: `opacity .26s ${i * 65}ms, transform .30s cubic-bezier(.34,1.56,.64,1) ${i * 65}ms`,
+                  zIndex: 1,
+                }}
+              >
+                <div style={{
+                  width:44, height:44, borderRadius:'50%',
+                  background: item.active
+                    ? ['linear-gradient(rgba(255,255,255,.96),rgba(255,255,255,.96)) padding-box',
+                       'linear-gradient(135deg,#60a5fa 0%,#a78bfa 35%,#f472b6 65%,#67e8f9 100%) border-box'].join(',')
+                    : 'rgba(255,255,255,0.92)',
+                  border: item.active ? '2px solid transparent' : '2px solid rgba(0,0,0,0.09)',
+                  boxShadow: item.active
+                    ? '-3px 0 14px rgba(96,165,250,.42), 3px 0 14px rgba(244,114,182,.36), 0 6px 18px rgba(167,139,250,.30), inset 0 1.5px 0 rgba(255,255,255,1)'
+                    : '0 3px 12px rgba(0,0,0,0.13)',
+                  display:'flex', alignItems:'center', justifyContent:'center',
+                  backdropFilter:'blur(8px)',
+                }}>
+                  <CoordNavIcon type={item.key as 'coord' | 'ninos' | 'asistencias' | 'salir'} active={item.active} />
+                </div>
+                <span style={{ fontSize:9, fontWeight:700, color: item.active ? '#7c3aed' : '#6b7280', whiteSpace:'nowrap' }}>
+                  {item.label}
+                </span>
+              </div>
+            )
+          })}
+
+          {/* ── Ring indicador activo ── */}
+          {logoNavOpen && (
+            <div style={{
+              position:    'absolute',
+              left:        '50%',
+              top:         8,
+              width:       96,
+              height:      96,
+              borderRadius:'50%',
+              transform:   'translateX(-50%)',
+              background: ['linear-gradient(rgba(0,0,0,0),rgba(0,0,0,0)) padding-box',
+                           'linear-gradient(135deg,#60a5fa 0%,#a78bfa 35%,#f472b6 65%,#67e8f9 100%) border-box'].join(','),
+              border:      '2px solid transparent',
+              boxShadow:   '-4px 0 18px rgba(96,165,250,.38), 4px 0 18px rgba(244,114,182,.34), 0 0 0 5px rgba(167,139,250,.12)',
+              pointerEvents:'none',
+              zIndex:       1,
+            }}/>
+          )}
+        </div>
+
         {/* ── Card container ── */}
         <div style={{
           position:     'relative', zIndex:1,
           width:        '100%',
           maxWidth:     640,
-          minHeight:    isMobile ? '100vh' : 'calc(100vh - 48px)',
-          maxHeight:    isMobile ? '100vh' : 'calc(100vh - 48px)',
+          flex:         isMobile ? 1 : 'none',
+          minHeight:    isMobile ? 'auto' : 'calc(100vh - 140px)',
+          maxHeight:    isMobile ? 'none' : 'calc(100vh - 140px)',
           display:      'flex',
           flexDirection:'column',
-          borderRadius: isMobile ? 0 : 28,
+          borderRadius: isMobile ? '20px 20px 0 0' : 28,
           overflow:     'hidden',
-          boxShadow:    isMobile ? 'none' : '0 32px 72px rgba(0,0,0,.18), 0 0 0 1px rgba(255,255,255,.55)',
+          boxShadow:    '0 32px 72px rgba(0,0,0,.18), 0 0 0 1px rgba(255,255,255,.55)',
           animation:    'coordFadeIn .42s cubic-bezier(0.25,0.46,0.45,0.94) both',
         }}>
 
@@ -551,5 +715,74 @@ function MaestroCard({
         </div>
       )}
     </div>
+  )
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   CoordLogoCircle — logo circular premium (igual que admin)
+══════════════════════════════════════════════════════════════════════════ */
+function CoordLogoCircle({ size }: { size: number }) {
+  const inner = Math.round(size * 0.72)
+  return (
+    <div style={{
+      width: size, height: size, borderRadius: '50%', flexShrink: 0,
+      background: '#ffffff',
+      boxShadow: [
+        '0 8px 28px rgba(0,0,0,.18)',
+        '0 2px 6px  rgba(0,0,0,.10)',
+        'inset 3px 3px 6px  rgba(255,255,255,.9)',
+        'inset -3px -3px 6px rgba(0,0,0,.12)',
+      ].join(', '),
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+    }}>
+      <div style={{
+        width: inner, height: inner, borderRadius: '50%',
+        background: '#ffffff',
+        boxShadow: 'inset 0 0 0 1.5px rgba(0,0,0,.06)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        overflow: 'hidden',
+      }}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/asp-kids-logo.png" alt="ASP Kids" style={{ width:'88%', height:'88%', objectFit:'contain' }} />
+      </div>
+    </div>
+  )
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   CoordNavIcon — iconos para los items de nav
+══════════════════════════════════════════════════════════════════════════ */
+function CoordNavIcon({ type, active }: { type: 'coord' | 'ninos' | 'asistencias' | 'salir'; active: boolean }) {
+  const c = active ? '#7c3aed' : '#8496ac'
+  const s = {
+    width: 18, height: 18, viewBox: '0 0 24 24', fill: 'none',
+    stroke: c, strokeWidth: '1.65',
+    strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const,
+  }
+  if (type === 'coord') return (
+    <svg {...s}>
+      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+      <circle cx="9" cy="7" r="4"/>
+      <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+      <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+    </svg>
+  )
+  if (type === 'asistencias') return (
+    <svg {...s}>
+      <polyline points="9 11 12 14 22 4"/>
+      <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+    </svg>
+  )
+  if (type === 'salir') return (
+    <svg {...s} stroke="#ef4444">
+      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+      <polyline points="16 17 21 12 16 7"/>
+      <line x1="21" y1="12" x2="9" y2="12"/>
+    </svg>
+  )
+  return (
+    <svg {...s}>
+      <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78L12 21.23l8.84-8.84a5.5 5.5 0 0 0 0-7.78z"/>
+    </svg>
   )
 }

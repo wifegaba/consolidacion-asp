@@ -5,12 +5,16 @@ import { getServerSupabase } from '@/lib/supabaseClient';
 import type { NextRequest } from 'next/server';
 
 export async function POST(req: NextRequest) {
-  const isProd     = process.env.NODE_ENV === 'production';
-  const cookieName = isProd ? '__Host-kids-session' : 'kids_session';
-  const secret     = process.env.JWT_SECRET;
+  const isProd      = process.env.NODE_ENV === 'production';
+  const secret      = process.env.JWT_SECRET;
 
-  // ── Auth check ───────────────────────────────────────────────────────────
-  const token = req.cookies.get(cookieName)?.value;
+  // ── Auth check — acepta admin (kids_session) O coordinador (kids_coord_session) ──
+  const adminCookie = isProd ? '__Host-kids-session'       : 'kids_session';
+  const coordCookie = isProd ? '__Host-kids-coord-session' : 'kids_coord_session';
+
+  const token = req.cookies.get(adminCookie)?.value
+             ?? req.cookies.get(coordCookie)?.value;
+
   if (!token || !secret) {
     return NextResponse.json({ error: 'No autorizado.' }, { status: 401 });
   }

@@ -43,7 +43,7 @@ const CHILD_GRADIENTS = [
   'linear-gradient(135deg,#4ade80 0%,#86efac 100%)',
 ]
 
-const GRUPOS_DISPONIBLES = ['Exploradores', 'Pequeños Luz', 'Constructores', 'Semillitas', 'Promesas']
+const GRUPOS_DISPONIBLES = ['Semillitas', 'Exploradores', 'Junior']
 const VISIBLE_COUNT = 8
 
 /* ════════════════════════════════════════════════════════════════════════
@@ -797,7 +797,16 @@ export default function NinosSection({ usuario }: Props) {
               <DraggablePhotoCircle
                 src={photoPreview}
                 size={90}
-                onCrop={() => { /* preview only — el File se sube en handleSave */ }}
+                onCrop={(croppedDataUrl) => {
+                  // Convertir el canvas recortado → File y actualizar photoFile
+                  // para que handleSave suba la versión ajustada, no el original
+                  fetch(croppedDataUrl)
+                    .then(r => r.blob())
+                    .then(blob => {
+                      setPhotoFile(new File([blob], 'photo-cropped.jpg', { type: 'image/jpeg' }))
+                    })
+                    .catch(() => { /* silencioso — photoFile original se conserva */ })
+                }}
               />
               <span style={{ fontSize:9, color:'#7c3aed', fontWeight:700, marginTop:6, letterSpacing:'0.3px' }}>
                 ✦ Arrastra para ajustar
@@ -1072,32 +1081,54 @@ function StatCard({
 }) {
   return (
     <div style={{
-      background:'#fff',
-      borderRadius:14,
-      padding:'12px 12px',
-      boxShadow:'0 2px 12px rgba(0,0,0,.07)',
-      border:'1px solid rgba(0,0,0,.04)',
-      display:'flex', alignItems:'center', gap:10,
+      /* ── Liquid Glass — idéntico a los otros paneles ── */
+      background: [
+        'linear-gradient(rgba(255,255,255,.94),rgba(255,255,255,.94)) padding-box',
+        'linear-gradient(135deg,#60a5fa 0%,#a78bfa 35%,#f472b6 65%,#67e8f9 100%) border-box',
+      ].join(','),
+      backdropFilter:       'blur(40px) saturate(200%)',
+      WebkitBackdropFilter: 'blur(40px) saturate(200%)',
+      border:      '2px solid transparent',
+      borderRadius: 20,
+      boxShadow: [
+        '-4px 0 16px rgba(96,165,250,.28)',
+        '4px 0 16px rgba(244,114,182,.26)',
+        '0 10px 32px rgba(167,139,250,.18)',
+        '0 3px 12px rgba(0,0,0,.06)',
+        'inset 0 1.5px 0 rgba(255,255,255,1)',
+      ].join(', '),
+      display:'flex', alignItems:'center', gap:12,
+      padding:'14px 14px',
       minWidth: 0,
     }}>
       {/* Icon */}
       <div style={{
-        width:38, height:38, borderRadius:10, flexShrink:0,
-        background:iconBg,
+        width:42, height:42, borderRadius:12, flexShrink:0,
+        background: iconBg,
         display:'flex', alignItems:'center', justifyContent:'center',
-        boxShadow:'0 4px 14px rgba(0,0,0,.14)',
+        boxShadow:'0 4px 16px rgba(0,0,0,.18), inset 0 1px 0 rgba(255,255,255,.25)',
       }}>
         {icon}
       </div>
       {/* Text */}
       <div style={{ minWidth:0, flex:1 }}>
-        <div style={{ fontSize:9, color:'#9ca3af', fontWeight:600, marginBottom:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+        <div style={{
+          fontSize:9, fontWeight:700, letterSpacing:'1.6px',
+          textTransform:'uppercase', color:'rgba(0,0,0,.38)',
+          marginBottom:4, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap',
+        }}>
           {label}
         </div>
-        <div style={{ fontSize:20, fontWeight:900, color:'#111827', lineHeight:1, letterSpacing:'-0.5px' }}>
+        <div style={{
+          fontSize:26, fontWeight:900, color:'#0f172a',
+          lineHeight:1, letterSpacing:'-1px', marginBottom:4,
+        }}>
           {value}
         </div>
-        <div style={{ fontSize:9, color:'#9ca3af', marginTop:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+        <div style={{
+          fontSize:9, fontWeight:600, color:'#6366f1',
+          overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap',
+        }}>
           {sub}
         </div>
       </div>

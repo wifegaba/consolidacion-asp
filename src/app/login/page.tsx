@@ -32,7 +32,7 @@ export default function LoginPage() {
   };
 
   useEffect(() => {
-    // no-op: kept for future use
+    // kept for future use
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -84,6 +84,9 @@ export default function LoginPage() {
       pendingRef.current = false;
     }
   };
+
+  // When opening the custom keyboard, ensure the input is visible above it
+  // no custom keyboard helper - using native keyboard on responsive
 
   return (
     <main className="min-h-[100dvh] relative flex flex-col items-center justify-start pt-[8vh] sm:justify-center sm:pt-0 px-4 pb-6 sm:p-6 bg-[url('/fondo-login.jpg')] bg-cover bg-center bg-no-repeat overflow-hidden">
@@ -247,7 +250,7 @@ export default function LoginPage() {
           </button>
         </form>
 
-        {/* teclado personalizado eliminado; uso del teclado nativo móvil */}
+        {/* using native numeric keyboard for responsive; custom keyboard removed */}
 
         <p className="mt-4 text-xs text-center text-slate-500">
           Su acceso está protegido con sesión segura.

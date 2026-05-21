@@ -7,6 +7,7 @@ import MaestroModal,      { type KidsMaestro }       from './components/MaestroM
 import CoordinadorModal,  { type KidsCoordinador }  from './components/CoordinadorModal'
 import ObservacionesModal                           from './components/ObservacionesModal'
 import NinosSection                                 from './components/NinosSection'
+import AsistenciasSection                           from './components/AsistenciasSection'
 
 /* ── Types ─────────────────────────────────────────────────────────────── */
 interface Usuario {
@@ -343,7 +344,7 @@ export default function KidsAdminPage() {
       display:       'flex',
       alignItems:    'stretch',
       justifyContent:'center',
-      padding:       isMobile ? '0' : '24px',
+      padding:       isMobile ? '0' : '16px',
       position:      'relative',
       overflow:      'hidden',
     }}>
@@ -359,9 +360,9 @@ export default function KidsAdminPage() {
       {/* ── Shell ── */}
       <div style={{
         width:        '100%',
-        maxWidth:     1280,
+        maxWidth:     '100%',
         display:      'flex',
-        borderRadius: isMobile ? 0 : 28,
+        borderRadius: isMobile ? 0 : 20,
         overflow:     isMobile ? 'visible' : 'hidden',
         boxShadow:    isMobile ? 'none' : '0 32px 72px rgba(0,0,0,.18), 0 0 0 1px rgba(255,255,255,.6)',
         minHeight:    isMobile ? '100vh' : 'calc(100vh - 48px)',
@@ -740,8 +741,35 @@ export default function KidsAdminPage() {
             </div>
           )}
 
-          {/* ── Top bar + Scroll area (todo excepto niños) ── */}
-          {displayNav !== 'ninos' && (<>
+          {/* ── Panel Asistencias — layout propio ── */}
+          {displayNav === 'asistencias' && (
+            <div style={{
+              flex:          1,
+              minHeight:     0,
+              display:       'flex',
+              flexDirection: 'column',
+              overflow:      'hidden',
+              position:      'relative',
+              animation:     'ninosSheetRise 0.62s cubic-bezier(.22,1,.36,1) both',
+              willChange:    'transform, opacity',
+              borderRadius:  isMobile ? '20px 20px 0 0' : 16,
+              boxShadow:     '0 -8px 48px rgba(124,58,237,.14), 0 2px 24px rgba(0,0,0,.06)',
+            }}>
+              <div style={{
+                position:      'absolute',
+                inset:         0,
+                zIndex:        10,
+                pointerEvents: 'none',
+                background:    'linear-gradient(160deg, rgba(255,255,255,.55) 0%, rgba(200,180,255,.22) 40%, transparent 70%)',
+                animation:     'ninosShimmerFade 0.75s cubic-bezier(.4,0,.2,1) both',
+                borderRadius:  'inherit',
+              }} />
+              <AsistenciasSection usuario={usuario} />
+            </div>
+          )}
+
+          {/* ── Top bar + Scroll area (todo excepto niños y asistencias) ── */}
+          {displayNav !== 'ninos' && displayNav !== 'asistencias' && (<>
           <div style={{
             display:        'flex',
             alignItems:     'center',
@@ -930,22 +958,22 @@ export default function KidsAdminPage() {
                   ].join(', '),
                   ...(isMobile && i === 2 ? { gridColumn:'1 / -1' } : {}),
                 }}>
-                  <div style={{ padding: isMobile ? '15px 16px' : '20px 22px' }}>
+                  <div style={{ padding: isMobile ? '12px 14px' : '14px 18px' }}>
                     <div style={{
                       fontSize:9, fontWeight:700,
                       color:'rgba(0,0,0,.38)',
                       textTransform:'uppercase', letterSpacing:'1.8px',
-                      marginBottom:8,
+                      marginBottom:6,
                     }}>
                       {s.label}
                     </div>
                     <div style={{
-                      fontSize:      isMobile ? 28 : 36,
+                      fontSize:      s.wide ? (isMobile ? 16 : 18) : (isMobile ? 26 : 30),
                       fontWeight:    900,
                       color:         '#0f172a',
-                      letterSpacing: '-1.5px',
-                      lineHeight:    1,
-                      marginBottom:  6,
+                      letterSpacing: s.wide ? '-0.5px' : '-1.5px',
+                      lineHeight:    1.15,
+                      marginBottom:  4,
                     }}>
                       {s.val}
                     </div>
@@ -1265,7 +1293,7 @@ export default function KidsAdminPage() {
               </div>
             </div>
           </div>
-          </>)} {/* end: displayNav !== 'ninos' */}
+          </>)} {/* end: displayNav !== 'ninos' && displayNav !== 'asistencias' */}
         </main>
       </div>
 
@@ -1996,7 +2024,7 @@ function MaestroRow({
         }
       </div>
 
-      {/* Info */}
+      {/* Info + obs badge */}
       <div style={{ flex:1, minWidth:0 }}>
         <div style={{ fontSize:13, fontWeight:700, color:'#fff', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', textShadow:'0 1px 3px rgba(0,0,0,.15)' }}>
           {m.nombre} {m.apellido}
@@ -2004,48 +2032,91 @@ function MaestroRow({
         <div style={{ fontSize:10, color:'rgba(255,255,255,.65)', marginTop:2 }}>
           {m.horario_servicio ?? 'Sin horario asignado'}
         </div>
-      </div>
-
-      {/* ── Contador de observaciones — badge premium ── */}
-      <div style={{
-        display:'flex', alignItems:'center', gap:5, flexShrink:0,
-        padding:'4px 10px', borderRadius:50,
-        background: hasObs
-          ? 'rgba(255,255,255,.22)'
-          : 'rgba(255,255,255,.08)',
-        border: `1px solid ${hasObs ? 'rgba(255,255,255,.5)' : 'rgba(255,255,255,.2)'}`,
-        boxShadow: hasObs
-          ? '0 0 12px rgba(255,255,255,.18), inset 0 1px 0 rgba(255,255,255,.3)'
-          : 'none',
-        transition: 'all .2s',
-      }}>
-        <svg width="9" height="9" viewBox="0 0 24 24" fill="none"
-          stroke={hasObs ? 'rgba(255,255,255,.9)' : 'rgba(255,255,255,.4)'}
-          strokeWidth="2.2" strokeLinecap="round">
-          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-          <polyline points="14 2 14 8 20 8"/>
-          <line x1="16" y1="13" x2="8" y2="13"/>
-          <line x1="16" y1="17" x2="8" y2="17"/>
-        </svg>
-        <span style={{
-          fontSize: 11, fontWeight: 800,
-          color: hasObs ? '#fff' : 'rgba(255,255,255,.4)',
-          lineHeight: 1,
-          textShadow: hasObs ? '0 1px 4px rgba(0,0,0,.2)' : 'none',
-          minWidth: 8, textAlign: 'center',
+        {/* Obs badge — debajo del horario */}
+        <div style={{
+          display:'inline-flex', alignItems:'center', gap:4, marginTop:5,
+          padding:'2px 8px', borderRadius:50,
+          background: hasObs ? 'rgba(255,255,255,.22)' : 'rgba(255,255,255,.08)',
+          border: `1px solid ${hasObs ? 'rgba(255,255,255,.45)' : 'rgba(255,255,255,.18)'}`,
+          boxShadow: hasObs ? '0 0 10px rgba(255,255,255,.15), inset 0 1px 0 rgba(255,255,255,.3)' : 'none',
         }}>
-          {obsCount}
-        </span>
+          <svg width="8" height="8" viewBox="0 0 24 24" fill="none"
+            stroke={hasObs ? 'rgba(255,255,255,.9)' : 'rgba(255,255,255,.4)'}
+            strokeWidth="2.2" strokeLinecap="round">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <polyline points="14 2 14 8 20 8"/>
+            <line x1="16" y1="13" x2="8" y2="13"/>
+            <line x1="16" y1="17" x2="8" y2="17"/>
+          </svg>
+          <span style={{
+            fontSize:10, fontWeight:800, lineHeight:1,
+            color: hasObs ? '#fff' : 'rgba(255,255,255,.4)',
+            textShadow: hasObs ? '0 1px 4px rgba(0,0,0,.2)' : 'none',
+          }}>
+            {obsCount} obs.
+          </span>
+        </div>
       </div>
 
-      {/* Estado */}
-      <div style={{
-        padding:'3px 10px', borderRadius:50, fontSize:9, fontWeight:700, flexShrink:0,
-        background: m.activo ? 'rgba(16,185,129,.28)' : 'rgba(244,63,94,.22)',
-        color:      m.activo ? '#86efac'               : '#fca5a5',
-        border:     `1px solid ${m.activo ? 'rgba(16,185,129,.4)' : 'rgba(244,63,94,.35)'}`,
-      }}>
-        {m.activo ? 'Activo' : 'Inactivo'}
+      {/* ── Botones WA + Llamar premium ── */}
+      <div style={{ display:'flex', gap:7, flexShrink:0 }} onClick={e => e.stopPropagation()}>
+        {/* WhatsApp */}
+        <a
+          href={m.telefono ? `https://wa.me/57${m.telefono.replace(/\D/g,'')}` : undefined}
+          target="_blank" rel="noopener noreferrer"
+          title={`WhatsApp ${m.nombre}`}
+          onClick={e => { if (!m.telefono) e.preventDefault() }}
+          style={{
+            width:32, height:32, borderRadius:'50%', flexShrink:0,
+            display:'flex', alignItems:'center', justifyContent:'center',
+            background: m.telefono
+              ? 'linear-gradient(135deg,rgba(37,211,102,.85) 0%,rgba(18,183,80,.75) 100%)'
+              : 'rgba(255,255,255,.08)',
+            border: `1px solid ${m.telefono ? 'rgba(255,255,255,.45)' : 'rgba(255,255,255,.15)'}`,
+            boxShadow: m.telefono
+              ? '0 4px 14px rgba(37,211,102,.45), inset 0 1px 0 rgba(255,255,255,.35)'
+              : 'none',
+            backdropFilter:'blur(6px)',
+            WebkitBackdropFilter:'blur(6px)',
+            cursor: m.telefono ? 'pointer' : 'default',
+            textDecoration:'none',
+            transition:'all .18s',
+          }}
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill={m.telefono ? '#fff' : 'rgba(255,255,255,.3)'}>
+            <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/>
+            <path d="M11.5 2C6.261 2 2 6.261 2 11.5c0 1.886.52 3.65 1.426 5.155L2 22l5.488-1.396A9.45 9.45 0 0 0 11.5 21C16.739 21 21 16.739 21 11.5S16.739 2 11.5 2zm0 17.2a7.678 7.678 0 0 1-3.927-1.074l-.281-.168-2.91.74.775-2.835-.184-.29A7.655 7.655 0 0 1 3.8 11.5C3.8 7.253 7.253 3.8 11.5 3.8S19.2 7.253 19.2 11.5 15.747 19.2 11.5 19.2z"/>
+          </svg>
+        </a>
+
+        {/* Llamar */}
+        <a
+          href={m.telefono ? `tel:${m.telefono.replace(/\D/g,'')}` : undefined}
+          title={`Llamar a ${m.nombre}`}
+          onClick={e => { if (!m.telefono) e.preventDefault() }}
+          style={{
+            width:32, height:32, borderRadius:'50%', flexShrink:0,
+            display:'flex', alignItems:'center', justifyContent:'center',
+            background: m.telefono
+              ? 'linear-gradient(135deg,rgba(99,102,241,.85) 0%,rgba(139,92,246,.75) 100%)'
+              : 'rgba(255,255,255,.08)',
+            border: `1px solid ${m.telefono ? 'rgba(255,255,255,.45)' : 'rgba(255,255,255,.15)'}`,
+            boxShadow: m.telefono
+              ? '0 4px 14px rgba(99,102,241,.45), inset 0 1px 0 rgba(255,255,255,.35)'
+              : 'none',
+            backdropFilter:'blur(6px)',
+            WebkitBackdropFilter:'blur(6px)',
+            cursor: m.telefono ? 'pointer' : 'default',
+            textDecoration:'none',
+            transition:'all .18s',
+          }}
+        >
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+            stroke={m.telefono ? '#fff' : 'rgba(255,255,255,.3)'}
+            strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.4 2 2 0 0 1 3.6 1.22h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.77a16 16 0 0 0 6.06 6.06l1.64-1.63a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/>
+          </svg>
+        </a>
       </div>
 
       {/* Flecha → ver observaciones */}
