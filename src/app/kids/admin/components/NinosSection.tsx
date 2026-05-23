@@ -51,9 +51,10 @@ const VISIBLE_COUNT = 8
 ════════════════════════════════════════════════════════════════════════ */
 interface Props {
   usuario: { nombre: string; apellido: string; foto_url: string | null } | null
+  logoNavOpen?: boolean
 }
 
-export default function NinosSection({ usuario }: Props) {
+export default function NinosSection({ usuario, logoNavOpen = false }: Props) {
   const [ninos,       setNinos]      = useState<KidsNino[]>([])
   const [loading,     setLoading]    = useState(true)
   const [saving,      setSaving]     = useState(false)
@@ -266,8 +267,40 @@ export default function NinosSection({ usuario }: Props) {
 
     // ── Extraer descriptor facial en background ──────────────────────────
     extractFaceDescriptor(file, setFaceStatus).then(descriptor => {
-      setFaceDescriptor(descriptor)
+      // Convertir Float32Array → number[] para serialización JSON correcta
+      setFaceDescriptor(descriptor ? Array.from(descriptor) : null)
     })
+  }
+
+  /* ── Activar IA: re-extraer descriptor desde la foto ya guardada ── */
+  async function handleActivateAI(n: KidsNino): Promise<'ok' | 'not_found' | 'error'> {
+    if (!n.foto_url) return 'error'
+    try {
+      // 1. Descargar la foto existente como blob → File
+      const res  = await fetch(n.foto_url)
+      if (!res.ok) return 'error'
+      const blob = await res.blob()
+      const file = new File([blob], 'photo.jpg', { type: blob.type || 'image/jpeg' })
+
+      // 2. Extraer descriptor (face-api.js en el browser)
+      const descriptor = await extractFaceDescriptor(file)
+      if (!descriptor) return 'not_found'
+
+      // 3. Guardar en la base de datos
+      const patch = await fetch(`/api/kids/ninos/${n.id}`, {
+        method:  'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ face_descriptor: Array.from(descriptor) }),
+      })
+      const pj = await patch.json()
+      if (!patch.ok || !pj.ok) return 'error'
+
+      // 4. Actualizar lista local
+      setNinos(prev => prev.map(x => x.id === n.id ? pj.data : x))
+      return 'ok'
+    } catch {
+      return 'error'
+    }
   }
 
   async function handleToggleActive(n: KidsNino) {
@@ -293,6 +326,8 @@ export default function NinosSection({ usuario }: Props) {
      RENDER
   ════════════════════════════════════════════════════════════════════ */
   return (
+    <>
+    <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     <div style={{
       display:        'flex',
       flex:           1,
@@ -610,6 +645,7 @@ export default function NinosSection({ usuario }: Props) {
                     onEdit={() => startEdit(n)}
                     onToggle={() => handleToggleActive(n)}
                     onDelete={() => handleDelete(n)}
+                    onActivateAI={() => handleActivateAI(n)}
                   />
                 ))}
               </div>
@@ -640,25 +676,25 @@ export default function NinosSection({ usuario }: Props) {
           )}
         </div>
         {/* ── FAB: Agregar niño (solo móvil) ── */}
-        {isMobile && !showMobileForm && (
+        {isMobile && !showMobileForm && !logoNavOpen && (
           <button
             onClick={() => { setEditNino(null); resetPhotoState(); setForm({ nombreCompleto:'', edad:'', acudiente:'', telefono:'', grupo:'', observaciones:'' }); setFormErr(''); setShowMobileForm(true) }}
             style={{
               position:   'fixed',
-              bottom:     24,
-              right:      20,
+              top:        16,
+              right:      16,
               zIndex:     50,
-              width:      56,
-              height:     56,
+              width:      44,
+              height:     44,
               borderRadius: '50%',
               border:     'none',
               background: 'linear-gradient(135deg,#7c3aed,#6d28d9)',
               color:      '#fff',
-              fontSize:   28,
+              fontSize:   26,
               fontWeight: 700,
               lineHeight: 1,
               cursor:     'pointer',
-              boxShadow:  '0 8px 28px rgba(124,58,237,.5)',
+              boxShadow:  '0 4px 16px rgba(124,58,237,.5)',
               display:    'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -692,24 +728,24 @@ export default function NinosSection({ usuario }: Props) {
         isMobile
           ? {
               position:             'fixed',
-              bottom:               0,
+              top:                  0,
               left:                 0,
               right:                0,
               zIndex:               70,
-              maxHeight:            '92dvh',
-              borderRadius:         '24px 24px 0 0',
-              /* ── GLASS ── */
-              background:           'rgba(255,255,255,0.78)',
-              backdropFilter:       'blur(28px) saturate(200%)',
-              WebkitBackdropFilter: 'blur(28px) saturate(200%)',
-              border:               '1px solid rgba(255,255,255,0.65)',
-              borderBottom:         'none',
+              maxHeight:            '94dvh',
+              borderRadius:         '0 0 28px 28px',
+              /* ── GLASS PREMIUM ── */
+              background:           'linear-gradient(170deg,rgba(245,242,255,0.97) 0%,rgba(255,255,255,0.98) 55%,rgba(240,249,255,0.97) 100%)',
+              backdropFilter:       'blur(40px) saturate(220%) brightness(1.04)',
+              WebkitBackdropFilter: 'blur(40px) saturate(220%) brightness(1.04)',
+              border:               '1px solid rgba(255,255,255,0.9)',
+              borderTop:            'none',
               /* ────────── */
               display:              showMobileForm ? 'flex' : 'none',
               flexDirection:        'column',
               overflowY:            'auto',
-              padding:              '20px 20px 32px',
-              boxShadow:            '0 -12px 50px rgba(109,40,217,.18), 0 -1px 0 rgba(255,255,255,.9)',
+              padding:              'max(env(safe-area-inset-top,0px),14px) 22px 32px',
+              boxShadow:            '0 18px 60px rgba(109,40,217,.22), 0 4px 24px rgba(0,0,0,.08), 0 0 0 0.5px rgba(124,58,237,.12)',
             } as React.CSSProperties
           : {
               width:                290,
@@ -729,52 +765,69 @@ export default function NinosSection({ usuario }: Props) {
             } as React.CSSProperties
       }>
 
-        {/* ── Acento superior glass (brillo tipo premium) ── */}
-        <div style={{
-          position:     'absolute',
-          top:          0,
-          left:         isMobile ? 0 : 0,
-          right:        0,
-          height:       isMobile ? 3 : 2,
-          borderRadius: isMobile ? '24px 24px 0 0' : '0',
-          background:   'linear-gradient(90deg, rgba(167,139,250,0.8) 0%, rgba(139,92,246,1) 40%, rgba(99,102,241,0.7) 80%, rgba(167,139,250,0.4) 100%)',
-          pointerEvents:'none',
-          zIndex:       1,
-        }} />
+        {/* ── Acento glass (brillo premium) ── */}
+        {!isMobile && (
+          <div style={{
+            position:     'absolute',
+            top:          0,
+            left:         0,
+            right:        0,
+            height:       2,
+            background:   'linear-gradient(90deg, rgba(167,139,250,0.8) 0%, rgba(139,92,246,1) 40%, rgba(99,102,241,0.7) 80%, rgba(167,139,250,0.4) 100%)',
+            pointerEvents:'none',
+            zIndex:       1,
+          }} />
+        )}
 
-        {/* Drag handle (solo móvil) */}
+        {/* Drag handle + acento inferior — solo móvil, siempre al final del scroll */}
         {isMobile && (
-          <div style={{ display:'flex', justifyContent:'center', marginBottom:16, marginTop:8 }}>
+          <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:10, marginTop:18, order:99, flexShrink:0 }}>
+            <div style={{ width:44, height:5, borderRadius:99, background:'rgba(124,58,237,0.2)' }} />
             <div style={{
-              width:44, height:5, borderRadius:99,
-              background:'rgba(124,58,237,0.2)',
+              width:'calc(100% + 44px)', height:3,
+              borderRadius:'0 0 28px 28px',
+              background:'linear-gradient(90deg, rgba(167,139,250,0.8) 0%, rgba(139,92,246,1) 40%, rgba(99,102,241,0.7) 80%, rgba(167,139,250,0.4) 100%)',
+              pointerEvents:'none',
             }} />
           </div>
         )}
 
         {/* Form title */}
-        <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', marginBottom:20 }}>
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:20 }}>
           <div>
-            <h3 style={{ fontSize:19, fontWeight:900, color:'#111827', margin:0, lineHeight:1.2, letterSpacing:'-0.3px' }}>
-              {editNino ? 'Editar niño' : 'Agregar'}
-            </h3>
-            <h3 style={{ fontSize:19, fontWeight:900, color:'#111827', margin:0, lineHeight:1.2, letterSpacing:'-0.3px' }}>
-              {editNino ? '' : 'nuevo niño'}
+            <div style={{ fontSize:9, fontWeight:800, letterSpacing:'2px', textTransform:'uppercase' as const,
+              background:'linear-gradient(90deg,#7c3aed,#6366f1)', WebkitBackgroundClip:'text',
+              WebkitTextFillColor:'transparent', marginBottom:3 }}>
+              {editNino ? 'EDITAR REGISTRO' : 'NUEVO REGISTRO'}
+            </div>
+            <h3 style={{ fontSize:22, fontWeight:900, margin:0, lineHeight:1.1, letterSpacing:'-0.5px',
+              background:'linear-gradient(135deg,#1e1b4b 0%,#4c1d95 50%,#2e1065 100%)',
+              WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }}>
+              {editNino ? editNino.nombre : 'Agregar niño'}
             </h3>
           </div>
-          <div style={{ display:'flex', gap:6, alignItems:'center' }}>
+          <div style={{ display:'flex', gap:8, alignItems:'center' }}>
+            <span style={{ fontSize:22, filter:'drop-shadow(0 2px 6px rgba(124,58,237,.4))' }}>
+              {editNino ? '✏️' : '✨'}
+            </span>
             {(editNino || isMobile) && (
               <button
                 onClick={cancelEdit}
                 style={{
-                  width:32, height:32, borderRadius:9, border:'1px solid #e5e7eb',
-                  background:'transparent', cursor:'pointer',
+                  width:36, height:36, borderRadius:12,
+                  border:'1.5px solid rgba(124,58,237,.18)',
+                  background:'rgba(255,255,255,0.7)',
+                  backdropFilter:'blur(12px)',
+                  cursor:'pointer',
                   display:'flex', alignItems:'center', justifyContent:'center',
-                  fontSize:14, color:'#6b7280',
+                  boxShadow:'0 2px 8px rgba(0,0,0,.08)',
                 }}
-              >✕</button>
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="2.5" strokeLinecap="round">
+                  <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+              </button>
             )}
-            <span style={{ fontSize:24 }}>{editNino ? '✏️' : '✨'}</span>
           </div>
         </div>
 
@@ -884,20 +937,31 @@ export default function NinosSection({ usuario }: Props) {
             <div
               onClick={() => fileInputRef.current?.click()}
               style={{
-                width:90, height:90, borderRadius:'50%',
-                border:'2px dashed #d1d5db',
+                width:96, height:96, borderRadius:'50%',
+                background:['linear-gradient(rgba(245,243,255,.9),rgba(245,243,255,.9)) padding-box',
+                            'linear-gradient(135deg,#7c3aed,#6366f1,#a78bfa,#7c3aed) border-box'].join(','),
+                border:'2px solid transparent',
                 display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center',
-                background:'#f9fafb', cursor:'pointer', marginBottom:6,
-                transition:'all .18s',
+                cursor:'pointer', marginBottom:6,
+                boxShadow:'0 4px 20px rgba(124,58,237,.18), inset 0 1px 0 rgba(255,255,255,.9)',
+                transition:'all .2s',
               }}
             >
-              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="1.8" strokeLinecap="round">
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="url(#uploadGrad)" strokeWidth="1.8" strokeLinecap="round">
+                <defs>
+                  <linearGradient id="uploadGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stopColor="#7c3aed"/>
+                    <stop offset="100%" stopColor="#6366f1"/>
+                  </linearGradient>
+                </defs>
                 <polyline points="16 16 12 12 8 16"/>
                 <line x1="12" y1="12" x2="12" y2="21"/>
                 <path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/>
               </svg>
-              <span style={{ fontSize:9, color:'#9ca3af', marginTop:5, fontWeight:600, letterSpacing:'0.5px' }}>
-                Subir foto
+              <span style={{ fontSize:9, fontWeight:800, letterSpacing:'0.8px', marginTop:5,
+                background:'linear-gradient(90deg,#7c3aed,#6366f1)',
+                WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }}>
+                SUBIR FOTO
               </span>
             </div>
           )}
@@ -940,8 +1004,11 @@ export default function NinosSection({ usuario }: Props) {
           </div>
         )}
 
+        {/* Divider */}
+        <div style={{ height:1, background:'linear-gradient(90deg,transparent,rgba(124,58,237,.15) 30%,rgba(99,102,241,.15) 70%,transparent)', margin:'4px 0 16px' }} />
+
         {/* Form fields */}
-        <div style={{ display:'flex', flexDirection:'column', gap:11 }}>
+        <div style={{ display:'flex', flexDirection:'column', gap:13 }}>
 
           {/* Nombre completo */}
           <NinoField
@@ -982,77 +1049,18 @@ export default function NinosSection({ usuario }: Props) {
           />
 
           {/* Grupo / Curso — SELECT */}
-          <div>
-            <label style={{ fontSize:10, fontWeight:600, color:'#6b7280', display:'block', marginBottom:5, letterSpacing:'0.3px' }}>
-              Grupo / Curso
-            </label>
-            <div style={{ position:'relative' }}>
-              <div style={{ position:'absolute', left:11, top:'50%', transform:'translateY(-50%)', pointerEvents:'none' }}>
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2" strokeLinecap="round">
-                  <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
-                </svg>
-              </div>
-              <select
-                value={form.grupo}
-                onChange={e => setForm(f => ({ ...f, grupo: e.target.value }))}
-                style={{
-                  width:'100%', boxSizing:'border-box' as const,
-                  padding:'10px 12px 10px 32px',
-                  border:'1px solid rgba(255,255,255,0.7)', borderRadius:10,
-                  fontSize:12, fontFamily:'inherit', outline:'none',
-                  background:'rgba(255,255,255,0.55)',
-                  backdropFilter:'blur(8px)',
-                  color: form.grupo ? '#111827' : '#9ca3af',
-                  appearance:'none' as const, cursor:'pointer',
-                  boxShadow:'0 1px 3px rgba(0,0,0,.04)',
-                }}
-              >
-                <option value="">Seleccionar grupo</option>
-                {GRUPOS_DISPONIBLES.map(g => (
-                  <option key={g} value={g}>{g}</option>
-                ))}
-              </select>
-              <div style={{ position:'absolute', right:11, top:'50%', transform:'translateY(-50%)', pointerEvents:'none' }}>
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2.5">
-                  <polyline points="6 9 12 15 18 9"/>
-                </svg>
-              </div>
-            </div>
-          </div>
+          <GrupoSelect
+            value={form.grupo}
+            onChange={v => setForm(f => ({ ...f, grupo: v }))}
+            grupos={GRUPOS_DISPONIBLES}
+          />
 
           {/* Observaciones — TEXTAREA */}
-          <div>
-            <label style={{ fontSize:10, fontWeight:600, color:'#6b7280', display:'block', marginBottom:5, letterSpacing:'0.3px' }}>
-              Observaciones
-            </label>
-            <div style={{ position:'relative' }}>
-              <div style={{ position:'absolute', left:11, top:11, pointerEvents:'none' }}>
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2" strokeLinecap="round">
-                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                  <polyline points="14 2 14 8 20 8"/>
-                  <line x1="16" y1="13" x2="8" y2="13"/>
-                  <line x1="16" y1="17" x2="8" y2="17"/>
-                </svg>
-              </div>
-              <textarea
-                placeholder="Información adicional..."
-                value={form.observaciones}
-                onChange={e => setForm(f => ({ ...f, observaciones: e.target.value }))}
-                rows={isMobile ? 2 : 3}
-                style={{
-                  width:'100%', boxSizing:'border-box' as const,
-                  padding:'10px 12px 10px 32px',
-                  border:'1px solid rgba(255,255,255,0.7)', borderRadius:10,
-                  fontSize:12, fontFamily:'inherit', outline:'none',
-                  background:'rgba(255,255,255,0.55)',
-                  backdropFilter:'blur(8px)',
-                  resize:'vertical' as const, lineHeight:1.5,
-                  boxShadow:'0 1px 3px rgba(0,0,0,.04)',
-                  color:'#111827',
-                } as React.CSSProperties}
-              />
-            </div>
-          </div>
+          <ObsTextarea
+            value={form.observaciones}
+            onChange={v => setForm(f => ({ ...f, observaciones: v }))}
+            isMobile={isMobile}
+          />
         </div>
 
         {/* Save button — 3D animado */}
@@ -1066,6 +1074,7 @@ export default function NinosSection({ usuario }: Props) {
 
       </div>
     </div>
+    </>
   )
 }
 
@@ -1138,17 +1147,19 @@ function StatCard({
 
 /* ── NinoCard ────────────────────────────────────────────────────────────── */
 function NinoCard({
-  nino, idx, onEdit, onToggle, onDelete,
+  nino, idx, onEdit, onToggle, onDelete, onActivateAI,
 }: {
-  nino:     KidsNino
-  idx:      number
-  onEdit:   () => void
-  onToggle: () => void
-  onDelete: () => void
+  nino:          KidsNino
+  idx:           number
+  onEdit:        () => void
+  onToggle:      () => void
+  onDelete:      () => void
+  onActivateAI:  () => Promise<'ok' | 'not_found' | 'error'>
 }) {
   const [hov,         setHov]        = useState(false)
   const [menuOpen,    setMenuOpen]   = useState(false)
   const [imgBroken,   setImgBroken]  = useState(false)
+  const [aiState,     setAiState]    = useState<'idle'|'processing'|'not_found'|'error'>('idle')
   const menuRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -1296,7 +1307,7 @@ function NinoCard({
       )}
 
       {/* Face descriptor indicator */}
-      {nino.face_descriptor && nino.face_descriptor.length === 128 && (
+      {nino.face_descriptor && nino.face_descriptor.length === 128 ? (
         <div style={{
           display:'flex', alignItems:'center', gap:4,
           padding:'3px 9px', borderRadius:50, marginBottom:6,
@@ -1311,7 +1322,52 @@ function NinoCard({
           </svg>
           Reconocimiento IA listo
         </div>
-      )}
+      ) : nino.foto_url && !imgBroken ? (
+        /* ── Botón "Activar IA" para niños con foto pero sin descriptor ── */
+        <button
+          disabled={aiState === 'processing'}
+          onClick={async () => {
+            setAiState('processing')
+            const result = await onActivateAI()
+            if (result !== 'ok') setAiState(result)
+            // Si 'ok', el padre actualiza nino y este bloque desaparece solo
+          }}
+          style={{
+            display:'flex', alignItems:'center', gap:5,
+            padding:'4px 10px', borderRadius:50, marginBottom:6,
+            border:'1px solid rgba(124,58,237,.35)',
+            background: aiState === 'processing'
+              ? 'rgba(124,58,237,.08)'
+              : aiState === 'not_found'
+              ? '#fffbeb'
+              : aiState === 'error'
+              ? '#fef2f2'
+              : 'linear-gradient(135deg,rgba(124,58,237,.10),rgba(99,102,241,.08))',
+            fontSize:9, fontWeight:700,
+            color: aiState === 'not_found' ? '#d97706' : aiState === 'error' ? '#dc2626' : '#7c3aed',
+            cursor: aiState === 'processing' ? 'default' : 'pointer',
+            transition:'all .18s',
+          }}
+        >
+          {aiState === 'processing' ? (
+            <>
+              <span style={{ display:'inline-block', animation:'spin .8s linear infinite' }}>⏳</span>
+              Procesando…
+            </>
+          ) : aiState === 'not_found' ? (
+            <>⚠️ Sin rostro detectado</>
+          ) : aiState === 'error' ? (
+            <>❌ Error — reintentar</>
+          ) : (
+            <>
+              <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" strokeWidth="2.5" strokeLinecap="round">
+                <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+              </svg>
+              Activar IA
+            </>
+          )}
+        </button>
+      ) : null}
 
     </div>
   )
@@ -1341,6 +1397,107 @@ function MenuOption({ icon, label, onClick, danger }: { icon:string; label:strin
   )
 }
 
+/* ── GrupoSelect — premium select ─────────────────────────────────────── */
+function GrupoSelect({ value, onChange, grupos }: { value:string; onChange:(v:string)=>void; grupos:string[] }) {
+  const [focused, setFocused] = useState(false)
+  return (
+    <div>
+      <label style={{ fontSize:9, fontWeight:800, color: focused ? '#7c3aed' : '#6b7280',
+        display:'flex', alignItems:'center', gap:5, marginBottom:6,
+        letterSpacing:'1px', textTransform:'uppercase' as const, transition:'color .15s' }}>
+        <span style={{ width:4, height:4, borderRadius:'50%',
+          background: focused ? 'linear-gradient(135deg,#7c3aed,#6366f1)' : '#d1d5db',
+          display:'inline-block', transition:'background .15s', flexShrink:0 }} />
+        Grupo / Curso
+      </label>
+      <div style={{ position:'relative' }}>
+        <div style={{ position:'absolute', left:13, top:'50%', transform:'translateY(-50%)', pointerEvents:'none', opacity: focused ? 1 : 0.55, transition:'opacity .15s' }}>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={focused ? '#7c3aed' : '#9ca3af'} strokeWidth="2" strokeLinecap="round">
+            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+          </svg>
+        </div>
+        <select
+          value={value}
+          onChange={e => onChange(e.target.value)}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
+          style={{
+            width:'100%', boxSizing:'border-box' as const,
+            padding:'11px 36px 11px 34px',
+            border: focused ? '1.5px solid rgba(124,58,237,.6)' : '1.5px solid rgba(0,0,0,.08)',
+            borderRadius:12, fontSize:13, fontFamily:'inherit', outline:'none',
+            background: focused ? 'rgba(255,255,255,0.98)' : 'rgba(255,255,255,0.7)',
+            backdropFilter:'blur(12px)',
+            color: value ? '#111827' : '#9ca3af',
+            appearance:'none' as const, cursor:'pointer', fontWeight: 500,
+            boxShadow: focused
+              ? '0 0 0 3.5px rgba(124,58,237,.12), 0 4px 12px rgba(0,0,0,.06)'
+              : '0 1px 4px rgba(0,0,0,.05), inset 0 1px 0 rgba(255,255,255,.9)',
+            transition:'border-color .18s, box-shadow .18s, background .18s',
+          }}
+        >
+          <option value="">Seleccionar grupo</option>
+          {grupos.map(g => <option key={g} value={g}>{g}</option>)}
+        </select>
+        <div style={{ position:'absolute', right:13, top:'50%', transform:'translateY(-50%)', pointerEvents:'none', opacity: focused ? 1 : 0.5, transition:'opacity .15s' }}>
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke={focused ? '#7c3aed' : '#9ca3af'} strokeWidth="2.5">
+            <polyline points="6 9 12 15 18 9"/>
+          </svg>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/* ── ObsTextarea — premium textarea ────────────────────────────────────── */
+function ObsTextarea({ value, onChange, isMobile }: { value:string; onChange:(v:string)=>void; isMobile:boolean }) {
+  const [focused, setFocused] = useState(false)
+  return (
+    <div>
+      <label style={{ fontSize:9, fontWeight:800, color: focused ? '#7c3aed' : '#6b7280',
+        display:'flex', alignItems:'center', gap:5, marginBottom:6,
+        letterSpacing:'1px', textTransform:'uppercase' as const, transition:'color .15s' }}>
+        <span style={{ width:4, height:4, borderRadius:'50%',
+          background: focused ? 'linear-gradient(135deg,#7c3aed,#6366f1)' : '#d1d5db',
+          display:'inline-block', transition:'background .15s', flexShrink:0 }} />
+        Observaciones
+      </label>
+      <div style={{ position:'relative' }}>
+        <div style={{ position:'absolute', left:13, top:13, pointerEvents:'none', opacity: focused ? 1 : 0.55, transition:'opacity .15s' }}>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={focused ? '#7c3aed' : '#9ca3af'} strokeWidth="2" strokeLinecap="round">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <polyline points="14 2 14 8 20 8"/>
+            <line x1="16" y1="13" x2="8" y2="13"/>
+            <line x1="16" y1="17" x2="8" y2="17"/>
+          </svg>
+        </div>
+        <textarea
+          placeholder="Información adicional..."
+          value={value}
+          onChange={e => onChange(e.target.value)}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
+          rows={isMobile ? 2 : 3}
+          style={{
+            width:'100%', boxSizing:'border-box' as const,
+            padding:'11px 14px 11px 34px',
+            border: focused ? '1.5px solid rgba(124,58,237,.6)' : '1.5px solid rgba(0,0,0,.08)',
+            borderRadius:12, fontSize:13, fontFamily:'inherit', outline:'none',
+            background: focused ? 'rgba(255,255,255,0.98)' : 'rgba(255,255,255,0.7)',
+            backdropFilter:'blur(12px)',
+            resize:'vertical' as const, lineHeight:1.6, fontWeight:500,
+            boxShadow: focused
+              ? '0 0 0 3.5px rgba(124,58,237,.12), 0 4px 12px rgba(0,0,0,.06)'
+              : '0 1px 4px rgba(0,0,0,.05), inset 0 1px 0 rgba(255,255,255,.9)',
+            transition:'border-color .18s, box-shadow .18s, background .18s',
+            color:'#111827',
+          } as React.CSSProperties}
+        />
+      </div>
+    </div>
+  )
+}
+
 /* ── NinoField — text input with icon ──────────────────────────────────── */
 function NinoField({
   label, icon, placeholder, value, onChange, type, inputMode,
@@ -1356,11 +1513,18 @@ function NinoField({
   const [focused, setFocused] = useState(false)
   return (
     <div>
-      <label style={{ fontSize:10, fontWeight:600, color:'#6b7280', display:'block', marginBottom:5, letterSpacing:'0.3px' }}>
+      <label style={{ fontSize:9, fontWeight:800, color: focused ? '#7c3aed' : '#6b7280',
+        display:'flex', alignItems:'center', gap:5, marginBottom:6,
+        letterSpacing:'1px', textTransform:'uppercase' as const,
+        transition:'color .15s' }}>
+        <span style={{ width:4, height:4, borderRadius:'50%',
+          background: focused ? 'linear-gradient(135deg,#7c3aed,#6366f1)' : '#d1d5db',
+          display:'inline-block', transition:'background .15s', flexShrink:0 }} />
         {label}
       </label>
       <div style={{ position:'relative' }}>
-        <div style={{ position:'absolute', left:11, top:'50%', transform:'translateY(-50%)', pointerEvents:'none' }}>
+        <div style={{ position:'absolute', left:13, top:'50%', transform:'translateY(-50%)', pointerEvents:'none',
+          opacity: focused ? 1 : 0.55, transition:'opacity .15s' }}>
           {icon}
         </div>
         <input
@@ -1373,15 +1537,20 @@ function NinoField({
           onBlur={()  => setFocused(false)}
           style={{
             width:'100%', boxSizing:'border-box' as const,
-            padding:'10px 12px 10px 32px',
-            border:`1px solid ${focused ? '#7c3aed' : 'rgba(255,255,255,0.7)'}`,
-            borderRadius:10, fontSize:12,
+            padding:'11px 14px 11px 34px',
+            border: focused
+              ? '1.5px solid rgba(124,58,237,.6)'
+              : '1.5px solid rgba(0,0,0,.08)',
+            borderRadius:12, fontSize:13,
             fontFamily:'inherit', outline:'none',
-            background: focused ? 'rgba(255,255,255,0.92)' : 'rgba(255,255,255,0.55)',
-            backdropFilter: 'blur(8px)',
-            boxShadow: focused ? '0 0 0 3px rgba(124,58,237,.12), 0 2px 8px rgba(0,0,0,.04)' : '0 1px 3px rgba(0,0,0,.04)',
-            transition:'border-color .15s, box-shadow .15s, background .15s',
+            background: focused ? 'rgba(255,255,255,0.98)' : 'rgba(255,255,255,0.7)',
+            backdropFilter: 'blur(12px)',
+            boxShadow: focused
+              ? '0 0 0 3.5px rgba(124,58,237,.12), 0 4px 12px rgba(0,0,0,.06)'
+              : '0 1px 4px rgba(0,0,0,.05), inset 0 1px 0 rgba(255,255,255,.9)',
+            transition:'border-color .18s, box-shadow .18s, background .18s',
             color: '#111827',
+            fontWeight: 500,
           } as React.CSSProperties}
         />
       </div>

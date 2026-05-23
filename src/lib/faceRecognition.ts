@@ -1,7 +1,16 @@
 // src/lib/faceRecognition.ts
 // Utilities for face-api.js model loading and face matching
 
-export const FACE_MATCH_THRESHOLD = 0.5   // menor = más estricto
+export const FACE_MATCH_THRESHOLD = 0.58  // menor = más estricto (0.48 era el caso límite)
+
+/** Estado del proceso de detección facial */
+export type FaceStatus =
+  | 'idle'
+  | 'loading_models'
+  | 'detecting'
+  | 'found'
+  | 'not_found'
+  | 'error'
 
 let modelsLoaded = false
 
@@ -37,28 +46,47 @@ export function faceDistance(
 
 /**
  * Extrae el descriptor de un rostro desde un File de imagen.
+ * Llama a onStatus en cada etapa del proceso.
  * Retorna null si no se detecta rostro.
  */
-export async function extractFaceDescriptor(file: File): Promise<Float32Array | null> {
-  await loadFaceModels()
-  const fa = await import('face-api.js')
-
-  const url = URL.createObjectURL(file)
+export async function extractFaceDescriptor(
+  file: File,
+  onStatus?: (s: FaceStatus) => void,
+): Promise<Float32Array | null> {
   try {
-    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
-      const el  = new Image()
-      el.onload  = () => resolve(el)
-      el.onerror = reject
-      el.src     = url
-    })
+    onStatus?.('loading_models')
+    await loadFaceModels()
 
-    const detection = await fa
-      .detectSingleFace(img, new fa.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.38 }))
-      .withFaceLandmarks()
-      .withFaceDescriptor()
+    const fa  = await import('face-api.js')
+    const url = URL.createObjectURL(file)
 
-    return detection ? detection.descriptor : null
-  } finally {
-    URL.revokeObjectURL(url)
+    try {
+      onStatus?.('detecting')
+
+      const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+        const el   = new Image()
+        el.onload  = () => resolve(el)
+        el.onerror = reject
+        el.src     = url
+      })
+
+      const detection = await fa
+        .detectSingleFace(img, new fa.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.38 }))
+        .withFaceLandmarks()
+        .withFaceDescriptor()
+
+      if (detection) {
+        onStatus?.('found')
+        return detection.descriptor
+      } else {
+        onStatus?.('not_found')
+        return null
+      }
+    } finally {
+      URL.revokeObjectURL(url)
+    }
+  } catch {
+    onStatus?.('error')
+    return null
   }
 }

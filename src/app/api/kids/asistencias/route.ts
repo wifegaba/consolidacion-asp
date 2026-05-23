@@ -2,11 +2,22 @@
 import { NextResponse } from 'next/server'
 import { getServerSupabase } from '@/lib/supabaseClient'
 
+/* ── Hora y fecha en zona horaria de Colombia (UTC-5) ── */
+function getColombia() {
+  const now = new Date()
+  const fmt  = (opts: Intl.DateTimeFormatOptions) =>
+    new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota', ...opts }).format(now)
+
+  const fecha = fmt({ year: 'numeric', month: '2-digit', day: '2-digit' }) // YYYY-MM-DD
+  const hora  = fmt({ hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }) // HH:MM:SS
+  return { fecha, hora }
+}
+
 /* ── GET /api/kids/asistencias?fecha=YYYY-MM-DD&grupo=X ── */
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url)
-    const fecha = searchParams.get('fecha') ?? new Date().toISOString().slice(0, 10)
+    const fecha = searchParams.get('fecha') ?? getColombia().fecha
     const grupo = searchParams.get('grupo')
 
     const supabase = getServerSupabase()
@@ -47,8 +58,10 @@ export async function POST(req: Request) {
 
     const supabase = getServerSupabase()
 
+    // Fecha y hora en Colombia
+    const { fecha: hoy, hora } = getColombia()
+
     // Verificar si ya fue registrado hoy
-    const hoy = new Date().toISOString().slice(0, 10)
     const { data: existing } = await supabase
       .from('kids_asistencias')
       .select('id')
@@ -62,7 +75,7 @@ export async function POST(req: Request) {
 
     const { data, error } = await supabase
       .from('kids_asistencias')
-      .insert({ nino_id, metodo, registrado_por })
+      .insert({ nino_id, metodo, registrado_por, fecha: hoy, hora })
       .select(`
         id, nino_id, fecha, hora, metodo, registrado_por, creado_en,
         nino:kids_ninos(id, nombre, apellido, edad, grupo, foto_url, activo)

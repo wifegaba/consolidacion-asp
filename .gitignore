@@ -43,3 +43,5 @@ tmp_snippet.txt
 
 # AI model files (downloaded automatically via postinstall / npm run download-bg-model)
 /public/bg-removal/
+
+certificates

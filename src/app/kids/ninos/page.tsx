@@ -260,8 +260,8 @@ export default function KidsNinosPage() {
       </div>
 
       {/* ── NinosSection ocupa el resto ── */}
-      <div style={{ position:'relative', zIndex:1, width:'100%', flex:1 }}>
-        <NinosSection usuario={usuario} />
+      <div style={{ position:'relative', zIndex:20, width:'100%', flex:1 }}>
+        <NinosSection usuario={usuario} logoNavOpen={logoNavOpen} />
       </div>
     </div>
     </>

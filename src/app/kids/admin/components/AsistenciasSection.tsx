@@ -15,14 +15,22 @@ interface AsistenciaRecord {
   nino: KidsNino
 }
 
-type Mode = 'camera' | 'processing' | 'matched' | 'no_match' | 'already'
+type Mode    = 'camera' | 'processing' | 'matched' | 'no_match' | 'already'
+type TabView = 'registrar' | 'historial'
 type NinoWithDescriptor = KidsNino & { face_descriptor: number[] }
+
+interface FaceMatch {
+  nino:    NinoWithDescriptor
+  dist:    number
+  already: boolean
+}
 
 const GRUPO_COLORS: Record<string, string> = {
   'Semillitas':  '#f59e0b',
   'Exploradores':'#3b82f6',
   'Junior':      '#8b5cf6',
 }
+const GRUPOS = ['Semillitas', 'Exploradores', 'Junior']
 
 /* ════════════════════════════════════════════════════════════════════════
    AsistenciasSection
@@ -38,19 +46,25 @@ export default function AsistenciasSection({
   const streamRef  = useRef<MediaStream | null>(null)
 
   /* ── state ── */
-  const [mode,          setMode]          = useState<Mode>('camera')
-  const [capturedUrl,   setCapturedUrl]   = useState<string | null>(null)
-  const [matchedNino,   setMatchedNino]   = useState<KidsNino | null>(null)
-  const [matchDist,     setMatchDist]     = useState(0)
-  const [allNinos,      setAllNinos]      = useState<NinoWithDescriptor[]>([])
-  const [todayRecords,  setTodayRecords]  = useState<AsistenciaRecord[]>([])
-  const [statusMsg,     setStatusMsg]     = useState('')
-  const [saving,        setSaving]        = useState(false)
-  const [cameraErr,     setCameraErr]     = useState('')
-  const [modelsReady,   setModelsReady]   = useState(false)
-  const [isMobile,      setIsMobile]      = useState(false)
-  const [facingMode,    setFacingMode]    = useState<'user' | 'environment'>('environment')
-  const [successMsg,    setSuccessMsg]    = useState('')
+  const [activeTab,      setActiveTab]     = useState<TabView>('registrar')
+  const [mode,           setMode]          = useState<Mode>('camera')
+  const [capturedUrl,    setCapturedUrl]   = useState<string | null>(null)
+  const [multiMatches,   setMultiMatches]  = useState<FaceMatch[]>([])
+  const [allNinos,       setAllNinos]      = useState<NinoWithDescriptor[]>([])
+  const [todayRecords,   setTodayRecords]  = useState<AsistenciaRecord[]>([])
+  const [statusMsg,      setStatusMsg]     = useState('')
+  const [saving,         setSaving]        = useState(false)
+  const [saveError,      setSaveError]     = useState('')
+  const [cameraErr,      setCameraErr]     = useState('')
+  const [modelsReady,    setModelsReady]   = useState(false)
+  const [isMobile,       setIsMobile]      = useState(false)
+  const [facingMode,     setFacingMode]    = useState<'user' | 'environment'>('environment')
+  const [successMsg,     setSuccessMsg]    = useState('')
+  /* ── Historial state ── */
+  const [histDate,       setHistDate]      = useState(() => new Date().toISOString().slice(0, 10))
+  const [histGrupo,      setHistGrupo]     = useState('')
+  const [histRecords,    setHistRecords]   = useState<AsistenciaRecord[]>([])
+  const [histLoading,    setHistLoading]   = useState(false)
 
   /* ── responsive ── */
   useEffect(() => {
@@ -90,6 +104,23 @@ export default function AsistenciasSection({
   }, [])
 
   useEffect(() => { loadToday() }, [loadToday])
+
+  /* ── cargar historial ── */
+  const loadHistorial = useCallback(async (fecha: string, grupo: string) => {
+    setHistLoading(true)
+    try {
+      const params = new URLSearchParams({ fecha })
+      if (grupo) params.set('grupo', grupo)
+      const res  = await fetch(`/api/kids/asistencias?${params}`)
+      const json = await res.json()
+      if (json.ok) setHistRecords(json.data)
+    } catch {}
+    setHistLoading(false)
+  }, [])
+
+  useEffect(() => {
+    if (activeTab === 'historial') loadHistorial(histDate, histGrupo)
+  }, [activeTab, histDate, histGrupo, loadHistorial])
 
   /* ── iniciar cámara ── */
   const startCamera = useCallback(async (facing: 'user' | 'environment' = facingMode) => {
@@ -150,11 +181,11 @@ export default function AsistenciasSection({
     }
 
     setMode('processing')
-    setStatusMsg('Detectando rostro…')
+    setStatusMsg('Detectando rostros…')
     await analyzeFace(dataUrl)
   }
 
-  /* ── analizar rostro ── */
+  /* ── analizar rostros (multi-face) ── */
   async function analyzeFace(dataUrl: string) {
     if (!modelsReady) {
       setStatusMsg('Cargando modelos de IA…')
@@ -165,109 +196,168 @@ export default function AsistenciasSection({
       }
     }
 
+    if (allNinos.length === 0) {
+      setStatusMsg('⚠️ No hay niños con foto registrada en la base de datos')
+      setTimeout(() => setMode('no_match'), 2000)
+      return
+    }
+
     try {
       const fa = await import('face-api.js')
-      setStatusMsg('Analizando rostro…')
+      setStatusMsg('Analizando rostros…')
 
-      // dataURL → HTMLImageElement
       const img = await new Promise<HTMLImageElement>((resolve, reject) => {
-        const el  = new Image()
+        const el   = new Image()
         el.onload  = () => resolve(el)
         el.onerror = reject
         el.src     = dataUrl
       })
 
-      const detection = await fa
-        .detectSingleFace(img, new fa.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.38 }))
-        .withFaceLandmarks()
-        .withFaceDescriptor()
+      const opts = new fa.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.35 })
 
-      if (!detection) {
-        setMode('no_match')
-        setMatchedNino(null)
+      // 1️⃣ Intentar detectar TODOS los rostros (modo grupal)
+      const multi = await fa
+        .detectAllFaces(img, opts)
+        .withFaceLandmarks()
+        .withFaceDescriptors()
+
+      console.log('[analyzeFace] detectAllFaces:', multi.length, '| niños en BD:', allNinos.length)
+
+      // 2️⃣ Fallback a detectSingleFace si detectAllFaces no encontró nada
+      let descriptors: { descriptor: Float32Array }[] = multi.length > 0
+        ? multi
+        : []
+
+      if (descriptors.length === 0) {
+        setStatusMsg('Reintentando con detección simple…')
+        const single = await fa
+          .detectSingleFace(img, opts)
+          .withFaceLandmarks()
+          .withFaceDescriptor()
+        console.log('[analyzeFace] detectSingleFace fallback:', single ? 'encontrado' : 'no encontrado')
+        if (single) descriptors = [single]
+      }
+
+      if (descriptors.length === 0) {
+        setStatusMsg(`Sin rostros detectados (${allNinos.length} niños en BD)`)
+        setTimeout(() => setMode('no_match'), 1500)
         return
       }
 
-      const capturedDesc = Array.from(detection.descriptor)
+      setStatusMsg(`${descriptors.length} rostro${descriptors.length > 1 ? 's' : ''} detectado${descriptors.length > 1 ? 's' : ''}… comparando…`)
 
-      // Comparar con todos los niños
-      let bestNino:  NinoWithDescriptor | null = null
-      let bestDist   = Infinity
+      // Para cada rostro detectado, buscar el mejor match sin repetir niños
+      const usedIds = new Set<string>()
+      const matches: FaceMatch[] = []
 
-      for (const nino of allNinos) {
-        const dist = faceDistance(capturedDesc, nino.face_descriptor)
-        if (dist < bestDist) { bestDist = dist; bestNino = nino }
+      for (const det of descriptors) {
+        const desc = Array.from(det.descriptor)
+        let bestNino: NinoWithDescriptor | null = null
+        let bestDist = Infinity
+
+        for (const nino of allNinos) {
+          if (usedIds.has(nino.id)) continue
+          const d = faceDistance(desc, nino.face_descriptor)
+          if (d < bestDist) { bestDist = d; bestNino = nino }
+        }
+
+        console.log(`  rostro → mejor: ${bestNino?.nombre ?? '?'} dist=${bestDist.toFixed(3)}`)
+
+        if (bestNino && bestDist < FACE_MATCH_THRESHOLD) {
+          usedIds.add(bestNino.id)
+          const already = todayRecords.some(r => r.nino_id === bestNino!.id)
+          matches.push({ nino: bestNino, dist: bestDist, already })
+        }
       }
 
-      if (bestNino && bestDist < FACE_MATCH_THRESHOLD) {
-        setMatchedNino(bestNino)
-        setMatchDist(bestDist)
+      console.log('[analyzeFace] matches encontrados:', matches.length)
 
-        // Verificar si ya fue registrado hoy
-        const hoy  = new Date().toISOString().slice(0, 10)
-        const ya   = todayRecords.some(r => r.nino_id === bestNino!.id)
-        setMode(ya ? 'already' : 'matched')
-      } else {
-        setMatchedNino(null)
+      if (matches.length === 0) {
         setMode('no_match')
+        return
       }
+
+      setMultiMatches(matches)
+      const allAlready = matches.every(m => m.already)
+      setMode(allAlready ? 'already' : 'matched')
+
     } catch (e: any) {
       console.error('[analyzeFace]', e.message)
       setMode('no_match')
     }
   }
 
-  /* ── registrar asistencia ── */
-  async function handleRegister() {
-    if (!matchedNino) return
+  /* ── registrar una asistencia (un solo niño) ── */
+  async function handleRegister(nino: KidsNino, metodo = 'facial') {
     setSaving(true)
-    try {
-      const res  = await fetch('/api/kids/asistencias', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          nino_id:        matchedNino.id,
-          metodo:         'facial',
-          registrado_por: usuario ? `${usuario.nombre} ${usuario.apellido}` : null,
-        }),
-      })
-      const json = await res.json()
-      if (json.ok) {
-        setSuccessMsg(`✅ ${matchedNino.nombre} ${matchedNino.apellido ?? ''} registrado`)
-        await loadToday()
-        setTimeout(() => { setSuccessMsg(''); resetCamera() }, 2200)
-      }
-    } catch {}
-    setSaving(false)
-  }
-
-  /* ── registro manual (sin rostro conocido) ── */
-  async function handleManualRegister(nino: KidsNino) {
-    setSaving(true)
+    setSaveError('')
     try {
       const res  = await fetch('/api/kids/asistencias', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           nino_id:        nino.id,
-          metodo:         'manual',
+          metodo,
           registrado_por: usuario ? `${usuario.nombre} ${usuario.apellido}` : null,
         }),
       })
       const json = await res.json()
       if (json.ok) {
-        setSuccessMsg(`✅ ${nino.nombre} ${nino.apellido ?? ''} registrado manualmente`)
+        setSuccessMsg(`✅ ${nino.nombre} ${nino.apellido ?? ''} registrado`)
         await loadToday()
         setTimeout(() => { setSuccessMsg(''); resetCamera() }, 2200)
+      } else {
+        setSaveError(json.error ?? 'Error al registrar.')
       }
-    } catch {}
+    } catch (e: any) {
+      setSaveError('Error de conexión: ' + (e.message ?? ''))
+    }
     setSaving(false)
+  }
+
+  /* ── registrar todos los matches nuevos (grupal) ── */
+  async function handleRegisterAll() {
+    const nuevos = multiMatches.filter(m => !m.already)
+    if (nuevos.length === 0) return
+    setSaving(true)
+    setSaveError('')
+    try {
+      const results = await Promise.all(
+        nuevos.map(m =>
+          fetch('/api/kids/asistencias', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              nino_id:        m.nino.id,
+              metodo:         'facial_grupal',
+              registrado_por: usuario ? `${usuario.nombre} ${usuario.apellido}` : null,
+            }),
+          }).then(r => r.json())
+        )
+      )
+      const errors = results.filter(r => !r.ok && !r.already)
+      if (errors.length > 0) {
+        setSaveError(`${errors.length} registro(s) fallaron.`)
+      } else {
+        const n = nuevos.length
+        setSuccessMsg(`✅ ${n} niño${n > 1 ? 's' : ''} registrado${n > 1 ? 's' : ''} correctamente`)
+        await loadToday()
+        setTimeout(() => { setSuccessMsg(''); resetCamera() }, 2500)
+      }
+    } catch (e: any) {
+      setSaveError('Error de conexión: ' + (e.message ?? ''))
+    }
+    setSaving(false)
+  }
+
+  /* ── registro manual (sin rostro conocido) ── */
+  async function handleManualRegister(nino: KidsNino) {
+    await handleRegister(nino, 'manual')
   }
 
   function resetCamera() {
     setCapturedUrl(null)
-    setMatchedNino(null)
-    setMatchDist(0)
+    setMultiMatches([])
     setStatusMsg('')
     setMode('camera')
   }
@@ -304,41 +394,133 @@ export default function AsistenciasSection({
 
       {/* ── Header ── */}
       <div style={{
-        padding: isMobile ? '14px 16px 10px' : '20px 28px 14px',
-        flexShrink:0, borderBottom:'1px solid rgba(0,0,0,.05)',
-        display:'flex', alignItems:'center', justifyContent:'space-between', gap:12,
+        padding: isMobile ? '14px 16px 0' : '20px 28px 0',
+        flexShrink:0, borderBottom:'1px solid rgba(0,0,0,.07)',
+        background:'rgba(255,255,255,.55)',
       }}>
-        <div>
-          <div style={{ fontSize:11, fontWeight:700, color:'#0d9488', letterSpacing:'2px', textTransform:'uppercase', marginBottom:3 }}>
-            Módulo Kids
+        {/* Top row: título + counter */}
+        <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', gap:12, paddingBottom:14 }}>
+          <div>
+            <div style={{ fontSize:11, fontWeight:700, color:'#0d9488', letterSpacing:'2px', textTransform:'uppercase', marginBottom:3 }}>
+              Módulo Kids
+            </div>
+            <div style={{ fontSize: isMobile ? 20 : 26, fontWeight:900, color:'#0f172a', letterSpacing:'-0.5px' }}>
+              Asistencias
+            </div>
+            <div style={{ fontSize:11, color:'#6b7280', marginTop:2, textTransform:'capitalize' }}>{today}</div>
           </div>
-          <div style={{ fontSize: isMobile ? 20 : 26, fontWeight:900, color:'#0f172a', letterSpacing:'-0.5px' }}>
-            Asistencias
+          <div style={{
+            display:'flex', alignItems:'center', gap:8, flexShrink:0,
+            background:'linear-gradient(135deg,rgba(16,185,129,.12),rgba(5,150,105,.08))',
+            border:'1px solid rgba(16,185,129,.25)', borderRadius:16, padding:'10px 18px',
+            boxShadow:'inset 0 1px 0 rgba(255,255,255,.7)',
+          }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#059669" strokeWidth="2" strokeLinecap="round">
+              <polyline points="9 11 12 14 22 4"/>
+              <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+            </svg>
+            <div style={{ textAlign:'right' }}>
+              <div style={{ fontSize:22, fontWeight:900, color:'#059669', lineHeight:1 }}>{todayCount}</div>
+              <div style={{ fontSize:9, fontWeight:700, color:'#6b7280', textTransform:'uppercase', letterSpacing:'1px' }}>Hoy</div>
+            </div>
           </div>
-          <div style={{ fontSize:11, color:'#6b7280', marginTop:2, textTransform:'capitalize' }}>{today}</div>
         </div>
-        <div style={{
-          display:'flex', alignItems:'center', gap:8, flexShrink:0,
-          background:'linear-gradient(135deg,rgba(16,185,129,.12),rgba(5,150,105,.08))',
-          border:'1px solid rgba(16,185,129,.25)', borderRadius:16, padding:'10px 18px',
-          boxShadow:'inset 0 1px 0 rgba(255,255,255,.7)',
-        }}>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#059669" strokeWidth="2" strokeLinecap="round">
-            <polyline points="9 11 12 14 22 4"/>
-            <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
-          </svg>
-          <div style={{ textAlign:'right' }}>
-            <div style={{ fontSize:22, fontWeight:900, color:'#059669', lineHeight:1 }}>{todayCount}</div>
-            <div style={{ fontSize:9, fontWeight:700, color:'#6b7280', textTransform:'uppercase', letterSpacing:'1px' }}>Hoy</div>
-          </div>
+
+        {/* ── Tabs ── */}
+        <div style={{ display:'flex', gap:2 }}>
+          {([
+            { key:'registrar', label:'📷  Registrar' },
+            { key:'historial', label:'📋  Historial' },
+          ] as const).map(tab => (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key)}
+              style={{
+                padding:'8px 20px', border:'none', cursor:'pointer',
+                fontSize:12, fontWeight:700,
+                borderRadius:'10px 10px 0 0',
+                background: activeTab === tab.key
+                  ? 'rgba(255,255,255,.95)'
+                  : 'transparent',
+                color: activeTab === tab.key ? '#0d9488' : '#9ca3af',
+                borderBottom: activeTab === tab.key
+                  ? '2px solid #0d9488'
+                  : '2px solid transparent',
+                transition:'all .18s',
+              }}
+            >
+              {tab.label}
+            </button>
+          ))}
         </div>
       </div>
 
-      {/* ── Body ── */}
-      <div style={{
+      {/* ── PANEL HISTORIAL ── */}
+      {activeTab === 'historial' && (
+        <div style={{ flex:1, minHeight:0, display:'flex', flexDirection:'column', overflow:'hidden', background:'rgba(248,250,252,.9)' }}>
+          {/* Filtros */}
+          <div style={{
+            padding: isMobile ? '12px 14px' : '14px 24px',
+            display:'flex', flexWrap:'wrap', gap:10, alignItems:'center',
+            borderBottom:'1px solid rgba(0,0,0,.06)', background:'rgba(255,255,255,.7)', flexShrink:0,
+          }}>
+            <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="2" strokeLinecap="round">
+                <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+              </svg>
+              <input
+                type="date"
+                value={histDate}
+                onChange={e => setHistDate(e.target.value)}
+                style={{
+                  padding:'6px 10px', borderRadius:8, border:'1.5px solid #e5e7eb',
+                  fontSize:12, fontWeight:600, color:'#374151', outline:'none',
+                  background:'rgba(255,255,255,.9)',
+                }}
+              />
+            </div>
+            <select
+              value={histGrupo}
+              onChange={e => setHistGrupo(e.target.value)}
+              style={{
+                padding:'6px 10px', borderRadius:8, border:'1.5px solid #e5e7eb',
+                fontSize:12, fontWeight:600, color:'#374151', outline:'none',
+                background:'rgba(255,255,255,.9)',
+              }}
+            >
+              <option value="">Todos los grupos</option>
+              {GRUPOS.map(g => <option key={g} value={g}>{g}</option>)}
+            </select>
+            <div style={{
+              marginLeft:'auto', background:'linear-gradient(135deg,#0d9488,#0891b2)',
+              color:'#fff', fontSize:11, fontWeight:800, padding:'5px 14px', borderRadius:50,
+              boxShadow:'0 2px 8px rgba(13,148,136,.35)',
+            }}>
+              {histLoading ? '…' : `${histRecords.length} registro${histRecords.length !== 1 ? 's' : ''}`}
+            </div>
+          </div>
+
+          {/* Lista historial */}
+          <div style={{ flex:1, minHeight:0, overflowY:'auto', padding:'12px 14px 24px', display:'flex', flexDirection:'column', gap:7 }}>
+            {histLoading ? (
+              <div style={{ textAlign:'center', padding:'48px 0', color:'#9ca3af', fontSize:13 }}>Cargando…</div>
+            ) : histRecords.length === 0 ? (
+              <div style={{ textAlign:'center', padding:'48px 0' }}>
+                <div style={{ fontSize:40, marginBottom:12 }}>📋</div>
+                <div style={{ fontSize:13, color:'#6b7280', fontWeight:600 }}>Sin registros para esta fecha</div>
+              </div>
+            ) : (
+              histRecords.map((r, i) => <AttendanceRow key={r.id} record={r} idx={i} />)
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── Body REGISTRAR ── */}
+      {activeTab === 'registrar' && <div style={{
         flex:1, minHeight:0, display:'flex',
         flexDirection: isMobile ? 'column' : 'row',
-        overflow:'hidden', gap: isMobile ? 0 : 0,
+        overflow:'hidden',
       }}>
 
         {/* ════════════════════════════════════════
@@ -394,16 +576,30 @@ export default function AsistenciasSection({
                         transform: facingMode === 'user' ? 'scaleX(-1)' : 'none',
                       }}
                     />
-                    {/* Guía de rostro */}
+                    {/* Guía grupal — marco rectangular con esquinas */}
                     <div style={{
                       position:'absolute', inset:0, display:'flex',
                       alignItems:'center', justifyContent:'center', pointerEvents:'none',
                     }}>
                       <div style={{
-                        width:150, height:180, borderRadius:'50%',
-                        border:'2px dashed rgba(255,255,255,.35)',
-                        boxShadow:'0 0 0 9999px rgba(0,0,0,.22)',
-                      }}/>
+                        width:'84%', height:'72%', position:'relative',
+                        boxShadow:'0 0 0 9999px rgba(0,0,0,.28)',
+                        borderRadius:8,
+                      }}>
+                        {/* Esquinas */}
+                        {([['top','left'],['top','right'],['bottom','left'],['bottom','right']] as const).map(([v,h]) => (
+                          <div key={`${v}${h}`} style={{
+                            position:'absolute',
+                            [v]: -2, [h]: -2,
+                            width:22, height:22,
+                            borderTop:    v==='top'    ? '3px solid rgba(255,255,255,.9)' : 'none',
+                            borderBottom: v==='bottom' ? '3px solid rgba(255,255,255,.9)' : 'none',
+                            borderLeft:   h==='left'   ? '3px solid rgba(255,255,255,.9)' : 'none',
+                            borderRight:  h==='right'  ? '3px solid rgba(255,255,255,.9)' : 'none',
+                            borderRadius: v==='top'&&h==='left' ? '4px 0 0 0' : v==='top'&&h==='right' ? '0 4px 0 0' : v==='bottom'&&h==='left' ? '0 0 0 4px' : '0 0 4px 0',
+                          }} />
+                        ))}
+                      </div>
                     </div>
                   </>
                 )}
@@ -467,7 +663,7 @@ export default function AsistenciasSection({
               </div>
 
               <p style={{ fontSize:11, color:'#9ca3af', textAlign:'center', margin:0 }}>
-                Centra el rostro en el óvalo y presiona capturar
+                Ubica hasta 5 niños dentro del marco y presiona capturar
               </p>
             </div>
           )}
@@ -494,61 +690,21 @@ export default function AsistenciasSection({
             </div>
           )}
 
-          {/* ─── MODO: MATCH ENCONTRADO ─── */}
-          {mode === 'matched' && matchedNino && capturedUrl && (
-            <div style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', padding:24, gap:16 }}>
-              {/* Foto capturada + niño */}
-              <div style={{ display:'flex', alignItems:'center', gap:16 }}>
-                <div style={{ position:'relative' }}>
-                  <img src={capturedUrl} alt="" style={{ width:90, height:90, objectFit:'cover', borderRadius:16 }}/>
-                  <div style={{
-                    position:'absolute', bottom:-6, right:-6, width:24, height:24, borderRadius:'50%',
-                    background:'#10b981', display:'flex', alignItems:'center', justifyContent:'center',
-                    boxShadow:'0 2px 8px rgba(16,185,129,.5)', border:'2px solid #fff',
-                  }}>
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3">
-                      <polyline points="20 6 9 17 4 12"/>
-                    </svg>
-                  </div>
-                </div>
-                <div style={{ fontSize:22, color:'#9ca3af' }}>→</div>
-                {/* Niño identificado */}
-                <NinoCard nino={matchedNino} />
-              </div>
-
-              <div style={{
-                background:'rgba(16,185,129,.08)', border:'1px solid rgba(16,185,129,.22)',
-                borderRadius:12, padding:'8px 16px', fontSize:11, color:'#059669', fontWeight:600,
-              }}>
-                Confianza: {Math.round((1 - matchDist) * 100)}% · Distancia: {matchDist.toFixed(3)}
-              </div>
-
-              <button
-                onClick={handleRegister}
-                disabled={saving}
-                style={{
-                  width:'100%', maxWidth:320, padding:'14px',
-                  borderRadius:50, border:'none',
-                  background:'linear-gradient(135deg,#10b981,#059669)',
-                  color:'#fff', fontSize:14, fontWeight:800, cursor: saving ? 'not-allowed' : 'pointer',
-                  boxShadow:'0 6px 20px rgba(16,185,129,.42)',
-                  letterSpacing:'0.5px', opacity: saving ? 0.7 : 1,
-                  transition:'all .18s',
-                }}
-              >
-                {saving ? 'Registrando…' : '✅  Registrar asistencia'}
-              </button>
-              <button
-                onClick={resetCamera}
-                style={{ background:'none', border:'none', color:'#9ca3af', fontSize:12, cursor:'pointer', textDecoration:'underline' }}
-              >
-                No es este niño — volver a capturar
-              </button>
-            </div>
+          {/* ─── MODO: MATCH(ES) ENCONTRADO(S) ─── */}
+          {mode === 'matched' && multiMatches.length > 0 && capturedUrl && (
+            <MultiMatchPanel
+              capturedUrl={capturedUrl}
+              matches={multiMatches}
+              saving={saving}
+              saveError={saveError}
+              onRegisterAll={handleRegisterAll}
+              onRegisterOne={(nino) => handleRegister(nino, 'facial')}
+              onReset={resetCamera}
+            />
           )}
 
-          {/* ─── MODO: YA REGISTRADO ─── */}
-          {mode === 'already' && matchedNino && (
+          {/* ─── MODO: TODOS YA REGISTRADOS ─── */}
+          {mode === 'already' && multiMatches.length > 0 && (
             <div style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', padding:24, gap:16 }}>
               <div style={{
                 width:72, height:72, borderRadius:'50%',
@@ -562,12 +718,16 @@ export default function AsistenciasSection({
                   <line x1="12" y1="16" x2="12.01" y2="16"/>
                 </svg>
               </div>
-              <NinoCard nino={matchedNino} />
-              <div style={{
-                background:'rgba(245,158,11,.1)', border:'1px solid rgba(245,158,11,.3)',
-                borderRadius:12, padding:'10px 20px', fontSize:12, color:'#92400e', fontWeight:600, textAlign:'center',
-              }}>
-                Ya fue registrado hoy ✓
+              <div style={{ textAlign:'center' }}>
+                <div style={{ fontSize:14, fontWeight:800, color:'#0f172a' }}>
+                  {multiMatches.length > 1 ? `${multiMatches.length} niños detectados` : 'Niño detectado'}
+                </div>
+                <div style={{ fontSize:11, color:'#92400e', marginTop:4, fontWeight:600 }}>
+                  Todos ya fueron registrados hoy ✓
+                </div>
+              </div>
+              <div style={{ display:'flex', flexWrap:'wrap', gap:10, justifyContent:'center' }}>
+                {multiMatches.map((m, i) => <NinoCard key={i} nino={m.nino} />)}
               </div>
               <button
                 onClick={resetCamera}
@@ -577,7 +737,7 @@ export default function AsistenciasSection({
                   fontWeight:700, cursor:'pointer',
                 }}
               >
-                Capturar otro
+                Capturar otro grupo
               </button>
             </div>
           )}
@@ -642,7 +802,156 @@ export default function AsistenciasSection({
           </div>
         </div>
 
+      </div>} {/* end activeTab === 'registrar' */}
+    </div>
+  )
+}
+
+/* ── MultiMatchPanel — resultado con múltiples rostros ────────────────── */
+function MultiMatchPanel({
+  capturedUrl, matches, saving, saveError, onRegisterAll, onRegisterOne, onReset,
+}: {
+  capturedUrl:    string
+  matches:        FaceMatch[]
+  saving:         boolean
+  saveError:      string
+  onRegisterAll:  () => void
+  onRegisterOne:  (nino: KidsNino) => void
+  onReset:        () => void
+}) {
+  const nuevos   = matches.filter(m => !m.already)
+  const yaReg    = matches.filter(m => m.already)
+
+  return (
+    <div style={{ flex:1, display:'flex', flexDirection:'column', overflowY:'auto', padding:'16px 16px 24px', gap:14 }}>
+
+      {/* Foto capturada + badge de rostros */}
+      <div style={{ display:'flex', alignItems:'center', gap:12, flexShrink:0 }}>
+        <div style={{ position:'relative', flexShrink:0 }}>
+          <img src={capturedUrl} alt="" style={{ width:80, height:80, objectFit:'cover', borderRadius:14,
+            boxShadow:'0 4px 16px rgba(0,0,0,.14)' }}/>
+          <div style={{
+            position:'absolute', bottom:-6, right:-6,
+            background:'linear-gradient(135deg,#0d9488,#0891b2)',
+            color:'#fff', fontSize:10, fontWeight:800,
+            padding:'3px 9px', borderRadius:50,
+            boxShadow:'0 2px 8px rgba(13,148,136,.4)',
+            border:'2px solid #fff',
+          }}>
+            {matches.length} rostro{matches.length > 1 ? 's' : ''}
+          </div>
+        </div>
+        <div>
+          <div style={{ fontSize:13, fontWeight:800, color:'#0f172a' }}>
+            {matches.length} niño{matches.length > 1 ? 's' : ''} identificado{matches.length > 1 ? 's' : ''}
+          </div>
+          <div style={{ fontSize:11, color:'#6b7280', marginTop:2 }}>
+            {nuevos.length > 0
+              ? `${nuevos.length} nuevo${nuevos.length > 1 ? 's' : ''} · ${yaReg.length} ya registrado${yaReg.length !== 1 ? 's' : ''}`
+              : 'Todos ya registrados hoy'
+            }
+          </div>
+        </div>
       </div>
+
+      {/* Tarjetas de matches */}
+      <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+        {matches.map((m, i) => (
+          <div key={i} style={{
+            display:'flex', alignItems:'center', gap:10,
+            padding:'10px 14px', borderRadius:14,
+            background: m.already ? 'rgba(245,158,11,.06)' : 'rgba(16,185,129,.06)',
+            border: `1.5px solid ${m.already ? 'rgba(245,158,11,.25)' : 'rgba(16,185,129,.25)'}`,
+          }}>
+            {/* Avatar */}
+            <MatchAvatar nino={m.nino} />
+
+            {/* Info */}
+            <div style={{ flex:1, minWidth:0 }}>
+              <div style={{ fontSize:12, fontWeight:800, color:'#0f172a', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
+                {m.nino.nombre} {m.nino.apellido ?? ''}
+              </div>
+              <div style={{ fontSize:9, fontWeight:700, color:'#6b7280', marginTop:1 }}>
+                {m.nino.grupo ?? ''} · {Math.round((1 - m.dist) * 100)}% confianza
+              </div>
+            </div>
+
+            {/* Estado */}
+            {m.already ? (
+              <div style={{ fontSize:9, fontWeight:800, color:'#92400e', background:'rgba(245,158,11,.15)',
+                padding:'3px 9px', borderRadius:50, whiteSpace:'nowrap', flexShrink:0 }}>
+                Ya registrado
+              </div>
+            ) : (
+              <div style={{ fontSize:9, fontWeight:800, color:'#065f46', background:'rgba(16,185,129,.15)',
+                padding:'3px 9px', borderRadius:50, whiteSpace:'nowrap', flexShrink:0 }}>
+                Nuevo ✓
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {/* Botón principal */}
+      {nuevos.length > 0 && (
+        <button
+          onClick={onRegisterAll}
+          disabled={saving}
+          style={{
+            width:'100%', padding:'14px', borderRadius:50, border:'none',
+            background:'linear-gradient(135deg,#10b981,#059669)',
+            color:'#fff', fontSize:13, fontWeight:800,
+            cursor: saving ? 'not-allowed' : 'pointer',
+            boxShadow:'0 6px 20px rgba(16,185,129,.42)',
+            opacity: saving ? 0.7 : 1, transition:'all .18s',
+            letterSpacing:'0.3px',
+          }}
+        >
+          {saving
+            ? 'Registrando…'
+            : nuevos.length === 1
+              ? `✅ Registrar a ${nuevos[0].nino.nombre}`
+              : `✅ Registrar ${nuevos.length} niños de una vez`
+          }
+        </button>
+      )}
+
+      {saveError && (
+        <div style={{
+          padding:'10px 16px', borderRadius:12,
+          background:'rgba(239,68,68,.08)', border:'1.5px solid rgba(239,68,68,.3)',
+          fontSize:11, color:'#dc2626', fontWeight:600, textAlign:'center',
+        }}>
+          ⚠️ {saveError}
+        </div>
+      )}
+
+      <button
+        onClick={onReset}
+        style={{ background:'none', border:'none', color:'#9ca3af', fontSize:12, cursor:'pointer', textDecoration:'underline', textAlign:'center' }}
+      >
+        Capturar otra foto
+      </button>
+    </div>
+  )
+}
+
+/* ── MatchAvatar — avatar pequeño para MultiMatchPanel ─────────────────── */
+function MatchAvatar({ nino }: { nino: KidsNino }) {
+  const [broken, setBroken] = useState(false)
+  const ini = `${nino.nombre.charAt(0)}${(nino.apellido ?? 'X').charAt(0)}`.toUpperCase()
+  return (
+    <div style={{
+      width:42, height:42, borderRadius:'50%', flexShrink:0, overflow:'hidden',
+      background:'linear-gradient(135deg,#60a5fa,#a78bfa)',
+      display:'flex', alignItems:'center', justifyContent:'center',
+      fontSize:13, fontWeight:800, color:'#fff',
+      border:'2px solid rgba(255,255,255,.8)',
+    }}>
+      {nino.foto_url && !broken
+        ? <img src={nino.foto_url} alt="" style={{ width:'100%', height:'100%', objectFit:'cover' }} onError={() => setBroken(true)}/>
+        : ini
+      }
     </div>
   )
 }
@@ -841,7 +1150,15 @@ function AttendanceRow({ record, idx }: { record: AsistenciaRecord; idx: number 
   const [broken, setBroken] = useState(false)
   const nino = record.nino
   const ini  = nino ? `${nino.nombre.charAt(0)}${(nino.apellido ?? 'X').charAt(0)}`.toUpperCase() : '?'
-  const hora = record.hora?.slice(0, 5) ?? ''
+  // Convertir hora HH:MM a formato 12h
+  const horaRaw = record.hora?.slice(0, 5) ?? ''
+  const hora = (() => {
+    if (!horaRaw) return ''
+    const [h, m] = horaRaw.split(':').map(Number)
+    const ampm = h >= 12 ? 'PM' : 'AM'
+    const h12  = h % 12 || 12
+    return `${h12}:${String(m).padStart(2, '0')} ${ampm}`
+  })()
   const grupoColor = GRUPO_COLORS[nino?.grupo ?? ''] ?? '#6b7280'
 
   return (

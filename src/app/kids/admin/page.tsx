@@ -313,7 +313,7 @@ export default function KidsAdminPage() {
       @keyframes ninosSheetRise {
         0% {
           opacity: 0;
-          transform: perspective(1000px) translateY(72px) rotateX(6deg) scale(0.93);
+          transform: translateY(72px) scale(0.93);
           box-shadow: 0 -40px 80px rgba(124,58,237,0);
         }
         40% {
@@ -321,11 +321,11 @@ export default function KidsAdminPage() {
           box-shadow: 0 -24px 60px rgba(124,58,237,.22);
         }
         72% {
-          transform: perspective(1000px) translateY(-6px) rotateX(-1deg) scale(1.004);
+          transform: translateY(-6px) scale(1.004);
         }
         100% {
           opacity: 1;
-          transform: perspective(1000px) translateY(0) rotateX(0deg) scale(1);
+          transform: none;
           box-shadow: 0 -8px 32px rgba(124,58,237,.10);
         }
       }
@@ -722,8 +722,9 @@ export default function KidsAdminPage() {
               flexDirection: 'column',
               overflow:      'hidden',
               position:      'relative',
+              zIndex:        20,
               animation:     'ninosSheetRise 0.62s cubic-bezier(.22,1,.36,1) both',
-              willChange:    'transform, opacity',
+              willChange:    'opacity',
               borderRadius:  isMobile ? '20px 20px 0 0' : 16,
               boxShadow:     '0 -8px 48px rgba(124,58,237,.14), 0 2px 24px rgba(0,0,0,.06)',
             }}>
@@ -737,7 +738,7 @@ export default function KidsAdminPage() {
                 animation:     'ninosShimmerFade 0.75s cubic-bezier(.4,0,.2,1) both',
                 borderRadius:  'inherit',
               }} />
-              <NinosSection usuario={usuario} />
+              <NinosSection usuario={usuario} logoNavOpen={logoNavOpen} />
             </div>
           )}
 
@@ -750,8 +751,9 @@ export default function KidsAdminPage() {
               flexDirection: 'column',
               overflow:      'hidden',
               position:      'relative',
+              zIndex:        20,
               animation:     'ninosSheetRise 0.62s cubic-bezier(.22,1,.36,1) both',
-              willChange:    'transform, opacity',
+              willChange:    'opacity',
               borderRadius:  isMobile ? '20px 20px 0 0' : 16,
               boxShadow:     '0 -8px 48px rgba(124,58,237,.14), 0 2px 24px rgba(0,0,0,.06)',
             }}>
