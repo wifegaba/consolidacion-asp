@@ -19,6 +19,27 @@ type Mode    = 'camera' | 'processing' | 'matched' | 'no_match' | 'already'
 type TabView = 'registrar' | 'historial'
 type NinoWithDescriptor = KidsNino & { face_descriptor: number[] }
 
+/* ── Helpers de zona horaria Colombia (UTC-5) ── */
+function getColombiaTodayDate(): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota' }).format(new Date())
+}
+function formatColombiaTime(fechaStr: string, horaStr: string): { hora12: string; esMismoDia: boolean; fechaLabel: string } {
+  // horaStr viene como "HH:MM:SS" desde la DB (ya guardada en Colombia)
+  const raw = (horaStr ?? '').slice(0, 5)
+  const hora12 = (() => {
+    if (!raw) return ''
+    const [h, m] = raw.split(':').map(Number)
+    const ampm = h >= 12 ? 'PM' : 'AM'
+    return `${h % 12 || 12}:${String(m).padStart(2, '0')} ${ampm}`
+  })()
+  const hoy = getColombiaTodayDate()
+  const esMismoDia = fechaStr === hoy
+  const fechaLabel = esMismoDia ? 'Hoy' : new Intl.DateTimeFormat('es-CO', {
+    weekday: 'short', day: 'numeric', month: 'short', timeZone: 'America/Bogota',
+  }).format(new Date(fechaStr + 'T12:00:00'))
+  return { hora12, esMismoDia, fechaLabel }
+}
+
 interface FaceMatch {
   nino:    NinoWithDescriptor
   dist:    number
@@ -61,10 +82,13 @@ export default function AsistenciasSection({
   const [facingMode,     setFacingMode]    = useState<'user' | 'environment'>('environment')
   const [successMsg,     setSuccessMsg]    = useState('')
   /* ── Historial state ── */
-  const [histDate,       setHistDate]      = useState(() => new Date().toISOString().slice(0, 10))
+  const [histDate,       setHistDate]      = useState(() => getColombiaTodayDate())
   const [histGrupo,      setHistGrupo]     = useState('')
   const [histRecords,    setHistRecords]   = useState<AsistenciaRecord[]>([])
   const [histLoading,    setHistLoading]   = useState(false)
+  /* ── Últimas asistencias (panel derecho) ── */
+  const [latestRecords,  setLatestRecords] = useState<AsistenciaRecord[]>([])
+  const [latestLoading,  setLatestLoading] = useState(false)
 
   /* ── responsive ── */
   useEffect(() => {
@@ -94,7 +118,7 @@ export default function AsistenciasSection({
       .catch(() => {})
   }, [])
 
-  /* ── cargar asistencias de hoy ── */
+  /* ── cargar asistencias de hoy (para verificar duplicados en reconocimiento) ── */
   const loadToday = useCallback(async () => {
     try {
       const res  = await fetch('/api/kids/asistencias')
@@ -103,7 +127,18 @@ export default function AsistenciasSection({
     } catch {}
   }, [])
 
-  useEffect(() => { loadToday() }, [loadToday])
+  /* ── cargar últimas asistencias para el panel lateral ── */
+  const loadLatest = useCallback(async () => {
+    setLatestLoading(true)
+    try {
+      const res  = await fetch('/api/kids/asistencias?latest=30')
+      const json = await res.json()
+      if (json.ok) setLatestRecords(json.data)
+    } catch {}
+    setLatestLoading(false)
+  }, [])
+
+  useEffect(() => { loadToday(); loadLatest() }, [loadToday, loadLatest])
 
   /* ── cargar historial ── */
   const loadHistorial = useCallback(async (fecha: string, grupo: string) => {
@@ -304,7 +339,7 @@ export default function AsistenciasSection({
       const json = await res.json()
       if (json.ok) {
         setSuccessMsg(`✅ ${nino.nombre} ${nino.apellido ?? ''} registrado`)
-        await loadToday()
+        await Promise.all([loadToday(), loadLatest()])
         setTimeout(() => { setSuccessMsg(''); resetCamera() }, 2200)
       } else {
         setSaveError(json.error ?? 'Error al registrar.')
@@ -341,7 +376,7 @@ export default function AsistenciasSection({
       } else {
         const n = nuevos.length
         setSuccessMsg(`✅ ${n} niño${n > 1 ? 's' : ''} registrado${n > 1 ? 's' : ''} correctamente`)
-        await loadToday()
+        await Promise.all([loadToday(), loadLatest()])
         setTimeout(() => { setSuccessMsg(''); resetCamera() }, 2500)
       }
     } catch (e: any) {
@@ -367,8 +402,10 @@ export default function AsistenciasSection({
     setFacingMode(next)
   }
 
-  /* ── Colores según grupo ── */
-  const today = new Date().toLocaleDateString('es-CO', { weekday:'long', day:'numeric', month:'long' })
+  /* ── Fecha de hoy en Colombia ── */
+  const today = new Intl.DateTimeFormat('es-CO', {
+    weekday:'long', day:'numeric', month:'long', timeZone:'America/Bogota',
+  }).format(new Date())
   const todayCount = todayRecords.length
 
   /* ════════════════════════════════════════════════════════════════════════
@@ -759,48 +796,14 @@ export default function AsistenciasSection({
         </div>
 
         {/* ════════════════════════════════════════
-            PANEL DERECHO — Lista de asistencias hoy
+            PANEL DERECHO — Últimas asistencias
         ════════════════════════════════════════ */}
-        <div style={{
-          flex:1, minWidth:0, display:'flex', flexDirection:'column',
-          background:'rgba(248,250,252,.8)', overflow:'hidden',
-        }}>
-          <div style={{
-            padding:'16px 20px 10px', borderBottom:'1px solid rgba(0,0,0,.06)',
-            display:'flex', alignItems:'center', gap:8, flexShrink:0,
-          }}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#0d9488" strokeWidth="2.2" strokeLinecap="round">
-              <polyline points="9 11 12 14 22 4"/>
-              <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
-            </svg>
-            <span style={{ fontSize:12, fontWeight:700, color:'#0f172a' }}>Registro de hoy</span>
-            {todayCount > 0 && (
-              <div style={{
-                marginLeft:'auto', background:'linear-gradient(135deg,#0d9488,#0891b2)',
-                color:'#fff', fontSize:10, fontWeight:800, padding:'2px 10px', borderRadius:50,
-                boxShadow:'0 2px 8px rgba(13,148,136,.35)',
-              }}>
-                {todayCount}
-              </div>
-            )}
-          </div>
-
-          <div style={{ flex:1, minHeight:0, overflowY:'auto', padding:'10px 14px 20px', display:'flex', flexDirection:'column', gap:7 }}>
-            {todayRecords.length === 0 ? (
-              <div style={{ textAlign:'center', padding:'48px 0' }}>
-                <div style={{ fontSize:40, marginBottom:12 }}>📋</div>
-                <div style={{ fontSize:13, color:'#6b7280', fontWeight:600 }}>Sin registros hoy</div>
-                <div style={{ fontSize:11, color:'#9ca3af', marginTop:4 }}>
-                  Captura un rostro para registrar asistencia
-                </div>
-              </div>
-            ) : (
-              todayRecords.map((r, i) => (
-                <AttendanceRow key={r.id} record={r} idx={i} />
-              ))
-            )}
-          </div>
-        </div>
+        <LatestPanel
+          records={latestRecords}
+          loading={latestLoading}
+          todayCount={todayCount}
+          onRefresh={() => { loadToday(); loadLatest() }}
+        />
 
       </div>} {/* end activeTab === 'registrar' */}
     </div>
@@ -1145,30 +1148,170 @@ function NoMatchPanel({
   )
 }
 
-/* ── AttendanceRow — fila en la lista de hoy ── */
+/* ── LatestPanel — panel de últimas asistencias ─────────────────────────── */
+function LatestPanel({
+  records, loading, todayCount, onRefresh,
+}: {
+  records:    AsistenciaRecord[]
+  loading:    boolean
+  todayCount: number
+  onRefresh:  () => void
+}) {
+  const hoy = getColombiaTodayDate()
+
+  // Agrupar por fecha para mostrar separadores de día
+  const grouped: { fecha: string; label: string; rows: AsistenciaRecord[] }[] = []
+  for (const r of records) {
+    const last = grouped[grouped.length - 1]
+    if (last && last.fecha === r.fecha) {
+      last.rows.push(r)
+    } else {
+      const { fechaLabel } = formatColombiaTime(r.fecha, r.hora)
+      grouped.push({ fecha: r.fecha, label: fechaLabel, rows: [r] })
+    }
+  }
+
+  return (
+    <div style={{
+      flex:1, minWidth:0, display:'flex', flexDirection:'column',
+      background:'rgba(248,250,252,.8)', overflow:'hidden',
+    }}>
+      {/* Header del panel */}
+      <div style={{
+        padding:'14px 18px 10px',
+        borderBottom:'1px solid rgba(0,0,0,.06)',
+        background:'rgba(255,255,255,.75)',
+        flexShrink:0,
+      }}>
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:8 }}>
+          <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+            <div style={{
+              width:30, height:30, borderRadius:10,
+              background:'linear-gradient(135deg,#0d9488,#0891b2)',
+              display:'flex', alignItems:'center', justifyContent:'center',
+              boxShadow:'0 3px 10px rgba(13,148,136,.35)',
+            }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.2" strokeLinecap="round">
+                <polyline points="9 11 12 14 22 4"/>
+                <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+              </svg>
+            </div>
+            <div>
+              <div style={{ fontSize:12, fontWeight:800, color:'#0f172a', lineHeight:1 }}>
+                Últimas asistencias
+              </div>
+              <div style={{ fontSize:9, color:'#6b7280', marginTop:2, fontWeight:600 }}>
+                Zona horaria Colombia
+              </div>
+            </div>
+          </div>
+          <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+            {/* Counter hoy */}
+            <div style={{
+              display:'flex', flexDirection:'column', alignItems:'center',
+              background:'linear-gradient(135deg,rgba(13,148,136,.12),rgba(8,145,178,.08))',
+              border:'1px solid rgba(13,148,136,.2)', borderRadius:10,
+              padding:'4px 10px', minWidth:42,
+            }}>
+              <span style={{ fontSize:16, fontWeight:900, color:'#0d9488', lineHeight:1 }}>{todayCount}</span>
+              <span style={{ fontSize:8, fontWeight:700, color:'#6b7280', textTransform:'uppercase', letterSpacing:'0.5px' }}>hoy</span>
+            </div>
+            {/* Botón refresh */}
+            <button
+              onClick={onRefresh}
+              title="Actualizar"
+              style={{
+                width:30, height:30, borderRadius:9, border:'1px solid rgba(0,0,0,.08)',
+                background:'rgba(255,255,255,.9)', cursor:'pointer',
+                display:'flex', alignItems:'center', justifyContent:'center',
+                boxShadow:'0 1px 4px rgba(0,0,0,.06)', transition:'all .15s',
+              }}
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="2.2" strokeLinecap="round">
+                <polyline points="23 4 23 10 17 10"/>
+                <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Lista */}
+      <div style={{ flex:1, minHeight:0, overflowY:'auto', padding:'10px 12px 24px', display:'flex', flexDirection:'column', gap:4 }}>
+        {loading ? (
+          <div style={{ display:'flex', flexDirection:'column', gap:8, padding:'8px 0' }}>
+            {[...Array(5)].map((_, i) => (
+              <div key={i} style={{
+                height:56, borderRadius:14,
+                background:`rgba(0,0,0,${0.04 - i * 0.006})`,
+                animation:'pulse 1.4s ease-in-out infinite',
+              }}/>
+            ))}
+            <style>{`@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.5} }`}</style>
+          </div>
+        ) : records.length === 0 ? (
+          <div style={{ textAlign:'center', padding:'52px 0' }}>
+            <div style={{ fontSize:42, marginBottom:10 }}>📋</div>
+            <div style={{ fontSize:13, color:'#374151', fontWeight:700 }}>Sin asistencias aún</div>
+            <div style={{ fontSize:11, color:'#9ca3af', marginTop:4 }}>
+              Captura un rostro para comenzar
+            </div>
+          </div>
+        ) : (
+          grouped.map((group, gi) => (
+            <div key={group.fecha}>
+              {/* Separador de día */}
+              <div style={{
+                display:'flex', alignItems:'center', gap:8,
+                padding: gi === 0 ? '4px 4px 8px' : '12px 4px 8px',
+              }}>
+                <div style={{
+                  fontSize:9, fontWeight:800, letterSpacing:'1.2px',
+                  textTransform:'uppercase',
+                  color: group.fecha === hoy ? '#0d9488' : '#9ca3af',
+                  background: group.fecha === hoy
+                    ? 'rgba(13,148,136,.08)'
+                    : 'rgba(0,0,0,.04)',
+                  padding:'2px 10px', borderRadius:50,
+                  border: group.fecha === hoy ? '1px solid rgba(13,148,136,.2)' : '1px solid transparent',
+                }}>
+                  {group.label} · {group.rows.length}
+                </div>
+                <div style={{ flex:1, height:1, background:'rgba(0,0,0,.06)' }}/>
+              </div>
+              {/* Filas del día */}
+              {group.rows.map((r, i) => (
+                <AttendanceRow key={r.id} record={r} idx={gi * 10 + i} />
+              ))}
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  )
+}
+
+/* ── AttendanceRow — fila en la lista de asistencias ── */
 function AttendanceRow({ record, idx }: { record: AsistenciaRecord; idx: number }) {
   const [broken, setBroken] = useState(false)
   const nino = record.nino
   const ini  = nino ? `${nino.nombre.charAt(0)}${(nino.apellido ?? 'X').charAt(0)}`.toUpperCase() : '?'
-  // Convertir hora HH:MM a formato 12h
-  const horaRaw = record.hora?.slice(0, 5) ?? ''
-  const hora = (() => {
-    if (!horaRaw) return ''
-    const [h, m] = horaRaw.split(':').map(Number)
-    const ampm = h >= 12 ? 'PM' : 'AM'
-    const h12  = h % 12 || 12
-    return `${h12}:${String(m).padStart(2, '0')} ${ampm}`
-  })()
-  const grupoColor = GRUPO_COLORS[nino?.grupo ?? ''] ?? '#6b7280'
+  const { hora12 } = formatColombiaTime(record.fecha, record.hora)
+  const grupoColor  = GRUPO_COLORS[nino?.grupo ?? ''] ?? '#6b7280'
+
+  const metodoIcon  = record.metodo?.includes('facial') ? '📷' : '✋'
+  const metodoLabel = record.metodo?.includes('grupal') ? 'grupal' : record.metodo?.includes('facial') ? 'facial' : 'manual'
+  const metodoColor = record.metodo?.includes('facial') ? '#0d9488' : '#6366f1'
 
   return (
     <div style={{
       display:'flex', alignItems:'center', gap:10,
       padding:'9px 12px', borderRadius:14,
-      background:'rgba(255,255,255,.85)',
-      border:'1px solid rgba(0,0,0,.06)',
-      boxShadow:'0 2px 8px rgba(0,0,0,.04)',
-      animation:`coordFadeIn .32s ${idx * 0.04}s both`,
+      background:'rgba(255,255,255,.88)',
+      border:'1px solid rgba(0,0,0,.05)',
+      boxShadow:'0 1px 6px rgba(0,0,0,.04)',
+      animation:`coordFadeIn .28s ${Math.min(idx, 8) * 0.04}s both`,
+      marginBottom:4,
     }}>
       {/* Avatar */}
       <div style={{
@@ -1176,7 +1319,8 @@ function AttendanceRow({ record, idx }: { record: AsistenciaRecord; idx: number 
         background:'linear-gradient(135deg,#60a5fa,#a78bfa)',
         display:'flex', alignItems:'center', justifyContent:'center',
         fontSize:12, fontWeight:800, color:'#fff',
-        border:'2px solid rgba(255,255,255,.8)',
+        border:'2px solid rgba(255,255,255,.9)',
+        boxShadow:'0 2px 8px rgba(0,0,0,.1)',
       }}>
         {nino?.foto_url && !broken
           ? <img src={nino.foto_url} alt="" style={{ width:'100%', height:'100%', objectFit:'cover' }} onError={() => setBroken(true)}/>
@@ -1189,19 +1333,29 @@ function AttendanceRow({ record, idx }: { record: AsistenciaRecord; idx: number 
         <div style={{ fontSize:12, fontWeight:700, color:'#0f172a', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
           {nino?.nombre ?? '—'} {nino?.apellido ?? ''}
         </div>
-        {nino?.grupo && (
-          <div style={{ fontSize:9, fontWeight:700, color:grupoColor, marginTop:1 }}>{nino.grupo}</div>
-        )}
+        <div style={{ display:'flex', alignItems:'center', gap:5, marginTop:2, flexWrap:'wrap' }}>
+          {nino?.grupo && (
+            <span style={{ fontSize:9, fontWeight:700, color:grupoColor }}>{nino.grupo}</span>
+          )}
+          {nino?.grupo && record.registrado_por && (
+            <span style={{ fontSize:9, color:'rgba(0,0,0,.2)', lineHeight:1 }}>·</span>
+          )}
+          {record.registrado_por && (
+            <span style={{ fontSize:9, fontWeight:600, color:'#6b7280', whiteSpace:'nowrap' }}>
+              {record.registrado_por.trim().split(/\s+/).slice(0, 3).join(' ')}
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Hora + método */}
       <div style={{ textAlign:'right', flexShrink:0 }}>
-        <div style={{ fontSize:12, fontWeight:800, color:'#0f172a' }}>{hora}</div>
+        <div style={{ fontSize:12, fontWeight:800, color:'#0f172a' }}>{hora12}</div>
         <div style={{
-          fontSize:8, fontWeight:700, textTransform:'uppercase', letterSpacing:'0.5px',
-          color: record.metodo === 'facial' ? '#0d9488' : '#6366f1', marginTop:1,
+          fontSize:8, fontWeight:700, textTransform:'uppercase', letterSpacing:'0.4px',
+          color: metodoColor, marginTop:1,
         }}>
-          {record.metodo === 'facial' ? '📷 facial' : '✋ manual'}
+          {metodoIcon} {metodoLabel}
         </div>
       </div>
     </div>

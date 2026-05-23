@@ -13,25 +13,44 @@ function getColombia() {
   return { fecha, hora }
 }
 
-/* ── GET /api/kids/asistencias?fecha=YYYY-MM-DD&grupo=X ── */
+/* ── GET /api/kids/asistencias?fecha=YYYY-MM-DD&grupo=X&latest=N ── */
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url)
-    const fecha = searchParams.get('fecha') ?? getColombia().fecha
-    const grupo = searchParams.get('grupo')
+    const grupo  = searchParams.get('grupo')
+    const latest = searchParams.get('latest')   // número → últimas N asistencias sin filtro de fecha
 
     const supabase = getServerSupabase()
 
-    let query = supabase
-      .from('kids_asistencias')
-      .select(`
-        id, nino_id, fecha, hora, metodo, registrado_por, creado_en,
-        nino:kids_ninos(id, nombre, apellido, edad, grupo, foto_url, activo)
-      `)
-      .eq('fecha', fecha)
-      .order('hora', { ascending: false })
+    const SELECT = `
+      id, nino_id, fecha, hora, metodo, registrado_por, creado_en,
+      nino:kids_ninos(id, nombre, apellido, edad, grupo, foto_url, activo)
+    `
 
-    const { data, error } = await query
+    let data: any[] | null = null
+    let error: any = null
+
+    if (latest) {
+      // Modo "últimas N": sin filtro de fecha, ordenadas por creado_en DESC
+      const limit = Math.min(parseInt(latest) || 20, 100)
+      const res = await supabase
+        .from('kids_asistencias')
+        .select(SELECT)
+        .order('creado_en', { ascending: false })
+        .limit(limit)
+      data  = res.data
+      error = res.error
+    } else {
+      const fecha = searchParams.get('fecha') ?? getColombia().fecha
+      const res = await supabase
+        .from('kids_asistencias')
+        .select(SELECT)
+        .eq('fecha', fecha)
+        .order('hora', { ascending: false })
+      data  = res.data
+      error = res.error
+    }
+
     if (error) throw error
 
     // Filtrar por grupo en memoria si se solicita

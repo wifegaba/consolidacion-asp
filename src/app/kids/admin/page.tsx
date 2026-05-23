@@ -8,6 +8,7 @@ import CoordinadorModal,  { type KidsCoordinador }  from './components/Coordinad
 import ObservacionesModal                           from './components/ObservacionesModal'
 import NinosSection                                 from './components/NinosSection'
 import AsistenciasSection                           from './components/AsistenciasSection'
+import SeguimientosSection                          from './components/SeguimientosSection'
 
 /* ── Types ─────────────────────────────────────────────────────────────── */
 interface Usuario {
@@ -634,13 +635,14 @@ export default function KidsAdminPage() {
                 <LogoCircle size={96} />
               </div>
 
-              {/* ── Items derecha: Maestros, Niños ── */}
+              {/* ── Items derecha: Maestros, Niños, Seguimientos ── */}
               {([
-                { section: 'maestros', label: 'Maestros' },
-                { section: 'ninos',    label: 'Niños'    },
+                { section: 'maestros',     label: 'Maestros' },
+                { section: 'ninos',        label: 'Niños'    },
+                { section: 'seguimientos', label: 'Seguim.'  },
               ] as const).map((item, i) => {
                 const isActive = activeNav === item.section
-                // left edge positions: item0 = 50%+52px, item1 = 50%+100px
+                // left edge positions: item0 = 50%+52px, item1 = 50%+100px, item2 = 50%+148px
                 const leftPx = 52 + i * 48
                 return (
                   <div
@@ -770,8 +772,26 @@ export default function KidsAdminPage() {
             </div>
           )}
 
-          {/* ── Top bar + Scroll area (todo excepto niños y asistencias) ── */}
-          {displayNav !== 'ninos' && displayNav !== 'asistencias' && (<>
+          {/* ── Panel Seguimientos ── */}
+          {displayNav === 'seguimientos' && (
+            <div style={{
+              flex:1, minHeight:0, display:'flex', flexDirection:'column',
+              overflow:'hidden', position:'relative', zIndex:20,
+              animation:'ninosSheetRise 0.62s cubic-bezier(.22,1,.36,1) both',
+              willChange:'opacity',
+            }}>
+              <div style={{
+                position:'absolute', inset:0, zIndex:10, pointerEvents:'none',
+                background:'linear-gradient(160deg,rgba(255,255,255,.55) 0%,rgba(200,180,255,.22) 40%,transparent 70%)',
+                animation:'ninosShimmerFade 0.75s cubic-bezier(.4,0,.2,1) both',
+                borderRadius:'inherit',
+              }}/>
+              <SeguimientosSection />
+            </div>
+          )}
+
+          {/* ── Top bar + Scroll area (todo excepto niños, asistencias y seguimientos) ── */}
+          {displayNav !== 'ninos' && displayNav !== 'asistencias' && displayNav !== 'seguimientos' && (<>
           <div style={{
             display:        'flex',
             alignItems:     'center',

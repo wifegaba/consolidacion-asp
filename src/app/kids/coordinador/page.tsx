@@ -241,10 +241,11 @@ export default function CoordinadorPage() {
             <CoordLogoCircle size={96} />
           </div>
 
-          {/* Items derecha: Niños + Asistencias */}
+          {/* Items derecha: Niños + Asistencias + Seguimientos */}
           {([
-            { key: 'ninos',        label: 'Niños',   active: false, onClick: () => { setLogoNavOpen(false); router.push('/kids/ninos') } },
-            { key: 'asistencias',  label: 'Asist.',  active: false, onClick: () => { setLogoNavOpen(false); router.push('/kids/asistencias') } },
+            { key: 'ninos',        label: 'Niños',    active: false, onClick: () => { setLogoNavOpen(false); router.push('/kids/ninos') } },
+            { key: 'asistencias',  label: 'Asist.',   active: false, onClick: () => { setLogoNavOpen(false); router.push('/kids/asistencias') } },
+            { key: 'seguimientos', label: 'Seguim.',  active: false, onClick: () => { setLogoNavOpen(false); router.push('/kids/seguimientos') } },
           ]).map((item, i) => {
             const leftPx = 52 + i * 52
             return (
@@ -282,7 +283,7 @@ export default function CoordinadorPage() {
                   display:'flex', alignItems:'center', justifyContent:'center',
                   backdropFilter:'blur(8px)',
                 }}>
-                  <CoordNavIcon type={item.key as 'coord' | 'ninos' | 'asistencias' | 'salir'} active={item.active} />
+                  <CoordNavIcon type={item.key as 'coord' | 'ninos' | 'asistencias' | 'seguimientos' | 'salir'} active={item.active} />
                 </div>
                 <span style={{ fontSize:9, fontWeight:700, color: item.active ? '#7c3aed' : '#6b7280', whiteSpace:'nowrap' }}>
                   {item.label}
@@ -752,7 +753,7 @@ function CoordLogoCircle({ size }: { size: number }) {
 /* ══════════════════════════════════════════════════════════════════════════
    CoordNavIcon — iconos para los items de nav
 ══════════════════════════════════════════════════════════════════════════ */
-function CoordNavIcon({ type, active }: { type: 'coord' | 'ninos' | 'asistencias' | 'salir'; active: boolean }) {
+function CoordNavIcon({ type, active }: { type: 'coord' | 'ninos' | 'asistencias' | 'seguimientos' | 'salir'; active: boolean }) {
   const c = active ? '#7c3aed' : '#8496ac'
   const s = {
     width: 18, height: 18, viewBox: '0 0 24 24', fill: 'none',
@@ -771,6 +772,13 @@ function CoordNavIcon({ type, active }: { type: 'coord' | 'ninos' | 'asistencias
     <svg {...s}>
       <polyline points="9 11 12 14 22 4"/>
       <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+    </svg>
+  )
+  if (type === 'seguimientos') return (
+    <svg {...s}>
+      <line x1="18" y1="20" x2="18" y2="10"/>
+      <line x1="12" y1="20" x2="12" y2="4"/>
+      <line x1="6"  y1="20" x2="6"  y2="14"/>
     </svg>
   )
   if (type === 'salir') return (
