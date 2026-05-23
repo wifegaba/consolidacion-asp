@@ -375,32 +375,33 @@ export default function NinosSection({ usuario, logoNavOpen = false }: Props) {
           </div>
 
           {/* Right: search + user */}
-          <div style={{ display:'flex', alignItems:'center', gap:8, flex: isMobile ? 1 : 'none', minWidth: 0 }}>
-            {/* Search */}
-            <div style={{
-              display:'flex', alignItems:'center', gap:8,
-              background:'rgba(255,255,255,.90)',
-              border:'1px solid rgba(0,0,0,.07)',
-              borderRadius:50,
-              padding:'9px 14px',
-              boxShadow:'0 2px 10px rgba(0,0,0,.06)',
-              flex: isMobile ? 1 : 'none',
-              minWidth: 0,
-            }}>
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2.5" style={{ flexShrink: 0 }}>
-                <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
-              </svg>
-              <input
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                placeholder="Buscar niño..."
-                style={{
-                  border:'none', background:'transparent', outline:'none',
-                  fontSize:12, color:'#374151', width: isMobile ? '100%' : 130,
-                  fontFamily:'inherit', minWidth: 0,
-                }}
-              />
-            </div>
+          <div style={{ display:'flex', alignItems:'center', gap:8, flex: isMobile ? 0 : 'none', minWidth: 0 }}>
+            {/* Search — solo desktop */}
+            {!isMobile && (
+              <div style={{
+                display:'flex', alignItems:'center', gap:8,
+                background:'rgba(255,255,255,.90)',
+                border:'1px solid rgba(0,0,0,.07)',
+                borderRadius:50,
+                padding:'9px 14px',
+                boxShadow:'0 2px 10px rgba(0,0,0,.06)',
+                minWidth: 0,
+              }}>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2.5" style={{ flexShrink: 0 }}>
+                  <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+                </svg>
+                <input
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  placeholder="Buscar niño..."
+                  style={{
+                    border:'none', background:'transparent', outline:'none',
+                    fontSize:12, color:'#374151', width:130,
+                    fontFamily:'inherit', minWidth: 0,
+                  }}
+                />
+              </div>
+            )}
 
             {/* Notification bell — solo desktop */}
             {!isMobile && (
@@ -479,6 +480,11 @@ export default function NinosSection({ usuario, logoNavOpen = false }: Props) {
             sub="Todos funcionando"
           />
         </div>
+
+        {/* ── Buscador móvil — encima del listado ── */}
+        {isMobile && (
+          <MobileSearchBar search={search} onSearch={setSearch} />
+        )}
 
         {/* ── List header + filter/sort ── */}
         <div style={{
@@ -1220,6 +1226,18 @@ function NinoCard({
               label={nino.activo ? 'Desactivar' : 'Activar'}
               onClick={() => { setMenuOpen(false); onToggle() }}
             />
+            {nino.foto_url && !(nino.face_descriptor && nino.face_descriptor.length === 128) && (
+              <MenuOption
+                icon={aiState === 'processing' ? '⏳' : aiState === 'not_found' ? '⚠️' : aiState === 'error' ? '❌' : '🧠'}
+                label={aiState === 'processing' ? 'Procesando…' : aiState === 'not_found' ? 'Sin rostro' : aiState === 'error' ? 'Reintentar IA' : 'Activar IA'}
+                onClick={async () => {
+                  setMenuOpen(false)
+                  setAiState('processing')
+                  const result = await onActivateAI()
+                  if (result !== 'ok') setAiState(result)
+                }}
+              />
+            )}
             <div style={{ height:1, background:'#f3f4f6', margin:'4px 0' }} />
             <MenuOption icon="🗑️" label="Eliminar" onClick={() => { setMenuOpen(false); onDelete() }} danger />
           </div>
@@ -1306,69 +1324,154 @@ function NinoCard({
         </div>
       )}
 
-      {/* Face descriptor indicator */}
-      {nino.face_descriptor && nino.face_descriptor.length === 128 ? (
-        <div style={{
-          display:'flex', alignItems:'center', gap:4,
-          padding:'3px 9px', borderRadius:50, marginBottom:6,
-          background:'#f0f9ff', border:'1px solid #bae6fd',
-          fontSize:9, fontWeight:700, color:'#0369a1',
-        }}>
-          <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#0369a1" strokeWidth="2.5" strokeLinecap="round">
-            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/>
-            <path d="M8 14s1.5 2 4 2 4-2 4-2"/>
-            <line x1="9" y1="9" x2="9.01" y2="9"/>
-            <line x1="15" y1="9" x2="15.01" y2="9"/>
-          </svg>
-          Reconocimiento IA listo
-        </div>
-      ) : nino.foto_url && !imgBroken ? (
-        /* ── Botón "Activar IA" para niños con foto pero sin descriptor ── */
+      {/* ── Botones de contacto premium ── */}
+      <ContactButtons nino={nino} />
+
+    </div>
+  )
+}
+
+/* ── MobileSearchBar ────────────────────────────────────────────────────── */
+function MobileSearchBar({ search, onSearch }: { search: string; onSearch: (v: string) => void }) {
+  const wrapRef = useRef<HTMLDivElement>(null)
+  const [focused, setFocused] = useState(false)
+
+  function handleFocus() {
+    setFocused(true)
+    // Pequeño delay para que el teclado virtual empiece a subir antes de hacer scroll
+    setTimeout(() => {
+      wrapRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }, 80)
+  }
+
+  return (
+    <div
+      ref={wrapRef}
+      style={{
+        display:'flex', alignItems:'center', gap:8,
+        background: focused ? 'rgba(255,255,255,.98)' : 'rgba(255,255,255,.92)',
+        border: focused ? '1.5px solid rgba(124,58,237,.45)' : '1px solid rgba(124,58,237,.12)',
+        borderRadius:14,
+        padding:'10px 16px',
+        boxShadow: focused
+          ? '0 0 0 3px rgba(124,58,237,.10), 0 4px 16px rgba(124,58,237,.12)'
+          : '0 2px 12px rgba(124,58,237,.08), 0 1px 4px rgba(0,0,0,.05)',
+        marginBottom:12,
+        flexShrink:0,
+        transition:'border .18s, box-shadow .18s, background .18s',
+      }}
+    >
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+        stroke={focused ? '#7c3aed' : '#a78bfa'} strokeWidth="2.5" style={{ flexShrink:0, transition:'stroke .18s' }}>
+        <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+      </svg>
+      <input
+        value={search}
+        onChange={e => onSearch(e.target.value)}
+        onFocus={handleFocus}
+        onBlur={() => setFocused(false)}
+        placeholder="Buscar niño por nombre, grupo…"
+        style={{
+          border:'none', background:'transparent', outline:'none',
+          fontSize:13, color:'#374151', width:'100%',
+          fontFamily:'inherit', minWidth:0, fontWeight:500,
+        }}
+      />
+      {search && (
         <button
-          disabled={aiState === 'processing'}
-          onClick={async () => {
-            setAiState('processing')
-            const result = await onActivateAI()
-            if (result !== 'ok') setAiState(result)
-            // Si 'ok', el padre actualiza nino y este bloque desaparece solo
-          }}
+          onMouseDown={e => { e.preventDefault(); onSearch('') }}
           style={{
-            display:'flex', alignItems:'center', gap:5,
-            padding:'4px 10px', borderRadius:50, marginBottom:6,
-            border:'1px solid rgba(124,58,237,.35)',
-            background: aiState === 'processing'
-              ? 'rgba(124,58,237,.08)'
-              : aiState === 'not_found'
-              ? '#fffbeb'
-              : aiState === 'error'
-              ? '#fef2f2'
-              : 'linear-gradient(135deg,rgba(124,58,237,.10),rgba(99,102,241,.08))',
-            fontSize:9, fontWeight:700,
-            color: aiState === 'not_found' ? '#d97706' : aiState === 'error' ? '#dc2626' : '#7c3aed',
-            cursor: aiState === 'processing' ? 'default' : 'pointer',
-            transition:'all .18s',
+            border:'none', background:'none', cursor:'pointer',
+            padding:0, display:'flex', alignItems:'center', flexShrink:0,
           }}
         >
-          {aiState === 'processing' ? (
-            <>
-              <span style={{ display:'inline-block', animation:'spin .8s linear infinite' }}>⏳</span>
-              Procesando…
-            </>
-          ) : aiState === 'not_found' ? (
-            <>⚠️ Sin rostro detectado</>
-          ) : aiState === 'error' ? (
-            <>❌ Error — reintentar</>
-          ) : (
-            <>
-              <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" strokeWidth="2.5" strokeLinecap="round">
-                <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
-              </svg>
-              Activar IA
-            </>
-          )}
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2.5" strokeLinecap="round">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
         </button>
-      ) : null}
+      )}
+    </div>
+  )
+}
 
+/* ── ContactButtons — WhatsApp + Llamada premium ───────────────────────── */
+function ContactButtons({ nino }: { nino: KidsNino }) {
+  const raw   = (nino.telefono_acudiente ?? nino.telefono ?? '').replace(/\s+/g, '')
+  const phone = raw ? (raw.startsWith('+') ? raw : `+57${raw}`) : null
+  const waUrl = phone ? `https://wa.me/${phone.replace('+', '')}` : null
+  const telUrl = phone ? `tel:${phone}` : null
+
+  const [hovWa,  setHovWa]  = useState(false)
+  const [hovTel, setHovTel] = useState(false)
+
+  if (!phone) return null
+
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 10, marginTop: 4, marginBottom: 2,
+    }}>
+      {/* ── WhatsApp ── */}
+      <a
+        href={waUrl!}
+        target="_blank"
+        rel="noopener noreferrer"
+        title={`WhatsApp ${phone}`}
+        onMouseEnter={() => setHovWa(true)}
+        onMouseLeave={() => setHovWa(false)}
+        style={{
+          width: 34, height: 34, borderRadius: '50%',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          textDecoration: 'none', flexShrink: 0,
+          /* Ring exterior */
+          background: hovWa
+            ? 'linear-gradient(135deg,#22c55e 0%,#16a34a 100%)'
+            : [
+                'linear-gradient(rgba(255,255,255,.95),rgba(255,255,255,.95)) padding-box',
+                'linear-gradient(135deg,#22c55e 0%,#4ade80 50%,#16a34a 100%) border-box',
+              ].join(','),
+          border: '1.5px solid transparent',
+          boxShadow: hovWa
+            ? '0 4px 16px rgba(34,197,94,.5), 0 1px 4px rgba(0,0,0,.1), inset 0 1px 0 rgba(255,255,255,.3)'
+            : '0 2px 10px rgba(34,197,94,.22), 0 1px 3px rgba(0,0,0,.06), inset 0 1px 0 rgba(255,255,255,.9)',
+          transform: hovWa ? 'translateY(-2px) scale(1.08)' : 'scale(1)',
+          transition: 'all .2s cubic-bezier(.34,1.56,.64,1)',
+        } as React.CSSProperties}
+      >
+        {/* WhatsApp SVG oficial */}
+        <svg width="18" height="18" viewBox="0 0 24 24" fill={hovWa ? '#fff' : '#22c55e'}>
+          <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413z"/>
+        </svg>
+      </a>
+
+      {/* ── Llamada ── */}
+      <a
+        href={telUrl!}
+        title={`Llamar ${phone}`}
+        onMouseEnter={() => setHovTel(true)}
+        onMouseLeave={() => setHovTel(false)}
+        style={{
+          width: 34, height: 34, borderRadius: '50%',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          textDecoration: 'none', flexShrink: 0,
+          background: hovTel
+            ? 'linear-gradient(135deg,#3b82f6 0%,#2563eb 100%)'
+            : [
+                'linear-gradient(rgba(255,255,255,.95),rgba(255,255,255,.95)) padding-box',
+                'linear-gradient(135deg,#3b82f6 0%,#60a5fa 50%,#2563eb 100%) border-box',
+              ].join(','),
+          border: '1.5px solid transparent',
+          boxShadow: hovTel
+            ? '0 4px 16px rgba(59,130,246,.5), 0 1px 4px rgba(0,0,0,.1), inset 0 1px 0 rgba(255,255,255,.3)'
+            : '0 2px 10px rgba(59,130,246,.22), 0 1px 3px rgba(0,0,0,.06), inset 0 1px 0 rgba(255,255,255,.9)',
+          transform: hovTel ? 'translateY(-2px) scale(1.08)' : 'scale(1)',
+          transition: 'all .2s cubic-bezier(.34,1.56,.64,1)',
+        } as React.CSSProperties}
+      >
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+          stroke={hovTel ? '#fff' : '#3b82f6'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.38 2 2 0 0 1 3.6 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 9.91a16 16 0 0 0 6.16 6.16l.91-.91a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/>
+        </svg>
+      </a>
     </div>
   )
 }
