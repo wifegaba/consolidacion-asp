@@ -82,7 +82,7 @@ export default function AsistenciasSection({
   const [facingMode,     setFacingMode]    = useState<'user' | 'environment'>('environment')
   const [successMsg,     setSuccessMsg]    = useState('')
   /* ── Historial state ── */
-  const [histDate,       setHistDate]      = useState(() => getColombiaTodayDate())
+  const [histDate,       setHistDate]      = useState('')   // vacío = mostrar últimas
   const [histGrupo,      setHistGrupo]     = useState('')
   const [histRecords,    setHistRecords]   = useState<AsistenciaRecord[]>([])
   const [histLoading,    setHistLoading]   = useState(false)
@@ -127,11 +127,13 @@ export default function AsistenciasSection({
     } catch {}
   }, [])
 
-  /* ── cargar últimas asistencias para el panel lateral ── */
-  const loadLatest = useCallback(async () => {
+  /* ── cargar últimas asistencias (panel lateral + historial sin fecha) ── */
+  const loadLatest = useCallback(async (grupo = '') => {
     setLatestLoading(true)
     try {
-      const res  = await fetch('/api/kids/asistencias?latest=30')
+      const params = new URLSearchParams({ latest: '60' })
+      if (grupo) params.set('grupo', grupo)
+      const res  = await fetch(`/api/kids/asistencias?${params}`)
       const json = await res.json()
       if (json.ok) setLatestRecords(json.data)
     } catch {}
@@ -140,7 +142,7 @@ export default function AsistenciasSection({
 
   useEffect(() => { loadToday(); loadLatest() }, [loadToday, loadLatest])
 
-  /* ── cargar historial ── */
+  /* ── cargar historial por fecha específica ── */
   const loadHistorial = useCallback(async (fecha: string, grupo: string) => {
     setHistLoading(true)
     try {
@@ -154,8 +156,10 @@ export default function AsistenciasSection({
   }, [])
 
   useEffect(() => {
-    if (activeTab === 'historial') loadHistorial(histDate, histGrupo)
-  }, [activeTab, histDate, histGrupo, loadHistorial])
+    if (activeTab !== 'historial') return
+    if (histDate) loadHistorial(histDate, histGrupo)
+    else          loadLatest(histGrupo)
+  }, [activeTab, histDate, histGrupo, loadHistorial, loadLatest])
 
   /* ── iniciar cámara ── */
   const startCamera = useCallback(async (facing: 'user' | 'environment' = facingMode) => {
@@ -495,59 +499,191 @@ export default function AsistenciasSection({
       {/* ── PANEL HISTORIAL ── */}
       {activeTab === 'historial' && (
         <div style={{ flex:1, minHeight:0, display:'flex', flexDirection:'column', overflow:'hidden', background:'rgba(248,250,252,.9)' }}>
-          {/* Filtros */}
+
+          {/* ── Cabecera ── */}
           <div style={{
-            padding: isMobile ? '12px 14px' : '14px 24px',
-            display:'flex', flexWrap:'wrap', gap:10, alignItems:'center',
-            borderBottom:'1px solid rgba(0,0,0,.06)', background:'rgba(255,255,255,.7)', flexShrink:0,
+            padding: isMobile ? '12px 14px 10px' : '14px 20px 10px',
+            borderBottom:'1px solid rgba(0,0,0,.06)',
+            background:'rgba(255,255,255,.85)',
+            flexShrink:0,
           }}>
-            <div style={{ display:'flex', alignItems:'center', gap:6 }}>
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="2" strokeLinecap="round">
-                <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
-              </svg>
-              <input
-                type="date"
-                value={histDate}
-                onChange={e => setHistDate(e.target.value)}
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:10 }}>
+              <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                <div style={{
+                  width:32, height:32, borderRadius:10,
+                  background:'linear-gradient(135deg,#0d9488,#0891b2)',
+                  display:'flex', alignItems:'center', justifyContent:'center',
+                  boxShadow:'0 3px 10px rgba(13,148,136,.35)', flexShrink:0,
+                }}>
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.2" strokeLinecap="round">
+                    <polyline points="9 11 12 14 22 4"/>
+                    <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+                  </svg>
+                </div>
+                <div>
+                  <div style={{ fontSize:13, fontWeight:800, color:'#0f172a', lineHeight:1 }}>
+                    {histDate ? 'Asistencias del día' : 'Últimas asistencias'}
+                  </div>
+                  <div style={{ fontSize:9, color:'#6b7280', marginTop:2, fontWeight:600 }}>
+                    {histDate ? new Date(histDate + 'T12:00:00').toLocaleDateString('es-CO', { weekday:'long', day:'numeric', month:'long' }) : 'Más recientes primero'}
+                  </div>
+                </div>
+              </div>
+              <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+                {/* Contador */}
+                <div style={{
+                  background:'linear-gradient(135deg,rgba(13,148,136,.12),rgba(8,145,178,.08))',
+                  border:'1px solid rgba(13,148,136,.22)', borderRadius:10,
+                  padding:'4px 10px', textAlign:'center',
+                }}>
+                  <span style={{ fontSize:16, fontWeight:900, color:'#0d9488', lineHeight:1, display:'block' }}>
+                    {(histDate ? histLoading : latestLoading) ? '…' : (histDate ? histRecords : latestRecords).length}
+                  </span>
+                  <span style={{ fontSize:8, fontWeight:700, color:'#6b7280', textTransform:'uppercase', letterSpacing:'0.5px' }}>
+                    {histDate ? 'ese día' : 'recientes'}
+                  </span>
+                </div>
+                {/* Refresh */}
+                <button
+                  onClick={() => histDate ? loadHistorial(histDate, histGrupo) : loadLatest(histGrupo)}
+                  style={{
+                    width:32, height:32, borderRadius:9, border:'1px solid rgba(0,0,0,.08)',
+                    background:'rgba(255,255,255,.9)', cursor:'pointer',
+                    display:'flex', alignItems:'center', justifyContent:'center',
+                    boxShadow:'0 1px 4px rgba(0,0,0,.06)',
+                  }}
+                >
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="2.2" strokeLinecap="round">
+                    <polyline points="23 4 23 10 17 10"/>
+                    <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            {/* Filtros */}
+            <div style={{ display:'flex', flexWrap:'wrap', gap:8, alignItems:'center' }}>
+              {/* Date picker */}
+              <div style={{ display:'flex', alignItems:'center', gap:5, position:'relative' }}>
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2" strokeLinecap="round">
+                  <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+                </svg>
+                <input
+                  type="date"
+                  value={histDate}
+                  onChange={e => setHistDate(e.target.value)}
+                  style={{
+                    padding:'5px 9px', borderRadius:8,
+                    border: histDate ? '1.5px solid rgba(13,148,136,.45)' : '1.5px solid #e5e7eb',
+                    fontSize:11, fontWeight:600,
+                    color: histDate ? '#0d9488' : '#9ca3af',
+                    outline:'none', background:'rgba(255,255,255,.9)',
+                  }}
+                />
+                {histDate && (
+                  <button
+                    onClick={() => setHistDate('')}
+                    title="Ver últimas"
+                    style={{
+                      position:'absolute', right:6, top:'50%', transform:'translateY(-50%)',
+                      background:'none', border:'none', cursor:'pointer',
+                      color:'#9ca3af', fontSize:14, lineHeight:1, padding:0,
+                    }}
+                  >×</button>
+                )}
+              </div>
+
+              {/* Grupo */}
+              <select
+                value={histGrupo}
+                onChange={e => setHistGrupo(e.target.value)}
                 style={{
-                  padding:'6px 10px', borderRadius:8, border:'1.5px solid #e5e7eb',
-                  fontSize:12, fontWeight:600, color:'#374151', outline:'none',
+                  padding:'5px 9px', borderRadius:8, border:'1.5px solid #e5e7eb',
+                  fontSize:11, fontWeight:600, color:'#374151', outline:'none',
                   background:'rgba(255,255,255,.9)',
                 }}
-              />
-            </div>
-            <select
-              value={histGrupo}
-              onChange={e => setHistGrupo(e.target.value)}
-              style={{
-                padding:'6px 10px', borderRadius:8, border:'1.5px solid #e5e7eb',
-                fontSize:12, fontWeight:600, color:'#374151', outline:'none',
-                background:'rgba(255,255,255,.9)',
-              }}
-            >
-              <option value="">Todos los grupos</option>
-              {GRUPOS.map(g => <option key={g} value={g}>{g}</option>)}
-            </select>
-            <div style={{
-              marginLeft:'auto', background:'linear-gradient(135deg,#0d9488,#0891b2)',
-              color:'#fff', fontSize:11, fontWeight:800, padding:'5px 14px', borderRadius:50,
-              boxShadow:'0 2px 8px rgba(13,148,136,.35)',
-            }}>
-              {histLoading ? '…' : `${histRecords.length} registro${histRecords.length !== 1 ? 's' : ''}`}
+              >
+                <option value="">Todos los grupos</option>
+                {GRUPOS.map(g => <option key={g} value={g}>{g}</option>)}
+              </select>
+
+              {/* Chip: "sin filtro de fecha" */}
+              {!histDate && (
+                <div style={{
+                  fontSize:9, fontWeight:700, color:'#0d9488',
+                  background:'rgba(13,148,136,.08)', border:'1px solid rgba(13,148,136,.2)',
+                  padding:'3px 9px', borderRadius:50, whiteSpace:'nowrap',
+                }}>
+                  Mostrando últimas 60
+                </div>
+              )}
             </div>
           </div>
 
-          {/* Lista historial */}
-          <div style={{ flex:1, minHeight:0, overflowY:'auto', padding:'12px 14px 24px', display:'flex', flexDirection:'column', gap:7 }}>
-            {histLoading ? (
-              <div style={{ textAlign:'center', padding:'48px 0', color:'#9ca3af', fontSize:13 }}>Cargando…</div>
-            ) : histRecords.length === 0 ? (
-              <div style={{ textAlign:'center', padding:'48px 0' }}>
-                <div style={{ fontSize:40, marginBottom:12 }}>📋</div>
-                <div style={{ fontSize:13, color:'#6b7280', fontWeight:600 }}>Sin registros para esta fecha</div>
-              </div>
+          {/* ── Lista ── */}
+          <div style={{ flex:1, minHeight:0, overflowY:'auto', padding:'12px 14px 24px', display:'flex', flexDirection:'column', gap:6 }}>
+            {/* Modo: por fecha */}
+            {histDate ? (
+              histLoading ? (
+                <div style={{ textAlign:'center', padding:'48px 0', color:'#9ca3af', fontSize:13 }}>Cargando…</div>
+              ) : histRecords.length === 0 ? (
+                <div style={{ textAlign:'center', padding:'48px 0' }}>
+                  <div style={{ fontSize:40, marginBottom:12 }}>📋</div>
+                  <div style={{ fontSize:13, color:'#6b7280', fontWeight:600 }}>Sin registros para esta fecha</div>
+                  <button onClick={() => setHistDate('')} style={{
+                    marginTop:12, padding:'7px 18px', borderRadius:50, border:'none',
+                    background:'linear-gradient(135deg,#0d9488,#0891b2)',
+                    color:'#fff', fontSize:11, fontWeight:700, cursor:'pointer',
+                  }}>Ver últimas asistencias</button>
+                </div>
+              ) : (
+                histRecords.map((r, i) => <AttendanceRow key={r.id} record={r} idx={i} />)
+              )
             ) : (
-              histRecords.map((r, i) => <AttendanceRow key={r.id} record={r} idx={i} />)
+              /* Modo: últimas (agrupar por fecha igual que LatestPanel) */
+              latestLoading ? (
+                <div style={{ display:'flex', flexDirection:'column', gap:8, padding:'8px 0' }}>
+                  {[...Array(6)].map((_, i) => (
+                    <div key={i} style={{ height:56, borderRadius:14, background:`rgba(0,0,0,${0.05 - i*0.007})`, animation:'histPulse 1.4s ease-in-out infinite' }} />
+                  ))}
+                  <style>{`@keyframes histPulse{0%,100%{opacity:1}50%{opacity:.45}}`}</style>
+                </div>
+              ) : latestRecords.length === 0 ? (
+                <div style={{ textAlign:'center', padding:'52px 0' }}>
+                  <div style={{ fontSize:42, marginBottom:10 }}>📋</div>
+                  <div style={{ fontSize:13, color:'#374151', fontWeight:700 }}>Sin asistencias registradas</div>
+                </div>
+              ) : (() => {
+                // Agrupar por fecha
+                const groups: { fecha: string; label: string; rows: AsistenciaRecord[] }[] = []
+                for (const r of latestRecords) {
+                  const last = groups[groups.length - 1]
+                  if (last && last.fecha === r.fecha) { last.rows.push(r) }
+                  else {
+                    const { fechaLabel } = formatColombiaTime(r.fecha, r.hora)
+                    groups.push({ fecha: r.fecha, label: fechaLabel, rows: [r] })
+                  }
+                }
+                return groups.map((g, gi) => (
+                  <div key={g.fecha}>
+                    {/* Separador de día */}
+                    <div style={{ display:'flex', alignItems:'center', gap:8, padding: gi === 0 ? '4px 2px 8px' : '14px 2px 8px' }}>
+                      <div style={{
+                        fontSize:9, fontWeight:800, letterSpacing:'1px', textTransform:'uppercase',
+                        color: g.label === 'Hoy' ? '#0d9488' : '#6b7280',
+                        background: g.label === 'Hoy' ? 'rgba(13,148,136,.1)' : 'rgba(0,0,0,.04)',
+                        border: `1px solid ${g.label === 'Hoy' ? 'rgba(13,148,136,.25)' : 'rgba(0,0,0,.07)'}`,
+                        padding:'2px 9px', borderRadius:50,
+                      }}>{g.label}</div>
+                      <div style={{ flex:1, height:1, background:'rgba(0,0,0,.06)' }} />
+                      <span style={{ fontSize:9, color:'#9ca3af', fontWeight:600 }}>{g.rows.length}</span>
+                    </div>
+                    <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
+                      {g.rows.map((r, i) => <AttendanceRow key={r.id} record={r} idx={i} />)}
+                    </div>
+                  </div>
+                ))
+              })()
             )}
           </div>
         </div>

@@ -23,15 +23,15 @@ type FilterTab = 'todos' | 'activos' | 'inactivos'
 
 /* ── Navigation items ───────────────────────────────────────────────────── */
 const NAV_ITEMS = [
-  { num: '01', label: 'Dashboard',       section: 'dashboard'       },
-  { num: '02', label: 'Administradores', section: 'administradores' },
-  { num: '03', label: 'Coordinadores',   section: 'coordinadores'   },
+  { num: '01', label: 'Niños',           section: 'ninos'           },
+  { num: '02', label: 'Asistencias',     section: 'asistencias'     },
+  { num: '03', label: 'Seguimientos',    section: 'seguimientos'    },
   { num: '04', label: 'Maestros',        section: 'maestros'        },
-  { num: '05', label: 'Auxiliares',      section: 'auxiliares'      },
-  { num: '06', label: 'Rotaciones',      section: 'rotaciones'      },
-  { num: '07', label: 'Niños',           section: 'ninos'           },
-  { num: '08', label: 'Asistencias',     section: 'asistencias'     },
-  { num: '09', label: 'Seguimientos',    section: 'seguimientos'    },
+  { num: '05', label: 'Coordinadores',   section: 'coordinadores'   },
+  { num: '06', label: 'Administradores', section: 'administradores' },
+  { num: '07', label: 'Dashboard',       section: 'dashboard'       },
+  { num: '08', label: 'Auxiliares',      section: 'auxiliares'      },
+  { num: '09', label: 'Rotaciones',      section: 'rotaciones'      },
 ] as const
 
 /* ── Avatar palette ─────────────────────────────────────────────────────── */
@@ -98,8 +98,8 @@ export default function KidsAdminPage() {
   const [editCoordinador,      setEditCoordinador]      = useState<KidsCoordinador | null>(null)
   const [deletingCoordinadorId,setDeletingCoordinadorId]= useState<string | null>(null)
   // ── Shared ───────────────────────────────────────────────────────────────
-  const [activeNav,      setActiveNav]      = useState<string>('administradores')
-  const [displayNav,     setDisplayNav]     = useState<string>('administradores')
+  const [activeNav,      setActiveNav]      = useState<string>('ninos')
+  const [displayNav,     setDisplayNav]     = useState<string>('ninos')
   const [animPhase,      setAnimPhase]      = useState<'enter' | 'exit' | 'idle'>('idle')
   const [isMobile,       setIsMobile]       = useState(false)
   const [sidebarOpen,    setSidebarOpen]    = useState(false)

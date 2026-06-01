@@ -322,12 +322,26 @@ export default function NinosSection({ usuario, logoNavOpen = false }: Props) {
     } catch { /* silently ignore */ }
   }
 
+  function handleSaveObs(n: KidsNino, obs: string) {
+    setNinos(prev => prev.map(x => x.id === n.id ? { ...x, observaciones: obs || null } : x))
+  }
+
   /* ════════════════════════════════════════════════════════════════════
      RENDER
   ════════════════════════════════════════════════════════════════════ */
   return (
     <>
-    <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+    <style>{`
+      @keyframes spin { to { transform: rotate(360deg); } }
+      @keyframes ninoCardIn {
+        from { opacity:0; transform:translateY(16px) scale(.96); }
+        to   { opacity:1; transform:translateY(0)    scale(1);   }
+      }
+      @keyframes cardAttPulse {
+        0%,100% { opacity:.45; }
+        50%     { opacity:.9; }
+      }
+    `}</style>
     <div style={{
       display:        'flex',
       flex:           1,
@@ -345,7 +359,7 @@ export default function NinosSection({ usuario, logoNavOpen = false }: Props) {
         minWidth:      0,
         display:       'flex',
         flexDirection: 'column',
-        padding:       isMobile ? '16px 14px 0 14px' : '24px 20px 0 28px',
+        padding:       isMobile ? '16px 12px 0 14px' : '24px 20px 0 28px',
         overflow:      'hidden',
       }}>
 
@@ -375,7 +389,7 @@ export default function NinosSection({ usuario, logoNavOpen = false }: Props) {
           </div>
 
           {/* Right: search + user */}
-          <div style={{ display:'flex', alignItems:'center', gap:8, flex: isMobile ? 0 : 'none', minWidth: 0 }}>
+          <div style={{ display:'flex', alignItems:'center', gap:8, flex:'none' }}>
             {/* Search — solo desktop */}
             {!isMobile && (
               <div style={{
@@ -401,6 +415,19 @@ export default function NinosSection({ usuario, logoNavOpen = false }: Props) {
                   }}
                 />
               </div>
+            )}
+
+            {/* ── Botón agregar — solo móvil, en la fila del título ── */}
+            {isMobile && !showMobileForm && (
+              <FabButton
+                onClick={() => {
+                  setEditNino(null)
+                  resetPhotoState()
+                  setForm({ nombreCompleto:'', edad:'', acudiente:'', telefono:'', grupo:'', observaciones:'' })
+                  setFormErr('')
+                  setShowMobileForm(true)
+                }}
+              />
             )}
 
             {/* Notification bell — solo desktop */}
@@ -652,6 +679,7 @@ export default function NinosSection({ usuario, logoNavOpen = false }: Props) {
                     onToggle={() => handleToggleActive(n)}
                     onDelete={() => handleDelete(n)}
                     onActivateAI={() => handleActivateAI(n)}
+                    onSaveObs={(obs) => handleSaveObs(n, obs)}
                   />
                 ))}
               </div>
@@ -681,35 +709,6 @@ export default function NinosSection({ usuario, logoNavOpen = false }: Props) {
             </>
           )}
         </div>
-        {/* ── FAB: Agregar niño (solo móvil) ── */}
-        {isMobile && !showMobileForm && !logoNavOpen && (
-          <button
-            onClick={() => { setEditNino(null); resetPhotoState(); setForm({ nombreCompleto:'', edad:'', acudiente:'', telefono:'', grupo:'', observaciones:'' }); setFormErr(''); setShowMobileForm(true) }}
-            style={{
-              position:   'fixed',
-              top:        16,
-              right:      16,
-              zIndex:     50,
-              width:      44,
-              height:     44,
-              borderRadius: '50%',
-              border:     'none',
-              background: 'linear-gradient(135deg,#7c3aed,#6d28d9)',
-              color:      '#fff',
-              fontSize:   26,
-              fontWeight: 700,
-              lineHeight: 1,
-              cursor:     'pointer',
-              boxShadow:  '0 4px 16px rgba(124,58,237,.5)',
-              display:    'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-            aria-label="Agregar niño"
-          >
-            +
-          </button>
-        )}
       </div>
 
       {/* ═══════════════════════════════════
@@ -721,7 +720,7 @@ export default function NinosSection({ usuario, logoNavOpen = false }: Props) {
       {/* Backdrop móvil */}
       {isMobile && showMobileForm && (
         <div
-          onClick={cancelEdit}
+          onPointerDown={cancelEdit}
           style={{
             position: 'fixed', inset: 0, zIndex: 60,
             background: 'rgba(0,0,0,.45)',
@@ -1153,7 +1152,7 @@ function StatCard({
 
 /* ── NinoCard ────────────────────────────────────────────────────────────── */
 function NinoCard({
-  nino, idx, onEdit, onToggle, onDelete, onActivateAI,
+  nino, idx, onEdit, onToggle, onDelete, onActivateAI, onSaveObs,
 }: {
   nino:          KidsNino
   idx:           number
@@ -1161,12 +1160,56 @@ function NinoCard({
   onToggle:      () => void
   onDelete:      () => void
   onActivateAI:  () => Promise<'ok' | 'not_found' | 'error'>
+  onSaveObs:     (obs: string) => void
 }) {
-  const [hov,         setHov]        = useState(false)
-  const [menuOpen,    setMenuOpen]   = useState(false)
-  const [imgBroken,   setImgBroken]  = useState(false)
-  const [aiState,     setAiState]    = useState<'idle'|'processing'|'not_found'|'error'>('idle')
+  const [flipped,    setFlipped]    = useState(false)
+  const [hov,        setHov]        = useState(false)
+  const [menuOpen,   setMenuOpen]   = useState(false)
+  const [imgBroken,  setImgBroken]  = useState(false)
+  const [aiState,    setAiState]    = useState<'idle'|'processing'|'not_found'|'error'>('idle')
+  const [attendance, setAttendance] = useState<{ id:string; fecha:string; hora:string }[]>([])
+  const [loadingAtt, setLoadingAtt] = useState(false)
+  const [obsText,    setObsText]    = useState(nino.observaciones ?? '')
+  const [obsEditing, setObsEditing] = useState(false)
+  const [obsSaving,  setObsSaving]  = useState(false)
+  const [obsErr,     setObsErr]     = useState('')
   const menuRef = useRef<HTMLDivElement>(null)
+
+  /* Sincronizar obsText si cambia el prop desde fuera */
+  useEffect(() => {
+    if (!obsEditing) setObsText(nino.observaciones ?? '')
+  }, [nino.observaciones, obsEditing])
+
+  /* Guardar observación */
+  async function handleSaveObs() {
+    setObsSaving(true); setObsErr('')
+    try {
+      const res  = await fetch(`/api/kids/ninos/${nino.id}`, {
+        method:  'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ observaciones: obsText.trim() }),
+      })
+      const json = await res.json()
+      if (!json.ok) throw new Error(json.error ?? 'Error al guardar')
+      onSaveObs(obsText.trim())
+      setObsEditing(false)
+    } catch (e: any) {
+      setObsErr(e.message)
+    } finally {
+      setObsSaving(false)
+    }
+  }
+
+  /* Cargar asistencias la primera vez que se gira */
+  useEffect(() => {
+    if (!flipped || attendance.length > 0) return
+    setLoadingAtt(true)
+    fetch(`/api/kids/asistencias?nino_id=${nino.id}&latest=20`)
+      .then(r => r.json())
+      .then(json => { if (json.ok) setAttendance(json.data ?? []) })
+      .catch(() => {})
+      .finally(() => setLoadingAtt(false))
+  }, [flipped, nino.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     function h(e: MouseEvent) {
@@ -1176,158 +1219,451 @@ function NinoCard({
     return () => document.removeEventListener('mousedown', h)
   }, [])
 
-  const ini   = `${nino.nombre.charAt(0)}${(nino.apellido ?? '').charAt(0)}`.toUpperCase()
-  const grad  = CHILD_GRADIENTS[idx % CHILD_GRADIENTS.length]
-  const grupo = nino.grupo ? (GRUPO_COLORS[nino.grupo] ?? { bg:'#f3f4f6', color:'#6b7280', border:'#e5e7eb' }) : null
+  const ini       = `${nino.nombre.charAt(0)}${(nino.apellido ?? '').charAt(0)}`.toUpperCase()
+  const grad      = CHILD_GRADIENTS[idx % CHILD_GRADIENTS.length]
+  const acudiente = nino.nombre_acudiente || nino.acudiente
+  const telefono  = nino.telefono_acudiente || nino.telefono
 
   return (
     <div
-      onMouseEnter={() => setHov(true)}
+      onMouseEnter={() => { if (!flipped) setHov(true) }}
       onMouseLeave={() => setHov(false)}
       style={{
-        background:   '#fff',
+        perspective:  '1200px',
+        height:       272,
         borderRadius: 20,
-        padding:      '16px 14px 14px',
-        boxShadow:    hov
-          ? '0 8px 28px rgba(0,0,0,.12)'
-          : '0 2px 12px rgba(0,0,0,.07)',
-        border:     `1px solid ${hov ? 'rgba(124,58,237,.12)' : 'rgba(0,0,0,.04)'}`,
-        transform:  hov ? 'translateY(-2px)' : 'translateY(0)',
-        transition: 'all .2s cubic-bezier(.4,0,.2,1)',
-        display:    'flex', flexDirection:'column', alignItems:'center',
-        position:   'relative',
-        opacity:    nino.activo ? 1 : 0.6,
+        opacity:      nino.activo ? 1 : 0.6,
+        boxShadow:    flipped
+          ? '0 14px 40px rgba(124,58,237,.22), 0 4px 12px rgba(0,0,0,.1)'
+          : hov
+            ? '0 8px 28px rgba(0,0,0,.13)'
+            : '0 2px 12px rgba(0,0,0,.07)',
+        transition:   'box-shadow .25s',
+        animation:    `ninoCardIn .38s ${Math.min(idx, 8) * 0.04}s cubic-bezier(0.25,0.46,0.45,0.94) both`,
       }}
     >
-      {/* ··· Menu */}
-      <div ref={menuRef} style={{ position:'absolute', top:12, right:12 }}>
-        <button
-          onClick={() => setMenuOpen(v => !v)}
+      {/* ─── Flipper ─── */}
+      <div style={{
+        position:       'relative',
+        width:          '100%',
+        height:         '100%',
+        transformStyle: 'preserve-3d',
+        transform:      flipped ? 'rotateY(180deg)' : 'rotateY(0deg)',
+        transition:     'transform .65s cubic-bezier(.34,1.05,.64,1)',
+        borderRadius:   20,
+      }}>
+
+        {/* ══════════════ FRONT ══════════════ */}
+        <div
+          onClick={e => {
+            if (menuRef.current?.contains(e.target as Node)) return
+            setFlipped(true)
+          }}
           style={{
-            width:26, height:26, borderRadius:8, border:'none',
-            background: menuOpen ? '#f3f0ff' : 'transparent',
-            cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center',
-            transition:'all .15s',
+            position:                 'absolute', top:0, left:0, right:0, bottom:0,
+            backfaceVisibility:       'hidden',
+            WebkitBackfaceVisibility: 'hidden',
+            background:               '#fff',
+            borderRadius:             20,
+            padding:                  '12px 12px 58px',
+            display:                  'flex', flexDirection:'column', alignItems:'center',
+            justifyContent:           'center',
+            cursor:                   'pointer',
+            border:                   `1px solid ${hov ? 'rgba(124,58,237,.14)' : 'rgba(0,0,0,.04)'}`,
+            overflow:                 'hidden',
+            transition:               'border .2s',
           }}
         >
-          <span style={{ fontSize:14, color:'#9ca3af', letterSpacing:'1px', lineHeight:0.8 }}>···</span>
-        </button>
-        {menuOpen && (
-          <div style={{
-            position:'absolute', top:'100%', right:0, marginTop:4,
-            background:'#fff', borderRadius:12, padding:5,
-            boxShadow:'0 8px 24px rgba(0,0,0,.12)',
-            border:'1px solid rgba(0,0,0,.06)',
-            zIndex:30, minWidth:130,
-          }}>
-            <MenuOption icon="✏️" label="Editar" onClick={() => { setMenuOpen(false); onEdit() }} />
-            <MenuOption
-              icon={nino.activo ? '⏸️' : '▶️'}
-              label={nino.activo ? 'Desactivar' : 'Activar'}
-              onClick={() => { setMenuOpen(false); onToggle() }}
-            />
-            {nino.foto_url && !(nino.face_descriptor && nino.face_descriptor.length === 128) && (
-              <MenuOption
-                icon={aiState === 'processing' ? '⏳' : aiState === 'not_found' ? '⚠️' : aiState === 'error' ? '❌' : '🧠'}
-                label={aiState === 'processing' ? 'Procesando…' : aiState === 'not_found' ? 'Sin rostro' : aiState === 'error' ? 'Reintentar IA' : 'Activar IA'}
-                onClick={async () => {
-                  setMenuOpen(false)
-                  setAiState('processing')
-                  const result = await onActivateAI()
-                  if (result !== 'ok') setAiState(result)
-                }}
-              />
+          {/* Barra de color en hover */}
+          {hov && (
+            <div style={{
+              position:'absolute', top:0, left:0, right:0, height:3,
+              borderRadius:'20px 20px 0 0', background:grad,
+            }} />
+          )}
+
+          {/* ··· Menú */}
+          <div ref={menuRef} style={{ position:'absolute', top:12, right:10 }}>
+            <button
+              onClick={e => { e.stopPropagation(); setMenuOpen(v => !v) }}
+              style={{
+                width:26, height:26, borderRadius:8, border:'none',
+                background: menuOpen ? '#f3f0ff' : 'transparent',
+                cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center',
+                transition:'all .15s',
+              }}
+            >
+              <span style={{ fontSize:14, color:'#9ca3af', letterSpacing:'1px', lineHeight:0.8 }}>···</span>
+            </button>
+            {menuOpen && (
+              <div style={{
+                position:'absolute', top:'100%', right:0, marginTop:4,
+                background:'#fff', borderRadius:12, padding:5,
+                boxShadow:'0 8px 24px rgba(0,0,0,.12)', border:'1px solid rgba(0,0,0,.06)',
+                zIndex:30, minWidth:130,
+              }}>
+                <MenuOption icon="✏️" label="Editar" onClick={() => { setMenuOpen(false); onEdit() }} />
+                <MenuOption
+                  icon={nino.activo ? '⏸️' : '▶️'}
+                  label={nino.activo ? 'Desactivar' : 'Activar'}
+                  onClick={() => { setMenuOpen(false); onToggle() }}
+                />
+                {nino.foto_url && !(nino.face_descriptor && nino.face_descriptor.length === 128) && (
+                  <MenuOption
+                    icon={aiState==='processing' ? '⏳' : aiState==='not_found' ? '⚠️' : aiState==='error' ? '❌' : '🧠'}
+                    label={aiState==='processing' ? 'Procesando…' : aiState==='not_found' ? 'Sin rostro' : aiState==='error' ? 'Reintentar IA' : 'Activar IA'}
+                    onClick={async () => {
+                      setMenuOpen(false); setAiState('processing')
+                      const r = await onActivateAI()
+                      if (r !== 'ok') setAiState(r)
+                    }}
+                  />
+                )}
+                <div style={{ height:1, background:'#f3f4f6', margin:'4px 0' }} />
+                <MenuOption icon="🗑️" label="Eliminar" onClick={() => { setMenuOpen(false); onDelete() }} danger />
+              </div>
             )}
-            <div style={{ height:1, background:'#f3f4f6', margin:'4px 0' }} />
-            <MenuOption icon="🗑️" label="Eliminar" onClick={() => { setMenuOpen(false); onDelete() }} danger />
           </div>
-        )}
-      </div>
 
-      {/* Avatar — aro premium */}
-      <div style={{
-        /* ── Aro de color (ring externo) ── */
-        padding:      3,
-        borderRadius: '50%',
-        background:   grad,
-        marginBottom: 12,
-        flexShrink:   0,
-        boxShadow:    hov
-          ? `0 0 0 2.5px rgba(255,255,255,.95), 0 6px 26px rgba(0,0,0,.16), 0 0 18px rgba(124,58,237,.28)`
-          : `0 0 0 2.5px rgba(255,255,255,.88), 0 4px 16px rgba(0,0,0,.11)`,
-        transition:   'box-shadow .2s cubic-bezier(.4,0,.2,1)',
-        filter:       hov ? 'drop-shadow(0 0 7px rgba(124,58,237,.35))' : 'none',
-      }}>
-        {/* ── Separador blanco (gap) ── */}
-        <div style={{
-          padding:      2,
-          borderRadius: '50%',
-          background:   '#fff',
-          display:      'flex', alignItems:'center', justifyContent:'center',
-        }}>
-          {/* ── Foto / iniciales ── */}
+          {/* Avatar — aro premium */}
           <div style={{
-            width:68, height:68, borderRadius:'50%',
-            background: nino.foto_url && !imgBroken ? 'transparent' : grad,
-            overflow:'hidden',
-            display:'flex', alignItems:'center', justifyContent:'center',
-            fontSize:20, fontWeight:800, color:'#fff',
+            padding:3, borderRadius:'50%', background:grad, marginBottom:9, flexShrink:0,
+            boxShadow: hov
+              ? `0 0 0 2.5px rgba(255,255,255,.95),0 6px 28px rgba(0,0,0,.16),0 0 22px rgba(124,58,237,.3)`
+              : `0 0 0 2.5px rgba(255,255,255,.88),0 4px 18px rgba(0,0,0,.11)`,
+            transition:'box-shadow .2s',
+            filter: hov ? 'drop-shadow(0 0 9px rgba(124,58,237,.38))' : 'none',
           }}>
-            {nino.foto_url && !imgBroken
-              ? <img src={nino.foto_url} alt="" style={{ width:'100%', height:'100%', objectFit:'cover' }}
-                  onError={() => setImgBroken(true)} />
-              : ini
-            }
+            <div style={{ padding:2, borderRadius:'50%', background:'#fff', display:'flex', alignItems:'center', justifyContent:'center' }}>
+              <div style={{ width:84, height:84, borderRadius:'50%', background:nino.foto_url && !imgBroken ? 'transparent' : grad, overflow:'hidden', display:'flex', alignItems:'center', justifyContent:'center', fontSize:24, fontWeight:800, color:'#fff' }}>
+                {nino.foto_url && !imgBroken
+                  ? <img src={nino.foto_url} alt="" style={{ width:'100%', height:'100%', objectFit:'cover' }} onError={() => setImgBroken(true)} />
+                  : ini
+                }
+              </div>
+            </div>
+          </div>
+
+          {/* Nombre */}
+          <div style={{ fontSize:12, fontWeight:700, color:'#111827', textAlign:'center', lineHeight:1.3, marginBottom:2, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', width:'100%' }}>
+            {nino.nombre}{nino.apellido ? ` ${nino.apellido}` : ''}
+          </div>
+
+          {/* Edad */}
+          {nino.edad != null && (
+            <div style={{ fontSize:10, color:'#9ca3af', marginBottom:5 }}>
+              {nino.edad} {nino.edad === 1 ? 'año' : 'años'}
+            </div>
+          )}
+
+          {/* Grupo badge */}
+          {nino.grupo && (
+            <div style={{
+              display:'flex', alignItems:'center', gap:4, padding:'3px 9px', borderRadius:50,
+              background:'linear-gradient(135deg,rgba(59,130,246,.13),rgba(99,102,241,.10))',
+              border:'1px solid rgba(99,102,241,.30)',
+              boxShadow:'0 2px 8px rgba(99,102,241,.12),inset 0 1px 0 rgba(255,255,255,.75)',
+              fontSize:9, fontWeight:700, color:'#4338ca', whiteSpace:'nowrap',
+            }}>
+              <svg width="7" height="7" viewBox="0 0 24 24" fill="#6366f1"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+              {nino.grupo}
+            </div>
+          )}
+
+          {/* Botones de contacto — fijos en la parte inferior */}
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              position:'absolute', bottom:11, left:0, right:0,
+              display:'flex', justifyContent:'center',
+            }}
+          >
+            <ContactButtons nino={nino} />
           </div>
         </div>
-      </div>
 
-      {/* Name */}
-      <div style={{
-        fontSize:13, fontWeight:700, color:'#111827',
-        textAlign:'center', lineHeight:1.3, marginBottom:2,
-        overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap',
-        width:'100%',
-      }}>
-        {nino.nombre}{nino.apellido ? ` ${nino.apellido}` : ''}
-      </div>
+        {/* ══════════════ BACK ══════════════ */}
+        <div
+          onClick={() => setFlipped(false)}
+          style={{
+            position:                 'absolute', top:0, left:0, right:0, bottom:0,
+            backfaceVisibility:       'hidden',
+            WebkitBackfaceVisibility: 'hidden',
+            transform:                'rotateY(180deg)',
+            borderRadius:             20,
+            overflow:                 'hidden',
+            cursor:                   'pointer',
+            display:                  'flex',
+            flexDirection:            'column',
+            border:                   '1px solid rgba(124,58,237,.15)',
+          }}
+        >
+          {/* Header con gradiente */}
+          <div style={{
+            background:  grad,
+            padding:     '11px 12px 9px',
+            display:     'flex', alignItems:'center', gap:10,
+            flexShrink:  0, position:'relative',
+          }}>
+            {/* Botón cerrar */}
+            <div style={{
+              position:'absolute', top:7, right:8,
+              width:20, height:20, borderRadius:'50%',
+              background:'rgba(255,255,255,.22)', border:'1px solid rgba(255,255,255,.32)',
+              display:'flex', alignItems:'center', justifyContent:'center',
+            }}>
+              <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.8" strokeLinecap="round">
+                <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+              </svg>
+            </div>
 
-      {/* Age */}
-      {nino.edad != null && (
-        <div style={{ fontSize:11, color:'#9ca3af', marginBottom:8 }}>
-          {nino.edad} {nino.edad === 1 ? 'año' : 'años'}
+            {/* Foto */}
+            <div style={{
+              width:40, height:40, borderRadius:'50%', flexShrink:0, overflow:'hidden',
+              border:'2.5px solid rgba(255,255,255,.85)',
+              boxShadow:'0 2px 10px rgba(0,0,0,.18)',
+              background:grad, display:'flex', alignItems:'center', justifyContent:'center',
+              fontSize:12, fontWeight:800, color:'#fff',
+            }}>
+              {nino.foto_url && !imgBroken
+                ? <img src={nino.foto_url} alt="" style={{ width:'100%', height:'100%', objectFit:'cover' }} onError={() => setImgBroken(true)} />
+                : ini
+              }
+            </div>
+
+            {/* Nombre + chips */}
+            <div style={{ flex:1, minWidth:0 }}>
+              <div style={{ fontSize:12, fontWeight:800, color:'#fff', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', textShadow:'0 1px 4px rgba(0,0,0,.18)' }}>
+                {nino.nombre}{nino.apellido ? ` ${nino.apellido}` : ''}
+              </div>
+              <div style={{ display:'flex', alignItems:'center', gap:4, marginTop:3, flexWrap:'wrap' }}>
+                {nino.edad != null && (
+                  <span style={{ fontSize:9, fontWeight:700, color:'rgba(255,255,255,.92)', background:'rgba(255,255,255,.2)', border:'1px solid rgba(255,255,255,.3)', padding:'1px 6px', borderRadius:50 }}>
+                    {nino.edad}a
+                  </span>
+                )}
+                {nino.grupo && (
+                  <span style={{ fontSize:9, fontWeight:700, color:'rgba(255,255,255,.95)', background:'rgba(255,255,255,.22)', border:'1px solid rgba(255,255,255,.3)', padding:'1px 7px', borderRadius:50 }}>
+                    {nino.grupo}
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Cuerpo */}
+          <div style={{
+            flex:1, overflowY:'auto',
+            background:'linear-gradient(180deg,rgba(248,246,255,.98),rgba(255,255,255,1))',
+            padding:'9px 12px 10px',
+            display:'flex', flexDirection:'column', gap:7,
+          }}>
+
+            {/* Acudiente */}
+            {(acudiente || telefono) && (
+              <div>
+                <div style={{ fontSize:7.5, fontWeight:800, color:'#c0c8d8', textTransform:'uppercase', letterSpacing:'1.2px', marginBottom:4 }}>Acudiente</div>
+                {acudiente && (
+                  <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:3 }}>
+                    <div style={{ width:15, height:15, borderRadius:'50%', background:'rgba(124,58,237,.1)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                      <svg width="7" height="7" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" strokeWidth="2.5" strokeLinecap="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                    </div>
+                    <span style={{ fontSize:11, color:'#1e1b4b', fontWeight:600, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{acudiente}</span>
+                  </div>
+                )}
+                {telefono && (
+                  <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+                    <div style={{ width:15, height:15, borderRadius:'50%', background:'rgba(16,185,129,.1)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                      <svg width="7" height="7" viewBox="0 0 24 24" fill="none" stroke="#059669" strokeWidth="2.5" strokeLinecap="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.38 2 2 0 0 1 3.6 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 9.91a16 16 0 0 0 6.16 6.16l.91-.91a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+                    </div>
+                    <span style={{ fontSize:11, color:'#065f46', fontWeight:600 }}>{telefono}</span>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Separador */}
+            <div style={{ height:1, background:'rgba(124,58,237,.07)', flexShrink:0 }} />
+
+            {/* Asistencias */}
+            <div>
+              <div style={{ display:'flex', alignItems:'center', gap:5, marginBottom:5 }}>
+                <div style={{ fontSize:7.5, fontWeight:800, color:'#c0c8d8', textTransform:'uppercase', letterSpacing:'1.2px' }}>Asistencias</div>
+                {!loadingAtt && (
+                  <div style={{ background:'linear-gradient(135deg,#0d9488,#0891b2)', borderRadius:50, padding:'1px 6px', fontSize:8, fontWeight:800, color:'#fff', lineHeight:1.5 }}>
+                    {attendance.length}
+                  </div>
+                )}
+              </div>
+
+              {loadingAtt ? (
+                <div style={{ display:'flex', gap:4 }}>
+                  {[1,2,3,4].map(i => (
+                    <div key={i} style={{ height:20, flex:1, borderRadius:8, background:'rgba(0,0,0,.06)', animation:`cardAttPulse 1.3s ease-in-out ${i * 0.12}s infinite` }} />
+                  ))}
+                </div>
+              ) : attendance.length === 0 ? (
+                <div style={{ fontSize:10, color:'#d1d5db', fontStyle:'italic', textAlign:'center', padding:'2px 0' }}>Sin asistencias registradas</div>
+              ) : (
+                <div style={{ display:'flex', flexWrap:'wrap', gap:3 }}>
+                  {attendance.slice(0, 9).map((a: any) => {
+                    const d     = new Date(a.fecha + 'T12:00:00')
+                    const label = d.toLocaleDateString('es-CO', { day:'numeric', month:'short' })
+                    return (
+                      <div key={a.id} style={{
+                        display:'flex', alignItems:'center', gap:3,
+                        padding:'2px 6px', borderRadius:7,
+                        background:'rgba(13,148,136,.09)', border:'1px solid rgba(13,148,136,.22)',
+                        fontSize:9, fontWeight:700, color:'#0f766e',
+                      }}>
+                        <div style={{ width:5, height:5, borderRadius:'50%', background:'#14b8a6', flexShrink:0 }} />
+                        {label}
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* ── Observaciones (ver + editar) ── */}
+            <div style={{ height:1, background:'rgba(124,58,237,.07)', flexShrink:0 }} />
+            <div onClick={e => e.stopPropagation()}>
+              <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:4 }}>
+                <div style={{ fontSize:7.5, fontWeight:800, color:'#c0c8d8', textTransform:'uppercase', letterSpacing:'1.2px' }}>Observaciones</div>
+                {!obsEditing && (
+                  <button
+                    onClick={() => setObsEditing(true)}
+                    style={{
+                      display:'flex', alignItems:'center', gap:3,
+                      border:'none', background:'rgba(124,58,237,.09)',
+                      borderRadius:6, padding:'2px 7px',
+                      fontSize:8, fontWeight:700, color:'#7c3aed',
+                      cursor:'pointer',
+                    }}
+                  >
+                    <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                    </svg>
+                    {obsText ? 'Editar' : 'Agregar'}
+                  </button>
+                )}
+              </div>
+
+              {obsEditing ? (
+                <div>
+                  <textarea
+                    value={obsText}
+                    onChange={e => setObsText(e.target.value)}
+                    autoFocus
+                    placeholder="Escribe una observación…"
+                    style={{
+                      width:'100%', borderRadius:10, outline:'none',
+                      border: obsErr ? '1.5px solid rgba(239,68,68,.5)' : '1.5px solid rgba(124,58,237,.35)',
+                      padding:'6px 9px', fontSize:10, color:'#1e1b4b',
+                      lineHeight:1.5, resize:'none', height:58,
+                      background:'rgba(124,58,237,.03)', fontFamily:'inherit',
+                      boxSizing:'border-box', transition:'border .15s',
+                    } as React.CSSProperties}
+                  />
+                  {obsErr && (
+                    <div style={{ fontSize:9, color:'#ef4444', marginTop:2 }}>{obsErr}</div>
+                  )}
+                  <div style={{ display:'flex', gap:5, marginTop:5, justifyContent:'flex-end' }}>
+                    <button
+                      onClick={() => { setObsEditing(false); setObsText(nino.observaciones ?? ''); setObsErr('') }}
+                      style={{
+                        border:'1px solid rgba(0,0,0,.1)', background:'#f9fafb',
+                        borderRadius:8, padding:'3px 11px',
+                        fontSize:9, fontWeight:600, color:'#6b7280', cursor:'pointer',
+                      }}
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      onClick={handleSaveObs}
+                      disabled={obsSaving}
+                      style={{
+                        border:'none',
+                        background: obsSaving ? 'rgba(124,58,237,.5)' : 'linear-gradient(135deg,#7c3aed,#a78bfa)',
+                        borderRadius:8, padding:'3px 14px',
+                        fontSize:9, fontWeight:700, color:'#fff',
+                        cursor: obsSaving ? 'not-allowed' : 'pointer',
+                        boxShadow:'0 2px 8px rgba(124,58,237,.32)',
+                        display:'flex', alignItems:'center', gap:4,
+                      }}
+                    >
+                      {obsSaving
+                        ? <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" style={{ animation:'spin 0.8s linear infinite' }}><path d="M21 12a9 9 0 1 1-9-9"/></svg>
+                        : <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.8" strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+                      }
+                      {obsSaving ? 'Guardando…' : 'Guardar'}
+                    </button>
+                  </div>
+                </div>
+              ) : obsText ? (
+                <div style={{ fontSize:10, color:'#374151', lineHeight:1.5 }}>{obsText}</div>
+              ) : (
+                <div style={{ fontSize:10, color:'#d1d5db', fontStyle:'italic' }}>Sin observaciones</div>
+              )}
+            </div>
+          </div>
         </div>
-      )}
 
-      {/* Group badge — azul premium */}
-      {nino.grupo && (
-        <div style={{
-          display:     'flex',
-          alignItems:  'center',
-          gap:         5,
-          padding:     '4px 12px',
-          borderRadius: 50,
-          background:  'linear-gradient(135deg,rgba(59,130,246,.13) 0%,rgba(99,102,241,.10) 100%)',
-          border:      '1px solid rgba(99,102,241,.30)',
-          boxShadow:   '0 2px 10px rgba(99,102,241,.14), inset 0 1px 0 rgba(255,255,255,.75)',
-          fontSize:    10,
-          fontWeight:  700,
-          color:       '#4338ca',
-          marginBottom: 8,
-          whiteSpace:  'nowrap',
-          backdropFilter: 'blur(6px)',
-        }}>
-          <svg width="8" height="8" viewBox="0 0 24 24" fill="#6366f1">
-            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
-          </svg>
-          {nino.grupo}
-        </div>
-      )}
-
-      {/* ── Botones de contacto premium ── */}
-      <ContactButtons nino={nino} />
-
+      </div>
     </div>
+  )
+}
+
+/* ── FabButton — botón premium "Agregar niño" (inline en título móvil) ─── */
+function FabButton({ onClick }: { onClick: () => void }) {
+  const [pressed, setPressed] = useState(false)
+
+  return (
+    <button
+      onClick={onClick}
+      onPointerDown={() => setPressed(true)}
+      onPointerUp={() => setPressed(false)}
+      onPointerLeave={() => setPressed(false)}
+      onPointerCancel={() => setPressed(false)}
+      aria-label="Agregar niño"
+      style={{
+        width:          48,
+        height:         48,
+        borderRadius:   '50%',
+        flexShrink:     0,
+        cursor:         'pointer',
+        display:        'flex',
+        alignItems:     'center',
+        justifyContent: 'center',
+        /* Gradiente multicapa con borde luminoso */
+        background: [
+          'linear-gradient(rgba(255,255,255,.22),rgba(255,255,255,0)) padding-box',
+          'linear-gradient(145deg,#c4b5fd 0%,#7c3aed 50%,#5b21b6 100%) border-box',
+        ].join(','),
+        border:          '1.5px solid transparent',
+        backgroundColor: '#7c3aed',
+        /* Sombras premium: glow exterior + profundidad + luz interior */
+        boxShadow: pressed
+          ? '0 2px 6px rgba(124,58,237,.35), inset 0 1px 0 rgba(255,255,255,.12)'
+          : [
+              '0 6px 22px rgba(124,58,237,.52)',
+              '0 2px 8px rgba(0,0,0,.15)',
+              'inset 0 1.5px 0 rgba(255,255,255,.28)',
+              '0 0 0 3.5px rgba(124,58,237,.14)',
+            ].join(','),
+        transform:  pressed ? 'scale(0.89)' : 'scale(1)',
+        transition: 'transform .12s cubic-bezier(.34,1.56,.64,1), box-shadow .16s',
+      } as React.CSSProperties}
+    >
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+        stroke="white" strokeWidth="2.5" strokeLinecap="round"
+        style={{ filter:'drop-shadow(0 1px 3px rgba(0,0,0,.22))' }}
+      >
+        <line x1="12" y1="5" x2="12" y2="19"/>
+        <line x1="5"  y1="12" x2="19" y2="12"/>
+      </svg>
+    </button>
   )
 }
 

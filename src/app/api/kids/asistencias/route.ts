@@ -32,12 +32,15 @@ export async function GET(req: Request) {
 
     if (latest) {
       // Modo "últimas N": sin filtro de fecha, ordenadas por creado_en DESC
-      const limit = Math.min(parseInt(latest) || 20, 100)
-      const res = await supabase
+      const limit  = Math.min(parseInt(latest) || 20, 100)
+      const ninoId = searchParams.get('nino_id')
+      let q = supabase
         .from('kids_asistencias')
         .select(SELECT)
         .order('creado_en', { ascending: false })
         .limit(limit)
+      if (ninoId) q = q.eq('nino_id', ninoId)
+      const res = await q
       data  = res.data
       error = res.error
     } else {

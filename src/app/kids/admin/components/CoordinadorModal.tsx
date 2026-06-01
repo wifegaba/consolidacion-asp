@@ -93,8 +93,11 @@ export default function CoordinadorModal({ coordinador, onClose, onSave }: Props
     if (trimmed.length < 3) return
     setCedulaStatus('checking')
     checkTimerRef.current = setTimeout(async () => {
+      const controller = new AbortController()
+      const timer = setTimeout(() => controller.abort(), 5000) // timeout 5s
       try {
-        const res  = await fetch(`/api/kids/servidores-check?cedula=${encodeURIComponent(trimmed)}`)
+        const res  = await fetch(`/api/kids/servidores-check?cedula=${encodeURIComponent(trimmed)}`, { signal: controller.signal })
+        clearTimeout(timer)
         const json = await res.json()
         if (json.found) {
           setCedulaStatus('found'); setCedulaNombre(json.nombre ?? '')
@@ -104,7 +107,7 @@ export default function CoordinadorModal({ coordinador, onClose, onSave }: Props
           }
         } else if (json.inactivo) { setCedulaStatus('inactive'); setCedulaNombre(json.nombre ?? '') }
         else { setCedulaStatus('not_found') }
-      } catch { setCedulaStatus('idle') }
+      } catch { clearTimeout(timer); setCedulaStatus('not_found') }
     }, 600)
   }
 
@@ -203,12 +206,6 @@ export default function CoordinadorModal({ coordinador, onClose, onSave }: Props
     if (!form.telefono.trim())  errs.telefono      = 'El teléfono es requerido'
     if (!form.grupo_asignado)   errs.grupo_asignado = 'El grupo asignado es requerido'
     if (!form.direccion.trim()) errs.direccion     = 'La dirección es requerida'
-
-    /* Cédula — solo bloquea si está verificando */
-    const cedulaCambio = isEdit && form.cedula.trim() !== originalCedula
-    if ((!isEdit || cedulaCambio) && form.cedula.trim()) {
-      if (cedulaStatus === 'checking') errs.cedula = 'Espera, verificando cédula...'
-    }
 
     if (Object.keys(errs).length > 0) {
       setFieldErrors(errs)

@@ -88,7 +88,7 @@ export async function POST(req: Request) {
           { expiresIn: '8h' },
         );
         console.log(`[LOGIN] ✅ Coordinador Kids (solo): ${coordSolo.nombre} ${coordSolo.apellido}`);
-        const res = NextResponse.json({ redirect: '/kids/coordinador' });
+        const res = NextResponse.json({ redirect: '/kids/ninos' });
         res.cookies.set(coordCookie, tokenCoord, {
           httpOnly: true, secure: isProd, sameSite: 'lax', path: '/', maxAge: 60 * 60 * 8,
         });

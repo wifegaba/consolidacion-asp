@@ -66,7 +66,7 @@ export async function POST(req: NextRequest) {
 
   console.log(`[KIDS COORD PORTAL-LOGIN] ✅ ${coord.nombre} ${coord.apellido} — ${coord.grupo_asignado}`);
 
-  const res = NextResponse.json({ ok: true, redirect: '/kids/coordinador' });
+  const res = NextResponse.json({ ok: true, redirect: '/kids/ninos' });
   res.cookies.set(coordCookie, token, {
     httpOnly: true,
     secure:   isProd,
