@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { loadFaceModels, faceDistance, FACE_MATCH_THRESHOLD } from '@/lib/faceRecognition'
+import { loadFaceModels, faceDistance, detectFacesRobust, FACE_MATCH_THRESHOLD } from '@/lib/faceRecognition'
 import { type KidsNino } from './NinosSection'
 
 /* ── Types ─────────────────────────────────────────────────────────────── */
@@ -210,7 +210,7 @@ export default function AsistenciasSection({
       ctx.scale(-1, 1)
     }
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
-    const dataUrl = canvas.toDataURL('image/jpeg', 0.92)
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.96)
     setCapturedUrl(dataUrl)
 
     // Detener cámara
@@ -242,40 +242,13 @@ export default function AsistenciasSection({
     }
 
     try {
-      const fa = await import('face-api.js')
       setStatusMsg('Analizando rostros…')
 
-      const img = await new Promise<HTMLImageElement>((resolve, reject) => {
-        const el   = new Image()
-        el.onload  = () => resolve(el)
-        el.onerror = reject
-        el.src     = dataUrl
-      })
+      // Detección robusta multi-rostro: mejora de imagen + busca TODAS las caras (hasta 5+)
+      const result = await detectFacesRobust(dataUrl, msg => setStatusMsg(msg), true)
+      const descriptors = result.descriptors
 
-      const opts = new fa.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.35 })
-
-      // 1️⃣ Intentar detectar TODOS los rostros (modo grupal)
-      const multi = await fa
-        .detectAllFaces(img, opts)
-        .withFaceLandmarks()
-        .withFaceDescriptors()
-
-      console.log('[analyzeFace] detectAllFaces:', multi.length, '| niños en BD:', allNinos.length)
-
-      // 2️⃣ Fallback a detectSingleFace si detectAllFaces no encontró nada
-      let descriptors: { descriptor: Float32Array }[] = multi.length > 0
-        ? multi
-        : []
-
-      if (descriptors.length === 0) {
-        setStatusMsg('Reintentando con detección simple…')
-        const single = await fa
-          .detectSingleFace(img, opts)
-          .withFaceLandmarks()
-          .withFaceDescriptor()
-        console.log('[analyzeFace] detectSingleFace fallback:', single ? 'encontrado' : 'no encontrado')
-        if (single) descriptors = [single]
-      }
+      console.log(`[analyzeFace] ${result.detail} | intento #${result.attempt} | mejorada=${result.enhanced} | niños en BD:`, allNinos.length)
 
       if (descriptors.length === 0) {
         setStatusMsg(`Sin rostros detectados (${allNinos.length} niños en BD)`)
@@ -290,17 +263,21 @@ export default function AsistenciasSection({
       const matches: FaceMatch[] = []
 
       for (const det of descriptors) {
-        const desc = Array.from(det.descriptor)
+        const desc = Array.from(det)
         let bestNino: NinoWithDescriptor | null = null
         let bestDist = Infinity
+        let secondDist = Infinity
 
         for (const nino of allNinos) {
           if (usedIds.has(nino.id)) continue
           const d = faceDistance(desc, nino.face_descriptor)
-          if (d < bestDist) { bestDist = d; bestNino = nino }
+          if (d < bestDist) { secondDist = bestDist; bestDist = d; bestNino = nino }
+          else if (d < secondDist) { secondDist = d }
         }
 
-        console.log(`  rostro → mejor: ${bestNino?.nombre ?? '?'} dist=${bestDist.toFixed(3)}`)
+        // Margen: el mejor debe destacar sobre el segundo para evitar confusiones
+        const margin = secondDist - bestDist
+        console.log(`  rostro → ${bestNino?.nombre ?? '?'} dist=${bestDist.toFixed(3)} (2º=${secondDist === Infinity ? '∞' : secondDist.toFixed(3)}, margen=${margin === Infinity ? '∞' : margin.toFixed(3)})`)
 
         if (bestNino && bestDist < FACE_MATCH_THRESHOLD) {
           usedIds.add(bestNino.id)
@@ -355,8 +332,9 @@ export default function AsistenciasSection({
   }
 
   /* ── registrar todos los matches nuevos (grupal) ── */
-  async function handleRegisterAll() {
-    const nuevos = multiMatches.filter(m => !m.already)
+  async function handleRegisterAll(seleccion?: FaceMatch[]) {
+    // Si llega selección explícita, usar esa; si no, todos los nuevos
+    const nuevos = (seleccion ?? multiMatches).filter(m => !m.already)
     if (nuevos.length === 0) return
     setSaving(true)
     setSaveError('')
@@ -820,13 +798,15 @@ export default function AsistenciasSection({
                 </button>
 
                 {/* Modelos status */}
-                <div style={{
-                  width:44, height:44, borderRadius:'50%',
-                  border:`1px solid ${modelsReady ? 'rgba(16,185,129,.3)' : 'rgba(245,158,11,.3)'}`,
-                  background: modelsReady ? 'rgba(16,185,129,.08)' : 'rgba(245,158,11,.08)',
-                  display:'flex', alignItems:'center', justifyContent:'center',
-                  title: modelsReady ? 'IA lista' : 'Cargando IA...',
-                }}>
+                <div
+                  title={modelsReady ? 'IA lista' : 'Cargando IA...'}
+                  style={{
+                    width:44, height:44, borderRadius:'50%',
+                    border:`1px solid ${modelsReady ? 'rgba(16,185,129,.3)' : 'rgba(245,158,11,.3)'}`,
+                    background: modelsReady ? 'rgba(16,185,129,.08)' : 'rgba(245,158,11,.08)',
+                    display:'flex', alignItems:'center', justifyContent:'center',
+                  }}
+                >
                   <div style={{
                     width:10, height:10, borderRadius:'50%',
                     background: modelsReady ? '#10b981' : '#f59e0b',
@@ -870,7 +850,7 @@ export default function AsistenciasSection({
               matches={multiMatches}
               saving={saving}
               saveError={saveError}
-              onRegisterAll={handleRegisterAll}
+              onRegisterSelected={(seleccion) => handleRegisterAll(seleccion)}
               onRegisterOne={(nino) => handleRegister(nino, 'facial')}
               onReset={resetCamera}
             />
@@ -946,20 +926,33 @@ export default function AsistenciasSection({
   )
 }
 
-/* ── MultiMatchPanel — resultado con múltiples rostros ────────────────── */
+/* ── MultiMatchPanel — resultado con múltiples rostros + selección ──────── */
 function MultiMatchPanel({
-  capturedUrl, matches, saving, saveError, onRegisterAll, onRegisterOne, onReset,
+  capturedUrl, matches, saving, saveError, onRegisterSelected, onRegisterOne, onReset,
 }: {
-  capturedUrl:    string
-  matches:        FaceMatch[]
-  saving:         boolean
-  saveError:      string
-  onRegisterAll:  () => void
-  onRegisterOne:  (nino: KidsNino) => void
-  onReset:        () => void
+  capturedUrl:        string
+  matches:            FaceMatch[]
+  saving:             boolean
+  saveError:          string
+  onRegisterSelected: (seleccion: FaceMatch[]) => void
+  onRegisterOne:      (nino: KidsNino) => void
+  onReset:            () => void
 }) {
-  const nuevos   = matches.filter(m => !m.already)
-  const yaReg    = matches.filter(m => m.already)
+  // Set de índices DESCARTADOS por el usuario (la X)
+  const [descartados, setDescartados] = useState<Set<number>>(new Set())
+
+  function toggleDescartado(i: number) {
+    setDescartados(prev => {
+      const next = new Set(prev)
+      if (next.has(i)) next.delete(i)
+      else next.add(i)
+      return next
+    })
+  }
+
+  const yaReg  = matches.filter(m => m.already)
+  // Nuevos = no registrados Y no descartados manualmente
+  const nuevosSeleccionados = matches.filter((m, i) => !m.already && !descartados.has(i))
 
   return (
     <div style={{ flex:1, display:'flex', flexDirection:'column', overflowY:'auto', padding:'16px 16px 24px', gap:14 }}>
@@ -985,72 +978,135 @@ function MultiMatchPanel({
             {matches.length} niño{matches.length > 1 ? 's' : ''} identificado{matches.length > 1 ? 's' : ''}
           </div>
           <div style={{ fontSize:11, color:'#6b7280', marginTop:2 }}>
-            {nuevos.length > 0
-              ? `${nuevos.length} nuevo${nuevos.length > 1 ? 's' : ''} · ${yaReg.length} ya registrado${yaReg.length !== 1 ? 's' : ''}`
-              : 'Todos ya registrados hoy'
+            {matches.length > 1
+              ? 'Confirma ✓ o descarta ✕ cada coincidencia'
+              : nuevosSeleccionados.length > 0 ? 'Listo para registrar' : 'Ya registrado hoy'
             }
           </div>
         </div>
       </div>
 
-      {/* Tarjetas de matches */}
+      {/* Tarjetas de matches con selección */}
       <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
-        {matches.map((m, i) => (
-          <div key={i} style={{
-            display:'flex', alignItems:'center', gap:10,
-            padding:'10px 14px', borderRadius:14,
-            background: m.already ? 'rgba(245,158,11,.06)' : 'rgba(16,185,129,.06)',
-            border: `1.5px solid ${m.already ? 'rgba(245,158,11,.25)' : 'rgba(16,185,129,.25)'}`,
-          }}>
-            {/* Avatar */}
-            <MatchAvatar nino={m.nino} />
+        {matches.map((m, i) => {
+          const isDescartado = descartados.has(i)
+          const confianza = Math.round((1 - m.dist) * 100)
+          const confColor = confianza >= 60 ? '#059669' : confianza >= 45 ? '#d97706' : '#dc2626'
+          return (
+            <div key={i} style={{
+              display:'flex', alignItems:'center', gap:10,
+              padding:'10px 12px', borderRadius:14,
+              opacity: isDescartado ? 0.5 : 1,
+              background: isDescartado
+                ? 'rgba(148,163,184,.08)'
+                : m.already ? 'rgba(245,158,11,.06)' : 'rgba(16,185,129,.06)',
+              border: `1.5px solid ${
+                isDescartado ? 'rgba(148,163,184,.3)'
+                : m.already ? 'rgba(245,158,11,.25)' : 'rgba(16,185,129,.25)'
+              }`,
+              transition:'all .18s',
+            }}>
+              {/* Avatar */}
+              <div style={{ position:'relative', flexShrink:0 }}>
+                <MatchAvatar nino={m.nino} />
+                {isDescartado && (
+                  <div style={{
+                    position:'absolute', inset:0, borderRadius:'50%',
+                    background:'rgba(100,116,139,.55)', display:'flex', alignItems:'center', justifyContent:'center',
+                  }}>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round">
+                      <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                    </svg>
+                  </div>
+                )}
+              </div>
 
-            {/* Info */}
-            <div style={{ flex:1, minWidth:0 }}>
-              <div style={{ fontSize:12, fontWeight:800, color:'#0f172a', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
-                {m.nino.nombre} {m.nino.apellido ?? ''}
+              {/* Info */}
+              <div style={{ flex:1, minWidth:0 }}>
+                <div style={{
+                  fontSize:12, fontWeight:800, color: isDescartado ? '#94a3b8' : '#0f172a',
+                  whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis',
+                  textDecoration: isDescartado ? 'line-through' : 'none',
+                }}>
+                  {m.nino.nombre} {m.nino.apellido ?? ''}
+                </div>
+                <div style={{ fontSize:9, fontWeight:700, color:'#6b7280', marginTop:1 }}>
+                  {m.nino.grupo ?? ''} · <span style={{ color: confColor }}>{confianza}% confianza</span>
+                </div>
               </div>
-              <div style={{ fontSize:9, fontWeight:700, color:'#6b7280', marginTop:1 }}>
-                {m.nino.grupo ?? ''} · {Math.round((1 - m.dist) * 100)}% confianza
-              </div>
+
+              {/* Acciones: ya registrado, o botones ✕ / ✓ */}
+              {m.already ? (
+                <div style={{ fontSize:9, fontWeight:800, color:'#92400e', background:'rgba(245,158,11,.15)',
+                  padding:'3px 9px', borderRadius:50, whiteSpace:'nowrap', flexShrink:0 }}>
+                  Ya registrado
+                </div>
+              ) : (
+                <div style={{ display:'flex', gap:6, flexShrink:0 }}>
+                  {/* ✕ Descartar */}
+                  <button
+                    onClick={() => toggleDescartado(i)}
+                    title={isDescartado ? 'Restaurar' : 'Descartar (no es este niño)'}
+                    style={{
+                      width:34, height:34, borderRadius:'50%', cursor:'pointer',
+                      display:'flex', alignItems:'center', justifyContent:'center',
+                      border: `1.5px solid ${isDescartado ? '#dc2626' : 'rgba(239,68,68,.35)'}`,
+                      background: isDescartado ? '#fee2e2' : 'rgba(255,255,255,.85)',
+                      transition:'all .15s',
+                    }}
+                  >
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#dc2626" strokeWidth="2.6" strokeLinecap="round">
+                      <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                    </svg>
+                  </button>
+                  {/* ✓ Mantener */}
+                  <button
+                    onClick={() => { if (isDescartado) toggleDescartado(i) }}
+                    title="Confirmar coincidencia"
+                    style={{
+                      width:34, height:34, borderRadius:'50%', cursor:'pointer',
+                      display:'flex', alignItems:'center', justifyContent:'center',
+                      border: `1.5px solid ${!isDescartado ? '#059669' : 'rgba(16,185,129,.35)'}`,
+                      background: !isDescartado ? 'linear-gradient(135deg,#10b981,#059669)' : 'rgba(255,255,255,.85)',
+                      transition:'all .15s',
+                    }}
+                  >
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={!isDescartado ? '#fff' : '#059669'} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="20 6 9 17 4 12"/>
+                    </svg>
+                  </button>
+                </div>
+              )}
             </div>
-
-            {/* Estado */}
-            {m.already ? (
-              <div style={{ fontSize:9, fontWeight:800, color:'#92400e', background:'rgba(245,158,11,.15)',
-                padding:'3px 9px', borderRadius:50, whiteSpace:'nowrap', flexShrink:0 }}>
-                Ya registrado
-              </div>
-            ) : (
-              <div style={{ fontSize:9, fontWeight:800, color:'#065f46', background:'rgba(16,185,129,.15)',
-                padding:'3px 9px', borderRadius:50, whiteSpace:'nowrap', flexShrink:0 }}>
-                Nuevo ✓
-              </div>
-            )}
-          </div>
-        ))}
+          )
+        })}
       </div>
 
-      {/* Botón principal */}
-      {nuevos.length > 0 && (
+      {/* Botón principal — registra solo los seleccionados */}
+      {matches.some(m => !m.already) && (
         <button
-          onClick={onRegisterAll}
-          disabled={saving}
+          onClick={() => onRegisterSelected(nuevosSeleccionados)}
+          disabled={saving || nuevosSeleccionados.length === 0}
           style={{
             width:'100%', padding:'14px', borderRadius:50, border:'none',
-            background:'linear-gradient(135deg,#10b981,#059669)',
-            color:'#fff', fontSize:13, fontWeight:800,
-            cursor: saving ? 'not-allowed' : 'pointer',
-            boxShadow:'0 6px 20px rgba(16,185,129,.42)',
+            background: nuevosSeleccionados.length === 0
+              ? '#e5e7eb'
+              : 'linear-gradient(135deg,#10b981,#059669)',
+            color: nuevosSeleccionados.length === 0 ? '#9ca3af' : '#fff',
+            fontSize:13, fontWeight:800,
+            cursor: (saving || nuevosSeleccionados.length === 0) ? 'not-allowed' : 'pointer',
+            boxShadow: nuevosSeleccionados.length === 0 ? 'none' : '0 6px 20px rgba(16,185,129,.42)',
             opacity: saving ? 0.7 : 1, transition:'all .18s',
             letterSpacing:'0.3px',
           }}
         >
           {saving
             ? 'Registrando…'
-            : nuevos.length === 1
-              ? `✅ Registrar a ${nuevos[0].nino.nombre}`
-              : `✅ Registrar ${nuevos.length} niños de una vez`
+            : nuevosSeleccionados.length === 0
+              ? 'Selecciona al menos una coincidencia'
+              : nuevosSeleccionados.length === 1
+                ? `✅ Registrar a ${nuevosSeleccionados[0].nino.nombre}`
+                : `✅ Registrar ${nuevosSeleccionados.length} niños`
           }
         </button>
       )}

@@ -76,6 +76,14 @@ export default function NinosSection({ usuario, logoNavOpen = false }: Props) {
   const [faceDescriptor,   setFaceDescriptor]   = useState<number[] | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
+  /* ── Regenerar IA de todos los niños ── */
+  const [regen, setRegen] = useState<{
+    running: boolean; total: number; done: number;
+    ok: number; notFound: number; error: number;
+    current: string; finished: boolean;
+  }>({ running: false, total: 0, done: 0, ok: 0, notFound: 0, error: 0, current: '', finished: false })
+  const regenCancelRef = useRef(false)
+
   /* ── Responsive ── */
   const [isMobile,        setIsMobile]        = useState(false)
   const [showMobileForm,  setShowMobileForm]  = useState(false)
@@ -303,6 +311,47 @@ export default function NinosSection({ usuario, logoNavOpen = false }: Props) {
     }
   }
 
+  /* ── Regenerar IA de TODOS los niños con foto ── */
+  async function handleRegenerateAllAI() {
+    const targets = ninos.filter(n => n.foto_url)
+    if (targets.length === 0) return
+
+    regenCancelRef.current = false
+    setRegen({ running: true, total: targets.length, done: 0, ok: 0, notFound: 0, error: 0, current: '', finished: false })
+
+    let ok = 0, notFound = 0, error = 0
+    for (let i = 0; i < targets.length; i++) {
+      if (regenCancelRef.current) break
+      const n = targets[i]
+      setRegen(r => ({ ...r, current: `${n.nombre} ${n.apellido ?? ''}`.trim(), done: i }))
+
+      try {
+        const res = await fetch(n.foto_url!)
+        if (!res.ok) { error++; continue }
+        const blob = await res.blob()
+        const file = new File([blob], 'photo.jpg', { type: blob.type || 'image/jpeg' })
+
+        const descriptor = await extractFaceDescriptor(file)
+        if (!descriptor) { notFound++; continue }
+
+        const patch = await fetch(`/api/kids/ninos/${n.id}`, {
+          method:  'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify({ face_descriptor: Array.from(descriptor) }),
+        })
+        const pj = await patch.json()
+        if (!patch.ok || !pj.ok) { error++; continue }
+
+        ok++
+        setNinos(prev => prev.map(x => x.id === n.id ? pj.data : x))
+      } catch { error++ }
+
+      setRegen(r => ({ ...r, ok, notFound, error, done: i + 1 }))
+    }
+
+    setRegen(r => ({ ...r, running: false, finished: true, current: '' }))
+  }
+
   async function handleToggleActive(n: KidsNino) {
     try {
       const res = await fetch(`/api/kids/ninos/${n.id}`, {
@@ -522,6 +571,35 @@ export default function NinosSection({ usuario, logoNavOpen = false }: Props) {
             Listado de niños
           </h2>
           <div style={{ display:'flex', gap:8 }}>
+            {/* Regenerar IA de todos */}
+            <button
+              onClick={handleRegenerateAllAI}
+              disabled={regen.running}
+              title="Regenerar reconocimiento facial de todos los niños"
+              style={{
+                display:'flex', alignItems:'center', gap:6,
+                padding:'8px 14px', borderRadius:50,
+                border:'1px solid transparent',
+                background: regen.running
+                  ? 'rgba(124,58,237,.5)'
+                  : ['linear-gradient(#fff,#fff) padding-box','linear-gradient(135deg,#7c3aed,#a78bfa) border-box'].join(','),
+                color: regen.running ? '#fff' : '#7c3aed',
+                fontSize:12, fontWeight:700,
+                cursor: regen.running ? 'wait' : 'pointer',
+                boxShadow:'0 2px 8px rgba(124,58,237,.18)',
+                transition:'all .15s', whiteSpace:'nowrap',
+              } as React.CSSProperties}
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+                stroke={regen.running ? '#fff' : '#7c3aed'} strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round"
+                style={regen.running ? { animation:'spin 0.9s linear infinite' } : undefined}>
+                {regen.running
+                  ? <><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></>
+                  : <><path d="M12 2a3 3 0 0 0-3 3v1a3 3 0 0 0-2 5.8V13a3 3 0 0 0 3 3 3 3 0 0 0 6 0 3 3 0 0 0 3-3v-1.2A3 3 0 0 0 15 6V5a3 3 0 0 0-3-3z"/></>
+                }
+              </svg>
+              {isMobile ? 'IA' : regen.running ? 'Regenerando…' : 'Regenerar IA'}
+            </button>
             {/* Filter dropdown */}
             <div ref={filterRef} style={{ position:'relative' }}>
               <button
@@ -1079,6 +1157,108 @@ export default function NinosSection({ usuario, logoNavOpen = false }: Props) {
 
       </div>
     </div>
+
+    {/* ── Overlay: Regenerar IA de todos ── */}
+    {(regen.running || regen.finished) && (
+      <div style={{
+        position:'fixed', inset:0, zIndex:200,
+        background:'rgba(15,12,41,.55)', backdropFilter:'blur(4px)',
+        display:'flex', alignItems:'center', justifyContent:'center', padding:20,
+      }}>
+        <div style={{
+          width:'100%', maxWidth:380, background:'#fff', borderRadius:24,
+          padding:'28px 26px', boxShadow:'0 30px 80px rgba(0,0,0,.35)',
+          animation:'ninoCardIn .3s ease both',
+        }}>
+          {/* Ícono */}
+          <div style={{
+            width:64, height:64, borderRadius:20, margin:'0 auto 16px',
+            background: regen.finished
+              ? 'linear-gradient(135deg,#10b981,#34d399)'
+              : 'linear-gradient(135deg,#7c3aed,#a78bfa)',
+            display:'flex', alignItems:'center', justifyContent:'center',
+            boxShadow: regen.finished ? '0 8px 24px rgba(16,185,129,.4)' : '0 8px 24px rgba(124,58,237,.4)',
+          }}>
+            {regen.finished ? (
+              <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
+            ) : (
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" style={{ animation:'spin 0.9s linear infinite' }}>
+                <polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+              </svg>
+            )}
+          </div>
+
+          <h3 style={{ textAlign:'center', fontSize:18, fontWeight:800, color:'#111827', margin:'0 0 4px' }}>
+            {regen.finished ? '¡Regeneración completa!' : 'Regenerando IA…'}
+          </h3>
+          <p style={{ textAlign:'center', fontSize:12, color:'#6b7280', margin:'0 0 18px' }}>
+            {regen.finished
+              ? 'Las huellas faciales fueron actualizadas con el nuevo motor mejorado.'
+              : (regen.current || 'Procesando…')}
+          </p>
+
+          {/* Barra de progreso */}
+          {!regen.finished && (
+            <div style={{ marginBottom:16 }}>
+              <div style={{ display:'flex', justifyContent:'space-between', fontSize:11, fontWeight:700, color:'#7c3aed', marginBottom:6 }}>
+                <span>{regen.done} de {regen.total}</span>
+                <span>{regen.total > 0 ? Math.round((regen.done / regen.total) * 100) : 0}%</span>
+              </div>
+              <div style={{ height:8, borderRadius:50, background:'rgba(124,58,237,.12)', overflow:'hidden' }}>
+                <div style={{
+                  height:'100%', borderRadius:50,
+                  width:`${regen.total > 0 ? (regen.done / regen.total) * 100 : 0}%`,
+                  background:'linear-gradient(90deg,#7c3aed,#a78bfa)',
+                  transition:'width .3s ease',
+                }} />
+              </div>
+            </div>
+          )}
+
+          {/* Resultados */}
+          <div style={{ display:'flex', gap:8, marginBottom: regen.finished ? 18 : 0 }}>
+            {[
+              { label:'Listas',     val: regen.ok,       color:'#10b981', bg:'rgba(16,185,129,.1)' },
+              { label:'Sin rostro', val: regen.notFound, color:'#d97706', bg:'rgba(217,119,6,.1)' },
+              { label:'Errores',    val: regen.error,    color:'#ef4444', bg:'rgba(239,68,68,.1)' },
+            ].map(s => (
+              <div key={s.label} style={{ flex:1, textAlign:'center', background:s.bg, borderRadius:12, padding:'8px 4px' }}>
+                <div style={{ fontSize:20, fontWeight:900, color:s.color, lineHeight:1 }}>{s.val}</div>
+                <div style={{ fontSize:9, fontWeight:700, color:'#6b7280', textTransform:'uppercase', letterSpacing:'.5px', marginTop:3 }}>{s.label}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Botones */}
+          {regen.finished ? (
+            <button
+              onClick={() => setRegen(r => ({ ...r, finished:false }))}
+              style={{
+                width:'100%', padding:'12px', borderRadius:50, border:'none',
+                background:'linear-gradient(135deg,#7c3aed,#a78bfa)', color:'#fff',
+                fontSize:13, fontWeight:700, cursor:'pointer', marginTop:4,
+                boxShadow:'0 8px 24px rgba(124,58,237,.32)',
+              }}
+            >
+              Entendido
+            </button>
+          ) : (
+            <button
+              onClick={() => { regenCancelRef.current = true }}
+              style={{
+                width:'100%', padding:'10px', borderRadius:50,
+                border:'1.5px solid #e5e7eb', background:'transparent',
+                fontSize:12, fontWeight:600, color:'#6b7280', cursor:'pointer', marginTop:16,
+              }}
+            >
+              Detener
+            </button>
+          )}
+        </div>
+      </div>
+    )}
     </>
   )
 }
