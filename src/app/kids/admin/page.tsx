@@ -392,17 +392,18 @@ export default function KidsAdminPage() {
         <aside style={{
           width:         230,
           minWidth:      230,
-          background:    'rgba(255,255,255,.22)',
-          backdropFilter:       'blur(32px) saturate(220%)',
-          WebkitBackdropFilter: 'blur(32px) saturate(220%)',
+          /* ── Sidebar oscuro profesional ── */
+          background:    'linear-gradient(180deg,#0b1929 0%,#0f2236 60%,#0d1e33 100%)',
+          backdropFilter:       'none',
+          WebkitBackdropFilter: 'none',
           display:       'flex',
           flexDirection: 'column',
           padding:       '32px 0',
           borderTop:     '0px solid transparent',
-          borderRight:   '1px solid rgba(255,255,255,.5)',
+          borderRight:   '1px solid rgba(255,255,255,.07)',
           borderBottom:  '0px solid transparent',
           borderLeft:    '0px solid transparent',
-          boxShadow:     'inset 0 1px 0 rgba(255,255,255,.8), 1px 0 0 rgba(255,255,255,.25)',
+          boxShadow:     '2px 0 24px rgba(0,0,0,.32)',
           /* Mobile: slide-in drawer */
           ...(isMobile ? {
             position:   'fixed' as const,
@@ -410,16 +411,13 @@ export default function KidsAdminPage() {
             left:       sidebarOpen ? 0 : -260,
             bottom:     0,
             zIndex:     60,
-            background:           'linear-gradient(160deg,#d4f5ec 0%,#e8e2ff 55%,#d6ecff 100%)',
+            background: 'linear-gradient(180deg,#0b1929 0%,#0f2236 60%,#0d1e33 100%)',
             backdropFilter:       'none',
             WebkitBackdropFilter: 'none',
-            boxShadow:  sidebarOpen ? '8px 0 48px rgba(0,0,0,.2)' : 'none',
+            boxShadow:  sidebarOpen ? '8px 0 40px rgba(0,0,0,.45)' : 'none',
             transition: 'left .25s cubic-bezier(.4,0,.2,1)',
             borderRadius: '0 20px 20px 0',
-            borderTop:    '1px solid rgba(255,255,255,.45)',
-            borderRight:  '1px solid rgba(255,255,255,.45)',
-            borderBottom: '1px solid rgba(255,255,255,.45)',
-            borderLeft:   '1px solid rgba(255,255,255,.45)',
+            borderRight:  '1px solid rgba(255,255,255,.07)',
           } : {}),
         }}>
 
@@ -431,12 +429,12 @@ export default function KidsAdminPage() {
                 onClick={() => setSidebarOpen(false)}
                 style={{
                   position:'absolute', top:0, right:16,
-                  width:34, height:34, borderRadius:9, border:'1px solid #e5e7eb',
-                  background:'#f9fafb', cursor:'pointer',
+                  width:34, height:34, borderRadius:9, border:'1px solid rgba(255,255,255,.12)',
+                  background:'rgba(255,255,255,.08)', cursor:'pointer',
                   display:'flex', alignItems:'center', justifyContent:'center',
                 }}
               >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="2.5">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.7)" strokeWidth="2.5">
                   <path d="M18 6L6 18M6 6l12 12"/>
                 </svg>
               </button>
@@ -460,21 +458,21 @@ export default function KidsAdminPage() {
                     padding:    '9px 11px',
                     borderRadius: 12,
                     cursor:     'pointer',
-                    background:           isActive ? 'rgba(255,255,255,.72)' : 'transparent',
-                    backdropFilter:       isActive ? 'blur(12px)'            : 'none',
-                    WebkitBackdropFilter: isActive ? 'blur(12px)'            : 'none',
+                    background:           isActive ? 'rgba(13,148,136,.18)' : 'transparent',
+                    backdropFilter:       'none',
+                    WebkitBackdropFilter: 'none',
                     boxShadow:  isActive
-                      ? '0 2px 12px rgba(0,0,0,.09), inset 0 1px 0 rgba(255,255,255,.95), 0 0 0 1px rgba(255,255,255,.5)'
+                      ? '0 2px 12px rgba(13,148,136,.2), inset 0 1px 0 rgba(255,255,255,.06)'
                       : 'none',
-                    borderLeft: `3px solid ${isActive ? '#0d9488' : 'transparent'}`,
-                    transition: 'all .2s',
+                    borderLeft: `3px solid ${isActive ? '#14b8a6' : 'transparent'}`,
+                    transition: 'all .18s',
                   }}
                 >
                   <NavIcon section={n.section} active={isActive} />
                   <span style={{
                     fontSize:   13,
-                    fontWeight: isActive ? 700 : 500,
-                    color:      isActive ? '#111827' : '#5a6a80',
+                    fontWeight: isActive ? 700 : 400,
+                    color:      isActive ? '#99f6e4' : 'rgba(255,255,255,.52)',
                   }}>{n.label}</span>
                 </div>
               )
@@ -486,11 +484,11 @@ export default function KidsAdminPage() {
             <div style={{
               padding:              '12px 12px',
               borderRadius:         14,
-              background:           'rgba(255,255,255,.62)',
-              border:               '1px solid rgba(255,255,255,.85)',
-              backdropFilter:       'blur(16px) saturate(180%)',
-              WebkitBackdropFilter: 'blur(16px) saturate(180%)',
-              boxShadow:            '0 4px 16px rgba(0,0,0,.08), inset 0 1px 0 rgba(255,255,255,.95)',
+              background:           'rgba(255,255,255,.07)',
+              border:               '1px solid rgba(255,255,255,.1)',
+              backdropFilter:       'none',
+              WebkitBackdropFilter: 'none',
+              boxShadow:            'inset 0 1px 0 rgba(255,255,255,.06)',
             }}>
               <div style={{ display:'flex', alignItems:'center', gap:10 }}>
                 {/* Avatar */}
@@ -502,10 +500,10 @@ export default function KidsAdminPage() {
                   size={34}
                 />
                 <div style={{ flex:1, minWidth:0 }}>
-                  <div style={{ fontSize:12, fontWeight:700, color:'#111827', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
+                  <div style={{ fontSize:12, fontWeight:700, color:'rgba(255,255,255,.9)', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
                     {usuario.nombre} {usuario.apellido}
                   </div>
-                  <div style={{ fontSize:10, color:'#0d9488', fontWeight:600 }}>Administrador</div>
+                  <div style={{ fontSize:10, color:'#5eead4', fontWeight:600 }}>Administrador</div>
                 </div>
                 {/* Logout */}
                 <button
@@ -518,7 +516,7 @@ export default function KidsAdminPage() {
                     flexShrink:0,
                   }}
                 >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.45)" strokeWidth="2">
                     <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
                     <polyline points="16 17 21 12 16 7"/>
                     <line x1="21" y1="12" x2="9" y2="12"/>
@@ -1407,7 +1405,7 @@ function InfoBlock({ label, value, width }: { label: string; value: string; widt
    AdminCard — Premium credential card
 ══════════════════════════════════════════════════════════════════════════ */
 function AdminCard({
-  a, idx, isDeleting, onEdit, onDelete, compact,
+  a, idx, isDeleting, onEdit, onDelete,
 }: {
   a:          KidsAdmin
   idx:        number
@@ -1416,393 +1414,594 @@ function AdminCard({
   onDelete:   () => void
   compact?:   boolean
 }) {
-  const [broken, setBroken] = useState(false)
-  const [hov, setHov] = useState<string | null>(null)
+  const [flipped,  setFlipped]  = useState(false)
+  const [broken,   setBroken]   = useState(false)
+  const [hov,      setHov]      = useState<string | null>(null)
+  const [cardHov,  setCardHov]  = useState(false)
+
   const showImg = a.foto_url && !broken
   const ini     = `${a.nombre.charAt(0)}${a.apellido.charAt(0)}`.toUpperCase()
-  const grad    = GRADIENTS[idx % GRADIENTS.length]
   const phone   = a.telefono?.replace(/\D/g,'').replace(/^57/,'')
+  const ingreso = a.creado_en ? new Date(a.creado_en).toLocaleDateString('es-CO', { day:'numeric', month:'short', year:'numeric' }) : null
   const h = (id: string) => ({ onMouseEnter: () => setHov(id), onMouseLeave: () => setHov(null) })
 
-  /* ── Tamaños según modo ── */
-  const photoSize  = compact ? 90  : 110
-  const fontSize32 = compact ? 24  : 32
+  /* ── Esmeralda-teal (distinto al azul-índigo de Coordinador) ── */
+  const GRAD_A = 'linear-gradient(145deg,#134e4a 0%,#0d9488 50%,#0891b2 100%)'
 
   return (
-    <div style={{
-      borderRadius:        compact ? 18 : 20,
-      background:          'linear-gradient(145deg,#5eead4 0%,#a78bfa 55%,#7dd3fc 100%)',
-      border:              '1px solid rgba(255,255,255,.55)',
-      boxShadow:           '0 8px 32px rgba(124,58,237,.18), 0 2px 8px rgba(0,0,0,.07), inset 0 1px 0 rgba(255,255,255,.6)',
-      opacity:             isDeleting ? .5 : 1,
-      transition:          'all .2s',
-      display:             'flex',
-      flexDirection:       'column',
-      alignItems:          'center',
-      padding:             compact ? '10px 8px 10px' : '14px 14px 12px',
-    }}>
-
-      {/* Badge ADMINISTRADOR */}
-      <div style={{ display:'flex', alignItems:'center', justifyContent:'center', width:'100%', marginBottom: compact ? 10 : 16 }}>
-        <div style={{ display:'flex', alignItems:'center', gap:4,
-          background:'rgba(255,255,255,.25)', border:'1px solid rgba(255,255,255,.5)',
-          padding: compact ? '4px 8px' : '5px 12px', borderRadius:50,
-        }}>
-          <svg width="10" height="10" viewBox="0 0 24 24" fill="#f59e0b"><path d="M2 20h20v2H2zM3 13l4-8 5 4 5-4 4 8H3z"/></svg>
-          <span style={{ fontSize: compact ? 8 : 9, fontWeight:800, color:'#fff', letterSpacing: compact ? '1px' : '2px', textTransform:'uppercase' }}>
-            {compact ? 'Admin' : 'Administrador'}
-          </span>
-        </div>
-      </div>
-
-      {/* Foto */}
+    <div
+      onMouseEnter={() => { if (!flipped) setCardHov(true) }}
+      onMouseLeave={() => setCardHov(false)}
+      style={{
+        perspective:  '1200px',
+        height:       312,
+        borderRadius: 20,
+        opacity:      isDeleting ? .5 : 1,
+        boxShadow:    flipped
+          ? '0 16px 48px rgba(13,148,136,.5), 0 4px 16px rgba(0,0,0,.18)'
+          : cardHov
+            ? '0 16px 48px rgba(13,148,136,.4), 0 4px 16px rgba(0,0,0,.14)'
+            : '0 8px 32px rgba(13,148,136,.26), 0 2px 8px rgba(0,0,0,.08)',
+        transition:   'box-shadow .25s, opacity .2s',
+      }}
+    >
+      {/* ─── Flipper ─── */}
       <div style={{
-        width:photoSize, height:photoSize, borderRadius:'50%',
-        border:'3px solid rgba(255,255,255,.85)',
-        boxShadow:'0 0 0 3px rgba(245,158,11,.55), 0 8px 24px rgba(0,0,0,.22)',
-        overflow:'hidden', flexShrink:0,
-        background: showImg ? 'transparent' : grad,
-        display:'flex', alignItems:'center', justifyContent:'center',
-        fontSize:fontSize32, fontWeight:800, color:'#fff',
-        marginBottom: compact ? 8 : 10,
+        position:'relative', width:'100%', height:'100%',
+        transformStyle:'preserve-3d',
+        transform: flipped ? 'rotateY(180deg)' : 'rotateY(0deg)',
+        transition:'transform .65s cubic-bezier(.34,1.05,.64,1)',
+        borderRadius:20,
       }}>
-        {showImg
-          ? <img src={a.foto_url!} alt="" style={{ width:'100%', height:'100%', objectFit:'cover' }}
-              onError={() => setBroken(true)} />
-          : ini
-        }
-      </div>
 
-      {/* Nombre + teléfono (compact: phone aquí; desktop: en info rows) */}
-      <div style={{ textAlign:'center', marginBottom: compact ? 8 : 10, width:'100%', paddingInline: compact ? 2 : 0 }}>
-        <div style={{
-          fontSize: compact ? 12 : 14,
-          fontWeight:800, color:'#fff', lineHeight:1.25,
-          textShadow:'0 1px 4px rgba(0,0,0,.2)',
-          overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap',
-        }}>
-          {a.nombre} {a.apellido}
-        </div>
-        <div style={{ fontSize: compact ? 9 : 10, color:'rgba(255,255,255,.7)', fontWeight:500, marginTop:2 }}>
-          Administrador Kids
-        </div>
-        {/* Teléfono bajo el rol — solo en compact */}
-        {compact && a.telefono && (
-          <div style={{
-            fontSize:9, color:'rgba(255,255,255,.85)', fontWeight:600, marginTop:4,
-            display:'flex', alignItems:'center', justifyContent:'center', gap:4,
+        {/* ══════ FRONT ══════ */}
+        <div
+          onClick={() => setFlipped(true)}
+          style={{
+            position:'absolute', top:0, left:0, right:0, bottom:0,
+            backfaceVisibility:'hidden', WebkitBackfaceVisibility:'hidden',
+            borderRadius:20, overflow:'hidden', cursor:'pointer',
+            background: GRAD_A,
+            border:'1px solid rgba(255,255,255,.45)',
+            display:'flex', flexDirection:'column', alignItems:'center',
+            padding:'12px 12px 56px',
+            justifyContent:'center',
+          }}
+        >
+          {/* Badge */}
+          <div style={{ display:'flex', alignItems:'center', gap:5,
+            background:'rgba(255,255,255,.2)', border:'1px solid rgba(255,255,255,.4)',
+            padding:'4px 12px', borderRadius:50, marginBottom:10,
           }}>
-            <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.8)" strokeWidth="2" strokeLinecap="round">
-              <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.38 2 2 0 0 1 3.6 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 9.91a16 16 0 0 0 6.16 6.16l.91-.91a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/>
-            </svg>
-            {a.telefono}
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="#f59e0b"><path d="M2 20h20v2H2zM3 13l4-8 5 4 5-4 4 8H3z"/></svg>
+            <span style={{ fontSize:8, fontWeight:800, color:'#fff', letterSpacing:'2px', textTransform:'uppercase' }}>Administrador</span>
           </div>
-        )}
-      </div>
 
-      {/* Info rows — solo en desktop */}
-      {!compact && (
-        <div style={{ width:'100%', display:'flex', flexDirection:'column', gap:0, marginBottom:10,
-          borderTop:'1px solid rgba(255,255,255,.25)', borderBottom:'1px solid rgba(255,255,255,.25)', padding:'8px 0',
-        }}>
-          <div style={{ display:'flex', alignItems:'center', gap:10, padding:'5px 0' }}>
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.7)" strokeWidth="1.8"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M16 10h2M16 14h2M6 10h1M6 14h1M9 10h1M9 14h1"/></svg>
-            <span style={{ fontSize:11, color:'rgba(255,255,255,.65)', fontWeight:500 }}>CC</span>
-            <span style={{ fontSize:12, fontWeight:700, color:'#fff', marginLeft:'auto' }}>{a.cedula}</span>
+          {/* Foto */}
+          <div style={{
+            width:100, height:100, borderRadius:'50%',
+            border:'3px solid rgba(255,255,255,.85)',
+            boxShadow: cardHov
+              ? '0 0 0 4px rgba(245,158,11,.65), 0 8px 32px rgba(19,78,74,.5)'
+              : '0 0 0 3px rgba(245,158,11,.5),  0 6px 22px rgba(19,78,74,.35)',
+            overflow:'hidden', flexShrink:0,
+            background: showImg ? 'transparent' : GRADIENTS[idx % GRADIENTS.length],
+            display:'flex', alignItems:'center', justifyContent:'center',
+            fontSize:28, fontWeight:800, color:'#fff', marginBottom:10,
+            transition:'box-shadow .25s',
+          }}>
+            {showImg
+              ? <img src={a.foto_url!} alt="" style={{ width:'100%', height:'100%', objectFit:'cover' }} onError={() => setBroken(true)} />
+              : ini
+            }
           </div>
+
+          {/* Nombre */}
+          <div style={{ textAlign:'center', width:'100%', paddingInline:4, marginBottom:0 }}>
+            <div style={{ fontSize:13, fontWeight:800, color:'#fff', lineHeight:1.25,
+              textShadow:'0 1px 4px rgba(0,0,0,.25)',
+              overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+              {a.nombre} {a.apellido}
+            </div>
+            <div style={{ fontSize:9, color:'rgba(255,255,255,.7)', fontWeight:500, marginTop:3 }}>
+              Administrador Kids
+            </div>
+          </div>
+
+          {/* Hint voltear */}
+          <div style={{
+            position:'absolute', bottom:36, left:'50%', transform:'translateX(-50%)',
+            opacity: cardHov ? 0.55 : 0, transition:'opacity .2s',
+            fontSize:8, color:'rgba(255,255,255,.9)', whiteSpace:'nowrap', pointerEvents:'none',
+            display:'flex', alignItems:'center', gap:3,
+          }}>
+            <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+              <polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.74"/>
+            </svg>
+            Ver info
+          </div>
+
+          {/* WA + Call — absoluto inferior */}
           {a.telefono && (
-            <div style={{ display:'flex', alignItems:'center', gap:10, padding:'5px 0', borderTop:'1px solid rgba(255,255,255,.12)' }}>
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.7)" strokeWidth="1.8" strokeLinecap="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.38 2 2 0 0 1 3.6 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 9.91a16 16 0 0 0 6.16 6.16l.91-.91a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
-              <span style={{ fontSize:11, color:'rgba(255,255,255,.65)', fontWeight:500 }}>Tel.</span>
-              <span style={{ fontSize:12, fontWeight:700, color:'#fff', marginLeft:'auto' }}>{a.telefono}</span>
+            <div onClick={e => e.stopPropagation()}
+              style={{ position:'absolute', bottom:12, left:12, right:12, display:'flex', gap:8 }}>
+              <a href={`https://wa.me/57${phone}`} target="_blank" rel="noopener noreferrer"
+                {...h('wa')}
+                style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center',
+                  padding:'8px 0', borderRadius:50, background:'#25D366', textDecoration:'none',
+                  boxShadow: hov==='wa' ? '0 0 18px rgba(37,211,102,.55)' : '0 3px 10px rgba(37,211,102,.35)',
+                  transform: hov==='wa' ? 'scale(1.04)' : 'scale(1)', transition:'all .18s',
+                }}>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="white">
+                  <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/>
+                  <path d="M12 0C5.373 0 0 5.373 0 12c0 2.123.554 4.118 1.528 5.852L.057 23.5l5.797-1.448A11.95 11.95 0 0 0 12 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 22c-1.886 0-3.65-.493-5.183-1.355l-.371-.22-3.441.859.924-3.357-.242-.387A9.96 9.96 0 0 1 2 12C2 6.477 6.477 2 12 2s10 4.477 10 10-4.477 10-10 10z"/>
+                </svg>
+              </a>
+              <a href={`tel:${a.telefono}`} {...h('tel')}
+                style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center',
+                  padding:'8px 0', borderRadius:50,
+                  background:'rgba(255,255,255,.2)', border:'1px solid rgba(255,255,255,.4)',
+                  textDecoration:'none',
+                  boxShadow: hov==='tel' ? '0 0 18px rgba(200,255,240,.4)' : 'none',
+                  transform: hov==='tel' ? 'scale(1.04)' : 'scale(1)', transition:'all .18s',
+                }}>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.2" strokeLinecap="round">
+                  <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.38 2 2 0 0 1 3.6 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 9.91a16 16 0 0 0 6.16 6.16l.91-.91a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/>
+                </svg>
+              </a>
             </div>
           )}
+          {!a.telefono && <div style={{ position:'absolute', bottom:12, left:12, right:12 }} />}
         </div>
-      )}
 
-      {/* WhatsApp + Llamar — solo iconos */}
-      {a.telefono && (
-        <div style={{ display:'flex', gap: compact ? 6 : 8, marginBottom: compact ? 6 : 8, width:'100%' }}>
-          <a href={`https://wa.me/57${phone}`} target="_blank" rel="noopener noreferrer"
-            title="WhatsApp"
-            {...h('wa')}
-            style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center',
-              padding: compact ? '7px 0' : '9px 0', borderRadius:50,
-              background:'#25D366', textDecoration:'none',
-              boxShadow: hov === 'wa' ? '0 0 24px rgba(37,211,102,.52)' : '0 4px 12px rgba(37,211,102,.4)',
-              transform: hov === 'wa' ? 'scale(1.04)' : 'scale(1)',
-              transition:'all .22s cubic-bezier(.4,0,.2,1)',
+        {/* ══════ BACK ══════ */}
+        <div
+          onClick={() => setFlipped(false)}
+          style={{
+            position:'absolute', top:0, left:0, right:0, bottom:0,
+            backfaceVisibility:'hidden', WebkitBackfaceVisibility:'hidden',
+            transform:'rotateY(180deg)', borderRadius:20, overflow:'hidden',
+            cursor:'pointer', display:'flex', flexDirection:'column',
+            border:'1px solid rgba(13,148,136,.25)',
+          }}
+        >
+          {/* Header */}
+          <div style={{
+            background: GRAD_A, padding:'12px 12px 10px',
+            display:'flex', alignItems:'center', gap:10,
+            flexShrink:0, position:'relative',
+          }}>
+            <div style={{
+              position:'absolute', top:8, right:8,
+              width:20, height:20, borderRadius:'50%',
+              background:'rgba(255,255,255,.22)', border:'1px solid rgba(255,255,255,.3)',
+              display:'flex', alignItems:'center', justifyContent:'center',
             }}>
-            <svg width={compact ? 15 : 16} height={compact ? 15 : 16} viewBox="0 0 24 24" fill="white">
-              <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/>
-              <path d="M12 0C5.373 0 0 5.373 0 12c0 2.123.554 4.118 1.528 5.852L.057 23.5l5.797-1.448A11.95 11.95 0 0 0 12 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 22c-1.886 0-3.65-.493-5.183-1.355l-.371-.22-3.441.859.924-3.357-.242-.387A9.96 9.96 0 0 1 2 12C2 6.477 6.477 2 12 2s10 4.477 10 10-4.477 10-10 10z"/>
-            </svg>
-          </a>
-          <a href={`tel:${a.telefono}`}
-            title="Llamar"
-            {...h('tel')}
-            style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center',
-              padding: compact ? '7px 0' : '9px 0', borderRadius:50,
-              background:'rgba(255,255,255,.22)', border:'1px solid rgba(255,255,255,.45)',
-              textDecoration:'none',
-              boxShadow: hov === 'tel' ? '0 0 22px rgba(200,210,255,.55)' : 'none',
-              transform: hov === 'tel' ? 'scale(1.04)' : 'scale(1)',
-              transition:'all .22s cubic-bezier(.4,0,.2,1)',
+              <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.8" strokeLinecap="round">
+                <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+              </svg>
+            </div>
+            <div style={{
+              width:44, height:44, borderRadius:'50%', flexShrink:0, overflow:'hidden',
+              border:'2.5px solid rgba(255,255,255,.85)',
+              boxShadow:'0 2px 10px rgba(0,0,0,.18)',
+              background: GRADIENTS[idx % GRADIENTS.length],
+              display:'flex', alignItems:'center', justifyContent:'center',
+              fontSize:13, fontWeight:800, color:'#fff',
             }}>
-            <svg width={compact ? 15 : 16} height={compact ? 15 : 16} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.2" strokeLinecap="round">
-              <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.38 2 2 0 0 1 3.6 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 9.91a16 16 0 0 0 6.16 6.16l.91-.91a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/>
-            </svg>
-          </a>
+              {showImg
+                ? <img src={a.foto_url!} alt="" style={{ width:'100%', height:'100%', objectFit:'cover' }} onError={() => setBroken(true)} />
+                : ini
+              }
+            </div>
+            <div style={{ flex:1, minWidth:0 }}>
+              <div style={{ fontSize:12, fontWeight:800, color:'#fff', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', textShadow:'0 1px 4px rgba(0,0,0,.18)' }}>
+                {a.nombre} {a.apellido}
+              </div>
+              <span style={{ fontSize:9, fontWeight:700, color:'rgba(255,255,255,.9)', background:'rgba(255,255,255,.2)', border:'1px solid rgba(255,255,255,.3)', padding:'1px 7px', borderRadius:50, marginTop:3, display:'inline-block' }}>
+                Administrador
+              </span>
+            </div>
+          </div>
+
+          {/* Cuerpo premium macOS — tonos teal */}
+          <div style={{
+            flex:1, overflow:'hidden',
+            background:[
+              'repeating-linear-gradient(180deg,rgba(13,148,136,.028) 0px,rgba(13,148,136,.028) 1px,transparent 1px,transparent 44px)',
+              'linear-gradient(160deg,rgba(236,253,245,.97) 0%,rgba(204,251,241,.95) 50%,rgba(224,247,250,.97) 100%)',
+            ].join(','),
+            backdropFilter:'blur(20px)',
+            WebkitBackdropFilter:'blur(20px)',
+            padding:'8px 12px 10px',
+            display:'flex', flexDirection:'column',
+          } as React.CSSProperties}>
+
+            <div style={{ flex:1, display:'flex', flexDirection:'column', justifyContent:'center', gap:0 }}>
+              {[
+                { icon:'cc',   label:'CC',      val: a.cedula },
+                a.telefono ? { icon:'tel', label:'Tel.',  val: a.telefono } : null,
+                ingreso    ? { icon:'cal', label:'Desde', val: ingreso }    : null,
+              ].filter(Boolean).map((row, i, arr) => (
+                <div key={i} style={{
+                  display:'flex', alignItems:'center', gap:9, padding:'7px 8px',
+                  borderRadius: i===0 ? '10px 10px 0 0' : i===arr.length-1 ? '0 0 10px 10px' : '0',
+                  background:'rgba(255,255,255,.65)',
+                  borderBottom: i < arr.length-1 ? '1px solid rgba(13,148,136,.08)' : 'none',
+                  boxShadow: i===0 ? 'inset 0 1px 0 rgba(255,255,255,.9)' : 'none',
+                }}>
+                  <div style={{
+                    width:28, height:28, borderRadius:'50%', flexShrink:0,
+                    background:'linear-gradient(135deg,rgba(13,148,136,.18),rgba(8,145,178,.14))',
+                    border:'1px solid rgba(13,148,136,.18)',
+                    display:'flex', alignItems:'center', justifyContent:'center',
+                    boxShadow:'0 1px 4px rgba(13,148,136,.1)',
+                  }}>
+                    {row!.icon === 'cc'  && <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#0d9488" strokeWidth="2"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M16 10h2M16 14h2M6 10h1M6 14h1M9 10h1M9 14h1"/></svg>}
+                    {row!.icon === 'tel' && <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#0d9488" strokeWidth="2" strokeLinecap="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.38 2 2 0 0 1 3.6 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 9.91a16 16 0 0 0 6.16 6.16l.91-.91a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>}
+                    {row!.icon === 'cal' && <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#0d9488" strokeWidth="2" strokeLinecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>}
+                  </div>
+                  <span style={{ fontSize:9.5, color:'#0d9488', fontWeight:700, width:32, flexShrink:0, letterSpacing:'.3px' }}>
+                    {row!.label}
+                  </span>
+                  <span style={{ fontSize:11.5, color:'#1e1b4b', fontWeight:700, flex:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                    {row!.val}
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            {/* Separador */}
+            <div style={{ height:1, margin:'8px 0 7px', background:'linear-gradient(90deg,transparent,rgba(13,148,136,.22),transparent)' }} />
+
+            {/* Botones */}
+            <div style={{ display:'flex', gap:5 }} onClick={e => e.stopPropagation()}>
+              <button onClick={onEdit} style={{
+                flex:2, height:32, borderRadius:50, border:'none', cursor:'pointer',
+                background:'linear-gradient(135deg,#0d9488,#0891b2)',
+                color:'#fff', fontSize:10, fontWeight:800,
+                boxShadow:'0 3px 12px rgba(13,148,136,.42), inset 0 1px 0 rgba(255,255,255,.2)',
+              }}>
+                Editar
+              </button>
+              <button onClick={() => { if (!isDeleting) onDelete() }} disabled={isDeleting} style={{
+                flex:1, height:32, borderRadius:50, cursor: isDeleting ? 'not-allowed' : 'pointer',
+                border:'1px solid rgba(244,63,94,.28)', background:'rgba(255,255,255,.8)',
+                color:'#f43f5e', fontSize:10, fontWeight:700,
+              }}>
+                Eliminar
+              </button>
+            </div>
+          </div>
         </div>
-      )}
 
-      {/* Edit + Delete */}
-      <div style={{ display:'flex', gap: compact ? 5 : 8, width:'100%' }}>
-        <button onClick={onEdit} {...h('edit')} style={{
-          flex:1, padding: compact ? '6px 0' : '8px 0', borderRadius:50, cursor:'pointer',
-          background:'rgba(255,255,255,.25)', border:'1px solid rgba(255,255,255,.5)',
-          color:'#fff', fontSize: compact ? 10 : 11, fontWeight:700,
-          boxShadow: hov === 'edit'
-            ? '0 0 22px rgba(255,255,255,.52), inset 0 1px 0 rgba(255,255,255,.4)'
-            : 'inset 0 1px 0 rgba(255,255,255,.4)',
-          transform:  hov === 'edit' ? 'scale(1.03)' : 'scale(1)',
-          transition: 'all .22s cubic-bezier(.4,0,.2,1)',
-        }}>Editar</button>
-        <button onClick={() => !isDeleting && onDelete()} disabled={isDeleting} {...h('del')} style={{
-          width: compact ? 30 : 36, height: compact ? 30 : 36, borderRadius:50,
-          border:'1px solid rgba(255,100,100,.5)',
-          background: hov === 'del' ? 'rgba(244,63,94,.32)' : 'rgba(244,63,94,.2)',
-          cursor: isDeleting ? 'not-allowed' : 'pointer',
-          display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0,
-          boxShadow: hov === 'del' && !isDeleting ? '0 0 20px rgba(244,63,94,.45)' : 'none',
-          transform: hov === 'del' && !isDeleting ? 'scale(1.1)' : 'scale(1)',
-          transition:'all .22s cubic-bezier(.4,0,.2,1)',
-        }}>
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fca5a5" strokeWidth="2.2" strokeLinecap="round">
-            <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/>
-            <path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/>
-          </svg>
-        </button>
       </div>
     </div>
   )
 }
 
-/* ── CoordinadorCard gradient — rosa-violeta cálida ─────────────────────── */
-
+/* ── CoordinadorCard — flip premium ─────────────────────────────────────── */
 function CoordinadorCard({
-  c, isDeleting, onEdit, onDelete, onViewMaestros, compact,
+  c, isDeleting, onEdit, onDelete, onViewMaestros,
 }: {
-  c:               KidsCoordinador
-  idx:             number
-  isDeleting:      boolean
-  onEdit:          () => void
-  onDelete:        () => void
-  onViewMaestros:  () => void
-  compact?:        boolean
+  c:              KidsCoordinador
+  idx:            number
+  isDeleting:     boolean
+  onEdit:         () => void
+  onDelete:       () => void
+  onViewMaestros: () => void
+  compact?:       boolean
 }) {
-  const [broken, setBroken]   = useState(false)
-  const [hov, setHov]         = useState<string | null>(null)
-  const [cardHov, setCardHov] = useState(false)
+  const [flipped,  setFlipped]  = useState(false)
+  const [broken,   setBroken]   = useState(false)
+  const [hov,      setHov]      = useState<string | null>(null)
+  const [cardHov,  setCardHov]  = useState(false)
+
   const showImg = c.foto_url && !broken
   const ini     = `${c.nombre.charAt(0)}${c.apellido.charAt(0)}`.toUpperCase()
   const phone   = c.telefono?.replace(/\D/g,'').replace(/^57/,'')
   const h = (id: string) => ({ onMouseEnter: () => setHov(id), onMouseLeave: () => setHov(null) })
 
+  const GRAD = 'linear-gradient(145deg,#1e3a8a 0%,#4338ca 50%,#6d28d9 100%)'
+
   return (
     <div
-      onClick={onViewMaestros}
-      onMouseEnter={() => setCardHov(true)}
+      onMouseEnter={() => { if (!flipped) setCardHov(true) }}
       onMouseLeave={() => setCardHov(false)}
       style={{
-        borderRadius:        compact ? 18 : 20,
-        background:          'linear-gradient(145deg,#f9a8d4 0%,#c084fc 52%,#818cf8 100%)',
-        border:              '1px solid rgba(255,255,255,.55)',
-        boxShadow:           cardHov
-          ? '0 16px 48px rgba(192,132,252,.45), 0 4px 16px rgba(0,0,0,.12), inset 0 1px 0 rgba(255,255,255,.7)'
-          : '0 8px 32px rgba(192,132,252,.22), 0 2px 8px rgba(0,0,0,.07), inset 0 1px 0 rgba(255,255,255,.6)',
-        opacity:             isDeleting ? .5 : 1,
-        transform:           cardHov ? 'translateY(-3px) scale(1.012)' : 'translateY(0) scale(1)',
-        transition:          'all .25s cubic-bezier(.4,0,.2,1)',
-        display:             'flex',
-        flexDirection:       'column',
-        alignItems:          'center',
-        padding:             compact ? '10px 8px 10px' : '14px 14px 12px',
-        cursor:              'pointer',
+        perspective: '1200px',
+        height:      312,
+        borderRadius: 20,
+        opacity:     isDeleting ? .5 : 1,
+        boxShadow:   flipped
+          ? '0 16px 48px rgba(67,56,202,.52), 0 4px 16px rgba(0,0,0,.18)'
+          : cardHov
+            ? '0 16px 48px rgba(67,56,202,.45), 0 4px 16px rgba(0,0,0,.14)'
+            : '0 8px 32px rgba(67,56,202,.28), 0 2px 8px rgba(0,0,0,.09)',
+        transition:  'box-shadow .25s, opacity .2s',
       }}
     >
-
-      {/* Badge COORDINADORA */}
-      <div style={{ display:'flex', alignItems:'center', justifyContent:'center', width:'100%', marginBottom: compact ? 8 : 12 }}>
-        <div style={{ display:'flex', alignItems:'center', gap: compact ? 4 : 6,
-          background:'rgba(255,255,255,.25)', border:'1px solid rgba(255,255,255,.5)',
-          padding: compact ? '4px 8px' : '5px 12px', borderRadius:50,
-        }}>
-          <svg width={compact ? 9 : 11} height={compact ? 9 : 11} viewBox="0 0 24 24" fill="#fbbf24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
-          <span style={{ fontSize: compact ? 8 : 9, fontWeight:800, color:'#fff', letterSpacing: compact ? '1px' : '2px', textTransform:'uppercase' }}>
-            {compact ? 'Coord' : 'Coordinadora'}
-          </span>
-        </div>
-      </div>
-
-      {/* Foto */}
+      {/* ─── Flipper ─── */}
       <div style={{
-        width: compact ? 90 : 110, height: compact ? 90 : 110, borderRadius:'50%',
-        border:'3px solid rgba(255,255,255,.85)',
-        boxShadow:'0 0 0 3px rgba(251,191,36,.5), 0 8px 24px rgba(0,0,0,.22)',
-        overflow:'hidden', flexShrink:0,
-        background: showImg ? 'transparent' : 'linear-gradient(135deg,#f472b6,#c084fc)',
-        display:'flex', alignItems:'center', justifyContent:'center',
-        fontSize: compact ? 24 : 32, fontWeight:800, color:'#fff',
-        marginBottom: compact ? 8 : 10,
+        position:       'relative', width:'100%', height:'100%',
+        transformStyle: 'preserve-3d',
+        transform:      flipped ? 'rotateY(180deg)' : 'rotateY(0deg)',
+        transition:     'transform .65s cubic-bezier(.34,1.05,.64,1)',
+        borderRadius:   20,
       }}>
-        {showImg
-          ? <img src={c.foto_url!} alt="" style={{ width:'100%', height:'100%', objectFit:'cover' }}
-              onError={() => setBroken(true)} />
-          : ini
-        }
-      </div>
 
-      {/* Nombre */}
-      <div style={{ textAlign:'center', marginBottom: compact ? 6 : 8, width:'100%', paddingInline: compact ? 2 : 0 }}>
-        <div style={{
-          fontSize: compact ? 12 : 14, fontWeight:800, color:'#fff', lineHeight:1.25,
-          textShadow:'0 1px 4px rgba(0,0,0,.2)',
-          overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap',
-        }}>
-          {c.nombre} {c.apellido}
-        </div>
-        <div style={{ fontSize: compact ? 9 : 10, color:'rgba(255,255,255,.7)', fontWeight:500, marginTop: compact ? 2 : 3 }}>
-          Coordinadora Kids
-        </div>
-      </div>
-
-      {/* Grupo badge */}
-      {c.grupo_asignado && (
-        <div style={{
-          background:'rgba(255,255,255,.25)', border:'1px solid rgba(255,255,255,.45)',
-          color:'#fff', padding: compact ? '2px 10px' : '3px 14px', borderRadius:50,
-          fontSize: compact ? 9 : 10, fontWeight:800, marginBottom: compact ? 6 : 10, letterSpacing:'0.5px',
-          maxWidth:'100%', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap',
-        }}>
-          {c.grupo_asignado}
-        </div>
-      )}
-
-      {/* Info rows — solo desktop */}
-      {!compact && (
-        <div style={{ width:'100%', display:'flex', flexDirection:'column', gap:0, marginBottom:10,
-          borderTop:'1px solid rgba(255,255,255,.25)', borderBottom:'1px solid rgba(255,255,255,.25)', padding:'8px 0',
-        }}>
-          <div style={{ display:'flex', alignItems:'center', gap:10, padding:'4px 0' }}>
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.7)" strokeWidth="1.8"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M16 10h2M16 14h2M6 10h1M6 14h1M9 10h1M9 14h1"/></svg>
-            <span style={{ fontSize:11, color:'rgba(255,255,255,.65)', fontWeight:500 }}>CC</span>
-            <span style={{ fontSize:12, fontWeight:700, color:'#fff', marginLeft:'auto' }}>{c.cedula}</span>
-          </div>
-          {c.telefono && (
-            <div style={{ display:'flex', alignItems:'center', gap:10, padding:'4px 0', borderTop:'1px solid rgba(255,255,255,.12)' }}>
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.7)" strokeWidth="1.8" strokeLinecap="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.38 2 2 0 0 1 3.6 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 9.91a16 16 0 0 0 6.16 6.16l.91-.91a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
-              <span style={{ fontSize:11, color:'rgba(255,255,255,.65)', fontWeight:500 }}>Tel.</span>
-              <span style={{ fontSize:12, fontWeight:700, color:'#fff', marginLeft:'auto' }}>{c.telefono}</span>
-            </div>
-          )}
-          {(c.edad ?? 0) > 0 && (
-            <div style={{ display:'flex', alignItems:'center', gap:10, padding:'4px 0', borderTop:'1px solid rgba(255,255,255,.12)' }}>
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.7)" strokeWidth="1.8"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
-              <span style={{ fontSize:11, color:'rgba(255,255,255,.65)', fontWeight:500 }}>Edad</span>
-              <span style={{ fontSize:12, fontWeight:700, color:'#fff', marginLeft:'auto' }}>{c.edad} años</span>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Hint: toca para ver maestros — solo desktop */}
-      {!compact && (
-        <div style={{
-          fontSize:9, color:'rgba(255,255,255,.5)', fontWeight:600,
-          letterSpacing:'1.5px', textTransform:'uppercase', marginBottom:10,
-          display:'flex', alignItems:'center', gap:5,
-        }}>
-          <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.45)" strokeWidth="2.5">
-            <polygon points="12 2 2 7 12 12 22 7 12 2"/>
-            <path d="M20 10v4a8 8 0 0 1-16 0v-4"/>
-          </svg>
-          Toca para ver maestros
-        </div>
-      )}
-
-      {/* WhatsApp + Llamar — solo iconos */}
-      {c.telefono && (
-        <div style={{ display:'flex', gap: compact ? 6 : 8, marginBottom: compact ? 6 : 8, width:'100%' }}>
-          <a href={`https://wa.me/57${phone}`} target="_blank" rel="noopener noreferrer"
-            title="WhatsApp"
-            onClick={e => e.stopPropagation()}
-            {...h('wa')}
-            style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center',
-              padding: compact ? '7px 0' : '9px 0', borderRadius:50,
-              background:'#25D366', textDecoration:'none',
-              boxShadow:  hov === 'wa' ? '0 0 22px rgba(37,211,102,.52), 0 6px 18px rgba(37,211,102,.38)' : '0 4px 12px rgba(37,211,102,.35)',
-              transform:  hov === 'wa' ? 'scale(1.04)' : 'scale(1)',
-              transition: 'all .22s cubic-bezier(.4,0,.2,1)',
-            }}>
-            <svg width={compact ? 15 : 16} height={compact ? 15 : 16} viewBox="0 0 24 24" fill="white">
-              <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/>
-              <path d="M12 0C5.373 0 0 5.373 0 12c0 2.123.554 4.118 1.528 5.852L.057 23.5l5.797-1.448A11.95 11.95 0 0 0 12 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 22c-1.886 0-3.65-.493-5.183-1.355l-.371-.22-3.441.859.924-3.357-.242-.387A9.96 9.96 0 0 1 2 12C2 6.477 6.477 2 12 2s10 4.477 10 10-4.477 10-10 10z"/>
-            </svg>
-          </a>
-          <a href={`tel:${c.telefono}`}
-            title="Llamar"
-            onClick={e => e.stopPropagation()}
-            {...h('tel')}
-            style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center',
-              padding: compact ? '7px 0' : '9px 0', borderRadius:50,
-              background:'rgba(255,255,255,.22)', border:'1px solid rgba(255,255,255,.45)',
-              textDecoration:'none',
-              boxShadow:  hov === 'tel' ? '0 0 22px rgba(255,200,240,.55), 0 6px 16px rgba(200,180,255,.35)' : 'none',
-              transform:  hov === 'tel' ? 'scale(1.04)' : 'scale(1)',
-              transition: 'all .22s cubic-bezier(.4,0,.2,1)',
-            }}>
-            <svg width={compact ? 15 : 16} height={compact ? 15 : 16} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.2" strokeLinecap="round">
-              <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.38 2 2 0 0 1 3.6 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 9.91a16 16 0 0 0 6.16 6.16l.91-.91a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/>
-            </svg>
-          </a>
-        </div>
-      )}
-
-      {/* Edit + Delete */}
-      <div style={{ display:'flex', gap: compact ? 5 : 8, width:'100%' }}>
-        <button
-          onClick={e => { e.stopPropagation(); onEdit() }}
-          {...h('edit')}
+        {/* ══════════ FRONT ══════════ */}
+        <div
+          onClick={() => setFlipped(true)}
           style={{
-            flex:1, padding: compact ? '6px 0' : '8px 0', borderRadius:50, cursor:'pointer',
+            position:'absolute', top:0, left:0, right:0, bottom:0,
+            backfaceVisibility:'hidden', WebkitBackfaceVisibility:'hidden',
+            borderRadius:20, overflow:'hidden', cursor:'pointer',
+            background: GRAD,
+            border:'1px solid rgba(255,255,255,.55)',
+            display:'flex', flexDirection:'column', alignItems:'center',
+            padding:'12px 12px 56px',
+            justifyContent:'center',
+          }}
+        >
+          {/* Badge */}
+          <div style={{ display:'flex', alignItems:'center', gap:5,
             background:'rgba(255,255,255,.25)', border:'1px solid rgba(255,255,255,.5)',
-            color:'#fff', fontSize: compact ? 10 : 11, fontWeight:700,
-            boxShadow:  hov === 'edit'
-              ? '0 0 22px rgba(255,255,255,.52), inset 0 1px 0 rgba(255,255,255,.4)'
-              : 'inset 0 1px 0 rgba(255,255,255,.4)',
-            transform:  hov === 'edit' ? 'scale(1.03)' : 'scale(1)',
-            transition: 'all .22s cubic-bezier(.4,0,.2,1)',
-          }}>Editar</button>
-        <button
-          onClick={e => { e.stopPropagation(); if (!isDeleting) onDelete() }}
-          disabled={isDeleting}
-          {...h('del')}
-          style={{
-            width: compact ? 30 : 36, height: compact ? 30 : 36, borderRadius:50,
-            border:'1px solid rgba(255,100,100,.5)',
-            background: hov === 'del' ? 'rgba(244,63,94,.32)' : 'rgba(244,63,94,.2)',
-            cursor: isDeleting ? 'not-allowed' : 'pointer',
-            display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0,
-            boxShadow:  hov === 'del' && !isDeleting ? '0 0 20px rgba(244,63,94,.45), 0 4px 12px rgba(244,63,94,.28)' : 'none',
-            transform:  hov === 'del' && !isDeleting ? 'scale(1.1)' : 'scale(1)',
-            transition: 'all .22s cubic-bezier(.4,0,.2,1)',
+            padding:'4px 12px', borderRadius:50, marginBottom:10,
           }}>
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fca5a5" strokeWidth="2.2" strokeLinecap="round">
-            <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/>
-            <path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/>
-          </svg>
-        </button>
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="#fbbf24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+            <span style={{ fontSize:8, fontWeight:800, color:'#fff', letterSpacing:'2px', textTransform:'uppercase' }}>Coordinadora</span>
+          </div>
+
+          {/* Foto */}
+          <div style={{
+            width:100, height:100, borderRadius:'50%',
+            border:'3px solid rgba(255,255,255,.85)',
+            boxShadow: cardHov
+              ? '0 0 0 4px rgba(251,191,36,.65), 0 8px 32px rgba(30,58,138,.45)'
+              : '0 0 0 3px rgba(251,191,36,.5),  0 6px 22px rgba(30,58,138,.32)',
+            overflow:'hidden', flexShrink:0,
+            background: showImg ? 'transparent' : 'linear-gradient(135deg,#1e3a8a,#4338ca)',
+            display:'flex', alignItems:'center', justifyContent:'center',
+            fontSize:28, fontWeight:800, color:'#fff', marginBottom:10,
+            transition:'box-shadow .25s',
+          }}>
+            {showImg
+              ? <img src={c.foto_url!} alt="" style={{ width:'100%', height:'100%', objectFit:'cover' }} onError={() => setBroken(true)} />
+              : ini
+            }
+          </div>
+
+          {/* Nombre */}
+          <div style={{ textAlign:'center', width:'100%', paddingInline:4, marginBottom:8 }}>
+            <div style={{ fontSize:13, fontWeight:800, color:'#fff', lineHeight:1.25,
+              textShadow:'0 1px 4px rgba(0,0,0,.2)',
+              overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+              {c.nombre} {c.apellido}
+            </div>
+            <div style={{ fontSize:9, color:'rgba(255,255,255,.7)', fontWeight:500, marginTop:3 }}>
+              Coordinadora Kids
+            </div>
+          </div>
+
+          {/* Grupo */}
+          {c.grupo_asignado && (
+            <div style={{
+              background:'rgba(255,255,255,.25)', border:'1px solid rgba(255,255,255,.45)',
+              color:'#fff', padding:'3px 14px', borderRadius:50,
+              fontSize:10, fontWeight:800, letterSpacing:'.5px',
+              maxWidth:'90%', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap',
+            }}>
+              {c.grupo_asignado}
+            </div>
+          )}
+
+          {/* Hint voltear */}
+          <div style={{
+            position:'absolute', bottom:36, left:'50%', transform:'translateX(-50%)',
+            opacity: cardHov ? 0.55 : 0, transition:'opacity .2s',
+            fontSize:8, color:'rgba(255,255,255,.9)', whiteSpace:'nowrap', pointerEvents:'none',
+            display:'flex', alignItems:'center', gap:3,
+          }}>
+            <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+              <polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.74"/>
+            </svg>
+            Ver info
+          </div>
+
+          {/* WA + Call — absoluto inferior */}
+          {c.telefono && (
+            <div
+              onClick={e => e.stopPropagation()}
+              style={{ position:'absolute', bottom:12, left:12, right:12, display:'flex', gap:8 }}
+            >
+              <a href={`https://wa.me/57${phone}`} target="_blank" rel="noopener noreferrer"
+                {...h('wa')}
+                style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center',
+                  padding:'8px 0', borderRadius:50, background:'#25D366', textDecoration:'none',
+                  boxShadow: hov==='wa' ? '0 0 18px rgba(37,211,102,.55)' : '0 3px 10px rgba(37,211,102,.35)',
+                  transform: hov==='wa' ? 'scale(1.04)' : 'scale(1)', transition:'all .18s',
+                }}>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="white">
+                  <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/>
+                  <path d="M12 0C5.373 0 0 5.373 0 12c0 2.123.554 4.118 1.528 5.852L.057 23.5l5.797-1.448A11.95 11.95 0 0 0 12 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 22c-1.886 0-3.65-.493-5.183-1.355l-.371-.22-3.441.859.924-3.357-.242-.387A9.96 9.96 0 0 1 2 12C2 6.477 6.477 2 12 2s10 4.477 10 10-4.477 10-10 10z"/>
+                </svg>
+              </a>
+              <a href={`tel:${c.telefono}`}
+                {...h('tel')}
+                style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center',
+                  padding:'8px 0', borderRadius:50,
+                  background:'rgba(255,255,255,.22)', border:'1px solid rgba(255,255,255,.45)',
+                  textDecoration:'none',
+                  boxShadow: hov==='tel' ? '0 0 18px rgba(255,200,240,.5)' : 'none',
+                  transform: hov==='tel' ? 'scale(1.04)' : 'scale(1)', transition:'all .18s',
+                }}>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.2" strokeLinecap="round">
+                  <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.38 2 2 0 0 1 3.6 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 9.91a16 16 0 0 0 6.16 6.16l.91-.91a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/>
+                </svg>
+              </a>
+            </div>
+          )}
+          {!c.telefono && (
+            <div
+              onClick={e => e.stopPropagation()}
+              style={{ position:'absolute', bottom:12, left:12, right:12 }}
+            />
+          )}
+        </div>
+
+        {/* ══════════ BACK ══════════ */}
+        <div
+          onClick={() => setFlipped(false)}
+          style={{
+            position:'absolute', top:0, left:0, right:0, bottom:0,
+            backfaceVisibility:'hidden', WebkitBackfaceVisibility:'hidden',
+            transform:'rotateY(180deg)', borderRadius:20, overflow:'hidden',
+            cursor:'pointer', display:'flex', flexDirection:'column',
+            border:'1px solid rgba(67,56,202,.25)',
+          }}
+        >
+          {/* Header degradado */}
+          <div style={{
+            background: GRAD,
+            padding:'12px 12px 10px',
+            display:'flex', alignItems:'center', gap:10,
+            flexShrink:0, position:'relative',
+          }}>
+            {/* X cerrar */}
+            <div style={{
+              position:'absolute', top:8, right:8,
+              width:20, height:20, borderRadius:'50%',
+              background:'rgba(255,255,255,.25)', border:'1px solid rgba(255,255,255,.35)',
+              display:'flex', alignItems:'center', justifyContent:'center',
+            }}>
+              <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.8" strokeLinecap="round">
+                <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+              </svg>
+            </div>
+            {/* Foto pequeña */}
+            <div style={{
+              width:44, height:44, borderRadius:'50%', flexShrink:0, overflow:'hidden',
+              border:'2.5px solid rgba(255,255,255,.85)',
+              boxShadow:'0 2px 10px rgba(0,0,0,.18)',
+              background:'linear-gradient(135deg,#1e3a8a,#4338ca)',
+              display:'flex', alignItems:'center', justifyContent:'center',
+              fontSize:13, fontWeight:800, color:'#fff',
+            }}>
+              {showImg
+                ? <img src={c.foto_url!} alt="" style={{ width:'100%', height:'100%', objectFit:'cover' }} onError={() => setBroken(true)} />
+                : ini
+              }
+            </div>
+            <div style={{ flex:1, minWidth:0 }}>
+              <div style={{ fontSize:12, fontWeight:800, color:'#fff', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', textShadow:'0 1px 4px rgba(0,0,0,.18)' }}>
+                {c.nombre} {c.apellido}
+              </div>
+              {c.grupo_asignado && (
+                <span style={{ fontSize:9, fontWeight:700, color:'rgba(255,255,255,.9)', background:'rgba(255,255,255,.22)', border:'1px solid rgba(255,255,255,.3)', padding:'1px 7px', borderRadius:50, marginTop:3, display:'inline-block' }}>
+                  {c.grupo_asignado}
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* ── Cuerpo premium estilo macOS ── */}
+          <div style={{
+            flex:1, overflow:'hidden',
+            /* Fondo glass con líneas horizontales sutiles tipo macOS */
+            background:[
+              'repeating-linear-gradient(180deg,rgba(67,56,202,.03) 0px,rgba(67,56,202,.03) 1px,transparent 1px,transparent 44px)',
+              'linear-gradient(160deg,rgba(238,242,255,.97) 0%,rgba(237,233,254,.96) 55%,rgba(235,244,255,.97) 100%)',
+            ].join(','),
+            backdropFilter:'blur(20px)',
+            WebkitBackdropFilter:'blur(20px)',
+            padding:'8px 12px 10px',
+            display:'flex', flexDirection:'column',
+          } as React.CSSProperties}>
+
+            {/* Info rows — estilo macOS System Preferences */}
+            <div style={{ flex:1, display:'flex', flexDirection:'column', justifyContent:'center', gap:0 }}>
+              {[
+                { icon:'cc',   label:'CC',   val: c.cedula },
+                c.telefono     ? { icon:'tel',  label:'Tel.',  val: c.telefono }     : null,
+                (c.edad??0)>0  ? { icon:'age',  label:'Edad',  val:`${c.edad} años`} : null,
+                c.direccion    ? { icon:'dir',  label:'Dir.',  val: c.direccion }     : null,
+              ].filter(Boolean).map((row, i, arr) => (
+                <div key={i} style={{
+                  display:'flex', alignItems:'center', gap:9,
+                  padding:'7px 8px',
+                  borderRadius: i===0 ? '10px 10px 0 0' : i===arr.length-1 ? '0 0 10px 10px' : '0',
+                  background:'rgba(255,255,255,.62)',
+                  borderBottom: i < arr.length-1 ? '1px solid rgba(67,56,202,.08)' : 'none',
+                  boxShadow: i===0 ? 'inset 0 1px 0 rgba(255,255,255,.9)' : 'none',
+                }}>
+                  {/* Icono circular */}
+                  <div style={{
+                    width:28, height:28, borderRadius:'50%', flexShrink:0,
+                    background:'linear-gradient(135deg,rgba(67,56,202,.18),rgba(99,102,241,.14))',
+                    border:'1px solid rgba(67,56,202,.16)',
+                    display:'flex', alignItems:'center', justifyContent:'center',
+                    boxShadow:'0 1px 4px rgba(67,56,202,.1)',
+                  }}>
+                    {row!.icon === 'cc'  && <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#4338ca" strokeWidth="2"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M16 10h2M16 14h2M6 10h1M6 14h1M9 10h1M9 14h1"/></svg>}
+                    {row!.icon === 'tel' && <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#4338ca" strokeWidth="2" strokeLinecap="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.38 2 2 0 0 1 3.6 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 9.91a16 16 0 0 0 6.16 6.16l.91-.91a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>}
+                    {row!.icon === 'age' && <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#4338ca" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>}
+                    {row!.icon === 'dir' && <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#4338ca" strokeWidth="2" strokeLinecap="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>}
+                  </div>
+                  {/* Label */}
+                  <span style={{ fontSize:9.5, color:'#6366f1', fontWeight:700, width:26, flexShrink:0, letterSpacing:'.3px' }}>
+                    {row!.label}
+                  </span>
+                  {/* Valor */}
+                  <span style={{ fontSize:11.5, color:'#1e1b4b', fontWeight:700, flex:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                    {row!.val}
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            {/* Separador con gradiente */}
+            <div style={{ height:1, margin:'8px 0 7px', background:'linear-gradient(90deg,transparent,rgba(67,56,202,.22),transparent)' }} />
+
+            {/* Botones */}
+            <div style={{ display:'flex', gap:5 }} onClick={e => e.stopPropagation()}>
+              {/* Ver maestros */}
+              <button onClick={onViewMaestros} style={{
+                flex:2, height:32, borderRadius:50, border:'none', cursor:'pointer',
+                background:'linear-gradient(135deg,#4338ca,#6366f1)',
+                color:'#fff', fontSize:10, fontWeight:800,
+                boxShadow:'0 3px 12px rgba(67,56,202,.42), inset 0 1px 0 rgba(255,255,255,.2)',
+                display:'flex', alignItems:'center', justifyContent:'center', gap:4,
+              }}>
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <polygon points="12 2 2 7 12 12 22 7 12 2"/><path d="M20 10v4a8 8 0 0 1-16 0v-4"/>
+                </svg>
+                Maestros
+              </button>
+              {/* Editar */}
+              <button onClick={onEdit} style={{
+                flex:1, height:32, borderRadius:50, cursor:'pointer',
+                background:'rgba(255,255,255,.8)', border:'1px solid rgba(67,56,202,.28)',
+                color:'#4338ca', fontSize:10, fontWeight:700,
+                boxShadow:'inset 0 1px 0 rgba(255,255,255,.9)',
+              }}>
+                Editar
+              </button>
+              {/* Eliminar */}
+              <button onClick={() => { if (!isDeleting) onDelete() }} disabled={isDeleting} style={{
+                width:32, height:32, borderRadius:'50%', cursor: isDeleting ? 'not-allowed' : 'pointer',
+                border:'1px solid rgba(244,63,94,.28)', background:'rgba(255,255,255,.75)',
+                display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0,
+              }}>
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#f43f5e" strokeWidth="2.2" strokeLinecap="round">
+                  <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/>
+                  <path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+
       </div>
     </div>
   )
@@ -2204,7 +2403,7 @@ function LogoCircle({ size }: { size: number }) {
 
 /* ── SF-style nav icons (thin stroke, 18 px) ────────────────────────────── */
 function NavIcon({ section, active }: { section: string; active: boolean }) {
-  const c = active ? '#0d9488' : '#8496ac'
+  const c = active ? '#14b8a6' : 'rgba(255,255,255,.38)'
   const s = {
     width: 18, height: 18,
     viewBox: '0 0 24 24',

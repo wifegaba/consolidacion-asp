@@ -271,257 +271,367 @@ export default function CoordinadorModal({ coordinador, onClose, onSave }: Props
   }
 
   /* ══════════════════════════════════════════════════════════════════════ */
+  const liveNombre = `${form.nombre} ${form.apellido}`.trim()
+  const hasErrors  = Object.keys(fieldErrors).length > 0
+
   return (
     <>
-      <div style={overlayStyle} onClick={e => { if (e.target === e.currentTarget) handleClose() }}>
-        <div style={dialogStyle}>
+      <style>{`
+        @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+        @keyframes fadeInDown{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:translateY(0)}}
+        @keyframes coordIn{from{opacity:0;transform:scale(.97) translateY(10px)}to{opacity:1;transform:scale(1) translateY(0)}}
+        .coord-row-input { border:none; outline:none; background:transparent; font-size:13px; color:#111827; width:100%; font-family:inherit; }
+        .coord-row-input::placeholder { color:#c4c9d4; }
+        .coord-row:focus-within { background:rgba(67,56,202,.03) !important; }
+        .coord-row:focus-within .coord-row-label { color:#4338ca !important; }
+      `}</style>
 
+      <div style={overlayStyle} onClick={e => { if (e.target === e.currentTarget) handleClose() }}>
+        <div style={{ ...dialogStyle, animation:'coordIn .28s cubic-bezier(.34,1.2,.64,1) both' }}>
+
+          {/* Drag handle móvil */}
           {isMobile && (
-            <div style={{ display:'flex', justifyContent:'center', padding:'12px 0 0', flexShrink:0 }}>
-              <div style={{ width:40, height:4, borderRadius:2, background:'#e5e7eb' }} />
+            <div style={{ display:'flex', justifyContent:'center', padding:'12px 0 6px', flexShrink:0 }}>
+              <div style={{ width:36, height:4, borderRadius:2, background:'rgba(255,255,255,.35)' }} />
             </div>
           )}
 
-          {/* ── Header ── */}
+          {/* ══════════════════════════
+              HEADER PREMIUM — gradiente
+          ══════════════════════════ */}
           <div style={{
-            display:'flex', alignItems:'center', justifyContent:'space-between',
-            padding: isMobile ? '16px 24px' : '22px 32px',
-            borderBottom:'1px solid #f3f4f6', flexShrink:0,
+            background:'linear-gradient(145deg,#1e3a8a 0%,#4338ca 52%,#6d28d9 100%)',
+            padding: isMobile ? '20px 20px 18px' : '24px 28px 20px',
+            display:'flex', alignItems:'center', gap:18,
+            position:'relative', flexShrink:0,
+            borderBottom:'1px solid rgba(255,255,255,.12)',
           }}>
-            <div style={{ display:'flex', alignItems:'center', gap:14 }}>
-              <div style={{
-                width:42, height:42, borderRadius:12, flexShrink:0,
-                background:'linear-gradient(135deg,#f59e0b,#fbbf24)',
-                display:'flex', alignItems:'center', justifyContent:'center',
-                boxShadow:'0 4px 12px rgba(245,158,11,.3)',
-              }}>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1.8">
-                  <circle cx="12" cy="8" r="4"/>
-                  <path d="M6 20v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"/>
-                  <path d="M19 8l2 2-2 2"/>
-                </svg>
-              </div>
-              <div>
-                <div style={{ fontSize:10, fontWeight:600, color:'#d97706', letterSpacing:'2px', textTransform:'uppercase' }}>
-                  {isEdit ? 'Editar registro' : 'Nuevo registro'}
-                </div>
-                <div style={{ fontSize:18, fontWeight:800, color:'#111827', letterSpacing:'-0.4px' }}>
-                  {isEdit ? `${coordinador!.nombre} ${coordinador!.apellido}` : 'Nuevo Coordinador Kids'}
-                </div>
-              </div>
-            </div>
+            {/* Cerrar */}
             <button type="button" onClick={handleClose} style={{
-              width:36, height:36, borderRadius:10, border:'1px solid #e5e7eb',
-              background:'#f9fafb', cursor:'pointer', display:'flex',
-              alignItems:'center', justifyContent:'center', flexShrink:0,
+              position:'absolute', top:14, right:16,
+              width:30, height:30, borderRadius:'50%',
+              border:'1px solid rgba(255,255,255,.25)',
+              background:'rgba(255,255,255,.12)', cursor:'pointer',
+              display:'flex', alignItems:'center', justifyContent:'center',
             }}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="2.5">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.85)" strokeWidth="2.5" strokeLinecap="round">
                 <path d="M18 6L6 18M6 6l12 12"/>
               </svg>
             </button>
+
+            {/* Avatar clickable */}
+            <div
+              onClick={() => !compressing && !removingBg && fileRef.current?.click()}
+              style={{
+                position:'relative', width:76, height:76, borderRadius:'50%', flexShrink:0,
+                border:'3px solid rgba(255,255,255,.85)',
+                boxShadow:'0 0 0 3px rgba(251,191,36,.55), 0 6px 22px rgba(0,0,0,.3)',
+                overflow:'hidden', cursor:'pointer',
+                background: fotoPreview ? 'transparent' : 'linear-gradient(135deg,#4338ca,#6d28d9)',
+                display:'flex', alignItems:'center', justifyContent:'center',
+                fontSize:24, fontWeight:800, color:'rgba(255,255,255,.7)',
+              }}
+            >
+              {fotoPreview
+                ? <img src={fotoPreview} alt="" style={{ width:'100%', height:'100%', objectFit:'cover' }} onError={e => { e.currentTarget.style.display='none' }} />
+                : <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.7)" strokeWidth="1.6"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+              }
+              {/* Overlay cámara */}
+              <div style={{
+                position:'absolute', inset:0,
+                background:'rgba(15,23,42,.45)',
+                display:'flex', alignItems:'center', justifyContent:'center',
+                opacity:0, transition:'opacity .18s',
+              }}
+                onMouseEnter={e => (e.currentTarget.style.opacity='1')}
+                onMouseLeave={e => (e.currentTarget.style.opacity='0')}
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round">
+                  <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                  <circle cx="12" cy="13" r="4"/>
+                </svg>
+              </div>
+            </div>
+            <input ref={fileRef} type="file" accept="image/*" style={{ display:'none' }} onChange={handleFotoChange} />
+
+            {/* Info dinámica */}
+            <div style={{ flex:1, minWidth:0 }}>
+              <div style={{ fontSize:9, color:'rgba(255,255,255,.55)', letterSpacing:'2.5px', textTransform:'uppercase', marginBottom:4 }}>
+                {isEdit ? 'Editando perfil' : 'Nuevo registro'}
+              </div>
+              <div style={{ fontSize: isMobile ? 17 : 20, fontWeight:800, color:'#fff', letterSpacing:'-.4px', lineHeight:1.2, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                {liveNombre || 'Coordinador Kids'}
+              </div>
+              <div style={{ display:'flex', alignItems:'center', gap:6, marginTop:7, flexWrap:'wrap' }}>
+                <span style={{ fontSize:9, fontWeight:700, color:'rgba(255,255,255,.85)', background:'rgba(255,255,255,.18)', border:'1px solid rgba(255,255,255,.28)', padding:'2px 9px', borderRadius:50 }}>
+                  Coordinador/a
+                </span>
+                {form.grupo_asignado && (
+                  <span style={{ fontSize:9, fontWeight:700, color:'#99f6e4', background:'rgba(13,148,136,.25)', border:'1px solid rgba(13,148,136,.4)', padding:'2px 9px', borderRadius:50 }}>
+                    {form.grupo_asignado}
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Botones foto */}
+            {(fotoPreview || removingBg) && (
+              <div style={{ display:'flex', flexDirection:'column', gap:5, flexShrink:0 }}>
+                {fotoPreview && !compressing && !removingBg && (
+                  <button type="button" onClick={handleRemoveBg} style={{
+                    padding:'5px 10px', borderRadius:50, border:'1px solid rgba(255,255,255,.3)',
+                    background:'rgba(255,255,255,.14)', color:'rgba(255,255,255,.9)',
+                    fontSize:9, fontWeight:700, cursor:'pointer', whiteSpace:'nowrap',
+                  }}>✨ Quitar fondo</button>
+                )}
+                {removingBg && (
+                  <div style={{ minWidth:100 }}>
+                    <div style={{ fontSize:9, color:'rgba(255,255,255,.7)', marginBottom:3 }}>{bgPhase} {bgProgress}%</div>
+                    <div style={{ height:3, borderRadius:50, background:'rgba(255,255,255,.2)', overflow:'hidden' }}>
+                      <div style={{ height:'100%', borderRadius:50, width:`${bgProgress}%`, background:'#5eead4', transition:'width .35s ease' }} />
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
-          {/* ── Body ── */}
-          <div style={{ flex:1, overflowY:'auto', padding: isMobile ? '20px' : '28px 32px' }}>
+          {/* ══════════════════════════
+              BODY — filas estilo macOS
+          ══════════════════════════ */}
+          <div style={{ flex:1, overflowY:'auto', background:'#f0f2f8', padding: isMobile ? '14px 14px 20px' : '18px 22px 24px' }}>
             <form onSubmit={handleSubmit} id="coordinador-form">
 
-              {/* ══ ROW 1: Foto + Datos básicos ══ */}
-              <div style={{ display:'grid', gridTemplateColumns: isMobile ? '1fr' : '180px 1fr', gap:20, marginBottom:20 }}>
+              {/* ── IDENTIDAD ── */}
+              <GroupLabel label="Identidad" icon={
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M16 10h2M16 14h2M6 10h1M6 14h1M9 10h1M9 14h1"/></svg>
+              }/>
+              <div style={{ background:'#fff', borderRadius:14, overflow:'hidden', marginBottom:12, boxShadow:'0 1px 4px rgba(0,0,0,.06)', border:'1px solid rgba(0,0,0,.05)' }}>
 
-                {/* Foto */}
-                <div style={{
-                  background:'linear-gradient(135deg,#fffbeb,#fef3c7)',
-                  borderRadius:16, padding:'18px 16px', border:'1px solid rgba(245,158,11,.15)',
-                  display:'flex', flexDirection:'column', alignItems:'center', gap:12,
-                }}>
-                  <SectionLabel label="Foto" accent="#d97706" />
-                  <div onClick={() => !compressing && !removingBg && fileRef.current?.click()} style={{
-                    width:90, height:90, borderRadius:20, overflow:'hidden', cursor:'pointer',
-                    background: fotoPreview ? 'transparent' : 'linear-gradient(135deg,#f59e0b,#fbbf24)',
-                    display:'flex', alignItems:'center', justifyContent:'center',
-                    boxShadow:'0 6px 20px rgba(245,158,11,.3)',
-                  }}>
-                    {fotoPreview
-                      ? <img src={fotoPreview} alt="preview" style={{ width:'100%', height:'100%', objectFit:'cover' }} onError={e => { e.currentTarget.style.display='none' }} />
-                      : <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1.5"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-                    }
-                  </div>
-                  <div style={{ display:'flex', flexDirection:'column', gap:6, width:'100%' }}>
-                    <SmallBtn label={compressing ? 'Procesando...' : fotoPreview ? 'Cambiar foto' : 'Subir foto'}
-                      color="#d97706" onClick={() => !compressing && !removingBg && fileRef.current?.click()} disabled={compressing || removingBg} />
-                    {fotoPreview && !compressing && (
-                      <SmallBtn label={removingBg ? bgPhase || 'Procesando...' : 'Quitar fondo'}
-                        color="#0d9488" onClick={handleRemoveBg} disabled={removingBg} />
+                {/* Cédula */}
+                <div className="coord-row" style={{ display:'flex', alignItems:'center', gap:12, padding:'12px 16px', borderBottom:'1px solid #f1f5f9', transition:'background .15s' }}>
+                  <RowIcon color="#4338ca" bg="rgba(67,56,202,.1)">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#4338ca" strokeWidth="2"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M16 10h2M16 14h2M6 10h1M6 14h1M9 10h1M9 14h1"/></svg>
+                  </RowIcon>
+                  <span className="coord-row-label" style={{ fontSize:12, fontWeight:600, color:'#6b7280', width:72, flexShrink:0, transition:'color .15s' }}>Cédula *</span>
+                  <div style={{ flex:1 }}>
+                    <input className="coord-row-input" value={form.cedula} onChange={e => handleCedulaChange(e.target.value)} placeholder="Ej: 12345678" style={{ border:'none', outline:'none', background:'transparent', fontSize:13, color: fieldErrors.cedula ? '#ef4444' : '#111827', width:'100%', fontFamily:'inherit' }} />
+                    {cedulaStatus !== 'idle' && !fieldErrors.cedula && (
+                      <div style={{ fontSize:9, fontWeight:600, marginTop:2, animation:'fadeInDown .18s ease',
+                        color: cedulaStatus==='found' ? '#0d9488' : cedulaStatus==='checking' ? '#9ca3af' : '#d97706' }}>
+                        {cedulaStatus==='checking' && '🔍 Verificando…'}
+                        {cedulaStatus==='found'    && `✅ ${cedulaNombre}`}
+                        {cedulaStatus==='not_found'&& '⚠️ No está en el sistema — puedes continuar'}
+                        {cedulaStatus==='inactive' && `⚠️ Inactivo: ${cedulaNombre}`}
+                      </div>
                     )}
+                    {fieldErrors.cedula && <div style={{ fontSize:9, color:'#ef4444', marginTop:2 }}>{fieldErrors.cedula}</div>}
                   </div>
-                  {removingBg && (
-                    <div style={{ width:'100%', padding:'8px 10px', borderRadius:10, background:'rgba(245,158,11,.08)', border:'1px solid rgba(245,158,11,.2)' }}>
-                      <div style={{ display:'flex', justifyContent:'space-between', marginBottom:5 }}>
-                        <span style={{ fontSize:10, fontWeight:700, color:'#92400e' }}>{bgPhase}</span>
-                        <span style={{ fontSize:10, fontWeight:700, color:'#d97706' }}>{bgProgress}%</span>
-                      </div>
-                      <div style={{ height:4, borderRadius:50, overflow:'hidden', background:'rgba(245,158,11,.15)' }}>
-                        <div style={{
-                          height:'100%', borderRadius:50, width:`${bgProgress}%`, transition:'width .35s ease',
-                          background: bgProgress < 70 ? 'linear-gradient(90deg,#f59e0b,#fbbf24)' : bgProgress < 96 ? 'linear-gradient(90deg,#0d9488,#0891b2)' : 'linear-gradient(90deg,#10b981,#34d399)',
-                        }} />
-                      </div>
-                      {bgDetail && <div style={{ fontSize:9, color:'#92400e', marginTop:3, opacity:.75 }}>{bgDetail}</div>}
-                    </div>
-                  )}
-                  <input ref={fileRef} type="file" accept="image/*" style={{ display:'none' }} onChange={handleFotoChange} />
                 </div>
 
-                {/* Datos básicos */}
-                <div style={{ background:'#fafafa', borderRadius:16, padding:'18px 20px', border:'1px solid rgba(0,0,0,.05)' }}>
-                  <SectionLabel label="Identificación" accent="#d97706" />
+                {/* Nombre */}
+                <div className="coord-row" style={{ display:'flex', alignItems:'center', gap:12, padding:'12px 16px', borderBottom:'1px solid #f1f5f9', transition:'background .15s' }}>
+                  <RowIcon color="#4338ca" bg="rgba(67,56,202,.1)">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#4338ca" strokeWidth="2" strokeLinecap="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                  </RowIcon>
+                  <span className="coord-row-label" style={{ fontSize:12, fontWeight:600, color:'#6b7280', width:72, flexShrink:0, transition:'color .15s' }}>Nombre *</span>
+                  <div style={{ flex:1 }}>
+                    <input className="coord-row-input" value={form.nombre} onChange={e => { setForm(f => ({ ...f, nombre: e.target.value })); if (e.target.value.trim()) clearFieldError('nombre') }} placeholder="Nombre" style={{ border:'none', outline:'none', background:'transparent', fontSize:13, color: fieldErrors.nombre ? '#ef4444' : '#111827', width:'100%', fontFamily:'inherit' }} />
+                    {fieldErrors.nombre && <div style={{ fontSize:9, color:'#ef4444', marginTop:2 }}>{fieldErrors.nombre}</div>}
+                  </div>
+                </div>
 
-                  {/* Cédula */}
-                  <Field label="Cédula *" value={form.cedula} placeholder="Ej: 12345678"
-                    error={fieldErrors.cedula} onChange={handleCedulaChange} />
-                  {cedulaStatus !== 'idle' && !fieldErrors.cedula && (
-                    <div style={{
-                      marginTop:5, padding:'6px 10px', borderRadius:8, fontSize:10, fontWeight:600,
-                      display:'flex', alignItems:'center', gap:6,
-                      ...(cedulaStatus === 'checking'
-                        ? { background:'#f9fafb', color:'#9ca3af', border:'1px solid #e5e7eb' }
-                        : cedulaStatus === 'found'
-                        ? { background:'#f0fdfa', color:'#0d9488', border:'1px solid rgba(13,148,136,.25)' }
-                        : { background:'#fffbeb', color:'#92400e', border:'1px solid #fde68a' }),
-                    }}>
-                      {cedulaStatus === 'checking'  && '🔍 Verificando en el sistema...'}
-                      {cedulaStatus === 'found'     && <>✅ Encontrado: <strong>{cedulaNombre}</strong></>}
-                      {cedulaStatus === 'not_found' && '⚠️ No está en el sistema principal — puedes continuar'}
-                      {cedulaStatus === 'inactive'  && `⚠️ Servidor inactivo: ${cedulaNombre} — puedes continuar`}
-                    </div>
-                  )}
-
-                  <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginTop:12 }}>
-                    <Field label="Nombre *"   value={form.nombre}   placeholder="Nombre"         error={fieldErrors.nombre}   onChange={v => { setForm(f => ({ ...f, nombre:   v })); if (v.trim()) clearFieldError('nombre')   }} />
-                    <Field label="Apellido *" value={form.apellido} placeholder="Apellido"       error={fieldErrors.apellido} onChange={v => { setForm(f => ({ ...f, apellido: v })); if (v.trim()) clearFieldError('apellido') }} />
-                    <Field label="Teléfono *" value={form.telefono} placeholder="300 123 4567"   error={fieldErrors.telefono} onChange={v => { setForm(f => ({ ...f, telefono: v })); if (v.trim()) clearFieldError('telefono') }} />
+                {/* Apellido */}
+                <div className="coord-row" style={{ display:'flex', alignItems:'center', gap:12, padding:'12px 16px', transition:'background .15s' }}>
+                  <RowIcon color="#4338ca" bg="rgba(67,56,202,.1)">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#4338ca" strokeWidth="2" strokeLinecap="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                  </RowIcon>
+                  <span className="coord-row-label" style={{ fontSize:12, fontWeight:600, color:'#6b7280', width:72, flexShrink:0, transition:'color .15s' }}>Apellido *</span>
+                  <div style={{ flex:1 }}>
+                    <input className="coord-row-input" value={form.apellido} onChange={e => { setForm(f => ({ ...f, apellido: e.target.value })); if (e.target.value.trim()) clearFieldError('apellido') }} placeholder="Apellido" style={{ border:'none', outline:'none', background:'transparent', fontSize:13, color: fieldErrors.apellido ? '#ef4444' : '#111827', width:'100%', fontFamily:'inherit' }} />
+                    {fieldErrors.apellido && <div style={{ fontSize:9, color:'#ef4444', marginTop:2 }}>{fieldErrors.apellido}</div>}
                   </div>
                 </div>
               </div>
 
-              {/* ══ ROW 2: Datos personales ══ */}
-              <div style={{ background:'#fafafa', borderRadius:16, padding:'18px 20px', border:'1px solid rgba(0,0,0,.05)', marginBottom:20 }}>
-                <SectionLabel label="Datos personales" accent="#d97706" />
-                <div style={{ display:'grid', gridTemplateColumns: isMobile ? '1fr' : 'minmax(0,1fr) 148px', gap:12 }}>
-                  <Field label="Dirección *" value={form.direccion} placeholder="Ej: Calle 45 # 23-10, Barrio El Centro"
-                    error={fieldErrors.direccion}
-                    onChange={v => { setForm(f => ({ ...f, direccion: v })); if (v.trim()) clearFieldError('direccion') }} />
-                  {/* Edad — contador numérico */}
-                  <div>
-                    <label style={labelStyle}>Edad</label>
-                    <div style={{ display:'flex', alignItems:'center', gap:0, background:'#fff', border:'1.5px solid #e5e7eb', borderRadius:11, overflow:'hidden', height:42 }}>
-                      <button type="button"
-                        onClick={() => setForm(f => ({ ...f, edad: Math.max(0, f.edad - 1) }))}
-                        style={{ width:36, height:'100%', border:'none', background:'transparent', cursor:'pointer', fontSize:16, color:'#9ca3af', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>−</button>
-                      <input type="number" value={form.edad === 0 ? '' : form.edad} min={0} max={120}
-                        onChange={e => setForm(f => ({ ...f, edad: Math.max(0, Math.min(120, Number(e.target.value) || 0)) }))}
-                        placeholder="0"
-                        style={{ flex:1, border:'none', outline:'none', textAlign:'center', fontSize:14, fontWeight:700, color:'#111827', background:'transparent', width:0 }}
-                      />
-                      <button type="button"
-                        onClick={() => setForm(f => ({ ...f, edad: Math.min(120, f.edad + 1) }))}
-                        style={{ width:36, height:'100%', border:'none', background:'transparent', cursor:'pointer', fontSize:16, color:'#9ca3af', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>+</button>
-                    </div>
+              {/* ── CONTACTO ── */}
+              <GroupLabel label="Contacto" icon={
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.38 2 2 0 0 1 3.6 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 9.91a16 16 0 0 0 6.16 6.16l.91-.91a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+              }/>
+              <div style={{ background:'#fff', borderRadius:14, overflow:'hidden', marginBottom:12, boxShadow:'0 1px 4px rgba(0,0,0,.06)', border:'1px solid rgba(0,0,0,.05)' }}>
+                {/* Teléfono */}
+                <div className="coord-row" style={{ display:'flex', alignItems:'center', gap:12, padding:'12px 16px', borderBottom:'1px solid #f1f5f9', transition:'background .15s' }}>
+                  <RowIcon color="#0d9488" bg="rgba(13,148,136,.1)">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#0d9488" strokeWidth="2" strokeLinecap="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.38 2 2 0 0 1 3.6 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 9.91a16 16 0 0 0 6.16 6.16l.91-.91a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+                  </RowIcon>
+                  <span className="coord-row-label" style={{ fontSize:12, fontWeight:600, color:'#6b7280', width:72, flexShrink:0, transition:'color .15s' }}>Teléfono *</span>
+                  <div style={{ flex:1 }}>
+                    <input className="coord-row-input" value={form.telefono} onChange={e => { setForm(f => ({ ...f, telefono: e.target.value })); if (e.target.value.trim()) clearFieldError('telefono') }} placeholder="300 123 4567" style={{ border:'none', outline:'none', background:'transparent', fontSize:13, color: fieldErrors.telefono ? '#ef4444' : '#111827', width:'100%', fontFamily:'inherit' }} />
+                    {fieldErrors.telefono && <div style={{ fontSize:9, color:'#ef4444', marginTop:2 }}>{fieldErrors.telefono}</div>}
+                  </div>
+                </div>
+                {/* Dirección */}
+                <div className="coord-row" style={{ display:'flex', alignItems:'center', gap:12, padding:'12px 16px', borderBottom:'1px solid #f1f5f9', transition:'background .15s' }}>
+                  <RowIcon color="#0d9488" bg="rgba(13,148,136,.1)">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#0d9488" strokeWidth="2" strokeLinecap="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                  </RowIcon>
+                  <span className="coord-row-label" style={{ fontSize:12, fontWeight:600, color:'#6b7280', width:72, flexShrink:0, transition:'color .15s' }}>Dirección *</span>
+                  <div style={{ flex:1 }}>
+                    <input className="coord-row-input" value={form.direccion} onChange={e => { setForm(f => ({ ...f, direccion: e.target.value })); if (e.target.value.trim()) clearFieldError('direccion') }} placeholder="Ej: Calle 45 # 23-10" style={{ border:'none', outline:'none', background:'transparent', fontSize:13, color: fieldErrors.direccion ? '#ef4444' : '#111827', width:'100%', fontFamily:'inherit' }} />
+                    {fieldErrors.direccion && <div style={{ fontSize:9, color:'#ef4444', marginTop:2 }}>{fieldErrors.direccion}</div>}
+                  </div>
+                </div>
+                {/* Edad */}
+                <div className="coord-row" style={{ display:'flex', alignItems:'center', gap:12, padding:'12px 16px', transition:'background .15s' }}>
+                  <RowIcon color="#0d9488" bg="rgba(13,148,136,.1)">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#0d9488" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
+                  </RowIcon>
+                  <span className="coord-row-label" style={{ fontSize:12, fontWeight:600, color:'#6b7280', width:72, flexShrink:0, transition:'color .15s' }}>Edad</span>
+                  <div style={{ display:'flex', alignItems:'center', gap:0, background:'#f8fafc', borderRadius:10, overflow:'hidden', height:34, border:'1px solid #e5e7eb' }}>
+                    <button type="button" onClick={() => setForm(f => ({ ...f, edad: Math.max(0, f.edad - 1) }))} style={{ width:32, height:'100%', border:'none', background:'transparent', cursor:'pointer', fontSize:16, color:'#6b7280', display:'flex', alignItems:'center', justifyContent:'center' }}>−</button>
+                    <span style={{ fontSize:13, fontWeight:700, color:'#111827', minWidth:32, textAlign:'center' }}>{form.edad || 0}</span>
+                    <button type="button" onClick={() => setForm(f => ({ ...f, edad: Math.min(120, f.edad + 1) }))} style={{ width:32, height:'100%', border:'none', background:'transparent', cursor:'pointer', fontSize:16, color:'#6b7280', display:'flex', alignItems:'center', justifyContent:'center' }}>+</button>
                   </div>
                 </div>
               </div>
 
-              {/* ══ ROW 3: Asignación ══ */}
-              <div style={{ background:'#fffbeb', borderRadius:16, padding:'18px 20px', border:'1px solid rgba(245,158,11,.12)', marginBottom: (isEdit || serverError || Object.keys(fieldErrors).length > 0) ? 20 : 0 }}>
-                <SectionLabel label="Asignación" accent="#d97706" />
-                <SelectField label="Grupo asignado *" value={form.grupo_asignado} options={OPT_GRUPO}
-                  error={fieldErrors.grupo_asignado}
-                  onChange={v => { setForm(f => ({ ...f, grupo_asignado: v })); if (v) clearFieldError('grupo_asignado') }} />
+              {/* ── GRUPO — pills ── */}
+              <GroupLabel label="Grupo asignado" icon={
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><path d="M20 10v4a8 8 0 0 1-16 0v-4"/></svg>
+              }/>
+              <div style={{ background:'#fff', borderRadius:14, padding:'14px 16px', marginBottom:12, boxShadow:'0 1px 4px rgba(0,0,0,.06)', border:`1px solid ${fieldErrors.grupo_asignado ? 'rgba(239,68,68,.35)' : 'rgba(0,0,0,.05)'}` }}>
+                <div style={{ display:'flex', flexWrap:'wrap', gap:8 }}>
+                  {OPT_GRUPO.map(g => (
+                    <button
+                      key={g} type="button"
+                      onClick={() => { setForm(f => ({ ...f, grupo_asignado: g })); clearFieldError('grupo_asignado') }}
+                      style={{
+                        padding:'7px 16px', borderRadius:50, cursor:'pointer', fontSize:12, fontWeight:600,
+                        border: form.grupo_asignado === g ? 'none' : '1.5px solid #e2e8f0',
+                        background: form.grupo_asignado === g
+                          ? 'linear-gradient(135deg,#4338ca,#6d28d9)'
+                          : '#f8fafc',
+                        color: form.grupo_asignado === g ? '#fff' : '#64748b',
+                        boxShadow: form.grupo_asignado === g ? '0 4px 12px rgba(67,56,202,.38)' : 'none',
+                        transform: form.grupo_asignado === g ? 'scale(1.04)' : 'scale(1)',
+                        transition:'all .18s cubic-bezier(.34,1.56,.64,1)',
+                      }}
+                    >{g}</button>
+                  ))}
+                </div>
+                {fieldErrors.grupo_asignado && (
+                  <div style={{ fontSize:10, color:'#ef4444', marginTop:8, display:'flex', alignItems:'center', gap:4 }}>
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
+                    {fieldErrors.grupo_asignado}
+                  </div>
+                )}
               </div>
 
-              {/* Estado — solo edición */}
+              {/* ── Estado (solo edición) ── */}
               {isEdit && (
-                <div style={{ marginBottom: (serverError || Object.keys(fieldErrors).length > 0) ? 16 : 0 }}>
-                  <label style={labelStyle}>Estado del registro</label>
-                  <div style={{ display:'flex', gap:8 }}>
+                <>
+                  <GroupLabel label="Estado" icon={
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                  }/>
+                  <div style={{ background:'#fff', borderRadius:14, padding:'12px 16px', marginBottom:12, boxShadow:'0 1px 4px rgba(0,0,0,.06)', border:'1px solid rgba(0,0,0,.05)', display:'flex', gap:8 }}>
                     {([true, false] as const).map(val => (
                       <button key={String(val)} type="button" onClick={() => setForm(f => ({ ...f, activo: val }))}
                         style={{
-                          flex:1, padding:'10px', borderRadius:10, fontSize:12, fontWeight:600,
+                          flex:1, padding:'9px', borderRadius:10, fontSize:12, fontWeight:600,
                           border:'1.5px solid', cursor:'pointer', transition:'all .15s',
                           background:  form.activo === val ? (val ? '#0d9488' : '#f43f5e') : '#fff',
                           color:       form.activo === val ? '#fff' : '#9ca3af',
                           borderColor: form.activo === val ? (val ? '#0d9488' : '#f43f5e') : '#e5e7eb',
+                          boxShadow:   form.activo === val ? (val ? '0 4px 12px rgba(13,148,136,.3)' : '0 4px 12px rgba(244,63,94,.3)') : 'none',
                         }}>
-                        {val ? 'Activo' : 'Inactivo'}
+                        {val ? '✓ Activo' : '○ Inactivo'}
                       </button>
                     ))}
                   </div>
-                </div>
+                </>
               )}
 
-              {/* Resumen de errores */}
-              {Object.keys(fieldErrors).length > 0 && (
-                <div style={{ marginTop:12, padding:'12px 16px', borderRadius:12, background:'#fffbeb', border:'1px solid #fde68a', fontSize:12, color:'#92400e', fontWeight:500 }}>
-                  <div style={{ display:'flex', alignItems:'center', gap:7, marginBottom:6 }}>
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#d97706" strokeWidth="2.2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-                    <span style={{ fontWeight:700, color:'#b45309' }}>
-                      {Object.keys(fieldErrors).length === 1 ? 'Falta 1 campo' : `Faltan ${Object.keys(fieldErrors).length} campos`}
-                    </span>
-                  </div>
-                  <div style={{ display:'flex', flexWrap:'wrap' as const, gap:'4px 8px' }}>
-                    {Object.values(fieldErrors).map((msg, i) => (
-                      <span key={i} style={{ background:'rgba(217,119,6,.12)', padding:'3px 8px', borderRadius:20, fontSize:11, color:'#92400e', fontWeight:600 }}>
-                        {msg}
-                      </span>
-                    ))}
-                  </div>
+              {/* Errores + servidor */}
+              {hasErrors && (
+                <div style={{ padding:'10px 14px', borderRadius:12, background:'rgba(239,68,68,.06)', border:'1px solid rgba(239,68,68,.2)', marginBottom:8, display:'flex', alignItems:'center', gap:8, animation:'fadeInDown .18s ease' }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2.2" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
+                  <span style={{ fontSize:11, color:'#dc2626', fontWeight:600 }}>
+                    {Object.values(fieldErrors).filter(Boolean).join(' · ')}
+                  </span>
                 </div>
               )}
-
-              {/* Error servidor */}
               {serverError && (
-                <div style={{ marginTop:10, padding:'11px 14px', borderRadius:12, background:'#fff5f5', border:'1px solid #fecdd3', fontSize:12, color:'#f43f5e', fontWeight:500, display:'flex', alignItems:'center', gap:8 }}>
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#f43f5e" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
-                  {serverError}
+                <div style={{ padding:'10px 14px', borderRadius:12, background:'rgba(239,68,68,.06)', border:'1px solid rgba(239,68,68,.2)', display:'flex', alignItems:'center', gap:8 }}>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
+                  <span style={{ fontSize:11, color:'#dc2626', fontWeight:600 }}>{serverError}</span>
                 </div>
               )}
 
             </form>
           </div>
 
-          {/* ── Footer ── */}
+          {/* ══════════════════════════
+              FOOTER
+          ══════════════════════════ */}
           <div style={{
             display:'flex', gap:10,
-            padding: isMobile ? '14px 20px 20px' : '16px 32px',
-            borderTop:'1px solid #f3f4f6', flexShrink:0, background:'#fff',
+            padding: isMobile ? '12px 16px 20px' : '14px 22px',
+            borderTop:'1px solid #f1f5f9', flexShrink:0, background:'#fff',
           }}>
             <button type="button" onClick={handleClose} style={{
-              flex:1, padding:'12px', borderRadius:50, border:'1.5px solid #e5e7eb',
-              background:'transparent', fontSize:13, fontWeight:600, color:'#6b7280', cursor:'pointer',
+              flex:1, padding:'13px', borderRadius:50,
+              border:'1.5px solid #e2e8f0', background:'#f8fafc',
+              fontSize:13, fontWeight:600, color:'#64748b', cursor:'pointer',
+              transition:'all .15s',
             }}>Cancelar</button>
             <button type="submit" form="coordinador-form" disabled={saving} style={{
-              flex:3, padding:'12px', borderRadius:50, border:'none',
-              background:  saving ? '#e5e7eb' : 'linear-gradient(135deg,#f59e0b,#fbbf24)',
-              color:       saving ? '#9ca3af' : '#fff',
-              fontSize:13, fontWeight:700, cursor: saving ? 'not-allowed' : 'pointer',
-              boxShadow:   saving ? 'none' : '0 8px 24px rgba(245,158,11,.35)',
-              transition:  'all .2s',
+              flex:3, padding:'13px', borderRadius:50, border:'none',
+              background: saving
+                ? 'linear-gradient(135deg,rgba(67,56,202,.4),rgba(109,40,217,.4))'
+                : 'linear-gradient(135deg,#4338ca 0%,#6d28d9 100%)',
+              color:'#fff', fontSize:13, fontWeight:700,
+              cursor: saving ? 'not-allowed' : 'pointer',
+              boxShadow: saving ? 'none' : '0 6px 22px rgba(67,56,202,.42)',
+              transition:'all .2s',
+              display:'flex', alignItems:'center', justifyContent:'center', gap:8,
             }}>
-              {saving ? 'Guardando...' : isEdit ? 'Guardar cambios' : 'Crear coordinador'}
+              {saving
+                ? <><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" style={{ animation:'spin .8s linear infinite' }}><path d="M21 12a9 9 0 1 1-9-9"/></svg>Guardando…</>
+                : isEdit ? '✓ Guardar cambios' : '✦ Crear coordinador'
+              }
             </button>
           </div>
 
         </div>
       </div>
 
-      <style>{`
-        @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
-        @keyframes fadeInDown{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}
-      `}</style>
-
       {cropFile && <CropModal file={cropFile} onConfirm={handleCropConfirm} onCancel={() => setCropFile(null)} />}
     </>
+  )
+}
+
+/* ── GroupLabel — título de sección ─────────────────────────────────────── */
+function GroupLabel({ label, icon }: { label: string; icon: React.ReactNode }) {
+  return (
+    <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:6, paddingLeft:2 }}>
+      <span style={{ color:'#94a3b8', display:'flex', alignItems:'center' }}>{icon}</span>
+      <span style={{ fontSize:10, fontWeight:700, color:'#94a3b8', textTransform:'uppercase', letterSpacing:'1.5px' }}>
+        {label}
+      </span>
+    </div>
+  )
+}
+
+/* ── RowIcon — ícono circular para cada fila ─────────────────────────────── */
+function RowIcon({ children, color, bg }: { children: React.ReactNode; color: string; bg: string }) {
+  return (
+    <div style={{
+      width:30, height:30, borderRadius:'50%', flexShrink:0,
+      background: bg, border:`1px solid ${color}22`,
+      display:'flex', alignItems:'center', justifyContent:'center',
+    }}>
+      {children}
+    </div>
   )
 }
 
