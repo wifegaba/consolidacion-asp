@@ -34,33 +34,6 @@ const NAV_ITEMS = [
   { num: '09', label: 'Rotaciones',      section: 'rotaciones'      },
 ] as const
 
-const NAV_SECTIONS = [
-  {
-    title: 'Principal',
-    items: [
-      { num: '01', label: 'Niños',           section: 'ninos'           },
-      { num: '02', label: 'Asistencias',     section: 'asistencias'     },
-      { num: '03', label: 'Seguimientos',    section: 'seguimientos'    },
-    ] as const
-  },
-  {
-    title: 'Equipo',
-    items: [
-      { num: '04', label: 'Maestros',        section: 'maestros'        },
-      { num: '05', label: 'Coordinadores',   section: 'coordinadores'   },
-      { num: '08', label: 'Auxiliares',      section: 'auxiliares'      },
-      { num: '06', label: 'Administradores', section: 'administradores' },
-    ] as const
-  },
-  {
-    title: 'Herramientas',
-    items: [
-      { num: '07', label: 'Dashboard',       section: 'dashboard'       },
-      { num: '09', label: 'Rotaciones',      section: 'rotaciones'      },
-    ] as const
-  }
-] as const
-
 /* ── Avatar palette ─────────────────────────────────────────────────────── */
 const GRADIENTS = [
   'linear-gradient(135deg,#0d9488,#0891b2)',
@@ -364,95 +337,6 @@ export default function KidsAdminPage() {
         60%  { opacity: .18; }
         100% { opacity: 0; pointer-events: none; }
       }
-
-      /* ── Sidebar Premium CSS ── */
-      .sidebar-nav-item {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        padding: 9px 12px;
-        border-radius: 12px;
-        cursor: pointer;
-        background: transparent;
-        transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-        border-left: 3px solid transparent;
-        position: relative;
-        overflow: hidden;
-      }
-      .sidebar-nav-item::before {
-        content: '';
-        position: absolute;
-        left: 0;
-        top: 0;
-        bottom: 0;
-        width: 0;
-        background: linear-gradient(90deg, rgba(20, 184, 166, 0.08) 0%, transparent 100%);
-        transition: width 0.25s ease;
-        z-index: 0;
-      }
-      .sidebar-nav-item:hover::before {
-        width: 100%;
-      }
-      .sidebar-nav-item:hover {
-        transform: translateX(4px);
-        background: rgba(255, 255, 255, 0.03);
-      }
-      .sidebar-nav-item:hover .sidebar-icon {
-        stroke: #14b8a6 !important;
-        filter: drop-shadow(0 0 6px rgba(20, 184, 166, 0.6));
-      }
-      .sidebar-nav-item:hover .sidebar-text {
-        color: #ffffff !important;
-      }
-      .sidebar-nav-item-active {
-        background: linear-gradient(90deg, rgba(13, 148, 136, 0.18) 0%, rgba(13, 148, 136, 0.03) 100%) !important;
-        box-shadow: 0 4px 18px rgba(13, 148, 136, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.05) !important;
-        border-left: 3px solid #14b8a6 !important;
-      }
-      .sidebar-nav-item-active .sidebar-text {
-        color: #99f6e4 !important;
-        font-weight: 700 !important;
-      }
-      .sidebar-nav-item-active .sidebar-icon {
-        stroke: #14b8a6 !important;
-        filter: drop-shadow(0 0 4px rgba(20, 184, 166, 0.4));
-      }
-      
-      @keyframes pulse-online {
-        0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
-        70% { box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
-        100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
-      }
-      .status-online-dot {
-        width: 8px;
-        height: 8px;
-        border-radius: 50%;
-        background-color: #10b981;
-        animation: pulse-online 2s infinite;
-        border: 1.5px solid #0b1929;
-      }
-      
-      .btn-logout-premium {
-        width: 34px;
-        height: 34px;
-        border-radius: 8px;
-        border: 1px solid transparent;
-        background: transparent;
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        flex-shrink: 0;
-        transition: all 0.2s ease;
-      }
-      .btn-logout-premium:hover {
-        background: rgba(239, 68, 68, 0.15);
-        border-color: rgba(239, 68, 68, 0.2);
-      }
-      .btn-logout-premium:hover svg {
-        stroke: #f87171 !important;
-        filter: drop-shadow(0 0 4px rgba(239, 68, 68, 0.4));
-      }
     `}</style>
     <div style={{
       fontFamily:    "'Segoe UI',system-ui,sans-serif",
@@ -509,17 +393,17 @@ export default function KidsAdminPage() {
           width:         230,
           minWidth:      230,
           /* ── Sidebar oscuro profesional ── */
-          background:    'linear-gradient(180deg, rgba(11,25,41,0.85) 0%, rgba(15,34,54,0.92) 60%, rgba(13,30,51,0.95) 100%)',
-          backdropFilter:       'blur(20px)',
-          WebkitBackdropFilter: 'blur(20px)',
+          background:    'linear-gradient(180deg,#0b1929 0%,#0f2236 60%,#0d1e33 100%)',
+          backdropFilter:       'none',
+          WebkitBackdropFilter: 'none',
           display:       'flex',
           flexDirection: 'column',
           padding:       '32px 0',
           borderTop:     '0px solid transparent',
-          borderRight:   '1px solid rgba(255,255,255,.06)',
+          borderRight:   '1px solid rgba(255,255,255,.07)',
           borderBottom:  '0px solid transparent',
           borderLeft:    '0px solid transparent',
-          boxShadow:     '4px 0 32px rgba(0,0,0,.28)',
+          boxShadow:     '2px 0 24px rgba(0,0,0,.32)',
           /* Mobile: slide-in drawer */
           ...(isMobile ? {
             position:   'fixed' as const,
@@ -527,9 +411,9 @@ export default function KidsAdminPage() {
             left:       sidebarOpen ? 0 : -260,
             bottom:     0,
             zIndex:     60,
-            background: 'linear-gradient(180deg, rgba(11,25,41,0.95) 0%, rgba(15,34,54,0.98) 60%, rgba(13,30,51,0.98) 100%)',
-            backdropFilter:       'blur(20px)',
-            WebkitBackdropFilter: 'blur(20px)',
+            background: 'linear-gradient(180deg,#0b1929 0%,#0f2236 60%,#0d1e33 100%)',
+            backdropFilter:       'none',
+            WebkitBackdropFilter: 'none',
             boxShadow:  sidebarOpen ? '8px 0 40px rgba(0,0,0,.45)' : 'none',
             transition: 'left .25s cubic-bezier(.4,0,.2,1)',
             borderRadius: '0 20px 20px 0',
@@ -560,43 +444,39 @@ export default function KidsAdminPage() {
           </div>
 
           {/* Nav */}
-          <nav style={{ flex:1, display:'flex', flexDirection:'column', gap:16, padding:'0 14px', overflowY:'auto' }}>
-            {NAV_SECTIONS.map((section) => (
-              <div key={section.title} style={{ display:'flex', flexDirection:'column', gap:4 }}>
-                {/* Section Title */}
-                <div style={{
-                  fontSize: 10,
-                  fontWeight: 700,
-                  textTransform: 'uppercase',
-                  letterSpacing: '1px',
-                  color: 'rgba(255, 255, 255, 0.28)',
-                  padding: '4px 12px 2px',
-                  userSelect: 'none',
-                }}>
-                  {section.title}
+          <nav style={{ flex:1, display:'flex', flexDirection:'column', gap:2, padding:'0 14px' }}>
+            {NAV_ITEMS.map(n => {
+              const isActive = n.section === activeNav
+              return (
+                <div
+                  key={n.num}
+                  onClick={() => handleNavClick(n.section)}
+                  style={{
+                    display:    'flex',
+                    alignItems: 'center',
+                    gap:        10,
+                    padding:    '9px 11px',
+                    borderRadius: 12,
+                    cursor:     'pointer',
+                    background:           isActive ? 'rgba(13,148,136,.18)' : 'transparent',
+                    backdropFilter:       'none',
+                    WebkitBackdropFilter: 'none',
+                    boxShadow:  isActive
+                      ? '0 2px 12px rgba(13,148,136,.2), inset 0 1px 0 rgba(255,255,255,.06)'
+                      : 'none',
+                    borderLeft: `3px solid ${isActive ? '#14b8a6' : 'transparent'}`,
+                    transition: 'all .18s',
+                  }}
+                >
+                  <NavIcon section={n.section} active={isActive} />
+                  <span style={{
+                    fontSize:   13,
+                    fontWeight: isActive ? 700 : 400,
+                    color:      isActive ? '#99f6e4' : 'rgba(255,255,255,.52)',
+                  }}>{n.label}</span>
                 </div>
-                {/* Section Items */}
-                {section.items.map(n => {
-                  const isActive = n.section === activeNav
-                  return (
-                    <div
-                      key={n.num}
-                      onClick={() => handleNavClick(n.section)}
-                      className={`sidebar-nav-item ${isActive ? 'sidebar-nav-item-active' : ''}`}
-                    >
-                      <NavIcon section={n.section} active={isActive} className="sidebar-icon" />
-                      <span className="sidebar-text" style={{
-                        fontSize:   13,
-                        fontWeight: isActive ? 700 : 400,
-                        color:      isActive ? '#99f6e4' : 'rgba(255,255,255,.52)',
-                        transition: 'color 0.25s',
-                        zIndex: 1,
-                      }}>{n.label}</span>
-                    </div>
-                  )
-                })}
-              </div>
-            ))}
+              )
+            })}
           </nav>
 
           {/* User strip */}
@@ -604,29 +484,21 @@ export default function KidsAdminPage() {
             <div style={{
               padding:              '12px 12px',
               borderRadius:         14,
-              background:           'rgba(255,255,255,.04)',
-              border:               '1px solid rgba(255,255,255,.08)',
+              background:           'rgba(255,255,255,.07)',
+              border:               '1px solid rgba(255,255,255,.1)',
               backdropFilter:       'none',
               WebkitBackdropFilter: 'none',
-              boxShadow:            '0 8px 32px 0 rgba(0, 0, 0, 0.2)',
+              boxShadow:            'inset 0 1px 0 rgba(255,255,255,.06)',
             }}>
               <div style={{ display:'flex', alignItems:'center', gap:10 }}>
-                {/* Avatar con punto de estado activo */}
-                <div style={{ position: 'relative', flexShrink: 0 }}>
-                  <AvatarImg
-                    src={usuario.foto_url}
-                    nombre={usuario.nombre}
-                    apellido={usuario.apellido}
-                    grad="linear-gradient(135deg,#0d9488,#0891b2)"
-                    size={34}
-                  />
-                  <div className="status-online-dot" style={{
-                    position: 'absolute',
-                    bottom: -1,
-                    right: -1,
-                    zIndex: 2,
-                  }} />
-                </div>
+                {/* Avatar */}
+                <AvatarImg
+                  src={usuario.foto_url}
+                  nombre={usuario.nombre}
+                  apellido={usuario.apellido}
+                  grad="linear-gradient(135deg,#0d9488,#0891b2)"
+                  size={34}
+                />
                 <div style={{ flex:1, minWidth:0 }}>
                   <div style={{ fontSize:12, fontWeight:700, color:'rgba(255,255,255,.9)', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
                     {usuario.nombre} {usuario.apellido}
@@ -637,9 +509,14 @@ export default function KidsAdminPage() {
                 <button
                   onClick={handleLogout}
                   title="Cerrar sesión"
-                  className="btn-logout-premium"
+                  style={{
+                    width:36, height:36, borderRadius:8, border:'none',
+                    background:'transparent', cursor:'pointer',
+                    display:'flex', alignItems:'center', justifyContent:'center',
+                    flexShrink:0,
+                  }}
                 >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.45)" strokeWidth="2" style={{ transition: 'stroke 0.2s' }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.45)" strokeWidth="2">
                     <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
                     <polyline points="16 17 21 12 16 7"/>
                     <line x1="21" y1="12" x2="9" y2="12"/>
@@ -715,7 +592,7 @@ export default function KidsAdminPage() {
                       display:'flex', alignItems:'center', justifyContent:'center',
                       backdropFilter:'blur(8px)',
                     }}>
-                      <NavIcon section={item.section} active={isActive} color={isActive ? '#7c3aed' : 'rgba(15, 34, 54, 0.45)'} />
+                      <NavIcon section={item.section} active={isActive} />
                     </div>
                     <span style={{
                       fontSize:9, fontWeight:700,
@@ -802,7 +679,7 @@ export default function KidsAdminPage() {
                       display:'flex', alignItems:'center', justifyContent:'center',
                       backdropFilter:'blur(8px)',
                     }}>
-                      <NavIcon section={item.section} active={isActive} color={isActive ? '#7c3aed' : 'rgba(15, 34, 54, 0.45)'} />
+                      <NavIcon section={item.section} active={isActive} />
                     </div>
                     <span style={{
                       fontSize:9, fontWeight:700,
@@ -2525,8 +2402,8 @@ function LogoCircle({ size }: { size: number }) {
 }
 
 /* ── SF-style nav icons (thin stroke, 18 px) ────────────────────────────── */
-function NavIcon({ section, active, className, color }: { section: string; active: boolean; className?: string; color?: string }) {
-  const c = color || (active ? '#14b8a6' : 'rgba(255,255,255,.38)')
+function NavIcon({ section, active }: { section: string; active: boolean }) {
+  const c = active ? '#14b8a6' : 'rgba(255,255,255,.38)'
   const s = {
     width: 18, height: 18,
     viewBox: '0 0 24 24',
@@ -2535,7 +2412,6 @@ function NavIcon({ section, active, className, color }: { section: string; activ
     strokeWidth: '1.65',
     strokeLinecap:  'round' as const,
     strokeLinejoin: 'round' as const,
-    className: className,
     style: { flexShrink: 0 as const },
   }
   switch (section) {
