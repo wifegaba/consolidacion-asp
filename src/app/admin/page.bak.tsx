@@ -565,7 +565,6 @@ export default function AdminPage() {
                       fotoUrls={fotoUrls}
                       maestros={maestros}
                       cursos={cursos}
-                      onDataUpdated={onDataUpdated}
                     />
                   )}
                 </motion.div>
