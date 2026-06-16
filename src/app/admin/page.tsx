@@ -571,6 +571,7 @@ export default function AdminPage() {
                       maestros={maestros}
                       cursos={cursos}
                       onDataUpdated={onDataUpdated}
+                      currentUser={currentUser}
                     />
                   )}
                 </motion.div>
