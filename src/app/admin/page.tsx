@@ -54,7 +54,7 @@ export type Curso = { id: number; nombre: string; color: string; orden?: number 
 export type AsignacionMaestro = { id: string; servidor_id: string; curso_id: number; cursos: Pick<Curso, 'nombre' | 'color'> | null; };
 export type MaestroDataRaw = Maestro & { asignaciones: AsignacionMaestro[]; observaciones_count: { count: number }[]; servidores_roles: { rol: string }[]; };
 export type MaestroConCursos = Maestro & { asignaciones: AsignacionMaestro[]; obs_count: number; rol: string | null; dia_asignado?: string | null; };
-export type Estudiante = { id: string; nombre: string; cedula: string; telefono?: string | null; foto_path?: string | null; dia?: string; origen?: string; };
+export type Estudiante = { id: string; nombre: string; cedula: string; telefono?: string | null; foto_path?: string | null; dia?: string; origen?: string; ocupacion?: string | null; };
 export type Inscripcion = { id: number; entrevista_id: string; curso_id: number; servidor_id: string | null; cursos?: Pick<Curso, 'nombre' | 'color'> | null; estado?: string; };
 export type EstudianteInscrito = Estudiante & { maestro: MaestroConCursos | null; curso: Curso | null; inscripcion_id: number | null; };
 export type AdminTab = 'bienvenida' | 'dashboard' | 'matricular' | 'maestros' | 'servidores' | 'consultar' | 'promovidos' | 'graduados';
@@ -360,7 +360,8 @@ export default function AdminPage() {
     // 2. Estado Académico
     const inscripcionesActivas = inscripciones.filter((i: any) => i.estado === 'activo');
     const estudiantesActivos = inscripcionesActivas.length;
-    const promovidos = inscripciones.filter((i: any) => i.estado === 'promovido' || i.estado === 'graduado').length;
+    const promovidos = inscripciones.filter((i: any) => i.estado === 'promovido').length;
+    const graduados = inscripciones.filter((i: any) => i.estado === 'graduado').length;
 
     // 3. Distribución por Curso (basada en inscripciones activas)
     const conteoPorCurso: Record<number, number> = {};
@@ -381,6 +382,7 @@ export default function AdminPage() {
       totalMaestros,
       estudiantesActivos,
       promovidos,
+      graduados,
       promedioNotas: 8.7, // Dato simulado
       tasaAsistencia: 92.3, // Dato simulado
       distribucion
@@ -483,6 +485,9 @@ export default function AdminPage() {
                       estudiantes={estudiantes}
                       inscripciones={inscripciones}
                       fotoUrls={fotoUrls}
+                      currentUser={currentUser}
+                      onDataUpdated={onDataUpdated}
+                      maestros={maestros}
                     />
                   )}
                   {/* {activeTab === 'servidores' && <ServidoresPage />} */}

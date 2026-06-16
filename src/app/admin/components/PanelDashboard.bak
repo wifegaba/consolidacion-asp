@@ -8,27 +8,21 @@ import {
     TrendingUp,
     Activity,
     Award,
-    Medal,
     ArrowLeft,
     X,
     Check,
     Mail,
     Search,
-    Sparkles,
-    IdCard,
-    Phone,
-    Calendar
+    Sparkles
 } from 'lucide-react';
-import { GlassCard, ModalTemplate } from '../page';
-import type { Estudiante, Inscripcion, EstudianteInscrito, MaestroConCursos } from '../page';
-import { HojaDeVidaPanel } from '../../restauracion/estudiante/components/HojaDeVidaPanel';
+import { GlassCard } from '../page';
+import type { Estudiante, Inscripcion } from '../page';
 
 export interface DashboardStats {
     totalEstudiantes: number;
     totalMaestros: number;
     estudiantesActivos: number;
     promovidos: number;
-    graduados: number;
     promedioNotas: number;
     tasaAsistencia: number;
     distribucion: { label: string; val: number; color?: string; id: number }[];
@@ -40,9 +34,6 @@ interface PanelDashboardProps {
     estudiantes?: Estudiante[];
     inscripciones?: Inscripcion[];
     fotoUrls?: Record<string, string>;
-    currentUser?: any;
-    onDataUpdated?: () => void;
-    maestros?: MaestroConCursos[];
 }
 
 // Componente para animar números
@@ -71,12 +62,10 @@ function AnimatedNumber({ value, delay = 0 }: { value: number; delay?: number })
     return <span>{displayValue}</span>;
 }
 
-export default function PanelDashboard({ onClose, stats, estudiantes = [], inscripciones = [], fotoUrls = {}, currentUser, onDataUpdated, maestros = [] }: PanelDashboardProps) {
+export default function PanelDashboard({ onClose, stats, estudiantes = [], inscripciones = [], fotoUrls = {} }: PanelDashboardProps) {
     // Estado para el modal de detalles
-    const [selectedCourse, setSelectedCourse] = useState<{ id: number; name: string; colors: string[] } | null>(null);
+    const [selectedCourse, setSelectedCourse] = useState<{ id: number; name: string } | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
-    const [selectedStudent, setSelectedStudent] = useState<Estudiante | null>(null);
-    const modalColors = selectedCourse?.colors || ["#06b6d4", "#3b82f6", "#8b5cf6"];
 
     // Resetear búsqueda al cerrar o cambiar curso
     useEffect(() => {
@@ -89,7 +78,6 @@ export default function PanelDashboard({ onClose, stats, estudiantes = [], inscr
         totalMaestros: 0,
         estudiantesActivos: 0,
         promovidos: 0,
-        graduados: 0,
         promedioNotas: 8.7,
         tasaAsistencia: 92.3,
         distribucion: []
@@ -150,70 +138,6 @@ export default function PanelDashboard({ onClose, stats, estudiantes = [], inscr
             border-radius: 24px;
             box-shadow: 0 10px 30px rgba(0,0,0,0.05);
         }
-
-        .premium-student-card {
-            background: #ffffff;
-            border: 1px solid #e2e8f0;
-            border-radius: 1rem;
-            position: relative;
-            overflow: hidden;
-            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-            box-shadow: 
-                0 2px 8px rgba(0, 0, 0, 0.03),
-                0 1px 2px rgba(0, 0, 0, 0.01);
-            z-index: 10;
-        }
-
-        .premium-student-card:hover {
-            transform: translateY(-2px);
-            border-color: var(--course-color-1, #3b82f6);
-            box-shadow: 
-                0 12px 20px -8px var(--course-alpha-30, rgba(59, 130, 246, 0.15)),
-                0 4px 10px rgba(0, 0, 0, 0.01);
-        }
-
-        .premium-avatar-ring {
-            border: 1.5px solid #f1f5f9;
-            padding: 1.5px;
-            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-        }
-
-        .premium-student-card:hover .premium-avatar-ring {
-            border-color: var(--course-color-1, #3b82f6);
-            transform: scale(1.02);
-        }
-
-        .premium-icon-btn {
-            color: #cbd5e1;
-            transition: all 0.2s ease;
-        }
-
-        .premium-icon-btn:hover {
-            color: var(--course-color-1, #3b82f6);
-            transform: scale(1.1);
-        }
-
-        .premium-detail-container {
-            background-color: #f8fafc;
-            border: 1px solid #f1f5f9;
-            transition: all 0.3s ease;
-        }
-
-        .premium-student-card:hover .premium-detail-container {
-            background-color: var(--course-alpha-5, rgba(59, 130, 246, 0.02));
-            border-color: var(--course-alpha-10, rgba(59, 130, 246, 0.05));
-        }
-
-        .premium-check-badge {
-            width: 1.15rem;
-            height: 1.15rem;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-            transition: all 0.3s ease;
-        }
     `;
 
     const cards = [
@@ -252,15 +176,6 @@ export default function PanelDashboard({ onClose, stats, estudiantes = [], inscr
             glassGradient: 'linear-gradient(180deg, #FFFFFF 10%, #FFFBEB 50%, #FDE68A 100%)',
             iconBg: 'bg-amber-100 text-amber-600',
             trendColor: 'text-amber-700 bg-amber-100'
-        },
-        {
-            title: 'Graduados',
-            value: data.graduados,
-            icon: Medal,
-            trend: '+8.3%',
-            glassGradient: 'linear-gradient(180deg, #FFFFFF 10%, #ECFDF5 50%, #A7F3D0 100%)',
-            iconBg: 'bg-emerald-100 text-emerald-600',
-            trendColor: 'text-emerald-700 bg-emerald-100'
         }
     ];
 
@@ -305,7 +220,7 @@ export default function PanelDashboard({ onClose, stats, estudiantes = [], inscr
                 <div className="space-y-3 pt-12 pb-1">
 
                     {/* 1. Ice Glass Cards */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                         {cards.map((card, idx) => (
                             <motion.div
                                 key={idx}
@@ -456,7 +371,7 @@ export default function PanelDashboard({ onClose, stats, estudiantes = [], inscr
 
                                                 {/* Botón Detalles con estilo Sutil Premium Coloreado */}
                                                 <button
-                                                    onClick={() => setSelectedCourse({ id: item.id, name: item.label, colors })}
+                                                    onClick={() => setSelectedCourse({ id: item.id, name: item.label })}
                                                     className="mt-1 px-3 py-1.5 text-[10px] font-bold backdrop-blur-md border rounded-lg transition-all duration-300 hover:scale-[1.02] hover:shadow-lg active:scale-[0.98] relative overflow-hidden group"
                                                     style={{
                                                         background: `linear-gradient(135deg, ${colors[0]}15, ${colors[1]}05)`,
@@ -553,13 +468,7 @@ export default function PanelDashboard({ onClose, stats, estudiantes = [], inscr
                             {/* Header Modal - Con Search Bar Premium */}
                             <div className="bg-white px-6 py-4 border-b border-slate-200 flex flex-col md:flex-row items-center justify-between gap-4 shrink-0 relative z-20">
                                 <div className="flex items-center gap-3 w-full md:w-auto">
-                                    <div 
-                                        className="w-10 h-10 rounded-xl flex items-center justify-center text-white shrink-0 transition-all duration-300"
-                                        style={{
-                                            background: `linear-gradient(135deg, ${modalColors[0]}, ${modalColors[2]})`,
-                                            boxShadow: `0 8px 20px ${modalColors[1]}40`
-                                        }}
-                                    >
+                                    <div className="w-10 h-10 rounded-xl bg-blue-500 flex items-center justify-center text-white shadow-lg shadow-blue-200 shrink-0">
                                         <GraduationCap className="w-6 h-6" />
                                     </div>
                                     <div>
@@ -571,18 +480,10 @@ export default function PanelDashboard({ onClose, stats, estudiantes = [], inscr
                                 {/* Search Bar Style "Ask AI" */}
                                 <div className="w-full max-w-md relative group mx-4">
                                     {/* Gradient Border & Glow */}
-                                    <div 
-                                        className="absolute -inset-[2px] rounded-full opacity-70 group-hover:opacity-100 blur-[2px] transition duration-500 animate-gradient-x"
-                                        style={{
-                                            background: `linear-gradient(90deg, ${modalColors[0]}, ${modalColors[1]}, ${modalColors[2]})`
-                                        }}
-                                    ></div>
+                                    <div className="absolute -inset-[2px] bg-gradient-to-r from-blue-400 via-indigo-500 to-cyan-400 rounded-full opacity-70 group-hover:opacity-100 blur-[2px] transition duration-500 animate-gradient-x"></div>
 
                                     {/* Input Container */}
-                                    <div 
-                                        className="relative bg-white rounded-full flex items-center px-4 py-2 border transition-colors duration-300"
-                                        style={{ borderColor: `${modalColors[1]}20` }}
-                                    >
+                                    <div className="relative bg-white rounded-full flex items-center px-4 py-2 border border-blue-100">
                                         <input
                                             type="text"
                                             placeholder="Buscar estudiante por nombre o cédula..."
@@ -592,10 +493,7 @@ export default function PanelDashboard({ onClose, stats, estudiantes = [], inscr
                                             autoFocus
                                         />
                                         {/* Right Icon - Mimicking the "Ask" button style */}
-                                        <div 
-                                            className="ml-2 flex items-center gap-1 transition-colors duration-300"
-                                            style={{ color: modalColors[1] }}
-                                        >
+                                        <div className="ml-2 flex items-center gap-1 text-indigo-500">
                                             <Search size={18} strokeWidth={2.5} />
                                         </div>
                                     </div>
@@ -643,30 +541,10 @@ export default function PanelDashboard({ onClose, stats, estudiantes = [], inscr
                                             );
                                             return !!insc;
                                         })
-                                        .map((estudiante) => {
-                                            const insc = inscripciones.find(i =>
-                                                i.entrevista_id === estudiante.id &&
-                                                i.curso_id === selectedCourse.id &&
-                                                (i.estado === 'activo' || i.estado === 'promovido')
-                                            );
-                                            const maestroObj = insc?.servidor_id ? maestros.find(m => m.id === insc.servidor_id) : null;
-                                            const nombreMaestro = maestroObj?.nombre || 'Sin Maestro';
-
-                                            return (
-                                                <motion.div
-                                                    key={estudiante.id}
-                                                    className="premium-student-card p-0 group cursor-pointer"
-                                                    onClick={() => setSelectedStudent(estudiante)}
-                                                style={{
-                                                    '--course-color-0': modalColors[0],
-                                                    '--course-color-1': modalColors[1],
-                                                    '--course-color-2': modalColors[2],
-                                                    '--course-alpha-5': `${modalColors[1]}0d`,
-                                                    '--course-alpha-10': `${modalColors[1]}1a`,
-                                                    '--course-alpha-20': `${modalColors[1]}33`,
-                                                    '--course-alpha-30': `${modalColors[1]}4d`,
-                                                    '--border-color': `${modalColors[0]}15`,
-                                                } as React.CSSProperties}
+                                        .map((estudiante) => (
+                                            <motion.div
+                                                key={estudiante.id}
+                                                className="bg-white rounded-[0.8rem] p-0 relative overflow-hidden shadow-sm hover:shadow-lg transition-all duration-300 border border-slate-100 group"
                                                 variants={{
                                                     hidden: { opacity: 0, y: 30, scale: 0.95, filter: 'blur(4px)' },
                                                     visible: {
@@ -681,65 +559,58 @@ export default function PanelDashboard({ onClose, stats, estudiantes = [], inscr
                                                         }
                                                     }
                                                 }}
-                                                whileHover={{ y: -2, transition: { duration: 0.2 } }}
+                                                whileHover={{ y: -5, transition: { duration: 0.2 } }}
                                             >
 
-                                                {/* Check Badge Minimalista Estilo iOS/Mac */}
-                                                <div className="absolute top-2.5 left-2.5 z-20">
-                                                    <div 
-                                                        className="premium-check-badge text-white"
-                                                        style={{ background: `linear-gradient(135deg, var(--course-color-0), var(--course-color-1))` }}
-                                                    >
-                                                        <Check className="w-2.5 h-2.5" strokeWidth={3.5} />
-                                                    </div>
+                                                {/* Triángulo Corner Azul - Más pequeño */}
+                                                <div className="absolute top-0 left-0">
+                                                    <div className="w-8 h-8 bg-[#0ea5e9] absolute -top-4 -left-4 rotate-45 z-10 shadow-sm"></div>
+                                                    <Check className="w-2.5 h-2.5 text-white absolute top-0.5 left-0.5 z-20" strokeWidth={3} />
                                                 </div>
 
-                                                <div className="pt-5 pb-3 px-3 flex flex-col items-center relative z-10">
+                                                {/* Botón Share Mini */}
+                                                <button className="absolute top-1.5 right-1.5 text-slate-300 hover:text-[#0ea5e9] transition-colors p-1">
+                                                    <Activity className="w-3 h-3" />
+                                                </button>
+
+                                                <div className="pt-3 pb-2 px-2 flex flex-col items-center">
                                                     {/* Avatar Mini */}
-                                                    <div className="w-14 h-14 rounded-full bg-white mb-2 relative z-10 premium-avatar-ring flex items-center justify-center">
+                                                    <div className="w-12 h-12 rounded-full p-0.5 bg-white shadow-sm mb-1.5 relative z-10 group-hover:scale-105 transition-transform duration-300">
                                                         <img
                                                             src={fotoUrls[estudiante.foto_path || ''] || `https://api.dicebear.com/7.x/initials/svg?seed=${estudiante.nombre}`}
                                                             alt={estudiante.nombre}
                                                             className="w-full h-full rounded-full object-cover bg-slate-50"
                                                         />
                                                         {/* Status Indicator */}
-                                                        <div 
-                                                            className="absolute bottom-0 right-0 w-3.5 h-3.5 border-[2px] border-white rounded-full shadow-sm transition-colors duration-300"
-                                                            style={{ backgroundColor: 'var(--course-color-1)' }}
-                                                        ></div>
+                                                        <div className="absolute bottom-0 right-0 w-3 h-3 bg-[#0ea5e9] border-[1.5px] border-white rounded-full shadow-sm"></div>
                                                     </div>
 
                                                     {/* Nombre y Rol */}
                                                     <h3 className="text-xs font-bold text-slate-800 text-center leading-tight mb-0.5 line-clamp-1 w-full px-1" title={estudiante.nombre}>
                                                         {estudiante.nombre}
                                                     </h3>
-                                                    <span className="text-[8px] font-extrabold text-slate-400 uppercase tracking-widest mb-3 truncate w-full text-center px-1" title={estudiante.ocupacion || "Estudiante"}>
-                                                        {estudiante.ocupacion || "Estudiante"}
-                                                    </span>
+                                                    <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mb-2">Estudiante</span>
 
                                                     {/* Detalles List Ultra Compacta (Inline) */}
-                                                    <div className="w-full space-y-1.5 px-2 py-2 premium-detail-container rounded-[0.7rem]">
+                                                    <div className="w-full space-y-1 px-1 bg-slate-50/50 rounded-lg p-1.5">
                                                         <div className="flex items-center gap-2 group/item">
-                                                            <IdCard className="w-2.5 h-2.5 text-slate-400 transition-colors duration-200 group-hover/item:text-[var(--course-color-1)]" />
-                                                            <span className="text-[9px] text-slate-600 font-semibold truncate leading-none">{estudiante.cedula}</span>
+                                                            <Users className="w-2.5 h-2.5 text-slate-400 group-hover/item:text-[#0ea5e9]" />
+                                                            <span className="text-[9px] text-slate-600 font-medium truncate leading-none">{estudiante.cedula}</span>
                                                         </div>
 
                                                         <div className="flex items-center gap-2 group/item">
-                                                            <Phone className="w-2.5 h-2.5 text-slate-400 transition-colors duration-200 group-hover/item:text-[var(--course-color-1)]" />
-                                                            <span className="text-[9px] text-slate-600 font-semibold truncate leading-none">{estudiante.telefono || "N/A"}</span>
+                                                            <Activity className="w-2.5 h-2.5 text-slate-400 group-hover/item:text-[#0ea5e9]" />
+                                                            <span className="text-[9px] text-slate-600 font-medium truncate leading-none">{estudiante.telefono || "N/A"}</span>
                                                         </div>
 
                                                         <div className="flex items-center gap-2 group/item">
-                                                            <GraduationCap className="w-2.5 h-2.5 text-slate-400 transition-colors duration-200 group-hover/item:text-[var(--course-color-1)]" />
-                                                            <span className="text-[9px] text-slate-600 font-semibold truncate leading-none" title={nombreMaestro}>
-                                                                {nombreMaestro}
-                                                            </span>
+                                                            <GraduationCap className="w-2.5 h-2.5 text-slate-400 group-hover/item:text-[#0ea5e9]" />
+                                                            <span className="text-[9px] text-slate-600 font-medium truncate leading-none">{estudiante.dia || "General"}</span>
                                                         </div>
                                                     </div>
                                                 </div>
                                             </motion.div>
-                                        );
-                                    })}
+                                        ))}
 
                                     {estudiantes.filter(est => {
                                         const insc = inscripciones.find(i =>
@@ -760,35 +631,6 @@ export default function PanelDashboard({ onClose, stats, estudiantes = [], inscr
                             </div>
                         </motion.div>
                     </motion.div>
-                )}
-            </AnimatePresence>
-
-            {/* HOJA DE VIDA DEL ESTUDIANTE */}
-            <AnimatePresence>
-                {selectedStudent && (
-                    <ModalTemplate
-                        onClose={() => setSelectedStudent(null)}
-                        title="Hoja de Vida"
-                        className="max-w-4xl w-full h-[85vh] z-[200]"
-                        position="top"
-                    >
-                        <div className="flex-1 w-full overflow-hidden p-0 bg-slate-50 flex flex-col min-h-0 relative z-[201]">
-                            <HojaDeVidaPanel
-                                row={selectedStudent as any}
-                                signedUrl={fotoUrls[selectedStudent.foto_path || ''] || null}
-                                onUpdated={() => {
-                                    if (onDataUpdated) onDataUpdated();
-                                }}
-                                onDeleted={() => {
-                                    setSelectedStudent(null);
-                                    if (onDataUpdated) onDataUpdated();
-                                }}
-                                className="flex-1 shadow-none border-0 rounded-none w-full h-full"
-                                currentUserName={currentUser?.nombre || currentUser?.name || currentUser?.email || 'Admin'}
-                                currentUserRole={currentUser?.rol || 'Director'}
-                            />
-                        </div>
-                    </ModalTemplate>
                 )}
             </AnimatePresence>
         </div >
