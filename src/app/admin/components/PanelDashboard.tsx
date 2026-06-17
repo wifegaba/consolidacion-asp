@@ -540,7 +540,7 @@ export default function PanelDashboard({ onClose, stats, estudiantes = [], inscr
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
-                        className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md"
+                        className="fixed inset-0 z-[100] flex items-end md:items-center justify-center p-0 md:p-4 bg-slate-900/40 backdrop-blur-md"
                         onClick={() => setSelectedCourse(null)}
                     >
                         <motion.div
@@ -548,7 +548,7 @@ export default function PanelDashboard({ onClose, stats, estudiantes = [], inscr
                             animate={{ scale: 1, opacity: 1, y: 0 }}
                             exit={{ scale: 0.95, opacity: 0, y: 20 }}
                             onClick={(e) => e.stopPropagation()}
-                            className="w-full max-w-6xl max-h-[85vh] bg-[#f8fafc] rounded-[2rem] shadow-2xl overflow-hidden flex flex-col border border-white/60"
+                            className="w-full max-w-4xl h-[95vh] md:h-auto max-h-[95vh] md:max-h-[85vh] bg-[#f8fafc] rounded-t-[2rem] md:rounded-[2rem] shadow-2xl overflow-hidden flex flex-col border border-white/60"
                         >
                             {/* Header Modal - Con Search Bar Premium */}
                             <div className="bg-white px-6 py-4 border-b border-slate-200 flex flex-col md:flex-row items-center justify-between gap-4 shrink-0 relative z-20">
@@ -589,7 +589,6 @@ export default function PanelDashboard({ onClose, stats, estudiantes = [], inscr
                                             className="w-full bg-transparent outline-none text-slate-600 placeholder-slate-400 text-sm font-medium"
                                             value={searchTerm}
                                             onChange={(e) => setSearchTerm(e.target.value)}
-                                            autoFocus
                                         />
                                         {/* Right Icon - Mimicking the "Ask" button style */}
                                         <div 

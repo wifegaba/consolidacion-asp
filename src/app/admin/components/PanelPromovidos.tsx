@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../../../lib/supabaseClient';
 import { GlassCard, CardHeader, FormSelect, GLASS_STYLES, ModalTemplate } from '../page';
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence, motion, Variants } from 'framer-motion';
 import { AlertTriangle, Check, Loader2, GraduationCap, ChevronRight, UserCheck, ArrowLeft, Search } from 'lucide-react';
 import type { MaestroConCursos, Curso, Estudiante } from '../page';
 import { getNextCourse } from '../../restauracion/estudiante/components/academia.utils';
@@ -15,6 +15,99 @@ type PromotedStudent = Estudiante & {
     oldCourseName: string;
     nextCourseId: number;
     nextCourseName: string;
+};
+
+// Temas premium con gradientes frescos tipo Mac
+const MAC_THEMES = [
+    {
+        cardBg: "bg-gradient-to-br from-blue-50/90 via-indigo-50/70 to-white/90",
+        border: "border-blue-100/80 hover:border-blue-300/80",
+        iconBg: "bg-gradient-to-tr from-blue-500 to-indigo-600",
+        iconColor: "text-white",
+        badgeBg: "bg-gradient-to-r from-blue-600 to-indigo-600",
+        badgeShadow: "shadow-indigo-500/25",
+        textColor: "text-slate-800 group-hover:text-indigo-950",
+        subtextColor: "text-indigo-600/80 group-hover:text-indigo-700",
+        glowColor: "from-blue-200/30 to-indigo-300/30"
+    },
+    {
+        cardBg: "bg-gradient-to-br from-amber-50/90 via-rose-50/70 to-white/90",
+        border: "border-rose-100/80 hover:border-rose-300/80",
+        iconBg: "bg-gradient-to-tr from-amber-500 to-rose-500",
+        iconColor: "text-white",
+        badgeBg: "bg-gradient-to-r from-amber-500 to-rose-500",
+        badgeShadow: "shadow-rose-500/25",
+        textColor: "text-slate-800 group-hover:text-rose-950",
+        subtextColor: "text-rose-600/80 group-hover:text-rose-700",
+        glowColor: "from-amber-200/30 to-rose-300/30"
+    },
+    {
+        cardBg: "bg-gradient-to-br from-emerald-50/90 via-teal-50/70 to-white/90",
+        border: "border-emerald-100/80 hover:border-emerald-300/80",
+        iconBg: "bg-gradient-to-tr from-emerald-500 to-teal-600",
+        iconColor: "text-white",
+        badgeBg: "bg-gradient-to-r from-emerald-600 to-teal-600",
+        badgeShadow: "shadow-teal-500/25",
+        textColor: "text-slate-800 group-hover:text-emerald-950",
+        subtextColor: "text-emerald-600/80 group-hover:text-emerald-700",
+        glowColor: "from-emerald-200/30 to-teal-300/30"
+    },
+    {
+        cardBg: "bg-gradient-to-br from-purple-50/90 via-fuchsia-50/70 to-white/90",
+        border: "border-purple-100/80 hover:border-purple-300/80",
+        iconBg: "bg-gradient-to-tr from-purple-500 to-fuchsia-600",
+        iconColor: "text-white",
+        badgeBg: "bg-gradient-to-r from-purple-600 to-fuchsia-600",
+        badgeShadow: "shadow-fuchsia-500/25",
+        textColor: "text-slate-800 group-hover:text-purple-950",
+        subtextColor: "text-purple-600/80 group-hover:text-purple-700",
+        glowColor: "from-purple-200/30 to-fuchsia-300/30"
+    }
+];
+
+const EASE_SMOOTH = [0.16, 1, 0.3, 1] as const;
+
+const PAGE_VARIANTS = {
+    hidden: { opacity: 0 },
+    visible: { 
+        opacity: 1, 
+        transition: { 
+            duration: 0.25, 
+            ease: EASE_SMOOTH,
+            when: "beforeChildren"
+        } 
+    },
+    exit: { opacity: 0, transition: { duration: 0.15 } }
+};
+
+const FORM_VARIANTS = {
+    hidden: { opacity: 0 },
+    visible: { 
+        opacity: 1, 
+        transition: { 
+            duration: 0.25, 
+            ease: EASE_SMOOTH,
+            when: "beforeChildren"
+        } 
+    },
+    exit: { opacity: 0, transition: { duration: 0.15 } }
+};
+
+const LIST_WRAPPER_VARIANTS: Variants = {
+    hidden: {},
+    visible: {
+        transition: { staggerChildren: 0.05, delayChildren: 0.05 }
+    }
+};
+
+const LIST_ITEM_VARIANTS: Variants = {
+    hidden: { opacity: 0, y: 20, scale: 0.98 },
+    visible: {
+        opacity: 1,
+        y: 0,
+        scale: 1,
+        transition: { duration: 0.45, ease: EASE_SMOOTH }
+    }
 };
 
 interface PanelPromovidosProps {
@@ -110,6 +203,14 @@ export default function PanelPromovidos({ maestros, cursos, estudiantes, onDataU
         return maestros.filter(m => m.rol === 'Maestro Ptm' && m.asignaciones.some(a => a.curso_id === selectedNextCourseId));
     }, [selectedNextCourseId, maestros]);
 
+    const selectedTheme = useMemo(() => {
+        if (!selectedNextCourseId) return null;
+        const entries = Object.entries(groupedStats);
+        const index = entries.findIndex(([courseId]) => parseInt(courseId) === selectedNextCourseId);
+        if (index === -1) return MAC_THEMES[0];
+        return MAC_THEMES[index % MAC_THEMES.length];
+    }, [selectedNextCourseId, groupedStats]);
+
 
     // Handler
     const handleMatricular = async () => {
@@ -173,59 +274,100 @@ export default function PanelPromovidos({ maestros, cursos, estudiantes, onDataU
                 {!selectedNextCourseId ? (
                     <motion.div
                         key="list"
-                        initial={{ opacity: 0, x: -20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        exit={{ opacity: 0, x: -20 }}
+                        variants={PAGE_VARIANTS}
+                        initial="hidden"
+                        animate="visible"
+                        exit="exit"
                         className="flex flex-col h-full"
                     >
                         <CardHeader Icon={GraduationCap} title="Estudiantes Promovidos" subtitle="Gestionar promoción al siguiente nivel." />
 
-                        <div className="p-6 md:p-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 overflow-y-auto">
+                        <motion.div 
+                            key={`cursos-lista-${fetching}-${loading}-${Object.keys(groupedStats).length}`}
+                            variants={LIST_WRAPPER_VARIANTS}
+                            initial="hidden"
+                            animate="visible"
+                            className="p-6 md:p-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 overflow-y-auto"
+                        >
                             {fetching || loading ? <div className="col-span-full py-12 flex justify-center"><Loader2 className="animate-spin text-indigo-500" /></div> :
                                 promotedStudents.length === 0 ? <div className="col-span-full py-12 text-center text-gray-500">No hay estudiantes pendientes de promoción.</div> :
-                                    Object.entries(groupedStats).map(([courseId, stat]) => (
-                                        <motion.div
-                                            whileHover={{ scale: 1.02 }}
-                                            whileTap={{ scale: 0.98 }}
-                                            onClick={() => setSelectedNextCourseId(parseInt(courseId))}
-                                            key={courseId}
-                                            className="cursor-pointer group relative overflow-hidden rounded-2xl border border-white/60 bg-gradient-to-br from-white/80 to-indigo-50/50 p-6 shadow-sm hover:shadow-lg transition-all"
-                                        >
-                                            <div className="flex justify-between items-start mb-4">
-                                                <div className="p-3 bg-gradient-to-br from-amber-100 to-orange-100 rounded-xl text-amber-700 shadow-sm border border-amber-200">
-                                                    <GraduationCap size={24} />
-                                                </div>
-                                                <div className="px-3 py-1 rounded-full bg-indigo-600 text-white text-xs font-bold shadow-md shadow-indigo-500/30">
-                                                    {stat.count} pendientes
-                                                </div>
-                                            </div>
-                                            <h3 className="text-xl font-bold text-gray-900 mb-1">{stat.name}</h3>
-                                            <p className="text-sm text-gray-500 flex items-center gap-1 group-hover:gap-2 transition-all">
-                                                Matricular alumnos <ChevronRight size={14} />
-                                            </p>
-                                        </motion.div>
-                                    ))
+                                    Object.entries(groupedStats).map(([courseId, stat], index) => {
+                                        const theme = MAC_THEMES[index % MAC_THEMES.length];
+                                        return (
+                                            <motion.div
+                                                key={courseId}
+                                                variants={LIST_ITEM_VARIANTS}
+                                            >
+                                                <motion.div
+                                                    whileHover={{ 
+                                                        scale: 0.995,
+                                                        boxShadow: "inset 3px 3px 8px rgba(0,0,0,0.05), inset -3px -3px 8px rgba(255,255,255,0.85)"
+                                                    }}
+                                                    whileTap={{ 
+                                                        scale: 0.985,
+                                                        boxShadow: "inset 4px 4px 12px rgba(0,0,0,0.08), inset -4px -4px 12px rgba(255,255,255,0.95)"
+                                                    }}
+                                                    onClick={() => setSelectedNextCourseId(parseInt(courseId))}
+                                                    className={`cursor-pointer group relative overflow-hidden rounded-3xl border ${theme.border} ${theme.cardBg} p-7 shadow-[inset_2px_2px_6px_rgba(0,0,0,0.03),_inset_-2px_-2px_6px_rgba(255,255,255,0.7),_0_2px_8px_rgba(0,0,0,0.01)] backdrop-blur-md transition-all duration-300 h-full`}
+                                                >
+                                                    {/* Brillo ambiental en hover */}
+                                                    <div className={`absolute -right-10 -bottom-10 w-32 h-32 bg-gradient-to-br ${theme.glowColor} rounded-full blur-2xl opacity-70 group-hover:scale-150 transition-all duration-500 pointer-events-none`} />
+                                                    
+                                                    <div className="flex justify-between items-start mb-6 relative z-10">
+                                                        <div className={`p-3 bg-gradient-to-tr ${theme.iconBg} rounded-2xl ${theme.iconColor} shadow-md shadow-black/5 flex items-center justify-center transform group-hover:scale-110 transition-transform duration-300`}>
+                                                            <GraduationCap size={22} className="stroke-[2.2]" />
+                                                        </div>
+                                                        <div className={`px-3.5 py-1.5 rounded-full ${theme.badgeBg} text-white text-[11px] font-bold tracking-wide uppercase shadow-sm ${theme.badgeShadow} transform group-hover:scale-105 transition-transform duration-300`}>
+                                                            {stat.count} {stat.count === 1 ? 'pendiente' : 'pendientes'}
+                                                        </div>
+                                                    </div>
+                                                    
+                                                    <div className="relative z-10">
+                                                        <h3 className={`text-xl font-extrabold tracking-tight mb-2 transition-colors ${theme.textColor}`}>{stat.name}</h3>
+                                                        <p className={`text-sm font-semibold ${theme.subtextColor} flex items-center gap-1.5 transition-all duration-300`}>
+                                                            <span>Matricular alumnos</span> 
+                                                            <ChevronRight size={15} className="transform group-hover:translate-x-1 transition-transform stroke-[2.5]" />
+                                                        </p>
+                                                    </div>
+                                                </motion.div>
+                                            </motion.div>
+                                        );
+                                    })
                             }
-                        </div>
+                        </motion.div>
                     </motion.div>
                 ) : (
                     <motion.div
                         key="form"
-                        initial={{ opacity: 0, x: 20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        exit={{ opacity: 0, x: 20 }}
+                        variants={FORM_VARIANTS}
+                        initial="hidden"
+                        animate="visible"
+                        exit="exit"
                         className="flex flex-col h-full"
                     >
-                        <div className="flex items-center gap-4 p-5 border-b border-white/50 bg-white/40 backdrop-blur-md">
-                            <button onClick={() => setSelectedNextCourseId(null)} className="p-2 rounded-lg hover:bg-white/60 text-gray-600 transition-colors">
-                                <ArrowLeft size={20} />
+                        <div className={`flex items-center gap-4 p-5 border-b border-white/50 backdrop-blur-md relative overflow-hidden transition-all duration-500 ${selectedTheme?.cardBg || 'bg-white/40'}`}>
+                            {/* Brillo ambiental de fondo */}
+                            {selectedTheme && (
+                                <div className={`absolute -right-10 -bottom-10 w-48 h-48 bg-gradient-to-br ${selectedTheme.glowColor} rounded-full blur-2xl opacity-60 pointer-events-none`} />
+                            )}
+                            <button 
+                                onClick={() => setSelectedNextCourseId(null)} 
+                                className="p-2 rounded-xl bg-white/40 hover:bg-white/70 text-gray-700 transition-all border border-white/40 hover:shadow-sm relative z-10"
+                            >
+                                <ArrowLeft size={20} className="stroke-[2.5]" />
                             </button>
-                            <div>
-                                <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-                                    <GraduationCap className="text-indigo-600" size={24} />
-                                    {groupedStats[selectedNextCourseId]?.name}
-                                </h2>
-                                <p className="text-sm text-gray-500">Asigna un maestro para completar la promoción.</p>
+                            <div className="relative z-10 flex items-center gap-3">
+                                <div className={`p-2.5 bg-gradient-to-tr ${selectedTheme?.iconBg || 'bg-indigo-600'} rounded-xl ${selectedTheme?.iconColor || 'text-white'} shadow-sm flex items-center justify-center`}>
+                                    <GraduationCap size={20} className="stroke-[2.2]" />
+                                </div>
+                                <div>
+                                    <h2 className={`text-lg font-extrabold tracking-tight ${selectedTheme?.textColor || 'text-gray-900'}`}>
+                                        {groupedStats[selectedNextCourseId]?.name}
+                                    </h2>
+                                    <p className={`text-xs font-semibold ${selectedTheme?.subtextColor || 'text-gray-500'}`}>
+                                        Asigna un maestro para completar la promoción.
+                                    </p>
+                                </div>
                             </div>
                         </div>
 
@@ -281,10 +423,17 @@ export default function PanelPromovidos({ maestros, cursos, estudiantes, onDataU
                                     </button>
                                 </div>
 
-                                <div className="flex-1 overflow-y-auto p-4 content-start grid gap-2">
+                                <motion.div 
+                                    key={`estudiantes-lista-${selectedNextCourseId}-${search}-${studentsForSelectedCourse.length}`}
+                                    variants={LIST_WRAPPER_VARIANTS}
+                                    initial="hidden"
+                                    animate="visible"
+                                    className="flex-1 overflow-y-auto p-4 content-start grid gap-2"
+                                >
                                     {studentsForSelectedCourse.map(s => (
-                                        <div
+                                        <motion.div
                                             key={s.id}
+                                            variants={LIST_ITEM_VARIANTS}
                                             onClick={() => setSelectedIds(p => ({ ...p, [s.id]: !p[s.id] }))}
                                             className={`p-4 rounded-xl bg-white/60 border hover:bg-white transition-all cursor-pointer flex items-center justify-between group ${selectedIds[s.id] ? 'ring-2 ring-indigo-500 border-transparent shadow-md' : 'border-white/60'}`}
                                         >
@@ -292,14 +441,14 @@ export default function PanelPromovidos({ maestros, cursos, estudiantes, onDataU
                                                 <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors ${selectedIds[s.id] ? 'bg-indigo-600 border-indigo-600' : 'border-gray-300 group-hover:border-indigo-400'}`}>
                                                     {selectedIds[s.id] && <Check size={14} className="text-white" />}
                                                 </div>
-                                                <div>
+                                                <div className="flex flex-wrap items-baseline gap-2">
                                                     <h4 className="font-bold text-gray-900">{s.nombre}</h4>
-                                                    <p className="text-xs text-gray-500">C.C. {s.cedula} • Promovido de {s.oldCourseName}</p>
+                                                    <span className="text-xs text-gray-500">• Promovido de {s.oldCourseName}</span>
                                                 </div>
                                             </div>
-                                        </div>
+                                        </motion.div>
                                     ))}
-                                </div>
+                                </motion.div>
                             </div>
                         </div>
                     </motion.div>
