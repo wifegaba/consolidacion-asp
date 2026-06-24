@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, memo } from 'react';
+import { createPortal } from 'react-dom';
 import { moverEstudianteAction } from '@/app/actions';
 
 type Dia = 'Domingo' | 'Martes' | 'Virtual';
@@ -63,13 +64,17 @@ export const MoverEstudianteModal = memo(function MoverEstudianteModal({
     if (open) { setEtapa(null); setModulo(null); setDiaD(null); setErrorMsg(null); setIsSuccess(false); }
   }, [open]);
 
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
-    if (open) window.addEventListener('keydown', onKey);
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [open, onClose]);
 
-  if (!open) return null;
+  if (!open || !mounted) return null;
 
   const canConfirm = etapa && modulo && diaD;
 
@@ -99,7 +104,7 @@ export const MoverEstudianteModal = memo(function MoverEstudianteModal({
   };
 
   if (isSuccess) {
-    return (
+    return createPortal(
       <div role="dialog" aria-modal="true" className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-6">
         <div aria-hidden="true" className="fixed inset-0 bg-black/40 backdrop-blur-sm transition-opacity" />
         <div className="relative w-[min(400px,90vw)] overflow-hidden rounded-[32px] bg-white shadow-[0_32px_64px_-16px_rgba(0,0,0,0.32)] ring-1 ring-black/10 flex flex-col items-center justify-center p-8 animate-in fade-in zoom-in duration-300">
@@ -122,11 +127,12 @@ export const MoverEstudianteModal = memo(function MoverEstudianteModal({
             @keyframes shrink { from { width: 100%; } to { width: 0%; } }
           `}} />
         </div>
-      </div>
+      </div>,
+      document.body
     );
   }
 
-  return (
+  return createPortal(
     <div role="dialog" aria-modal="true" className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-6">
       <div aria-hidden="true" className="fixed inset-0 bg-black/25 backdrop-blur-[4px]" onClick={onClose} />
       <div className="relative w-[min(500px,96vw)] max-h-[92vh] overflow-auto rounded-[24px] bg-white shadow-[0_32px_64px_-16px_rgba(0,0,0,0.32)] ring-1 ring-black/10 flex flex-col">
@@ -251,6 +257,7 @@ export const MoverEstudianteModal = memo(function MoverEstudianteModal({
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 });
