@@ -17,6 +17,8 @@ const Servidores = dynamic(() => import('@/app/panel/servidores/page'), { ssr: f
 import { GlobalPresenceProvider } from '@/components/GlobalPresenceProvider';
 import { LogOut, ArrowLeft } from 'lucide-react';
 import { getUserAssignmentsCount } from '@/lib/checkUserRoles';
+import { moverEstudianteAction } from '@/app/actions';
+import { MoverEstudianteModal } from '@/components/MoverEstudianteModal';
 
 /* ================= Tipos ================= */
 type Dia = 'Domingo' | 'Martes' | 'Virtual';
@@ -1604,6 +1606,10 @@ export default function Contactos1Client(
                             row={sel}
                             saving={saving}
                             onSave={enviarResultado}
+                            onMoverSuccess={async () => {
+                              setSelectedId(null);
+                              if (dia) await fetchPendientes(semana, dia, { quiet: false });
+                            }}
                           />
                         </>
                       );
@@ -2440,19 +2446,21 @@ export default function Contactos1Client(
   }
 }
 
-/* ================= Panel derecho (detalle y envío) ================= */
+
 function FollowUp({
   semana,
   dia,
   row,
   saving,
   onSave,
+  onMoverSuccess,
 }: {
   semana: Semana;
   dia: Dia | null;
   row: PendienteRow;
   saving: boolean;
   onSave: (p: { resultado: Resultado; notas?: string }) => Promise<void>;
+  onMoverSuccess?: () => void;
 }) {
   const opciones: { label: string; value: Resultado }[] = [
     { label: 'CONFIRMÓ ASISTENCIA', value: 'confirmo_asistencia' },
@@ -2472,6 +2480,7 @@ function FollowUp({
   const [resultado, setResultado] = useState<Resultado | null>(null);
   const [obs, setObs] = useState('');
   const [obsCount, setObsCount] = useState<number | null>(null);
+  const [moverOpen, setMoverOpen] = useState(false);
 
   useEffect(() => {
     setResultado(null);
@@ -2558,6 +2567,7 @@ function FollowUp({
               <div className="text-[12px] text-neutral-500 leading-none">
                 Semana {semana} • {dia}
               </div>
+              {/* Botón Mover estudiante deshabilitado por el momento */}
             </div>
           </div>
 
@@ -2621,6 +2631,18 @@ function FollowUp({
             </button>
           </div>
         </div>
+
+        {/* Modal traslado */}
+        <MoverEstudianteModal
+          open={moverOpen}
+          onClose={() => setMoverOpen(false)}
+          studentName={row.nombre ?? ''}
+          progresoId={row.progreso_id}
+          onSuccess={() => {
+            setMoverOpen(false);
+            onMoverSuccess?.();
+          }}
+        />
 
         <div>
           <label className="text-xs text-neutral-500">Resultado de la llamada</label>

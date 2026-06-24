@@ -371,17 +371,261 @@ function CallsList({
     );
 }
 
+/* =============== Modal: Mover Estudiante =============== */
+type EtapaDestino = 'Semillas' | 'Devocionales' | 'Restauracion';
+
+const ETAPAS_CONFIG: { etapa: EtapaDestino; label: string; color: string; grad: string; icon: string }[] = [
+    { etapa: 'Semillas',     label: 'Semillas',     color: '#4F8EF7', grad: 'from-[#4F8EF7] to-[#7BB2FF]', icon: '🌱' },
+    { etapa: 'Devocionales', label: 'Devocionales', color: '#7C5CE5', grad: 'from-[#7C5CE5] to-[#A78BFA]', icon: '📖' },
+    { etapa: 'Restauracion', label: 'Restauración', color: '#10B981', grad: 'from-[#10B981] to-[#34D399]', icon: '🕊️' },
+];
+
+function MoverEstudianteModal({
+    open,
+    onClose,
+    studentName,
+    progresoId,
+    onSuccess,
+}: {
+    open: boolean;
+    onClose: () => void;
+    studentName: string;
+    progresoId: string;
+    onSuccess: () => void;
+}) {
+    const [etapa, setEtapa] = useState<EtapaDestino | null>(null);
+    const [modulo, setModulo] = useState<number | null>(null);
+    const [semana, setSemana] = useState<number | null>(null);
+    const [dia, setDia] = useState<Day | null>(null);
+    const [saving, setSaving] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+
+    // Reset al abrir
+    useEffect(() => {
+        if (open) {
+            setEtapa(null);
+            setModulo(null);
+            setSemana(null);
+            setDia(null);
+            setError(null);
+        }
+    }, [open]);
+
+    useEffect(() => {
+        const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
+        if (open) window.addEventListener('keydown', onKey);
+        return () => window.removeEventListener('keydown', onKey);
+    }, [open, onClose]);
+
+    if (!open) return null;
+
+    const canConfirm = etapa && modulo && semana && dia;
+
+    const handleConfirm = async () => {
+        if (!canConfirm) return;
+        setSaving(true);
+        setError(null);
+        try {
+            const { error: err } = await supabase
+                .from('progreso')
+                .update({
+                    etapa,
+                    modulo,
+                    semana,
+                    dia,
+                })
+                .eq('id', progresoId);
+            if (err) throw err;
+            onSuccess();
+            onClose();
+        } catch (e: any) {
+            setError(e?.message ?? 'Error al mover el estudiante');
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    return (
+        <div role="dialog" aria-modal="true" className="fixed inset-0 z-[60] flex items-center justify-center p-3 sm:p-6">
+            {/* Backdrop */}
+            <div
+                aria-hidden="true"
+                className="fixed inset-0 bg-black/20 backdrop-blur-[4px]"
+                onClick={onClose}
+            />
+
+            {/* Panel */}
+            <div className="relative w-[min(520px,96vw)] max-h-[90vh] overflow-auto rounded-[24px] bg-white shadow-[0_32px_64px_-16px_rgba(0,0,0,0.30)] ring-1 ring-black/10 flex flex-col">
+
+                {/* Header premium */}
+                <div className="relative overflow-hidden rounded-t-[24px] px-6 py-5 bg-gradient-to-br from-[#0f172a] via-[#1e293b] to-[#0f172a]">
+                    {/* Destellos decorativos */}
+                    <div className="pointer-events-none absolute -top-8 -right-8 w-32 h-32 rounded-full bg-gradient-to-br from-amber-400/20 to-yellow-300/10 blur-2xl" />
+                    <div className="pointer-events-none absolute -bottom-4 -left-4 w-24 h-24 rounded-full bg-gradient-to-br from-violet-500/20 to-indigo-400/10 blur-2xl" />
+
+                    <div className="relative flex items-start justify-between gap-3">
+                        <div>
+                            <div className="flex items-center gap-2 mb-1">
+                                {/* Corona premium */}
+                                <span className="inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-amber-400 to-yellow-300 px-2.5 py-0.5 text-[10px] font-bold text-amber-900 shadow-sm tracking-wide uppercase">
+                                    ✦ Premium
+                                </span>
+                            </div>
+                            <h2 className="text-xl font-bold text-white tracking-tight">Mover Estudiante</h2>
+                            <p className="mt-0.5 text-slate-400 text-sm">
+                                <span className="font-medium text-slate-200">{studentName}</span>
+                                {' '}→ selecciona la nueva etapa
+                            </p>
+                        </div>
+                        <button
+                            onClick={onClose}
+                            aria-label="Cerrar"
+                            className="shrink-0 h-8 w-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white/70 hover:text-white transition text-lg leading-none"
+                        >
+                            ×
+                        </button>
+                    </div>
+                </div>
+
+                <div className="p-5 space-y-5">
+
+                    {/* Paso 1: Etapa */}
+                    <div>
+                        <label className="block text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-2">1 · Etapa destino</label>
+                        <div className="grid grid-cols-3 gap-2">
+                            {ETAPAS_CONFIG.map((cfg) => (
+                                <button
+                                    key={cfg.etapa}
+                                    onClick={() => { setEtapa(cfg.etapa); setModulo(null); }}
+                                    className={`relative flex flex-col items-center justify-center gap-1 py-3 px-2 rounded-xl border-2 font-semibold text-sm transition-all ${
+                                        etapa === cfg.etapa
+                                            ? 'border-transparent text-white shadow-lg scale-[1.03]'
+                                            : 'border-neutral-200 text-neutral-600 bg-white hover:border-neutral-300 hover:shadow-sm'
+                                    }`}
+                                    style={etapa === cfg.etapa ? { background: `linear-gradient(135deg, ${cfg.color}, ${cfg.color}cc)` } : {}}
+                                >
+                                    <span className="text-2xl">{cfg.icon}</span>
+                                    <span className="text-[11px] leading-tight text-center">{cfg.label}</span>
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Paso 2: Módulo */}
+                    {etapa && (
+                        <div>
+                            <label className="block text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-2">2 · Módulo</label>
+                            <div className="flex gap-2">
+                                {[1, 2, 3, 4].map((m) => (
+                                    <button
+                                        key={m}
+                                        onClick={() => setModulo(m)}
+                                        className={`flex-1 py-2.5 rounded-xl border-2 font-bold text-base transition-all ${
+                                            modulo === m
+                                                ? 'border-transparent text-white bg-neutral-900 shadow-md scale-[1.04]'
+                                                : 'border-neutral-200 text-neutral-700 bg-white hover:border-neutral-300 hover:bg-neutral-50'
+                                        }`}
+                                    >
+                                        {m}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Paso 3: Semana */}
+                    {etapa && modulo && (
+                        <div>
+                            <label className="block text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-2">3 · Semana</label>
+                            <div className="flex gap-2">
+                                {[1, 2, 3].map((s) => (
+                                    <button
+                                        key={s}
+                                        onClick={() => setSemana(s)}
+                                        className={`flex-1 py-2.5 rounded-xl border-2 font-bold text-base transition-all ${
+                                            semana === s
+                                                ? 'border-transparent text-white bg-indigo-600 shadow-md scale-[1.04]'
+                                                : 'border-neutral-200 text-neutral-700 bg-white hover:border-neutral-300 hover:bg-neutral-50'
+                                        }`}
+                                    >
+                                        {s}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Paso 4: Día */}
+                    {etapa && modulo && semana && (
+                        <div>
+                            <label className="block text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-2">4 · Día</label>
+                            <div className="flex gap-2">
+                                {(['Domingo', 'Martes', 'Virtual'] as Day[]).map((d) => (
+                                    <button
+                                        key={d}
+                                        onClick={() => setDia(d)}
+                                        className={`flex-1 py-2.5 rounded-xl border-2 font-semibold text-sm transition-all ${
+                                            dia === d
+                                                ? 'border-transparent text-white bg-emerald-600 shadow-md scale-[1.04]'
+                                                : 'border-neutral-200 text-neutral-700 bg-white hover:border-neutral-300 hover:bg-neutral-50'
+                                        }`}
+                                    >
+                                        {d}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Resumen destino */}
+                    {canConfirm && (
+                        <div className="rounded-xl bg-gradient-to-br from-slate-50 to-slate-100 border border-slate-200 px-4 py-3">
+                            <p className="text-xs text-slate-500 font-medium uppercase tracking-wide mb-1">Destino seleccionado</p>
+                            <p className="text-sm font-semibold text-slate-800">
+                                {ETAPAS_CONFIG.find(c => c.etapa === etapa)?.icon} {etapa} {modulo} · Semana {semana} · {dia}
+                            </p>
+                        </div>
+                    )}
+
+                    {error && (
+                        <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2 border border-red-200">{error}</p>
+                    )}
+
+                    {/* Acciones */}
+                    <div className="flex items-center gap-3 pt-1">
+                        <button
+                            onClick={onClose}
+                            className="flex-1 py-2.5 rounded-xl border border-neutral-200 text-sm font-semibold text-neutral-600 hover:bg-neutral-50 transition"
+                        >
+                            Cancelar
+                        </button>
+                        <button
+                            disabled={!canConfirm || saving}
+                            onClick={handleConfirm}
+                            className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white bg-gradient-to-r from-[#0f172a] to-[#1e40af] shadow-md hover:shadow-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            {saving ? 'Moviendo…' : 'Confirmar traslado'}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}
+
 /* =============== Formulario seguimiento =============== */
 function FollowUpForm({
     contact,
     prevHist,
     onSubmit,
     busy,
+    onMoverSuccess,
 }: {
     contact: { progresoId: string; nombre: string; tel: string | null; semana: Week; dia: Day };
     prevHist?: (Resultado | null)[];
     onSubmit: (payload: { resultado: Resultado; notas?: string }) => Promise<void>;
     busy: boolean;
+    onMoverSuccess?: () => void;
 }) {
     const opciones: { label: string; value: Resultado }[] = [
         { label: 'CONFIRMÓ ASISTENCIA', value: 'confirmo_asistencia' },
@@ -398,6 +642,7 @@ function FollowUpForm({
 
     const [resultado, setResultado] = useState<Resultado | null>(null);
     const [obs, setObs] = useState('');
+    const [moverOpen, setMoverOpen] = useState(false);
 
     const initials =
         contact.nombre
@@ -459,6 +704,52 @@ function FollowUpForm({
                     </div>
                 )}
             </div>
+
+            {/* ── Botón premium Mover Estudiante ── */}
+            <div className="mb-4 flex">
+                <button
+                    onClick={() => setMoverOpen(true)}
+                    className="
+                        inline-flex items-center gap-2
+                        rounded-xl
+                        px-4 py-2
+                        text-sm font-bold
+                        bg-gradient-to-r from-[#0f172a] via-[#1e293b] to-[#1e40af]
+                        text-white
+                        shadow-[0_4px_14px_-4px_rgba(30,64,175,0.55)]
+                        hover:shadow-[0_6px_20px_-4px_rgba(30,64,175,0.70)]
+                        hover:scale-[1.02]
+                        active:scale-[0.98]
+                        transition-all duration-200
+                        ring-1 ring-white/10
+                    "
+                >
+                    {/* Corona premium */}
+                    <span
+                        className="inline-flex items-center justify-center h-5 w-5 rounded-full bg-gradient-to-br from-amber-400 to-yellow-300 text-[10px] font-black text-amber-900 shadow-sm"
+                        aria-hidden="true"
+                    >
+                        ✦
+                    </span>
+                    Mover estudiante
+                    {/* Flecha */}
+                    <svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14" className="opacity-70">
+                        <path fillRule="evenodd" d="M7.21 14.77a.75.75 0 0 1 .02-1.06L11.168 10 7.23 6.29a.75.75 0 1 1 1.04-1.08l4.5 4.25a.75.75 0 0 1 0 1.08l-4.5 4.25a.75.75 0 0 1-1.06-.02Z" clipRule="evenodd" />
+                    </svg>
+                </button>
+            </div>
+
+            {/* Modal traslado */}
+            <MoverEstudianteModal
+                open={moverOpen}
+                onClose={() => setMoverOpen(false)}
+                studentName={contact.nombre}
+                progresoId={contact.progresoId}
+                onSuccess={() => {
+                    setMoverOpen(false);
+                    onMoverSuccess?.();
+                }}
+            />
 
             <div>
                 <label className="text-xs text-neutral-500">Resultado de la llamada</label>
@@ -812,6 +1103,11 @@ export default function PageSemillas() {
                                             }}
                                             prevHist={selectedContact.hist}
                                             busy={savingCall}
+                                            onMoverSuccess={async () => {
+                                                if (!seed || !activeWeek || !activeDay) return;
+                                                await loadPendientes(seed, activeWeek, activeDay);
+                                                setSelectedProgreso(null);
+                                            }}
                                             onSubmit={async ({ resultado, notas }) => {
                                                 if (!seed || !activeWeek || !activeDay || !selectedContact) return;
                                                 setSavingCall(true);

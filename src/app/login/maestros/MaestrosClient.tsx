@@ -17,6 +17,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { GlobalPresenceProvider } from '@/components/GlobalPresenceProvider';
 import { LogOut, ArrowLeft } from 'lucide-react';
 import { getUserAssignmentsCount } from '@/lib/checkUserRoles';
+import { MoverEstudianteModal } from '@/components/MoverEstudianteModal';
 
 /* ================= Tipos ================= */
 type Dia = 'Domingo' | 'Martes' | 'Virtual';
@@ -254,11 +255,12 @@ const PendienteItem = memo(({
   selectedId,
   disabled,
   onSelect,
+  onMoverSuccess,
 }: {
   c: PendRowUI,
   selectedId: string | null,
   disabled: boolean,
-  onSelect: (e: React.MouseEvent<HTMLLIElement>, c: PendRowUI) => void
+  onSelect: (e: React.MouseEvent<HTMLLIElement>, c: PendRowUI) => void,
 }) => {
   return (
     <motion.li
@@ -1541,6 +1543,10 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
                                   setModalPosition(null);
                                 }
                               }}
+                              onMoverSuccess={() => {
+                                if (dia) void fetchPendientes(semana, dia, { quiet: true });
+                                void fetchAgendados({ quiet: true });
+                              }}
                             />
                           );
                         })}
@@ -1600,6 +1606,11 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
                             row={sel}
                             saving={saving}
                             onSave={enviarResultado}
+                            onMoverSuccess={() => {
+                              if (dia) void fetchPendientes(semana, dia, { quiet: true });
+                              void fetchAgendados({ quiet: true });
+                              setSelectedId(null);
+                            }}
                           />
                         ) : (
                           <div className="p-6 text-neutral-700">Selecciona un registro válido para continuar.</div>
@@ -2538,12 +2549,14 @@ function FollowUp({
   row,
   saving,
   onSave,
+  onMoverSuccess,
 }: {
   semana: Semana;
   dia: Dia | null;
   row: PendienteRow;
   saving: boolean;
   onSave: (p: { resultado: Resultado; notas?: string }) => Promise<void>;
+  onMoverSuccess: () => void;
 }) {
   const opciones: { label: string; value: Resultado }[] = [
     { label: 'CONFIRMÓ ASISTENCIA', value: 'confirmo_asistencia' },
@@ -2563,6 +2576,7 @@ function FollowUp({
   const [resultado, setResultado] = useState<Resultado | null>(null);
   const [obs, setObs] = useState('');
   const [obsCount, setObsCount] = useState<number | null>(null);
+  const [moverOpen, setMoverOpen] = useState(false);
 
   useEffect(() => {
     setResultado(null);
@@ -2660,7 +2674,15 @@ function FollowUp({
               <div className="text-[12px] text-neutral-700 leading-none">
                 Semana {semana} • {dia}
               </div>
-
+              <button
+                onClick={() => setMoverOpen(true)}
+                className="mt-2.5 inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-neutral-700 ring-1 ring-black/10 shadow-sm transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 hover:bg-white/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-black/20"
+              >
+                <svg viewBox="0 0 20 20" fill="currentColor" width="13" height="13" className="text-neutral-500" aria-hidden="true">
+                  <path d="M10.293 3.293a1 1 0 0 1 1.414 0l6 6a1 1 0 0 1 0 1.414l-6 6a1 1 0 0 1-1.414-1.414L14.586 11H3a1 1 0 1 1 0-2h11.586l-4.293-4.293a1 1 0 0 1 0-1.414Z" />
+                </svg>
+                Mover estudiante
+              </button>
             </div>
           </div>
 
@@ -2821,8 +2843,16 @@ function FollowUp({
         </div>
       )}
 
-
-
+      <MoverEstudianteModal
+        open={moverOpen}
+        onClose={() => setMoverOpen(false)}
+        studentName={row.nombre ?? ''}
+        progresoId={row.progreso_id}
+        onSuccess={() => {
+          setMoverOpen(false);
+          onMoverSuccess();
+        }}
+      />
     </>
   );
 }

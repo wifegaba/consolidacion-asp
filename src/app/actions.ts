@@ -446,3 +446,27 @@ export async function marcarAsistencia(inscripcion_id: string, classId: number, 
     return { success: false, error: error.message };
   }
 }
+
+// --- Mover Estudiante Action ---
+export async function moverEstudianteAction(
+  progresoId: string,
+  etapa: string,
+  modulo: number,
+  semana: number,
+  dia: string
+): Promise<{ success: boolean; error?: string }> {
+  unstable_noStore();
+  const supabaseAdmin = getSupabaseAdminClient();
+  try {
+    const { error } = await supabaseAdmin
+      .from('progreso')
+      .update({ etapa, modulo, semana, dia, activo: true, estado: 'pendiente_llamar' })
+      .eq('id', progresoId);
+
+    if (error) throw error;
+    return { success: true };
+  } catch (err: any) {
+    console.error("Error en moverEstudianteAction:", err);
+    return { success: false, error: err.message || 'Error al mover estudiante' };
+  }
+}
