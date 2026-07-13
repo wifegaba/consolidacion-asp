@@ -60,7 +60,18 @@ export default function PanelConsultarEstudiantes({ maestros, cursos, estudiante
         // We want ONLY active inscriptions to verify "Matriculado" status
         // But we want to know if there's an inactive one to show history in Pendientes.
 
-        const iSet = new Map<string, Inscripcion & { estado?: string }>(inscripciones.map(i => [i.entrevista_id, i]));
+        // Construir iSet priorizando: activo > inactivo > otros estados.
+        // El Map simple (last-wins) fallaba cuando Supabase devolvía las inscripciones
+        // en orden [activo, finalizado] — quedaba con 'finalizado' y el estudiante
+        // aparecía falsamente en Pendientes aunque tenía matrícula activa.
+        const iSet = new Map<string, Inscripcion & { estado?: string }>();
+        const PRIORIDAD: Record<string, number> = { activo: 3, inactivo: 2, promovido: 1, graduado: 1, finalizado: 0 };
+        inscripciones.forEach(i => {
+            const existing = iSet.get(i.entrevista_id);
+            const priExisting = existing ? (PRIORIDAD[(existing as any).estado] ?? 0) : -1;
+            const priNew = PRIORIDAD[(i as any).estado] ?? 0;
+            if (priNew >= priExisting) iSet.set(i.entrevista_id, i);
+        });
 
         return estudiantes.map(e => {
             const ins = iSet.get(e.id);

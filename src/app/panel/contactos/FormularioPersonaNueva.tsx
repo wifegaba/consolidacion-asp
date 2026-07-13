@@ -2,7 +2,7 @@
 'use client';
 
 import React, { useEffect, useRef, useState, useCallback, memo } from 'react';
-import { Trash2, Phone, FileText, FileSpreadsheet } from "lucide-react";
+import { Trash2, Phone, FileText, FileSpreadsheet, Edit2 } from "lucide-react";
 import { supabase } from '@/lib/supabaseClient';
 // MEJORA 1: Eliminados imports estáticos pesados para Lazy Loading
 // import jsPDF from 'jspdf';
@@ -177,11 +177,13 @@ const extraerCulto = (
 const PendienteRowItem = memo(({
     row,
     onSelect,
-    onDelete
+    onDelete,
+    onEdit
 }: {
     row: PendienteItem;
     onSelect: (p: PendienteItem) => void;
-    onDelete: (p: PendienteItem) => void
+    onDelete: (p: PendienteItem) => void;
+    onEdit: (p: PendienteItem) => void;
 }) => {
     return (
         <div
@@ -233,6 +235,14 @@ const PendienteRowItem = memo(({
                 >
                     <Phone size={13} strokeWidth={2.5} />
                 </a>
+                <button
+                    aria-label="Editar pendiente"
+                    title="Editar pendiente"
+                    onClick={(e) => { e.stopPropagation(); onEdit(row); }}
+                    className="inline-grid place-items-center w-7 h-7 rounded-full transition-all hover:scale-105 bg-white shadow-sm hover:bg-gray-50 border border-gray-100"
+                >
+                    <Edit2 size={14} className="text-amber-600" />
+                </button>
                 <button
                     aria-label="Eliminar pendiente"
                     title="Eliminar pendiente"
@@ -321,6 +331,7 @@ export default function PersonaNueva({ servidorId }: { servidorId: string | null
     const [pendLoading, setPendLoading] = useState(false);
     const [pendientesRows, setPendientesRows] = useState<PendienteItem[]>([]);
     const [pendPage, setPendPage] = useState(0);
+    const [pendienteAEditar, setPendienteAEditar] = useState<PendienteItem | null>(null);
     const PEND_PAGE_SIZE = 7;
 
     const [modoListado, setModoListado] = useState(false);
@@ -1380,6 +1391,7 @@ export default function PersonaNueva({ servidorId }: { servidorId: string | null
                                                         row={row}
                                                         onSelect={selectPendiente}
                                                         onDelete={handleEliminarPendiente}
+                                                        onEdit={setPendienteAEditar}
                                                     />
                                                 ))}
                                     </div>
@@ -1410,6 +1422,82 @@ export default function PersonaNueva({ servidorId }: { servidorId: string | null
                                         </button>
                                     </div>
                                 )}
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {pendienteAEditar && (
+                    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-sm">
+                        <div className="bg-white rounded-2xl p-6 w-[90%] max-w-md shadow-2xl">
+                            <h3 className="text-xl font-bold text-gray-800 mb-4">Editar Pendiente</h3>
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Nombre</label>
+                                    <input 
+                                        type="text" 
+                                        value={pendienteAEditar.nombre || ''} 
+                                        onChange={e => setPendienteAEditar({...pendienteAEditar, nombre: e.target.value})}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-black"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Teléfono</label>
+                                    <input 
+                                        type="text" 
+                                        value={pendienteAEditar.telefono || ''} 
+                                        onChange={e => setPendienteAEditar({...pendienteAEditar, telefono: e.target.value})}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-black"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Culto Seleccionado / Observaciones</label>
+                                    <textarea 
+                                        value={pendienteAEditar.observaciones || ''} 
+                                        onChange={e => setPendienteAEditar({...pendienteAEditar, observaciones: e.target.value})}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-black min-h-[60px]"
+                                        placeholder="Ej: Culto de ingreso: Domingo - 9:00 AM"
+                                    />
+                                </div>
+                            </div>
+                            <div className="flex justify-end gap-3 mt-6">
+                                <button 
+                                    onClick={() => setPendienteAEditar(null)}
+                                    className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                                >
+                                    Cancelar
+                                </button>
+                                <button 
+                                    onClick={async () => {
+                                        if (!pendienteAEditar.id) return;
+                                        try {
+                                            const { error } = await supabase.from('pendientes').update({
+                                                nombre: pendienteAEditar.nombre,
+                                                telefono: normalizaTelefono(pendienteAEditar.telefono || ''),
+                                                observaciones: pendienteAEditar.observaciones,
+                                            }).eq('id', pendienteAEditar.id);
+                                            
+                                            if (error) throw error;
+                                            
+                                            setPendientesRows(prev => prev.map(p => 
+                                                p.id === pendienteAEditar.id ? { 
+                                                    ...p, 
+                                                    nombre: pendienteAEditar.nombre, 
+                                                    telefono: normalizaTelefono(pendienteAEditar.telefono || ''),
+                                                    observaciones: pendienteAEditar.observaciones
+                                                } : p
+                                            ));
+                                            toast('✅ Pendiente actualizado exitosamente');
+                                            setPendienteAEditar(null);
+                                        } catch (e) {
+                                            console.error(e);
+                                            toast('❌ Error actualizando pendiente');
+                                        }
+                                    }}
+                                    className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors shadow-sm"
+                                >
+                                    Guardar Cambios
+                                </button>
                             </div>
                         </div>
                     </div>

@@ -11,12 +11,8 @@ import type { MaestroConCursos, Curso, Estudiante, Inscripcion } from '../page';
 const EASE_SMOOTH = [0.16, 1, 0.3, 1] as const;
 
 const LIST_WRAPPER_VARIANTS: Variants = {
-    hidden: {
-        transition: { staggerChildren: 0.035, staggerDirection: -1 }
-    },
-    visible: {
-        transition: { delayChildren: 0.12, staggerChildren: 0.055 }
-    }
+    hidden: { opacity: 0 },
+    visible: { opacity: 1, transition: { staggerChildren: 0.04 } }
 };
 
 const LIST_ITEM_VARIANTS: Variants = {
@@ -51,20 +47,36 @@ export default function PanelMatricular({ maestros, cursos, estudiantes, inscrip
 
     // No longer auto-select a default course, course will be set when student is selected
     useEffect(() => {
-        // If no students selected yet and cursoId is empty, default to Restauración 1
-        if (Object.keys(selectedIds).length === 0 && !cursoId && cursos.length > 0) {
+            // Si no hay curso seleccionado todavía, establecer Restauración 1 por defecto
+        if (!cursoId && cursos.length > 0) {
             const c = cursos.find(c => c.nombre === 'Restauración 1');
             if (c) setCursoId(String(c.id));
         }
-    }, [cursos, cursoId, selectedIds]);
+    }, [cursos, cursoId]);
 
-    const mDisponibles = useMemo(() => !cursoId ? [] : maestros.filter(m => m.rol === 'Maestro Ptm' && m.asignaciones.some(a => a.curso_id === parseInt(cursoId))), [cursoId, maestros]);
+    const mDisponibles = useMemo(() => {
+        if (!cursoId) return [];
+        const conAsignacion = maestros.filter(m => m.rol === 'Maestro Ptm' && m.asignaciones.some(a => a.curso_id === parseInt(cursoId)));
+        // Si ningún maestro tiene asignación específica en este curso, mostrar todos los maestros Ptm
+        if (conAsignacion.length === 0) {
+            return maestros.filter(m => m.rol === 'Maestro Ptm');
+        }
+        return conAsignacion;
+    }, [cursoId, maestros]);
 
-    // Enhanced student data with suspension info
+    // Calcula qué estudiantes están disponibles para matricular:
+    // Son los que NO tienen ninguna inscripción con estado 'activo'.
+    // No aplicamos filtro de día ni de curso porque los pendientes no tienen
+    // esos datos aún — deben aparecer igual que en la pestaña "Pendientes".
     const estudiantesConMetadata = useMemo(() => {
-        const activeIds = new Set(inscripciones.filter(i => (i as any).estado === 'activo' || (i as any).estado === 'promovido').map(i => i.entrevista_id));
+        // Solo estado 'activo' bloquea la matrícula
+        const activeIds = new Set(
+            inscripciones
+                .filter(i => (i as any).estado === 'activo')
+                .map(i => i.entrevista_id)
+        );
+        // Mapa de estudiantes suspendidos para mostrar su etiqueta
         const suspendedMap = new Map<string, number>();
-
         inscripciones.forEach(i => {
             if ((i as any).estado === 'inactivo') {
                 suspendedMap.set(i.entrevista_id, i.curso_id);
@@ -79,49 +91,16 @@ export default function PanelMatricular({ maestros, cursos, estudiantes, inscrip
     }, [estudiantes, inscripciones]);
 
     const eDisponibles = useMemo(() => {
-        // Determinar permisos del usuario
-        const isDirector = !currentUser.rol || currentUser.rol === 'Director';
-        const cursosPermitidos = currentUser.cursosAcceso || [];
-        const diaAcceso = currentUser.diaAcceso;
-
-        const diasUsuario = diaAcceso && diaAcceso !== 'Todos'
-            ? diaAcceso.split(',').map(d => d.trim())
-            : [];
-
         return estudiantesConMetadata.filter(e => {
-            // 1. Debe estar disponible (no activo)
+            // Excluir solo si está activo actualmente
             if (e.isActive) return false;
-
-            // 2. Filtro por búsqueda
+            // Filtro de búsqueda por nombre
             if (search && !e.nombre.toLowerCase().includes(search.toLowerCase())) {
                 return false;
             }
-
-            // 3. Filtro por curso (si el usuario no es Director)
-            if (!isDirector && cursosPermitidos.length > 0) {
-                // Si el estudiante tiene un curso suspendido, verificar acceso
-                if (e.suspendedCourseId) {
-                    const curso = cursos.find(c => c.id === e.suspendedCourseId);
-                    if (curso && !cursosPermitidos.includes(curso.nombre)) {
-                        return false;
-                    }
-                }
-                // Si no tiene curso suspendido, por defecto es "Restauración 1"
-                // Solo mostrar si el usuario tiene acceso a "Restauración 1"
-                else if (!cursosPermitidos.includes('Restauración 1')) {
-                    return false;
-                }
-            }
-
-            // 4. Filtro por día del estudiante
-            if (!isDirector && diasUsuario.length > 0) {
-                if (!e.dia) return true; // Si no tiene día asignado, mostrar
-                return diasUsuario.includes(e.dia);
-            }
-
             return true;
         });
-    }, [estudiantesConMetadata, search, currentUser, cursos]);
+    }, [estudiantesConMetadata, search]);
 
     // Get allowed courses for selected students
     const cursosPermitidos = useMemo(() => {
@@ -152,9 +131,12 @@ export default function PanelMatricular({ maestros, cursos, estudiantes, inscrip
 
     // Auto-select course when students are selected
     useEffect(() => {
-        if (cursosPermitidos.length === 1 && cursosPermitidos[0].id !== parseInt(cursoId)) {
-            setCursoId(String(cursosPermitidos[0].id));
-            setMaestroId(''); // Reset maestro when course changes
+        if (cursosPermitidos.length === 1) {
+            const newCursoId = String(cursosPermitidos[0].id);
+            if (newCursoId !== cursoId) {
+                setCursoId(newCursoId);
+                setMaestroId(''); // Solo resetear maestro si el curso realmente cambió
+            }
         }
     }, [cursosPermitidos, cursoId]);
 
@@ -273,17 +255,11 @@ export default function PanelMatricular({ maestros, cursos, estudiantes, inscrip
                 <div className="flex flex-col gap-3 relative z-50">
                     <div className="space-y-3">
                         <label className="hidden text-xs font-bold text-gray-600 uppercase tracking-wider">Configuración</label>
-                        <div className="hidden">
-                            <PremiumSelect
-                                label="Curso"
-                                value={cursoId}
-                                onChange={(val) => { setCursoId(val); setMaestroId(''); }}
-                                options={cursosPermitidos.length === 0
-                                    ? [{ value: "", label: "Seleccione estudiantes..." }]
-                                    : cursosPermitidos.map(c => ({ value: String(c.id), label: c.nombre }))
-                                }
-                                placeholder={cursosPermitidos.length === 1 ? cursosPermitidos[0].nombre : "Seleccionar Curso..."}
-                            />
+                        <div className="space-y-1.5">
+                            <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider ml-1">Nivel / Curso</label>
+                            <div className="px-3 py-2 rounded-lg bg-white/40 border border-white/50 text-sm font-semibold text-gray-700 truncate">
+                                {cursoId ? (cursosPermitidos.find(c => String(c.id) === cursoId)?.nombre || cursos.find(c => String(c.id) === cursoId)?.nombre || 'Cargando...') : 'Seleccione estudiantes'}
+                            </div>
                         </div>
                         <PremiumSelect
                             label="Maestro"
@@ -306,6 +282,7 @@ export default function PanelMatricular({ maestros, cursos, estudiantes, inscrip
                     <div className={`flex-1 overflow-y-auto rounded-xl ${GLASS_STYLES.input} p-0 border-2 border-white/50`}>
                         {eDisponibles.length === 0 ? <div className="p-6 text-center text-gray-500">No hay estudiantes disponibles</div> : (
                             <motion.div
+                                key={`list-${search}`}
                                 variants={LIST_WRAPPER_VARIANTS}
                                 initial="hidden"
                                 animate="visible"

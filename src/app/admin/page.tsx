@@ -496,7 +496,7 @@ export default function AdminPage() {
                     <PanelMatricular
                       maestros={maestros}
                       cursos={cursos.filter(c => !currentUser.rol || currentUser.rol === 'Director' || !currentUser.cursosAcceso || currentUser.cursosAcceso.length === 0 || currentUser.cursosAcceso.includes(c.nombre))}
-                      estudiantes={estudiantesFiltrados}
+                      estudiantes={estudiantes}
                       inscripciones={inscripciones}
                       onMatriculaExitosa={onDataUpdated}
                       loading={isLoading}
