@@ -34,15 +34,67 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Sesión principal inválida.' }, { status: 401 });
   }
 
-  // ── 2. Buscar en kids_administradores ─────────────────────────────────────
+  // ── 2. Buscar en kids_servidores, kids_administradores o servidores_roles ──
   const supabase = getServerSupabase();
-  const { data: admin, error } = await supabase
-    .from('kids_administradores')
-    .select('id, cedula, nombre, apellido, foto_url, activo')
-    .eq('cedula', cedula)
-    .single();
+  const cleanCedula = cedula.replace(/\D/g, '');
 
-  if (error || !admin) {
+  let admin: any = null;
+
+  // A) Intentar buscar en kids_servidores
+  const { data: servidorKids } = await supabase
+    .from('kids_servidores')
+    .select('id, cedula, nombre, apellido, foto_url, activo, roles')
+    .or(`cedula.eq.${cedula}${cleanCedula ? `,cedula.eq.${cleanCedula}` : ''}`)
+    .maybeSingle();
+
+  if (servidorKids && servidorKids.roles?.includes('ADMINISTRADOR')) {
+    admin = servidorKids;
+  }
+
+  // B) Si no está en kids_servidores o no tiene rol ADMINISTRADOR ahí, buscar en kids_administradores
+  if (!admin) {
+    const { data: ka } = await supabase
+      .from('kids_administradores')
+      .select('id, cedula, nombre, apellido, foto_url, activo')
+      .or(`cedula.eq.${cedula}${cleanCedula ? `,cedula.eq.${cleanCedula}` : ''}`)
+      .maybeSingle();
+
+    if (ka) {
+      admin = { ...ka, roles: ['ADMINISTRADOR'] };
+    }
+  }
+
+  // C) Si aún no se encuentra, verificar si es Director o Administrador general del sistema
+  if (!admin) {
+    const { data: s } = await supabase
+      .from('servidores')
+      .select('id, cedula, nombre, apellido, activo')
+      .or(`cedula.eq.${cedula}${cleanCedula ? `,cedula.eq.${cleanCedula}` : ''}`)
+      .maybeSingle();
+
+    if (s && s.activo) {
+      const { data: sr } = await supabase
+        .from('servidores_roles')
+        .select('rol')
+        .eq('servidor_id', s.id)
+        .eq('vigente', true)
+        .in('rol', ['Director', 'Administrador']);
+
+      if (sr && sr.length > 0) {
+        admin = {
+          id: s.id,
+          cedula: s.cedula,
+          nombre: s.nombre,
+          apellido: s.apellido ?? '',
+          foto_url: null,
+          activo: true,
+          roles: ['ADMINISTRADOR']
+        };
+      }
+    }
+  }
+
+  if (!admin) {
     return NextResponse.json({ error: 'No tienes acceso al módulo Kids.' }, { status: 403 });
   }
 

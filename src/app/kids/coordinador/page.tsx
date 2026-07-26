@@ -57,7 +57,7 @@ export default function CoordinadorPage() {
 
         if (coordData.grupo_asignado) {
           const [mRes, oRes] = await Promise.all([
-            fetch(`/api/kids/maestros?grupo=${encodeURIComponent(coordData.grupo_asignado)}`),
+            fetch(`/api/kids/servidores?rol=MAESTRO&grupo_asignado=${encodeURIComponent(coordData.grupo_asignado)}`),
             fetch(`/api/kids/observaciones?grupo=${encodeURIComponent(coordData.grupo_asignado)}`),
           ])
           const mJson = await mRes.json()

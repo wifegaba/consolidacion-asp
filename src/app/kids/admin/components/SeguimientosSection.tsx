@@ -185,21 +185,16 @@ export default function SeguimientosSection() {
   useEffect(() => {
     async function loadFotos() {
       try {
-        const [resC, resM] = await Promise.all([
-          fetch('/api/kids/coordinadores'),
-          fetch('/api/kids/maestros'),
-        ])
-        const [jsonC, jsonM] = await Promise.all([resC.json(), resM.json()])
-        const map: FotoMap = new Map()
-        const addPersonas = (arr: { nombre:string; apellido:string; foto_url:string|null }[]) => {
-          for (const p of arr) {
+        const res = await fetch('/api/kids/servidores')
+        const json = await res.json()
+        if (json.ok && Array.isArray(json.data)) {
+          const map: FotoMap = new Map()
+          for (const p of json.data) {
             const key = shortName(`${p.nombre} ${p.apellido}`)
             map.set(key, p.foto_url ?? null)
           }
+          setFotoMap(map)
         }
-        if (jsonC.ok) addPersonas(jsonC.data ?? [])
-        if (jsonM.ok) addPersonas(jsonM.data ?? [])
-        setFotoMap(map)
       } catch { /* silently */ }
     }
     loadFotos()
@@ -273,14 +268,16 @@ export default function SeguimientosSection() {
               Reporte individual por maestro · zona horaria Colombia
             </div>
           </div>
-          <div style={{ display:'flex', gap:10, flexWrap:'wrap' }}>
-            <StatChip grad="linear-gradient(135deg,#7c3aed,#6366f1)"
-              icon={<CalIcon/>} value={diasFiltrados.length} label="Días" />
-            <StatChip grad="linear-gradient(135deg,#ec4899,#8b5cf6)"
-              icon={<MaestroIcon/>} value={maestrosUnicos} label="Maestros" />
-            <StatChip grad="linear-gradient(135deg,#0d9488,#0891b2)"
-              icon={<NinosIcon/>} value={totalAsist} label="Asistencias" />
-          </div>
+          {!isMobile && (
+            <div style={{ display:'flex', gap:10, flexWrap:'wrap' }}>
+              <StatChip grad="linear-gradient(135deg,#7c3aed,#6366f1)"
+                icon={<CalIcon/>} value={diasFiltrados.length} label="Días" />
+              <StatChip grad="linear-gradient(135deg,#ec4899,#8b5cf6)"
+                icon={<MaestroIcon/>} value={maestrosUnicos} label="Maestros" />
+              <StatChip grad="linear-gradient(135deg,#0d9488,#0891b2)"
+                icon={<NinosIcon/>} value={totalAsist} label="Asistencias" />
+            </div>
+          )}
         </div>
 
         {/* Filtros */}

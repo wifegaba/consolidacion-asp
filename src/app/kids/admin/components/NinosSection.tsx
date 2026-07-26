@@ -44,7 +44,7 @@ const CHILD_GRADIENTS = [
 ]
 
 const GRUPOS_DISPONIBLES = ['Semillitas', 'Exploradores', 'Junior']
-const VISIBLE_COUNT = 8
+const VISIBLE_COUNT = 10
 
 /* ════════════════════════════════════════════════════════════════════════
    NinosSection — Panel principal de niños
@@ -84,9 +84,10 @@ export default function NinosSection({ usuario, logoNavOpen = false }: Props) {
   }>({ running: false, total: 0, done: 0, ok: 0, notFound: 0, error: 0, current: '', finished: false })
   const regenCancelRef = useRef(false)
 
-  /* ── Responsive ── */
+  /* ── Responsive & Modal ── */
   const [isMobile,        setIsMobile]        = useState(false)
-  const [showMobileForm,  setShowMobileForm]  = useState(false)
+  const [showFormModal,   setShowFormModal]   = useState(false)
+  const [isClosing,       setIsClosing]       = useState(false)
 
   useEffect(() => {
     function onResize() { setIsMobile(window.innerWidth < 768) }
@@ -214,7 +215,7 @@ export default function NinosSection({ usuario, logoNavOpen = false }: Props) {
       setForm({ nombreCompleto:'', edad:'', acudiente:'', telefono:'', grupo:'', observaciones:'' })
       setSuccessMsg(editNino ? '¡Niño actualizado!' : '¡Niño registrado exitosamente!')
       setTimeout(() => setSuccessMsg(''), 3000)
-      setShowMobileForm(false)
+      closeFormModal()
     } catch (err: any) {
       setFormErr(err.message ?? 'Error al guardar')
     } finally { setSaving(false) }
@@ -244,7 +245,15 @@ export default function NinosSection({ usuario, logoNavOpen = false }: Props) {
       observaciones:  n.observaciones ?? '',
     })
     setFormErr('')
-    setShowMobileForm(true)
+    setShowFormModal(true)
+  }
+
+  function closeFormModal() {
+    setIsClosing(true)
+    setTimeout(() => {
+      setShowFormModal(false)
+      setIsClosing(false)
+    }, 400)
   }
 
   function cancelEdit() {
@@ -252,7 +261,7 @@ export default function NinosSection({ usuario, logoNavOpen = false }: Props) {
     resetPhotoState()
     setForm({ nombreCompleto:'', edad:'', acudiente:'', telefono:'', grupo:'', observaciones:'' })
     setFormErr('')
-    setShowMobileForm(false)
+    closeFormModal()
   }
 
   /* ── Selección de foto (mismo patrón que AdminModal) ── */
@@ -390,6 +399,22 @@ export default function NinosSection({ usuario, logoNavOpen = false }: Props) {
         0%,100% { opacity:.45; }
         50%     { opacity:.9; }
       }
+      @keyframes slideInRight {
+        from { transform: translateX(100%); opacity: 0; }
+        to   { transform: translateX(0); opacity: 1; }
+      }
+      @keyframes slideOutRight {
+        from { transform: translateX(0); opacity: 1; }
+        to   { transform: translateX(100%); opacity: 0; }
+      }
+      @keyframes fadeIn {
+        from { opacity: 0; }
+        to   { opacity: 1; }
+      }
+      @keyframes fadeOut {
+        from { opacity: 1; }
+        to   { opacity: 0; }
+      }
     `}</style>
     <div style={{
       display:        'flex',
@@ -408,154 +433,153 @@ export default function NinosSection({ usuario, logoNavOpen = false }: Props) {
         minWidth:      0,
         display:       'flex',
         flexDirection: 'column',
-        padding:       isMobile ? '16px 12px 0 14px' : '24px 20px 0 28px',
+        padding:       isMobile ? '14px 12px 0 14px' : '14px 20px 0 24px',
         overflow:      'hidden',
       }}>
 
         {/* ── Header row ── */}
         <div style={{
           display:        'flex',
-          alignItems:     'flex-start',
+          alignItems:     'center',
           justifyContent: 'space-between',
-          marginBottom:   isMobile ? 14 : 22,
+          marginBottom:   isMobile ? 12 : 10,
           flexShrink:     0,
-          gap:            10,
-          flexWrap:       'wrap',
+          gap:            16,
         }}>
-          {/* Title */}
-          <div>
+          {/* Title (Izquierda) */}
+          <div style={{ flex: '0 0 auto' }}>
             <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-              <h1 style={{ fontSize: isMobile ? 22 : 26, fontWeight:900, color:'#111827', margin:0, letterSpacing:'-0.6px', lineHeight:1 }}>
+              <h1 style={{ fontSize: isMobile ? 20 : 20, fontWeight:900, color:'#111827', margin:0, letterSpacing:'-0.5px', lineHeight:1 }}>
                 Niños
               </h1>
-              <span style={{ fontSize: isMobile ? 18 : 22, lineHeight:1 }}>⭐</span>
+              <span style={{ fontSize: isMobile ? 16 : 18, lineHeight:1 }}>⭐</span>
             </div>
-            {!isMobile && (
-              <div style={{ fontSize:12, color:'#6b7280', marginTop:4, fontWeight:400 }}>
-                Administra y conoce a todos los niños registrados
-              </div>
-            )}
           </div>
 
-          {/* Right: search + user */}
-          <div style={{ display:'flex', alignItems:'center', gap:8, flex:'none' }}>
-            {/* Search — solo desktop */}
-            {!isMobile && (
+          {/* Search — Centrado y Agrandado (Desktop) */}
+          {!isMobile && (
+            <div style={{ flex:1, display:'flex', justifyContent:'center', minWidth:0 }}>
               <div style={{
-                display:'flex', alignItems:'center', gap:8,
-                background:'rgba(255,255,255,.90)',
-                border:'1px solid rgba(0,0,0,.07)',
+                display:'flex', alignItems:'center', gap:10,
+                background:'rgba(255,255,255,.95)',
+                border:'1px solid rgba(124,58,237,.18)',
                 borderRadius:50,
-                padding:'9px 14px',
-                boxShadow:'0 2px 10px rgba(0,0,0,.06)',
-                minWidth: 0,
+                padding:'10px 20px',
+                boxShadow:'0 4px 16px rgba(0,0,0,.06), inset 0 1px 0 rgba(255,255,255,.9)',
+                width:'100%',
+                maxWidth:340,
+                transition:'all .2s ease',
               }}>
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2.5" style={{ flexShrink: 0 }}>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" strokeWidth="2.5" style={{ flexShrink: 0 }}>
                   <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
                 </svg>
                 <input
                   value={search}
                   onChange={e => setSearch(e.target.value)}
-                  placeholder="Buscar niño..."
+                  placeholder="Buscar niño por nombre, grupo..."
                   style={{
                     border:'none', background:'transparent', outline:'none',
-                    fontSize:12, color:'#374151', width:130,
-                    fontFamily:'inherit', minWidth: 0,
+                    fontSize:13, color:'#1f2937', width:'100%',
+                    fontFamily:'inherit', minWidth: 0, fontWeight:500,
                   }}
                 />
               </div>
-            )}
+            </div>
+          )}
 
-            {/* ── Botón agregar — solo móvil, en la fila del título ── */}
-            {isMobile && !showMobileForm && (
+          {/* Botón Agregar Niño (Derecha) */}
+          <div style={{ flex: '0 0 auto', display:'flex', alignItems:'center', gap:8 }}>
+            {isMobile && !showFormModal && (
               <FabButton
                 onClick={() => {
                   setEditNino(null)
                   resetPhotoState()
                   setForm({ nombreCompleto:'', edad:'', acudiente:'', telefono:'', grupo:'', observaciones:'' })
                   setFormErr('')
-                  setShowMobileForm(true)
+                  setShowFormModal(true)
                 }}
               />
             )}
 
-            {/* Notification bell — solo desktop */}
-            {!isMobile && (
-              <div style={{ position:'relative', flexShrink:0 }}>
-                <div style={{
-                  width:38, height:38, borderRadius:12,
-                  background:'rgba(255,255,255,.85)',
-                  border:'1px solid rgba(0,0,0,.07)',
-                  display:'flex', alignItems:'center', justifyContent:'center',
-                  boxShadow:'0 2px 8px rgba(0,0,0,.05)',
-                }}>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="2">
-                    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
-                    <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
-                  </svg>
-                </div>
-              </div>
-            )}
 
-            {/* User avatar — solo desktop */}
-            {!isMobile && usuario && (
-              <div style={{ display:'flex', alignItems:'center', gap:8, flexShrink:0,
-                background:'rgba(255,255,255,.85)', border:'1px solid rgba(0,0,0,.07)',
-                borderRadius:50, padding:'4px 12px 4px 4px',
-                boxShadow:'0 2px 8px rgba(0,0,0,.05)',
-              }}>
-                <UserAvatar usuario={usuario} />
-                <div>
-                  <div style={{ fontSize:11, fontWeight:700, color:'#111827', lineHeight:1 }}>
-                    Hola, {usuario.nombre.split(' ')[0]}
-                  </div>
-                  <div style={{ fontSize:9, color:'#9ca3af', marginTop:1 }}>Administrador</div>
-                </div>
-                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2.5">
-                  <polyline points="6 9 12 15 18 9"/>
-                </svg>
-              </div>
-            )}
+
+            {/* Botón Agregar Niño en seguida del saludo */}
+            <button
+              onClick={() => {
+                setEditNino(null)
+                resetPhotoState()
+                setForm({ nombreCompleto:'', edad:'', acudiente:'', telefono:'', grupo:'', observaciones:'' })
+                setFormErr('')
+                setShowFormModal(true)
+              }}
+              style={{
+                display:'flex', alignItems:'center', gap:6,
+                padding:'8px 16px', borderRadius:50,
+                background:'linear-gradient(135deg,#7c3aed,#6366f1)',
+                color:'#fff', fontSize:12, fontWeight:700,
+                border:'none', cursor:'pointer',
+                boxShadow:'0 4px 14px rgba(124,58,237,.35)',
+                transition:'all .18s ease',
+                flexShrink:0,
+              }}
+              title="Agregar un nuevo niño"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.8" strokeLinecap="round">
+                <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+              </svg>
+              <span>Agregar niño</span>
+            </button>
           </div>
         </div>
 
-        {/* ── Stats row — 4 cards (2 en móvil) ── */}
-        <div style={{
-          display:'grid',
-          gridTemplateColumns: isMobile ? 'repeat(2,1fr)' : 'repeat(4,1fr)',
-          gap: isMobile ? 10 : 12,
-          marginBottom: isMobile ? 14 : 20,
-          flexShrink:0,
-        }}>
-          <StatCard
-            iconBg="linear-gradient(135deg,#3b82f6,#60a5fa)"
-            icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.2" strokeLinecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>}
-            label="Niños registrados"
-            value={ninos.length}
-            sub={`+${mesCount} este mes`}
-          />
-          <StatCard
-            iconBg="linear-gradient(135deg,#22c55e,#4ade80)"
-            icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.6" strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg>}
-            label="Asistencia hoy"
-            value={activosCount}
-            sub={`${ninos.length ? Math.round((activosCount/ninos.length)*100) : 0}% del total`}
-          />
-          <StatCard
-            iconBg="linear-gradient(135deg,#8b5cf6,#a78bfa)"
-            icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.2" strokeLinecap="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>}
-            label="Nuevos este mes"
-            value={mesCount}
-            sub={`+${semanaCount} esta semana`}
-          />
-          <StatCard
-            iconBg="linear-gradient(135deg,#f59e0b,#fbbf24)"
-            icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.2" strokeLinecap="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>}
-            label="Grupos activos"
-            value={gruposActivos}
-            sub="Todos funcionando"
-          />
-        </div>
+        {/* ── Stats row — 4 circular cards ── */}
+        {!isMobile && (
+          <div style={{
+            display:'flex',
+            justifyContent:'center',
+            gap: isMobile ? 14 : 20,
+            marginBottom: isMobile ? 12 : 10,
+            flexShrink:0,
+            flexWrap: isMobile ? 'wrap' : 'nowrap',
+          }}>
+            <StatCard
+              accent="#3b82f6"
+              accentEnd="#60a5fa"
+              icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.2" strokeLinecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>}
+              label="REGISTRADOS"
+              value={ninos.length}
+              sub={`+${mesCount} este mes`}
+              progress={100}
+            />
+            <StatCard
+              accent="#22c55e"
+              accentEnd="#4ade80"
+              icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.6" strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg>}
+              label="ASISTENCIA"
+              value={activosCount}
+              sub={`${ninos.length ? Math.round((activosCount/ninos.length)*100) : 0}% del total`}
+              progress={ninos.length ? Math.round((activosCount/ninos.length)*100) : 0}
+            />
+            <StatCard
+              accent="#a855f7"
+              accentEnd="#c084fc"
+              icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.2" strokeLinecap="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>}
+              label="ESTE MES"
+              value={mesCount}
+              sub={`+${semanaCount} semana`}
+              progress={75}
+            />
+            <StatCard
+              accent="#f59e0b"
+              accentEnd="#fbbf24"
+              icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.2" strokeLinecap="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>}
+              label="GRUPOS"
+              value={gruposActivos}
+              sub="Activos"
+              progress={100}
+            />
+          </div>
+        )}
 
         {/* ── Buscador móvil — encima del listado ── */}
         {isMobile && (
@@ -565,32 +589,32 @@ export default function NinosSection({ usuario, logoNavOpen = false }: Props) {
         {/* ── List header + filter/sort ── */}
         <div style={{
           display:'flex', alignItems:'center', justifyContent:'space-between',
-          marginBottom:14, flexShrink:0,
+          marginBottom: 6, flexShrink:0,
         }}>
-          <h2 style={{ fontSize:16, fontWeight:700, color:'#111827', margin:0 }}>
+          <h2 style={{ fontSize:13, fontWeight:700, color:'#111827', margin:0 }}>
             Listado de niños
           </h2>
-          <div style={{ display:'flex', gap:8 }}>
+          <div style={{ display:'flex', gap:6 }}>
             {/* Regenerar IA de todos */}
             <button
               onClick={handleRegenerateAllAI}
               disabled={regen.running}
               title="Regenerar reconocimiento facial de todos los niños"
               style={{
-                display:'flex', alignItems:'center', gap:6,
-                padding:'8px 14px', borderRadius:50,
+                display:'flex', alignItems:'center', gap:5,
+                padding:'5px 10px', borderRadius:50,
                 border:'1px solid transparent',
                 background: regen.running
                   ? 'rgba(124,58,237,.5)'
                   : ['linear-gradient(#fff,#fff) padding-box','linear-gradient(135deg,#7c3aed,#a78bfa) border-box'].join(','),
                 color: regen.running ? '#fff' : '#7c3aed',
-                fontSize:12, fontWeight:700,
+                fontSize:10, fontWeight:700,
                 cursor: regen.running ? 'wait' : 'pointer',
                 boxShadow:'0 2px 8px rgba(124,58,237,.18)',
                 transition:'all .15s', whiteSpace:'nowrap',
               } as React.CSSProperties}
             >
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none"
                 stroke={regen.running ? '#fff' : '#7c3aed'} strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round"
                 style={regen.running ? { animation:'spin 0.9s linear infinite' } : undefined}>
                 {regen.running
@@ -605,16 +629,16 @@ export default function NinosSection({ usuario, logoNavOpen = false }: Props) {
               <button
                 onClick={() => setFilterOpen(v => !v)}
                 style={{
-                  display:'flex', alignItems:'center', gap:6,
-                  padding:'8px 14px', borderRadius:50,
+                  display:'flex', alignItems:'center', gap:4,
+                  padding:'5px 10px', borderRadius:50,
                   border:'1px solid rgba(0,0,0,.08)',
                   background:'rgba(255,255,255,.85)',
-                  fontSize:12, fontWeight:600, color:'#374151', cursor:'pointer',
+                  fontSize:10, fontWeight:600, color:'#374151', cursor:'pointer',
                   boxShadow:'0 1px 4px rgba(0,0,0,.05)',
                   transition:'all .15s',
                 }}
               >
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="2.5" strokeLinecap="round">
+                <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="2.5" strokeLinecap="round">
                   <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
                 </svg>
                 Filtrar
@@ -666,20 +690,20 @@ export default function NinosSection({ usuario, logoNavOpen = false }: Props) {
               <button
                 onClick={() => setSortOpen(v => !v)}
                 style={{
-                  display:'flex', alignItems:'center', gap:6,
-                  padding:'8px 14px', borderRadius:50,
+                  display:'flex', alignItems:'center', gap:4,
+                  padding:'5px 10px', borderRadius:50,
                   border:'1px solid rgba(0,0,0,.08)',
                   background:'rgba(255,255,255,.85)',
-                  fontSize:12, fontWeight:600, color:'#374151', cursor:'pointer',
+                  fontSize:10, fontWeight:600, color:'#374151', cursor:'pointer',
                   boxShadow:'0 1px 4px rgba(0,0,0,.05)',
                   transition:'all .15s',
                 }}
               >
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="2.5" strokeLinecap="round">
+                <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="2.5" strokeLinecap="round">
                   <line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/>
                 </svg>
                 {sortBy === 'recientes' ? 'Más recientes' : sortBy === 'nombre' ? 'Por nombre' : 'Por grupo'}
-                <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2.5">
+                <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2.5">
                   <polyline points={sortOpen ? '18 15 12 9 6 15' : '6 9 12 15 18 9'}/>
                 </svg>
               </button>
@@ -745,8 +769,8 @@ export default function NinosSection({ usuario, logoNavOpen = false }: Props) {
                 display:'grid',
                 gridTemplateColumns: isMobile
                   ? 'repeat(2,minmax(0,1fr))'
-                  : 'repeat(4,minmax(0,1fr))',
-                gap: isMobile ? 10 : 14,
+                  : 'repeat(5,minmax(0,1fr))',
+                gap: isMobile ? 8 : 8,
               }}>
                 {displayed.map((n, idx) => (
                   <NinoCard
@@ -790,63 +814,42 @@ export default function NinosSection({ usuario, logoNavOpen = false }: Props) {
       </div>
 
       {/* ═══════════════════════════════════
-          RIGHT — Form panel
-          Desktop: sidebar fija
-          Mobile: bottom-sheet overlay
+          MODAL DE FORMULARIO ("Agregar niño" / "Editar niño")
       ═══════════════════════════════════ */}
+      {showFormModal && (
+        <>
+          {/* Backdrop semi-transparente */}
+          <div
+            onClick={cancelEdit}
+            style={{
+              position: 'fixed', inset: 0, zIndex: 90,
+              background: 'rgba(15, 23, 42, 0.45)',
+              backdropFilter: 'blur(4px)',
+              animation: isClosing ? 'fadeOut 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards' : 'fadeIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+            }}
+          />
 
-      {/* Backdrop móvil */}
-      {isMobile && showMobileForm && (
-        <div
-          onPointerDown={cancelEdit}
-          style={{
-            position: 'fixed', inset: 0, zIndex: 60,
-            background: 'rgba(0,0,0,.45)',
-            backdropFilter: 'blur(2px)',
-          }}
-        />
-      )}
-
-      <div style={
-        isMobile
-          ? {
-              position:             'fixed',
-              top:                  0,
-              left:                 0,
-              right:                0,
-              zIndex:               70,
-              maxHeight:            '94dvh',
-              borderRadius:         '0 0 28px 28px',
-              /* ── GLASS PREMIUM ── */
-              background:           'linear-gradient(170deg,rgba(245,242,255,0.97) 0%,rgba(255,255,255,0.98) 55%,rgba(240,249,255,0.97) 100%)',
-              backdropFilter:       'blur(40px) saturate(220%) brightness(1.04)',
-              WebkitBackdropFilter: 'blur(40px) saturate(220%) brightness(1.04)',
-              border:               '1px solid rgba(255,255,255,0.9)',
-              borderTop:            'none',
-              /* ────────── */
-              display:              showMobileForm ? 'flex' : 'none',
-              flexDirection:        'column',
-              overflowY:            'auto',
-              padding:              'max(env(safe-area-inset-top,0px),14px) 22px 32px',
-              boxShadow:            '0 18px 60px rgba(109,40,217,.22), 0 4px 24px rgba(0,0,0,.08), 0 0 0 0.5px rgba(124,58,237,.12)',
-            } as React.CSSProperties
-          : {
-              width:                290,
-              flexShrink:           0,
-              /* ── GLASS ── */
-              background:           'rgba(255,255,255,0.72)',
-              backdropFilter:       'blur(28px) saturate(200%)',
-              WebkitBackdropFilter: 'blur(28px) saturate(200%)',
-              borderLeft:           '1px solid rgba(255,255,255,0.6)',
-              /* ────────── */
-              display:              'flex',
-              flexDirection:        'column',
-              overflowY:            'auto',
-              padding:              '28px 20px 24px',
-              boxShadow:            '-8px 0 40px rgba(109,40,217,.10), inset 1px 0 0 rgba(255,255,255,.85)',
-              position:             'relative',
-            } as React.CSSProperties
-      }>
+          {/* Contenedor Modal Flotante (Side Panel Derecho) */}
+          <div style={{
+            position: 'fixed',
+            top: 0,
+            right: 0,
+            bottom: 0,
+            zIndex: 95,
+            width: isMobile ? '100%' : '380px',
+            maxWidth: '100%',
+            borderRadius: isMobile ? 0 : '24px 0 0 24px',
+            background: 'linear-gradient(170deg,rgba(255,255,255,0.98) 0%,rgba(248,245,255,0.98) 100%)',
+            backdropFilter: 'blur(30px) saturate(200%)',
+            WebkitBackdropFilter: 'blur(30px) saturate(200%)',
+            borderLeft: '1px solid rgba(255,255,255,0.9)',
+            display: 'flex',
+            flexDirection: 'column',
+            overflowY: 'auto',
+            padding: '20px 22px 24px',
+            boxShadow: '-10px 0 40px rgba(0,0,0,0.1), -25px 0 80px rgba(109,40,217,0.15)',
+            animation: isClosing ? 'slideOutRight 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards' : 'slideInRight 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+          } as React.CSSProperties}>
 
         {/* ── Acento glass (brillo premium) ── */}
         {!isMobile && (
@@ -876,7 +879,8 @@ export default function NinosSection({ usuario, logoNavOpen = false }: Props) {
         )}
 
         {/* Form title */}
-        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:20 }}>
+        {/* Form header: Title on Left, Compact Photo Upload + Close Button on Right */}
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:16, flexShrink:0 }}>
           <div>
             <div style={{ fontSize:9, fontWeight:800, letterSpacing:'2px', textTransform:'uppercase' as const,
               background:'linear-gradient(90deg,#7c3aed,#6366f1)', WebkitBackgroundClip:'text',
@@ -889,169 +893,131 @@ export default function NinosSection({ usuario, logoNavOpen = false }: Props) {
               {editNino ? editNino.nombre : 'Agregar niño'}
             </h3>
           </div>
-          <div style={{ display:'flex', gap:8, alignItems:'center' }}>
-            <span style={{ fontSize:22, filter:'drop-shadow(0 2px 6px rgba(124,58,237,.4))' }}>
-              {editNino ? '✏️' : '✨'}
-            </span>
-            {(editNino || isMobile) && (
-              <button
-                onClick={cancelEdit}
+
+          <div style={{ display:'flex', gap:10, alignItems:'center' }}>
+            {/* Input oculto para cargar archivo */}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              style={{ display:'none' }}
+              onChange={handleFileChange}
+            />
+
+            {/* Subir foto compacto (Superior Derecha) */}
+            {photoPreview ? (
+              <div style={{ position:'relative', display:'flex', flexDirection:'column', alignItems:'center' }}>
+                <DraggablePhotoCircle
+                  src={photoPreview}
+                  size={54}
+                  onCrop={(croppedDataUrl) => {
+                    fetch(croppedDataUrl)
+                      .then(r => r.blob())
+                      .then(blob => {
+                        setPhotoFile(new File([blob], 'photo-cropped.jpg', { type: 'image/jpeg' }))
+                      })
+                      .catch(() => {})
+                  }}
+                />
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  style={{
+                    position:'absolute', bottom:-4, right:-4,
+                    width:20, height:20, borderRadius:'50%',
+                    background:'#7c3aed', border:'1.5px solid #fff',
+                    color:'#fff', fontSize:9, cursor:'pointer',
+                    display:'flex', alignItems:'center', justifyContent:'center',
+                    boxShadow:'0 2px 6px rgba(0,0,0,.2)',
+                  }}
+                  title="Cambiar foto"
+                >
+                  📷
+                </button>
+              </div>
+            ) : existingPhotoUrl ? (
+              <div style={{ position:'relative', display:'flex', flexDirection:'column', alignItems:'center' }}>
+                <div style={{
+                  width:54, height:54, borderRadius:'50%',
+                  overflow:'hidden', border:'2px solid #7c3aed',
+                  boxShadow:'0 3px 10px rgba(124,58,237,.25)',
+                }}>
+                  <img
+                    src={existingPhotoUrl}
+                    alt="foto actual"
+                    style={{ width:'100%', height:'100%', objectFit:'cover' }}
+                  />
+                </div>
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  style={{
+                    position:'absolute', bottom:-4, right:-4,
+                    width:20, height:20, borderRadius:'50%',
+                    background:'#7c3aed', border:'1.5px solid #fff',
+                    color:'#fff', fontSize:9, cursor:'pointer',
+                    display:'flex', alignItems:'center', justifyContent:'center',
+                    boxShadow:'0 2px 6px rgba(0,0,0,.2)',
+                  }}
+                  title="Cambiar foto"
+                >
+                  ✏️
+                </button>
+              </div>
+            ) : (
+              <div
+                onClick={() => fileInputRef.current?.click()}
                 style={{
-                  width:36, height:36, borderRadius:12,
-                  border:'1.5px solid rgba(124,58,237,.18)',
-                  background:'rgba(255,255,255,0.7)',
-                  backdropFilter:'blur(12px)',
+                  width:54, height:54, borderRadius:'50%',
+                  background:['linear-gradient(rgba(245,243,255,.95),rgba(245,243,255,.95)) padding-box',
+                              'linear-gradient(135deg,#7c3aed,#6366f1) border-box'].join(','),
+                  border:'2px solid transparent',
+                  display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center',
                   cursor:'pointer',
-                  display:'flex', alignItems:'center', justifyContent:'center',
-                  boxShadow:'0 2px 8px rgba(0,0,0,.08)',
+                  boxShadow:'0 3px 12px rgba(124,58,237,.18), inset 0 1px 0 rgba(255,255,255,.9)',
+                  transition:'all .2s', flexShrink:0,
                 }}
+                title="Subir foto del niño"
               >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="2.5" strokeLinecap="round">
-                  <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="url(#uploadGrad)" strokeWidth="2" strokeLinecap="round">
+                  <defs>
+                    <linearGradient id="uploadGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                      <stop offset="0%" stopColor="#7c3aed"/>
+                      <stop offset="100%" stopColor="#6366f1"/>
+                    </linearGradient>
+                  </defs>
+                  <polyline points="16 16 12 12 8 16"/>
+                  <line x1="12" y1="12" x2="12" y2="21"/>
+                  <path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/>
                 </svg>
-              </button>
+                <span style={{ fontSize:7, fontWeight:800, letterSpacing:'0.5px', marginTop:1,
+                  background:'linear-gradient(90deg,#7c3aed,#6366f1)',
+                  WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }}>
+                  FOTO
+                </span>
+              </div>
             )}
+
+            {/* Botón cerrar modal */}
+            <button
+              onClick={cancelEdit}
+              style={{
+                width:34, height:34, borderRadius:12,
+                border:'1.5px solid rgba(124,58,237,.18)',
+                background:'rgba(255,255,255,0.7)',
+                backdropFilter:'blur(12px)',
+                cursor:'pointer',
+                display:'flex', alignItems:'center', justifyContent:'center',
+                boxShadow:'0 2px 8px rgba(0,0,0,.08)',
+                flexShrink:0,
+              }}
+              title="Cerrar"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="2.5" strokeLinecap="round">
+                <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+              </svg>
+            </button>
           </div>
         </div>
-
-        {/* Photo upload */}
-        <div style={{ display:'flex', flexDirection:'column', alignItems:'center', marginBottom:22 }}>
-
-          {/* Input oculto */}
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            capture="environment"
-            style={{ display:'none' }}
-            onChange={handleFileChange}
-          />
-
-          {photoPreview ? (
-            /* ── Nueva foto seleccionada: arrastrar para ajustar ── */
-            <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:0 }}>
-              <DraggablePhotoCircle
-                src={photoPreview}
-                size={90}
-                onCrop={(croppedDataUrl) => {
-                  // Convertir el canvas recortado → File y actualizar photoFile
-                  // para que handleSave suba la versión ajustada, no el original
-                  fetch(croppedDataUrl)
-                    .then(r => r.blob())
-                    .then(blob => {
-                      setPhotoFile(new File([blob], 'photo-cropped.jpg', { type: 'image/jpeg' }))
-                    })
-                    .catch(() => { /* silencioso — photoFile original se conserva */ })
-                }}
-              />
-              <span style={{ fontSize:9, color:'#7c3aed', fontWeight:700, marginTop:6, letterSpacing:'0.3px' }}>
-                ✦ Arrastra para ajustar
-              </span>
-              <div style={{ display:'flex', gap:10, marginTop:6 }}>
-                <button
-                  onClick={() => fileInputRef.current?.click()}
-                  style={{
-                    background:'none', border:'1px solid #d1d5db',
-                    borderRadius:8, padding:'4px 10px',
-                    fontSize:10, color:'#6b7280', cursor:'pointer', fontWeight:600,
-                  }}
-                >
-                  📷 Cambiar
-                </button>
-                <button
-                  onClick={() => {
-                    resetPhotoState()
-                    if (editNino) setExistingPhotoUrl(editNino.foto_url ?? null)
-                  }}
-                  style={{
-                    background:'none', border:'1px solid #fecaca',
-                    borderRadius:8, padding:'4px 10px',
-                    fontSize:10, color:'#f43f5e', cursor:'pointer', fontWeight:600,
-                  }}
-                >
-                  ✕ Quitar
-                </button>
-              </div>
-            </div>
-
-          ) : existingPhotoUrl ? (
-            /* ── Foto ya guardada (modo edición sin nueva foto seleccionada) ── */
-            <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:0 }}>
-              <div style={{
-                width:90, height:90, borderRadius:'50%',
-                overflow:'hidden', border:'3px solid #7c3aed',
-                boxShadow:'0 4px 14px rgba(124,58,237,.3)',
-              }}>
-                <img
-                  src={existingPhotoUrl}
-                  alt="foto actual"
-                  style={{ width:'100%', height:'100%', objectFit:'cover' }}
-                />
-              </div>
-              <span style={{ fontSize:9, color:'#6b7280', fontWeight:600, marginTop:6 }}>
-                Foto actual
-              </span>
-              <div style={{ display:'flex', gap:10, marginTop:6 }}>
-                <button
-                  onClick={() => fileInputRef.current?.click()}
-                  style={{
-                    background:'none', border:'1px solid #d1d5db',
-                    borderRadius:8, padding:'4px 10px',
-                    fontSize:10, color:'#6b7280', cursor:'pointer', fontWeight:600,
-                  }}
-                >
-                  📷 Cambiar
-                </button>
-                <button
-                  onClick={() => { setExistingPhotoUrl(null); setPhotoRemoved(true) }}
-                  style={{
-                    background:'none', border:'1px solid #fecaca',
-                    borderRadius:8, padding:'4px 10px',
-                    fontSize:10, color:'#f43f5e', cursor:'pointer', fontWeight:600,
-                  }}
-                >
-                  ✕ Quitar foto
-                </button>
-              </div>
-            </div>
-
-          ) : (
-            /* ── Modo vacío: clic para subir ── */
-            <div
-              onClick={() => fileInputRef.current?.click()}
-              style={{
-                width:96, height:96, borderRadius:'50%',
-                background:['linear-gradient(rgba(245,243,255,.9),rgba(245,243,255,.9)) padding-box',
-                            'linear-gradient(135deg,#7c3aed,#6366f1,#a78bfa,#7c3aed) border-box'].join(','),
-                border:'2px solid transparent',
-                display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center',
-                cursor:'pointer', marginBottom:6,
-                boxShadow:'0 4px 20px rgba(124,58,237,.18), inset 0 1px 0 rgba(255,255,255,.9)',
-                transition:'all .2s',
-              }}
-            >
-              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="url(#uploadGrad)" strokeWidth="1.8" strokeLinecap="round">
-                <defs>
-                  <linearGradient id="uploadGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" stopColor="#7c3aed"/>
-                    <stop offset="100%" stopColor="#6366f1"/>
-                  </linearGradient>
-                </defs>
-                <polyline points="16 16 12 12 8 16"/>
-                <line x1="12" y1="12" x2="12" y2="21"/>
-                <path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/>
-              </svg>
-              <span style={{ fontSize:9, fontWeight:800, letterSpacing:'0.8px', marginTop:5,
-                background:'linear-gradient(90deg,#7c3aed,#6366f1)',
-                WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }}>
-                SUBIR FOTO
-              </span>
-            </div>
-          )}
-
-          {!photoPreview && (
-            <span style={{ fontSize:10, color:'#9ca3af', marginTop:2 }}>JPG, PNG máximo 5MB</span>
-          )}
 
           {photoErr && (
             <div style={{ fontSize:10, color:'#f43f5e', marginTop:5, fontWeight:600, textAlign:'center' }}>
@@ -1061,7 +1027,6 @@ export default function NinosSection({ usuario, logoNavOpen = false }: Props) {
 
           {/* ── Face detection status badge ── */}
           <FaceStatusBadge status={faceStatus} />
-        </div>
 
         {/* Messages */}
         {successMsg && (
@@ -1088,10 +1053,10 @@ export default function NinosSection({ usuario, logoNavOpen = false }: Props) {
         )}
 
         {/* Divider */}
-        <div style={{ height:1, background:'linear-gradient(90deg,transparent,rgba(124,58,237,.15) 30%,rgba(99,102,241,.15) 70%,transparent)', margin:'4px 0 16px' }} />
+        <div style={{ height:1, background:'linear-gradient(90deg,transparent,rgba(124,58,237,.15) 30%,rgba(99,102,241,.15) 70%,transparent)', margin:'4px 0 14px' }} />
 
-        {/* Form fields */}
-        <div style={{ display:'flex', flexDirection:'column', gap:13 }}>
+        {/* Form fields — Elegant Distributed Grid Layout */}
+        <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
 
           {/* Nombre completo */}
           <NinoField
@@ -1102,41 +1067,49 @@ export default function NinosSection({ usuario, logoNavOpen = false }: Props) {
             onChange={v => setForm(f => ({ ...f, nombreCompleto: v }))}
           />
 
-          {/* Edad */}
-          <NinoField
-            label="Edad"
-            icon={<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2" strokeLinecap="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>}
-            placeholder="Ej. 7"
-            value={form.edad}
-            onChange={v => setForm(f => ({ ...f, edad: v.replace(/\D/g,'') }))}
-            type="text"
-            inputMode="numeric"
-          />
+          {/* Fila 2: Edad + Grupo */}
+          <div style={{ display:'flex', gap:12 }}>
+            <div style={{ width: 95, flexShrink: 0 }}>
+              <NinoField
+                label="Edad"
+                icon={<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2" strokeLinecap="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>}
+                placeholder="Ej. 7"
+                value={form.edad}
+                onChange={v => setForm(f => ({ ...f, edad: v.replace(/\D/g,'') }))}
+                type="text"
+                inputMode="numeric"
+              />
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <GrupoSelect
+                value={form.grupo}
+                onChange={v => setForm(f => ({ ...f, grupo: v }))}
+                grupos={GRUPOS_DISPONIBLES}
+              />
+            </div>
+          </div>
 
-          {/* Acudiente */}
-          <NinoField
-            label="Acudiente / Tutor"
-            icon={<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2" strokeLinecap="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>}
-            placeholder="Nombre del acudiente"
-            value={form.acudiente}
-            onChange={v => setForm(f => ({ ...f, acudiente: v }))}
-          />
-
-          {/* Teléfono */}
-          <NinoField
-            label="Teléfono"
-            icon={<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2" strokeLinecap="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.38 2 2 0 0 1 3.6 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 9.91a16 16 0 0 0 6.16 6.16l.91-.91a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>}
-            placeholder="Ej. 300 123 4567"
-            value={form.telefono}
-            onChange={v => setForm(f => ({ ...f, telefono: v }))}
-          />
-
-          {/* Grupo / Curso — SELECT */}
-          <GrupoSelect
-            value={form.grupo}
-            onChange={v => setForm(f => ({ ...f, grupo: v }))}
-            grupos={GRUPOS_DISPONIBLES}
-          />
+          {/* Fila 3: Acudiente + Teléfono */}
+          <div style={{ display:'flex', gap:12 }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <NinoField
+                label="Acudiente / Tutor"
+                icon={<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2" strokeLinecap="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>}
+                placeholder="Nombre acudiente"
+                value={form.acudiente}
+                onChange={v => setForm(f => ({ ...f, acudiente: v }))}
+              />
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <NinoField
+                label="Teléfono"
+                icon={<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2" strokeLinecap="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.38 2 2 0 0 1 3.6 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 9.91a16 16 0 0 0 6.16 6.16l.91-.91a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>}
+                placeholder="Ej. 300 123 4567"
+                value={form.telefono}
+                onChange={v => setForm(f => ({ ...f, telefono: v }))}
+              />
+            </div>
+          </div>
 
           {/* Observaciones — TEXTAREA */}
           <ObsTextarea
@@ -1156,7 +1129,8 @@ export default function NinosSection({ usuario, logoNavOpen = false }: Props) {
         />
 
       </div>
-    </div>
+    </>
+  )}
 
     {/* ── Overlay: Regenerar IA de todos ── */}
     {(regen.running || regen.finished) && (
@@ -1259,73 +1233,151 @@ export default function NinosSection({ usuario, logoNavOpen = false }: Props) {
         </div>
       </div>
     )}
+    </div>
     </>
   )
 }
 
-/* ── StatCard ────────────────────────────────────────────────────────────── */
+/* ── StatCard — Circular Neumorphic Premium ────────────────────────────── */
 function StatCard({
-  iconBg, icon, label, value, sub,
+  accent, accentEnd, icon, label, value, sub, progress,
 }: {
-  iconBg: string
-  icon:   React.ReactNode
-  label:  string
-  value:  number
-  sub:    string
+  accent:    string
+  accentEnd: string
+  icon:      React.ReactNode
+  label:     string
+  value:     number
+  sub:       string
+  progress:  number
 }) {
+  const size     = 60
+  const stroke   = 4
+  const r        = (size - stroke) / 2
+  const circ     = 2 * Math.PI * r
+  const arcPct   = 0.78            // arco visible = 78% del círculo
+  const dashArr  = circ * arcPct
+  const dashOff  = circ - (dashArr * Math.min(progress, 100) / 100)
+  const rotation = 90 + ((1 - arcPct) / 2) * 360   // centrado abajo
+
+  const gradId = `grad-${label.replace(/\s/g,'')}`
+
   return (
     <div style={{
-      /* ── Liquid Glass — idéntico a los otros paneles ── */
-      background: [
-        'linear-gradient(rgba(255,255,255,.94),rgba(255,255,255,.94)) padding-box',
-        'linear-gradient(135deg,#60a5fa 0%,#a78bfa 35%,#f472b6 65%,#67e8f9 100%) border-box',
-      ].join(','),
-      backdropFilter:       'blur(40px) saturate(200%)',
-      WebkitBackdropFilter: 'blur(40px) saturate(200%)',
-      border:      '2px solid transparent',
-      borderRadius: 20,
-      boxShadow: [
-        '-4px 0 16px rgba(96,165,250,.28)',
-        '4px 0 16px rgba(244,114,182,.26)',
-        '0 10px 32px rgba(167,139,250,.18)',
-        '0 3px 12px rgba(0,0,0,.06)',
-        'inset 0 1.5px 0 rgba(255,255,255,1)',
-      ].join(', '),
-      display:'flex', alignItems:'center', gap:12,
-      padding:'14px 14px',
-      minWidth: 0,
+      display:        'flex',
+      flexDirection:  'column',
+      alignItems:     'center',
+      position:       'relative',
+      width:          size,
+      flexShrink:     0,
     }}>
-      {/* Icon */}
+      {/* ── Outer neumorphic shell ── */}
       <div style={{
-        width:42, height:42, borderRadius:12, flexShrink:0,
-        background: iconBg,
-        display:'flex', alignItems:'center', justifyContent:'center',
-        boxShadow:'0 4px 16px rgba(0,0,0,.18), inset 0 1px 0 rgba(255,255,255,.25)',
+        width:        size,
+        height:       size,
+        borderRadius: '50%',
+        background:   'linear-gradient(145deg, #f0f4ff 0%, #e8ecf8 100%)',
+        boxShadow: [
+          '3px 3px 8px rgba(163,177,198,.65)',
+          '-3px -3px 8px rgba(255,255,255,.95)',
+          'inset 0 0 0 1px rgba(255,255,255,.7)',
+        ].join(', '),
+        display:        'flex',
+        alignItems:     'center',
+        justifyContent: 'center',
+        position:       'relative',
       }}>
-        {icon}
+        {/* Arc SVG */}
+        <svg
+          width={size} height={size}
+          style={{ position:'absolute', top:0, left:0, transform:`rotate(${rotation}deg)` }}
+        >
+          <defs>
+            <linearGradient id={gradId} x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%"   stopColor={accent} />
+              <stop offset="100%" stopColor={accentEnd} />
+            </linearGradient>
+          </defs>
+          {/* Track */}
+          <circle
+            cx={size/2} cy={size/2} r={r}
+            fill="none"
+            stroke="rgba(0,0,0,.07)"
+            strokeWidth={stroke}
+            strokeDasharray={`${dashArr} ${circ}`}
+            strokeLinecap="round"
+            style={{ filter:'blur(.3px)' }}
+          />
+          {/* Progress */}
+          <circle
+            cx={size/2} cy={size/2} r={r}
+            fill="none"
+            stroke={`url(#${gradId})`}
+            strokeWidth={stroke}
+            strokeDasharray={`${dashArr} ${circ}`}
+            strokeDashoffset={dashOff}
+            strokeLinecap="round"
+            style={{
+              filter: `drop-shadow(0 0 3px ${accent}99)`,
+              transition: 'stroke-dashoffset .8s cubic-bezier(.4,0,.2,1)',
+            }}
+          />
+        </svg>
+
+        {/* Inner neumorphic disc */}
+        <div style={{
+          width:        size - stroke * 2 - 4,
+          height:       size - stroke * 2 - 4,
+          borderRadius: '50%',
+          background:   'linear-gradient(145deg, #f5f8ff 0%, #e8edf8 100%)',
+          boxShadow: [
+            '2px 2px 5px rgba(163,177,198,.5)',
+            '-2px -2px 5px rgba(255,255,255,.95)',
+          ].join(', '),
+          display:        'flex',
+          flexDirection:  'column',
+          alignItems:     'center',
+          justifyContent: 'center',
+          gap:            0,
+        }}>
+          {/* Floating icon pill */}
+          <div style={{
+            width:          19,
+            height:         19,
+            borderRadius:   6,
+            background:     `linear-gradient(135deg, ${accent}, ${accentEnd})`,
+            display:        'flex',
+            alignItems:     'center',
+            justifyContent: 'center',
+            boxShadow:      `0 2px 8px ${accent}55, inset 0 1px 0 rgba(255,255,255,.3)`,
+            marginBottom:   1,
+          }}>
+            <div style={{ transform:'scale(0.58)', display:'flex', alignItems:'center', justifyContent:'center' }}>
+              {icon}
+            </div>
+          </div>
+
+          {/* Value */}
+          <div style={{
+            fontSize:      13,
+            fontWeight:    900,
+            color:         '#0f172a',
+            lineHeight:    1,
+            letterSpacing: '-0.5px',
+          }}>{value}</div>
+        </div>
       </div>
-      {/* Text */}
-      <div style={{ minWidth:0, flex:1 }}>
-        <div style={{
-          fontSize:9, fontWeight:700, letterSpacing:'1.6px',
-          textTransform:'uppercase', color:'rgba(0,0,0,.38)',
-          marginBottom:4, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap',
-        }}>
-          {label}
-        </div>
-        <div style={{
-          fontSize:26, fontWeight:900, color:'#0f172a',
-          lineHeight:1, letterSpacing:'-1px', marginBottom:4,
-        }}>
-          {value}
-        </div>
-        <div style={{
-          fontSize:9, fontWeight:600, color:'#6366f1',
-          overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap',
-        }}>
-          {sub}
-        </div>
-      </div>
+
+      {/* Label below */}
+      <div style={{
+        marginTop:     3,
+        fontSize:      7,
+        fontWeight:    800,
+        letterSpacing: '0.8px',
+        textTransform: 'uppercase',
+        color:         'rgba(0,0,0,.45)',
+        textAlign:     'center',
+        lineHeight:    1.1,
+      }}>{label}</div>
     </div>
   )
 }
@@ -1410,8 +1462,8 @@ function NinoCard({
       onMouseLeave={() => setHov(false)}
       style={{
         perspective:  '1200px',
-        height:       272,
-        borderRadius: 20,
+        height:       195,
+        borderRadius: 16,
         opacity:      nino.activo ? 1 : 0.6,
         boxShadow:    flipped
           ? '0 14px 40px rgba(124,58,237,.22), 0 4px 12px rgba(0,0,0,.1)'
@@ -1444,8 +1496,8 @@ function NinoCard({
             backfaceVisibility:       'hidden',
             WebkitBackfaceVisibility: 'hidden',
             background:               '#fff',
-            borderRadius:             20,
-            padding:                  '12px 12px 58px',
+            borderRadius:             16,
+            padding:                  '6px 6px 30px',
             display:                  'flex', flexDirection:'column', alignItems:'center',
             justifyContent:           'center',
             cursor:                   'pointer',
@@ -1507,7 +1559,7 @@ function NinoCard({
 
           {/* Avatar — aro premium */}
           <div style={{
-            padding:3, borderRadius:'50%', background:grad, marginBottom:9, flexShrink:0,
+            padding:2, borderRadius:'50%', background:grad, marginBottom:3, flexShrink:0,
             boxShadow: hov
               ? `0 0 0 2.5px rgba(255,255,255,.95),0 6px 28px rgba(0,0,0,.16),0 0 22px rgba(124,58,237,.3)`
               : `0 0 0 2.5px rgba(255,255,255,.88),0 4px 18px rgba(0,0,0,.11)`,
@@ -1515,7 +1567,7 @@ function NinoCard({
             filter: hov ? 'drop-shadow(0 0 9px rgba(124,58,237,.38))' : 'none',
           }}>
             <div style={{ padding:2, borderRadius:'50%', background:'#fff', display:'flex', alignItems:'center', justifyContent:'center' }}>
-              <div style={{ width:84, height:84, borderRadius:'50%', background:nino.foto_url && !imgBroken ? 'transparent' : grad, overflow:'hidden', display:'flex', alignItems:'center', justifyContent:'center', fontSize:24, fontWeight:800, color:'#fff' }}>
+              <div style={{ width:64, height:64, borderRadius:'50%', background:nino.foto_url && !imgBroken ? 'transparent' : grad, overflow:'hidden', display:'flex', alignItems:'center', justifyContent:'center', fontSize:20, fontWeight:800, color:'#fff' }}>
                 {nino.foto_url && !imgBroken
                   ? <img src={nino.foto_url} alt="" style={{ width:'100%', height:'100%', objectFit:'cover' }} onError={() => setImgBroken(true)} />
                   : ini
@@ -1525,13 +1577,13 @@ function NinoCard({
           </div>
 
           {/* Nombre */}
-          <div style={{ fontSize:12, fontWeight:700, color:'#111827', textAlign:'center', lineHeight:1.3, marginBottom:2, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', width:'100%' }}>
+          <div style={{ fontSize:10, fontWeight:700, color:'#111827', textAlign:'center', lineHeight:1.1, marginBottom:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', width:'100%' }}>
             {nino.nombre}{nino.apellido ? ` ${nino.apellido}` : ''}
           </div>
 
           {/* Edad */}
           {nino.edad != null && (
-            <div style={{ fontSize:10, color:'#9ca3af', marginBottom:5 }}>
+            <div style={{ fontSize:8, color:'#9ca3af', marginBottom:2 }}>
               {nino.edad} {nino.edad === 1 ? 'año' : 'años'}
             </div>
           )}
@@ -1539,13 +1591,13 @@ function NinoCard({
           {/* Grupo badge */}
           {nino.grupo && (
             <div style={{
-              display:'flex', alignItems:'center', gap:4, padding:'3px 9px', borderRadius:50,
+              display:'flex', alignItems:'center', gap:3, padding:'1px 5px', borderRadius:50,
               background:'linear-gradient(135deg,rgba(59,130,246,.13),rgba(99,102,241,.10))',
               border:'1px solid rgba(99,102,241,.30)',
               boxShadow:'0 2px 8px rgba(99,102,241,.12),inset 0 1px 0 rgba(255,255,255,.75)',
-              fontSize:9, fontWeight:700, color:'#4338ca', whiteSpace:'nowrap',
+              fontSize:8, fontWeight:700, color:'#4338ca', whiteSpace:'nowrap',
             }}>
-              <svg width="7" height="7" viewBox="0 0 24 24" fill="#6366f1"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+              <svg width="6" height="6" viewBox="0 0 24 24" fill="#6366f1"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
               {nino.grupo}
             </div>
           )}
@@ -1554,7 +1606,7 @@ function NinoCard({
           <div
             onClick={e => e.stopPropagation()}
             style={{
-              position:'absolute', bottom:11, left:0, right:0,
+              position:'absolute', bottom:8, left:0, right:0,
               display:'flex', justifyContent:'center',
             }}
           >
@@ -1581,8 +1633,8 @@ function NinoCard({
           {/* Header con gradiente */}
           <div style={{
             background:  grad,
-            padding:     '11px 12px 9px',
-            display:     'flex', alignItems:'center', gap:10,
+            padding:     '5px 8px 4px',
+            display:     'flex', alignItems:'center', gap:8,
             flexShrink:  0, position:'relative',
           }}>
             {/* Botón cerrar */}
@@ -1599,11 +1651,11 @@ function NinoCard({
 
             {/* Foto */}
             <div style={{
-              width:40, height:40, borderRadius:'50%', flexShrink:0, overflow:'hidden',
-              border:'2.5px solid rgba(255,255,255,.85)',
-              boxShadow:'0 2px 10px rgba(0,0,0,.18)',
+              width:28, height:28, borderRadius:'50%', flexShrink:0, overflow:'hidden',
+              border:'1.5px solid rgba(255,255,255,.85)',
+              boxShadow:'0 2px 8px rgba(0,0,0,.15)',
               background:grad, display:'flex', alignItems:'center', justifyContent:'center',
-              fontSize:12, fontWeight:800, color:'#fff',
+              fontSize:10, fontWeight:800, color:'#fff',
             }}>
               {nino.foto_url && !imgBroken
                 ? <img src={nino.foto_url} alt="" style={{ width:'100%', height:'100%', objectFit:'cover' }} onError={() => setImgBroken(true)} />
@@ -1613,17 +1665,17 @@ function NinoCard({
 
             {/* Nombre + chips */}
             <div style={{ flex:1, minWidth:0 }}>
-              <div style={{ fontSize:12, fontWeight:800, color:'#fff', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', textShadow:'0 1px 4px rgba(0,0,0,.18)' }}>
+              <div style={{ fontSize:10, fontWeight:800, color:'#fff', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', textShadow:'0 1px 3px rgba(0,0,0,.18)' }}>
                 {nino.nombre}{nino.apellido ? ` ${nino.apellido}` : ''}
               </div>
-              <div style={{ display:'flex', alignItems:'center', gap:4, marginTop:3, flexWrap:'wrap' }}>
+              <div style={{ display:'flex', alignItems:'center', gap:3, marginTop:1, flexWrap:'wrap' }}>
                 {nino.edad != null && (
-                  <span style={{ fontSize:9, fontWeight:700, color:'rgba(255,255,255,.92)', background:'rgba(255,255,255,.2)', border:'1px solid rgba(255,255,255,.3)', padding:'1px 6px', borderRadius:50 }}>
+                  <span style={{ fontSize:8, fontWeight:700, color:'rgba(255,255,255,.92)', background:'rgba(255,255,255,.2)', border:'1px solid rgba(255,255,255,.3)', padding:'0 5px', borderRadius:50 }}>
                     {nino.edad}a
                   </span>
                 )}
                 {nino.grupo && (
-                  <span style={{ fontSize:9, fontWeight:700, color:'rgba(255,255,255,.95)', background:'rgba(255,255,255,.22)', border:'1px solid rgba(255,255,255,.3)', padding:'1px 7px', borderRadius:50 }}>
+                  <span style={{ fontSize:8, fontWeight:700, color:'rgba(255,255,255,.95)', background:'rgba(255,255,255,.22)', border:'1px solid rgba(255,255,255,.3)', padding:'0 5px', borderRadius:50 }}>
                     {nino.grupo}
                   </span>
                 )}
@@ -1633,30 +1685,30 @@ function NinoCard({
 
           {/* Cuerpo */}
           <div style={{
-            flex:1, overflowY:'auto',
+            flex:1, overflowY:'hidden',
             background:'linear-gradient(180deg,rgba(248,246,255,.98),rgba(255,255,255,1))',
-            padding:'9px 12px 10px',
-            display:'flex', flexDirection:'column', gap:7,
+            padding:'4px 8px 4px',
+            display:'flex', flexDirection:'column', gap:3,
           }}>
 
             {/* Acudiente */}
             {(acudiente || telefono) && (
               <div>
-                <div style={{ fontSize:7.5, fontWeight:800, color:'#c0c8d8', textTransform:'uppercase', letterSpacing:'1.2px', marginBottom:4 }}>Acudiente</div>
+                <div style={{ fontSize:7, fontWeight:800, color:'#c0c8d8', textTransform:'uppercase', letterSpacing:'1px', marginBottom:2 }}>Acudiente</div>
                 {acudiente && (
-                  <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:3 }}>
-                    <div style={{ width:15, height:15, borderRadius:'50%', background:'rgba(124,58,237,.1)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
-                      <svg width="7" height="7" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" strokeWidth="2.5" strokeLinecap="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                  <div style={{ display:'flex', alignItems:'center', gap:4, marginBottom:2 }}>
+                    <div style={{ width:12, height:12, borderRadius:'50%', background:'rgba(124,58,237,.1)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                      <svg width="6" height="6" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" strokeWidth="2.5" strokeLinecap="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
                     </div>
-                    <span style={{ fontSize:11, color:'#1e1b4b', fontWeight:600, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{acudiente}</span>
+                    <span style={{ fontSize:9.5, color:'#1e1b4b', fontWeight:600, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{acudiente}</span>
                   </div>
                 )}
                 {telefono && (
-                  <div style={{ display:'flex', alignItems:'center', gap:6 }}>
-                    <div style={{ width:15, height:15, borderRadius:'50%', background:'rgba(16,185,129,.1)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
-                      <svg width="7" height="7" viewBox="0 0 24 24" fill="none" stroke="#059669" strokeWidth="2.5" strokeLinecap="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.38 2 2 0 0 1 3.6 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 9.91a16 16 0 0 0 6.16 6.16l.91-.91a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+                  <div style={{ display:'flex', alignItems:'center', gap:4 }}>
+                    <div style={{ width:12, height:12, borderRadius:'50%', background:'rgba(16,185,129,.1)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                      <svg width="6" height="6" viewBox="0 0 24 24" fill="none" stroke="#059669" strokeWidth="2.5" strokeLinecap="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.38 2 2 0 0 1 3.6 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 9.91a16 16 0 0 0 6.16 6.16l.91-.91a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
                     </div>
-                    <span style={{ fontSize:11, color:'#065f46', fontWeight:600 }}>{telefono}</span>
+                    <span style={{ fontSize:9.5, color:'#065f46', fontWeight:600 }}>{telefono}</span>
                   </div>
                 )}
               </div>
@@ -1667,10 +1719,10 @@ function NinoCard({
 
             {/* Asistencias */}
             <div>
-              <div style={{ display:'flex', alignItems:'center', gap:5, marginBottom:5 }}>
-                <div style={{ fontSize:7.5, fontWeight:800, color:'#c0c8d8', textTransform:'uppercase', letterSpacing:'1.2px' }}>Asistencias</div>
+              <div style={{ display:'flex', alignItems:'center', gap:4, marginBottom:3 }}>
+                <div style={{ fontSize:7, fontWeight:800, color:'#c0c8d8', textTransform:'uppercase', letterSpacing:'1px' }}>Asistencias</div>
                 {!loadingAtt && (
-                  <div style={{ background:'linear-gradient(135deg,#0d9488,#0891b2)', borderRadius:50, padding:'1px 6px', fontSize:8, fontWeight:800, color:'#fff', lineHeight:1.5 }}>
+                  <div style={{ background:'linear-gradient(135deg,#0d9488,#0891b2)', borderRadius:50, padding:'0 5px', fontSize:7.5, fontWeight:800, color:'#fff', lineHeight:1.4 }}>
                     {attendance.length}
                   </div>
                 )}
@@ -1683,20 +1735,20 @@ function NinoCard({
                   ))}
                 </div>
               ) : attendance.length === 0 ? (
-                <div style={{ fontSize:10, color:'#d1d5db', fontStyle:'italic', textAlign:'center', padding:'2px 0' }}>Sin asistencias registradas</div>
+                <div style={{ fontSize:9, color:'#d1d5db', fontStyle:'italic', textAlign:'center', padding:'1px 0' }}>Sin asistencias</div>
               ) : (
-                <div style={{ display:'flex', flexWrap:'wrap', gap:3 }}>
-                  {attendance.slice(0, 9).map((a: any) => {
+                <div style={{ display:'flex', flexWrap:'wrap', gap:2 }}>
+                  {attendance.slice(0, 6).map((a: any) => {
                     const d     = new Date(a.fecha + 'T12:00:00')
                     const label = d.toLocaleDateString('es-CO', { day:'numeric', month:'short' })
                     return (
                       <div key={a.id} style={{
-                        display:'flex', alignItems:'center', gap:3,
-                        padding:'2px 6px', borderRadius:7,
+                        display:'flex', alignItems:'center', gap:2,
+                        padding:'1px 4px', borderRadius:5,
                         background:'rgba(13,148,136,.09)', border:'1px solid rgba(13,148,136,.22)',
-                        fontSize:9, fontWeight:700, color:'#0f766e',
+                        fontSize:8, fontWeight:700, color:'#0f766e',
                       }}>
-                        <div style={{ width:5, height:5, borderRadius:'50%', background:'#14b8a6', flexShrink:0 }} />
+                        <div style={{ width:4, height:4, borderRadius:'50%', background:'#14b8a6', flexShrink:0 }} />
                         {label}
                       </div>
                     )
@@ -1924,7 +1976,7 @@ function ContactButtons({ nino }: { nino: KidsNino }) {
 
   return (
     <div style={{
-      display: 'flex', alignItems: 'center', gap: 10, marginTop: 4, marginBottom: 2,
+      display: 'flex', alignItems: 'center', gap: 6, marginTop: 2, marginBottom: 0,
     }}>
       {/* ── WhatsApp ── */}
       <a
@@ -1935,7 +1987,7 @@ function ContactButtons({ nino }: { nino: KidsNino }) {
         onMouseEnter={() => setHovWa(true)}
         onMouseLeave={() => setHovWa(false)}
         style={{
-          width: 34, height: 34, borderRadius: '50%',
+          width: 26, height: 26, borderRadius: '50%',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           textDecoration: 'none', flexShrink: 0,
           /* Ring exterior */
@@ -1954,7 +2006,7 @@ function ContactButtons({ nino }: { nino: KidsNino }) {
         } as React.CSSProperties}
       >
         {/* WhatsApp SVG oficial */}
-        <svg width="18" height="18" viewBox="0 0 24 24" fill={hovWa ? '#fff' : '#22c55e'}>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill={hovWa ? '#fff' : '#22c55e'}>
           <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413z"/>
         </svg>
       </a>
@@ -1966,7 +2018,7 @@ function ContactButtons({ nino }: { nino: KidsNino }) {
         onMouseEnter={() => setHovTel(true)}
         onMouseLeave={() => setHovTel(false)}
         style={{
-          width: 34, height: 34, borderRadius: '50%',
+          width: 26, height: 26, borderRadius: '50%',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           textDecoration: 'none', flexShrink: 0,
           background: hovTel
@@ -1983,7 +2035,7 @@ function ContactButtons({ nino }: { nino: KidsNino }) {
           transition: 'all .2s cubic-bezier(.34,1.56,.64,1)',
         } as React.CSSProperties}
       >
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none"
           stroke={hovTel ? '#fff' : '#3b82f6'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.38 2 2 0 0 1 3.6 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 9.91a16 16 0 0 0 6.16 6.16l.91-.91a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/>
         </svg>
@@ -2021,16 +2073,16 @@ function GrupoSelect({ value, onChange, grupos }: { value:string; onChange:(v:st
   const [focused, setFocused] = useState(false)
   return (
     <div>
-      <label style={{ fontSize:9, fontWeight:800, color: focused ? '#7c3aed' : '#6b7280',
-        display:'flex', alignItems:'center', gap:5, marginBottom:6,
-        letterSpacing:'1px', textTransform:'uppercase' as const, transition:'color .15s' }}>
-        <span style={{ width:4, height:4, borderRadius:'50%',
+      <label style={{ fontSize:8.5, fontWeight:800, color: focused ? '#7c3aed' : '#6b7280',
+        display:'flex', alignItems:'center', gap:4, marginBottom:4,
+        letterSpacing:'0.8px', textTransform:'uppercase' as const, transition:'color .15s' }}>
+        <span style={{ width:3.5, height:3.5, borderRadius:'50%',
           background: focused ? 'linear-gradient(135deg,#7c3aed,#6366f1)' : '#d1d5db',
           display:'inline-block', transition:'background .15s', flexShrink:0 }} />
         Grupo / Curso
       </label>
       <div style={{ position:'relative' }}>
-        <div style={{ position:'absolute', left:13, top:'50%', transform:'translateY(-50%)', pointerEvents:'none', opacity: focused ? 1 : 0.55, transition:'opacity .15s' }}>
+        <div style={{ position:'absolute', left:12, top:'50%', transform:'translateY(-50%)', pointerEvents:'none', opacity: focused ? 1 : 0.55, transition:'opacity .15s' }}>
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={focused ? '#7c3aed' : '#9ca3af'} strokeWidth="2" strokeLinecap="round">
             <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
           </svg>
@@ -2042,24 +2094,24 @@ function GrupoSelect({ value, onChange, grupos }: { value:string; onChange:(v:st
           onBlur={() => setFocused(false)}
           style={{
             width:'100%', boxSizing:'border-box' as const,
-            padding:'11px 36px 11px 34px',
+            padding:'8px 28px 8px 32px',
             border: focused ? '1.5px solid rgba(124,58,237,.6)' : '1.5px solid rgba(0,0,0,.08)',
-            borderRadius:12, fontSize:13, fontFamily:'inherit', outline:'none',
+            borderRadius:10, fontSize:12, fontFamily:'inherit', outline:'none',
             background: focused ? 'rgba(255,255,255,0.98)' : 'rgba(255,255,255,0.7)',
             backdropFilter:'blur(12px)',
             color: value ? '#111827' : '#9ca3af',
             appearance:'none' as const, cursor:'pointer', fontWeight: 500,
             boxShadow: focused
-              ? '0 0 0 3.5px rgba(124,58,237,.12), 0 4px 12px rgba(0,0,0,.06)'
-              : '0 1px 4px rgba(0,0,0,.05), inset 0 1px 0 rgba(255,255,255,.9)',
+              ? '0 0 0 3px rgba(124,58,237,.12), 0 2px 8px rgba(0,0,0,.06)'
+              : '0 1px 3px rgba(0,0,0,.05), inset 0 1px 0 rgba(255,255,255,.9)',
             transition:'border-color .18s, box-shadow .18s, background .18s',
           }}
         >
           <option value="">Seleccionar grupo</option>
           {grupos.map(g => <option key={g} value={g}>{g}</option>)}
         </select>
-        <div style={{ position:'absolute', right:13, top:'50%', transform:'translateY(-50%)', pointerEvents:'none', opacity: focused ? 1 : 0.5, transition:'opacity .15s' }}>
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke={focused ? '#7c3aed' : '#9ca3af'} strokeWidth="2.5">
+        <div style={{ position:'absolute', right:12, top:'50%', transform:'translateY(-50%)', pointerEvents:'none', opacity: focused ? 1 : 0.5, transition:'opacity .15s' }}>
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke={focused ? '#7c3aed' : '#9ca3af'} strokeWidth="2.5">
             <polyline points="6 9 12 15 18 9"/>
           </svg>
         </div>
@@ -2073,16 +2125,16 @@ function ObsTextarea({ value, onChange, isMobile }: { value:string; onChange:(v:
   const [focused, setFocused] = useState(false)
   return (
     <div>
-      <label style={{ fontSize:9, fontWeight:800, color: focused ? '#7c3aed' : '#6b7280',
-        display:'flex', alignItems:'center', gap:5, marginBottom:6,
-        letterSpacing:'1px', textTransform:'uppercase' as const, transition:'color .15s' }}>
-        <span style={{ width:4, height:4, borderRadius:'50%',
+      <label style={{ fontSize:8.5, fontWeight:800, color: focused ? '#7c3aed' : '#6b7280',
+        display:'flex', alignItems:'center', gap:4, marginBottom:4,
+        letterSpacing:'0.8px', textTransform:'uppercase' as const, transition:'color .15s' }}>
+        <span style={{ width:3.5, height:3.5, borderRadius:'50%',
           background: focused ? 'linear-gradient(135deg,#7c3aed,#6366f1)' : '#d1d5db',
           display:'inline-block', transition:'background .15s', flexShrink:0 }} />
         Observaciones
       </label>
       <div style={{ position:'relative' }}>
-        <div style={{ position:'absolute', left:13, top:13, pointerEvents:'none', opacity: focused ? 1 : 0.55, transition:'opacity .15s' }}>
+        <div style={{ position:'absolute', left:12, top:10, pointerEvents:'none', opacity: focused ? 1 : 0.55, transition:'opacity .15s' }}>
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={focused ? '#7c3aed' : '#9ca3af'} strokeWidth="2" strokeLinecap="round">
             <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
             <polyline points="14 2 14 8 20 8"/>
@@ -2096,18 +2148,18 @@ function ObsTextarea({ value, onChange, isMobile }: { value:string; onChange:(v:
           onChange={e => onChange(e.target.value)}
           onFocus={() => setFocused(true)}
           onBlur={() => setFocused(false)}
-          rows={isMobile ? 2 : 3}
+          rows={3}
           style={{
             width:'100%', boxSizing:'border-box' as const,
-            padding:'11px 14px 11px 34px',
+            padding:'8px 12px 8px 32px',
             border: focused ? '1.5px solid rgba(124,58,237,.6)' : '1.5px solid rgba(0,0,0,.08)',
-            borderRadius:12, fontSize:13, fontFamily:'inherit', outline:'none',
+            borderRadius:10, fontSize:12, fontFamily:'inherit', outline:'none',
             background: focused ? 'rgba(255,255,255,0.98)' : 'rgba(255,255,255,0.7)',
             backdropFilter:'blur(12px)',
-            resize:'vertical' as const, lineHeight:1.6, fontWeight:500,
+            resize:'vertical' as const, lineHeight:1.5, fontWeight:500,
             boxShadow: focused
-              ? '0 0 0 3.5px rgba(124,58,237,.12), 0 4px 12px rgba(0,0,0,.06)'
-              : '0 1px 4px rgba(0,0,0,.05), inset 0 1px 0 rgba(255,255,255,.9)',
+              ? '0 0 0 3px rgba(124,58,237,.12), 0 2px 8px rgba(0,0,0,.06)'
+              : '0 1px 3px rgba(0,0,0,.05), inset 0 1px 0 rgba(255,255,255,.9)',
             transition:'border-color .18s, box-shadow .18s, background .18s',
             color:'#111827',
           } as React.CSSProperties}
@@ -2132,17 +2184,17 @@ function NinoField({
   const [focused, setFocused] = useState(false)
   return (
     <div>
-      <label style={{ fontSize:9, fontWeight:800, color: focused ? '#7c3aed' : '#6b7280',
-        display:'flex', alignItems:'center', gap:5, marginBottom:6,
-        letterSpacing:'1px', textTransform:'uppercase' as const,
+      <label style={{ fontSize:8.5, fontWeight:800, color: focused ? '#7c3aed' : '#6b7280',
+        display:'flex', alignItems:'center', gap:4, marginBottom:4,
+        letterSpacing:'0.8px', textTransform:'uppercase' as const,
         transition:'color .15s' }}>
-        <span style={{ width:4, height:4, borderRadius:'50%',
+        <span style={{ width:3.5, height:3.5, borderRadius:'50%',
           background: focused ? 'linear-gradient(135deg,#7c3aed,#6366f1)' : '#d1d5db',
           display:'inline-block', transition:'background .15s', flexShrink:0 }} />
         {label}
       </label>
       <div style={{ position:'relative' }}>
-        <div style={{ position:'absolute', left:13, top:'50%', transform:'translateY(-50%)', pointerEvents:'none',
+        <div style={{ position:'absolute', left:12, top:'50%', transform:'translateY(-50%)', pointerEvents:'none',
           opacity: focused ? 1 : 0.55, transition:'opacity .15s' }}>
           {icon}
         </div>
@@ -2156,17 +2208,17 @@ function NinoField({
           onBlur={()  => setFocused(false)}
           style={{
             width:'100%', boxSizing:'border-box' as const,
-            padding:'11px 14px 11px 34px',
+            padding:'8px 12px 8px 32px',
             border: focused
               ? '1.5px solid rgba(124,58,237,.6)'
               : '1.5px solid rgba(0,0,0,.08)',
-            borderRadius:12, fontSize:13,
+            borderRadius:10, fontSize:12,
             fontFamily:'inherit', outline:'none',
             background: focused ? 'rgba(255,255,255,0.98)' : 'rgba(255,255,255,0.7)',
             backdropFilter: 'blur(12px)',
             boxShadow: focused
-              ? '0 0 0 3.5px rgba(124,58,237,.12), 0 4px 12px rgba(0,0,0,.06)'
-              : '0 1px 4px rgba(0,0,0,.05), inset 0 1px 0 rgba(255,255,255,.9)',
+              ? '0 0 0 3px rgba(124,58,237,.12), 0 2px 8px rgba(0,0,0,.06)'
+              : '0 1px 3px rgba(0,0,0,.05), inset 0 1px 0 rgba(255,255,255,.9)',
             transition:'border-color .18s, box-shadow .18s, background .18s',
             color: '#111827',
             fontWeight: 500,
@@ -2214,7 +2266,7 @@ function Button3DGreen({
 
   return (
     <div
-      style={{ marginTop: compact ? 12 : 18, userSelect: 'none', WebkitUserSelect: 'none' } as React.CSSProperties}
+      style={{ width: '50%', minWidth: 160, margin: '20px auto 0', userSelect: 'none', WebkitUserSelect: 'none' } as React.CSSProperties}
       onMouseDown={() => !disabled && setPressed(true)}
       onMouseUp={()   => setPressed(false)}
       onMouseLeave={()=> setPressed(false)}
@@ -2238,8 +2290,8 @@ function Button3DGreen({
       }}>
         {/* ── Domo verde interior ── */}
         <div style={{
-          borderRadius: compact ? 40 : 44,
-          padding:      compact ? '9px 0' : '15px 0',
+          borderRadius: 40,
+          padding:      '9px 0',
           background:   saving
             ? 'linear-gradient(180deg,#9ca3af 0%,#6b7280 100%)'
             : isDown
@@ -2301,10 +2353,10 @@ function Button3DGreen({
 
           {/* Texto */}
           <span style={{
-            fontSize:    compact ? 11 : 14,
+            fontSize:    12,
             fontWeight:  800,
             color:       '#fff',
-            letterSpacing: compact ? '0.3px' : '0.6px',
+            letterSpacing: '0.4px',
             textShadow: '0 1px 5px rgba(0,0,0,.45)',
             position:    'relative',
             zIndex:       1,

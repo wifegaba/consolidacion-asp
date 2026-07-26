@@ -33,15 +33,37 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Sesión principal inválida.' }, { status: 401 });
   }
 
-  // ── 2. Buscar en kids_coordinadores ───────────────────────────────────────
+  // ── 2. Buscar en kids_servidores o kids_coordinadores ──────────────────────
   const supabase = getServerSupabase();
-  const { data: coord, error } = await supabase
-    .from('kids_coordinadores')
-    .select('id, cedula, nombre, apellido, telefono, foto_url, grupo_asignado, activo')
-    .eq('cedula', cedula)
+  const cleanCedula = cedula.replace(/\D/g, '');
+
+  let coord: any = null;
+
+  // A) Buscar en kids_servidores
+  const { data: ks } = await supabase
+    .from('kids_servidores')
+    .select('id, cedula, nombre, apellido, telefono, foto_url, grupo_asignado, activo, roles')
+    .or(`cedula.eq.${cedula}${cleanCedula ? `,cedula.eq.${cleanCedula}` : ''}`)
     .maybeSingle();
 
-  if (error || !coord) {
+  if (ks && ks.roles?.some((r: string) => r.startsWith('COORDINADOR'))) {
+    coord = ks;
+  }
+
+  // B) Buscar en kids_coordinadores
+  if (!coord) {
+    const { data: kc } = await supabase
+      .from('kids_coordinadores')
+      .select('id, cedula, nombre, apellido, foto_url, grupo_asignado, activo')
+      .or(`cedula.eq.${cedula}${cleanCedula ? `,cedula.eq.${cleanCedula}` : ''}`)
+      .maybeSingle();
+
+    if (kc) {
+      coord = { ...kc, roles: ['COORDINADOR'] };
+    }
+  }
+
+  if (!coord) {
     return NextResponse.json({ error: 'No tienes acceso como coordinador Kids.' }, { status: 403 });
   }
   if (!coord.activo) {

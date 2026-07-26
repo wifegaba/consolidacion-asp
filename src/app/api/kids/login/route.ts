@@ -24,15 +24,19 @@ export async function POST(req: Request) {
 
     const supabase = getServerSupabase();
 
-    // Buscar en kids_administradores
+    // Buscar en kids_servidores
     const { data: admin, error: errAdmin } = await supabase
-      .from('kids_administradores')
-      .select('id, cedula, nombre, apellido, telefono, foto_url, activo')
+      .from('kids_servidores')
+      .select('id, cedula, nombre, apellido, telefono, foto_url, activo, roles')
       .eq('cedula', cedula)
       .single();
 
     if (errAdmin || !admin) {
       return NextResponse.json({ error: 'Cédula no encontrada en el sistema Kids.' }, { status: 401 });
+    }
+
+    if (!admin.roles.includes('ADMINISTRADOR')) {
+      return NextResponse.json({ error: 'No tienes acceso de administrador Kids.' }, { status: 403 });
     }
 
     if (!admin.activo) {

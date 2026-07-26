@@ -397,6 +397,7 @@ export default function AsistenciasSection({
     <div style={{
       flex:1, minHeight:0, display:'flex', flexDirection:'column',
       overflow:'hidden', background:'transparent',
+      paddingBottom: isMobile ? 56 : 0,
     }}>
       {/* ── Toast de éxito ── */}
       {successMsg && (
@@ -428,21 +429,23 @@ export default function AsistenciasSection({
             </div>
             <div style={{ fontSize:11, color:'#6b7280', marginTop:2, textTransform:'capitalize' }}>{today}</div>
           </div>
-          <div style={{
-            display:'flex', alignItems:'center', gap:8, flexShrink:0,
-            background:'linear-gradient(135deg,rgba(16,185,129,.12),rgba(5,150,105,.08))',
-            border:'1px solid rgba(16,185,129,.25)', borderRadius:16, padding:'10px 18px',
-            boxShadow:'inset 0 1px 0 rgba(255,255,255,.7)',
-          }}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#059669" strokeWidth="2" strokeLinecap="round">
-              <polyline points="9 11 12 14 22 4"/>
-              <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
-            </svg>
-            <div style={{ textAlign:'right' }}>
-              <div style={{ fontSize:22, fontWeight:900, color:'#059669', lineHeight:1 }}>{todayCount}</div>
-              <div style={{ fontSize:9, fontWeight:700, color:'#6b7280', textTransform:'uppercase', letterSpacing:'1px' }}>Hoy</div>
+          {!isMobile && (
+            <div style={{
+              display:'flex', alignItems:'center', gap:8, flexShrink:0,
+              background:'linear-gradient(135deg,rgba(16,185,129,.12),rgba(5,150,105,.08))',
+              border:'1px solid rgba(16,185,129,.25)', borderRadius:16, padding:'10px 18px',
+              boxShadow:'inset 0 1px 0 rgba(255,255,255,.7)',
+            }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#059669" strokeWidth="2" strokeLinecap="round">
+                <polyline points="9 11 12 14 22 4"/>
+                <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+              </svg>
+              <div style={{ textAlign:'right' }}>
+                <div style={{ fontSize:22, fontWeight:900, color:'#059669', lineHeight:1 }}>{todayCount}</div>
+                <div style={{ fontSize:9, fontWeight:700, color:'#6b7280', textTransform:'uppercase', letterSpacing:'1px' }}>Hoy</div>
+              </div>
             </div>
-          </div>
+          )}
         </div>
 
         {/* ── Tabs ── */}
