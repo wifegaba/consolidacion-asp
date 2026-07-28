@@ -19,11 +19,16 @@ export interface KidsServidor {
   estado_civil:        string | null
   hijos:               string | null
   grupo_asignado:      string | null
+  grupo?:              string | null
   grupo_timoteos_asignado: string | null
   puede_dirigir:       boolean
   sirve_entre_semana:  boolean
   horario_servicio:    string | null
   grupo_servicio:      string | null
+  cumpleanos?:         string | null
+  disponibilidad_domingo_7?:  boolean
+  disponibilidad_domingo_9?:  boolean
+  disponibilidad_domingo_11?: boolean
   activo:              boolean
   creado_en:           string
 }
@@ -31,7 +36,14 @@ export interface KidsServidor {
 interface Props {
   servidor: KidsServidor | null
   onClose: () => void
-  onSave:  () => Promise<void>
+  onSave?:  () => Promise<void>
+  onSaved?: () => Promise<void>
+  launchOrigin?: {
+    dx: number
+    dy: number
+    scaleX?: number
+    scaleY?: number
+  } | null
 }
 
 /* ── Opciones ────────────────────────────────────────────────────────────── */
@@ -70,7 +82,7 @@ const OPT_GRUPO_SERVICIO = ['Semillitas','Exploradores','Junior']
 const OPT_GRUPO          = ['Grupo 1','Grupo 2','Grupo 3','Grupo 4','Grupo 5','Grupo 6']
 
 /* ══════════════════════════════════════════════════════════════════════════ */
-export default function ServidorModal({ servidor, onClose, onSave }: Props) {
+export default function ServidorModal({ servidor, onClose, onSave, onSaved, launchOrigin }: Props) {
   const isEdit  = !!servidor
   const fileRef = useRef<HTMLInputElement>(null)
 
@@ -92,6 +104,10 @@ export default function ServidorModal({ servidor, onClose, onSave }: Props) {
     sirve_entre_semana:      servidor?.sirve_entre_semana      ?? false,
     horario_servicio:        servidor?.horario_servicio        ?? '',
     grupo_servicio:          servidor?.grupo_servicio          ?? '',
+    cumpleanos:               servidor?.cumpleanos              ?? '',
+    disponibilidad_domingo_7:  servidor?.disponibilidad_domingo_7  ?? false,
+    disponibilidad_domingo_9:  servidor?.disponibilidad_domingo_9  ?? false,
+    disponibilidad_domingo_11: servidor?.disponibilidad_domingo_11 ?? false,
     activo:                  servidor?.activo                  ?? true,
   })
 
@@ -143,7 +159,10 @@ export default function ServidorModal({ servidor, onClose, onSave }: Props) {
     window.addEventListener('resize', check)
     return () => window.removeEventListener('resize', check)
   }, [])
-  useEffect(() => { const t = setTimeout(() => setVisible(true), 10); return () => clearTimeout(t) }, [])
+  useEffect(() => {
+    const openTimer = window.setTimeout(() => setVisible(true), 10)
+    return () => window.clearTimeout(openTimer)
+  }, [launchOrigin?.dx, launchOrigin?.dy, isEdit])
 
   /* ── Cédula ──────────────────────────────────────────────────────────── */
   function handleCedulaChange(val: string) {
@@ -171,7 +190,10 @@ export default function ServidorModal({ servidor, onClose, onSave }: Props) {
     }, 600)
   }
 
-  function handleClose() { setVisible(false); setTimeout(onClose, 220) }
+  function handleClose() {
+    setVisible(false)
+    setTimeout(onClose, launchOrigin ? 620 : 260)
+  }
 
   /* ── Compresión ──────────────────────────────────────────────────────── */
   function compressImage(file: File, maxPx = 1200, quality = 0.85): Promise<File> {
@@ -212,17 +234,27 @@ export default function ServidorModal({ servidor, onClose, onSave }: Props) {
 
     /* Validar todos los campos requeridos básicos */
     const errs: Record<string, string> = {}
-    if (!form.cedula.trim())           errs.cedula           = 'La cédula es requerida'
+    const isTimoteoProfile = form.roles.includes('TIMOTEOS')
+    if (!isTimoteoProfile && !form.cedula.trim()) errs.cedula = 'La cédula es requerida'
     if (!form.nombre.trim())           errs.nombre           = 'El nombre es requerido'
     if (!form.apellido.trim())         errs.apellido         = 'El apellido es requerido'
     if (form.roles.length === 0)       errs.roles            = 'Debe seleccionar al menos un rol'
+
+    if (isTimoteoProfile) {
+      if (!form.telefono.trim()) errs.telefono = 'El celular es requerido'
+      if (!form.cumpleanos.trim()) {
+        errs.cumpleanos = 'El cumpleaños es requerido'
+      } else if (!/^(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/.test(form.cumpleanos.trim())) {
+        errs.cumpleanos = 'Usa el formato MM-DD'
+      }
+    }
     
     // Validación de campos condicionales
     const isMaestro = form.roles.includes('MAESTRO') || form.roles.includes('MAESTRO AUXILIAR')
     const isCoordinador = form.roles.some(r => r.startsWith('COORDINADOR'))
     const isCualquierRolKids = isMaestro || isCoordinador || form.roles.includes('TIMOTEOS') || form.roles.includes('INTERSESORES')
     
-    if (isCualquierRolKids) {
+    if (isCualquierRolKids && !isTimoteoProfile) {
       if (!form.telefono.trim()) errs.telefono = 'El teléfono es requerido'
       if (!form.direccion.trim()) errs.direccion = 'La dirección es requerida'
     }
@@ -236,10 +268,10 @@ export default function ServidorModal({ servidor, onClose, onSave }: Props) {
     }
 
     const isAdulto = !form.edad || parseInt(form.edad) >= 20
-    if (!form.estudios) errs.estudios = 'Selecciona el nivel de estudios'
-    if (!form.profesion.trim()) errs.profesion = 'La profesión es requerida'
+    if (!isTimoteoProfile && !form.estudios) errs.estudios = 'Selecciona el nivel de estudios'
+    if (!isTimoteoProfile && !form.profesion.trim()) errs.profesion = 'La profesión es requerida'
     
-    if (isAdulto) {
+    if (!isTimoteoProfile && isAdulto) {
       if (!form.estado_civil) errs.estado_civil = 'Selecciona el estado civil'
     }
 
@@ -278,24 +310,32 @@ export default function ServidorModal({ servidor, onClose, onSave }: Props) {
         hijos: form.hijos?.trim() || null, sirve_entre_semana: form.sirve_entre_semana,
         horario_servicio: form.horario_servicio.trim() || null,
         grupo_servicio: form.grupo_servicio.trim() || null, activo: form.activo,
+        cumpleanos: form.cumpleanos.trim() || null,
+        disponibilidad_domingo_7: form.disponibilidad_domingo_7,
+        disponibilidad_domingo_9: form.disponibilidad_domingo_9,
+        disponibilidad_domingo_11: form.disponibilidad_domingo_11,
       }
       const url = isEdit ? `/api/kids/servidores/${servidor!.id}` : '/api/kids/servidores'
       const res = await fetch(url, { method: isEdit ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
       const json = await res.json()
       if (!res.ok) throw new Error(json.error ?? 'Error al guardar.')
-      await onSave()
+      const fn = onSave || onSaved; if (fn) await fn()
     } catch (e: any) { setServerError(e.message); setSaving(false) }
   }
 
   const toggleRole = (rol: string) => {
+    if (rol === 'TIMOTEOS') setRolesOpen(false)
     setForm(prev => {
-      const roles = prev.roles.includes(rol) 
-        ? prev.roles.filter(r => r !== rol) 
-        : [...prev.roles, rol];
+      const roles = rol === 'TIMOTEOS'
+        ? (prev.roles.includes('TIMOTEOS') ? [] : ['TIMOTEOS'])
+        : prev.roles.includes(rol)
+          ? prev.roles.filter(r => r !== rol)
+          : [...prev.roles.filter(r => r !== 'TIMOTEOS'), rol]
       clearFieldError('roles')
       return { ...prev, roles }
     })
   }
+  const isTimoteoProfile = form.roles.includes('TIMOTEOS')
   const overlayStyle: React.CSSProperties = {
     position:'fixed', inset:0, zIndex:9999,
     background: visible ? 'rgba(0,0,0,.50)' : 'rgba(0,0,0,0)',
@@ -304,25 +344,41 @@ export default function ServidorModal({ servidor, onClose, onSave }: Props) {
     display:'flex', alignItems: isMobile ? 'flex-end' : 'center', justifyContent:'center',
     padding: isMobile ? 0 : '12px',
   }
+  const launchTransform = launchOrigin
+    ? `translate3d(${launchOrigin.dx}px, ${launchOrigin.dy}px, 0) scale(${launchOrigin.scaleX ?? .1}, ${launchOrigin.scaleY ?? .1}) rotateY(-58deg)`
+    : isMobile
+      ? 'translateY(100%)'
+      : 'scale(.97) translateY(12px)'
+
+  const settledTransform = isMobile
+    ? 'translateY(0)'
+    : 'scale(1) translateY(0)'
+
   const dialogStyle: React.CSSProperties = isMobile ? {
-    width:'100%', minHeight: 480, maxHeight:'96dvh', background:'#fff',
+    width:'100%', minHeight: isTimoteoProfile ? 400 : 480, maxHeight:'96dvh', background:'#fff',
     borderRadius:'16px 16px 0 0', boxShadow:'0 -16px 48px rgba(0,0,0,.18)',
-    transform: visible ? 'translateY(0)' : 'translateY(100%)',
-    transition:'transform .25s cubic-bezier(.4,0,.2,1)',
+    transform: visible ? settledTransform : launchTransform,
+    transition:'transform .62s cubic-bezier(.2,.78,.2,1)',
+    transformOrigin:'center center', transformStyle:'preserve-3d',
+    willChange:'transform, opacity',
     display:'flex', flexDirection:'column', overflow:'hidden',
   } : {
     width:'100%', maxWidth:680,
-    height: 530, minHeight: 530, maxHeight: '90vh',
+    height: isTimoteoProfile ? 410 : 530,
+    minHeight: isTimoteoProfile ? 410 : 530,
+    maxHeight: '90vh',
     background:'#fff', borderRadius:14,
     boxShadow:'0 20px 50px rgba(0,0,0,.18)',
-    transform: visible ? 'scale(1) translateY(0)' : 'scale(.97) translateY(12px)',
+    transform: visible ? settledTransform : launchTransform,
     opacity: visible ? 1 : 0,
-    transition:'transform .22s cubic-bezier(.4,0,.2,1), opacity .22s',
+    transition:'transform .62s cubic-bezier(.2,.78,.2,1), opacity .3s ease',
+    transformOrigin:'center center', transformStyle:'preserve-3d',
+    willChange:'transform, opacity',
     display:'flex', flexDirection:'column', overflow:'hidden',
   }
 
   const liveNombre  = `${form.nombre} ${form.apellido}`.trim()
-  const displayName = liveNombre || 'Nuevo Servidor'
+  const displayName = liveNombre || (isTimoteoProfile ? 'Ficha especializada' : 'Nuevo Servidor')
 
   // Dinámicas
   const isMaestro = form.roles.includes('MAESTRO') || form.roles.includes('MAESTRO AUXILIAR')
@@ -361,7 +417,9 @@ export default function ServidorModal({ servidor, onClose, onSave }: Props) {
               </div>
               <div>
                 <h3 style={{ margin: 0, fontSize: 13, fontWeight: 800, color: '#ffffff', letterSpacing: '-0.2px', textShadow: '0 1px 3px rgba(0,0,0,0.3)' }}>
-                  {isEdit ? 'Editar Servidor' : 'Nuevo Servidor'}
+                  {isTimoteoProfile
+                    ? (isEdit ? 'Editar Timoteo' : 'Nuevo Timoteo')
+                    : (isEdit ? 'Editar Servidor' : 'Nuevo Servidor')}
                 </h3>
                 <p style={{ margin: 0, fontSize: 9.5, color: 'rgba(224,242,254,0.85)', lineHeight: 1.1, fontWeight: 600 }}>{displayName}</p>
               </div>
@@ -392,7 +450,8 @@ export default function ServidorModal({ servidor, onClose, onSave }: Props) {
                 alignItems: 'center',
                 gap: 14,
               }}>
-                {/* FOTO */}
+                {/* FOTO: el perfil TIMOTEOS utiliza exclusivamente los campos de su ficha */}
+                {!isTimoteoProfile && (
                 <div style={{ display:'flex', alignItems:'center', gap:8, flexShrink:0 }}>
                   <div style={{ position:'relative' }}>
                     {fotoPreview ? (
@@ -409,6 +468,7 @@ export default function ServidorModal({ servidor, onClose, onSave }: Props) {
                   <input type="file" ref={fileRef} accept="image/*" onChange={handleFotoChange} style={{ display:'none' }} />
                   <span style={{ fontSize:9.5, color:'#64748b', fontWeight:600 }}>Foto perfil</span>
                 </div>
+                )}
 
                 {/* ROLES SELECT ITEM */}
                 <div style={{ flex:1, minWidth:0, position: 'relative' }} ref={rolesDropdownRef}>
@@ -657,6 +717,59 @@ export default function ServidorModal({ servidor, onClose, onSave }: Props) {
                 </div>
               </div>
 
+              {isTimoteoProfile ? (
+                <div style={{
+                  display:'flex',
+                  flexDirection:'column',
+                  gap:16,
+                  padding:'4px 2px 2px',
+                }}>
+                  <div>
+                    <MGroupLabel label="Ficha del Timoteo" icon={<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="7" r="4"/><path d="M5 21v-2a7 7 0 0 1 14 0v2"/></svg>} />
+                    <div style={{
+                      display:'grid',
+                      gridTemplateColumns:isMobile ? '1fr' : '1fr 1fr',
+                      gap:10,
+                      marginTop:8,
+                    }}>
+                      <Input label="Nombres" val={form.nombre} onChange={v => { setForm(f=>({...f, nombre:v})); clearFieldError('nombre') }} err={fieldErrors.nombre} />
+                      <Input label="Apellidos" val={form.apellido} onChange={v => { setForm(f=>({...f, apellido:v})); clearFieldError('apellido') }} err={fieldErrors.apellido} />
+                      <Input label="Cumpleaños (MM-DD)" val={form.cumpleanos} onChange={v => { setForm(f=>({...f, cumpleanos:v})); clearFieldError('cumpleanos') }} err={fieldErrors.cumpleanos} />
+                      <Input label="Edad (años)" type="number" val={form.edad} onChange={v => setForm(f=>({...f, edad:v}))} />
+                      <div style={{ gridColumn:isMobile ? 'auto' : '1 / -1' }}>
+                        <Input label="Celular" type="tel" val={form.telefono} onChange={v => { setForm(f=>({...f, telefono:v})); clearFieldError('telefono') }} err={fieldErrors.telefono} />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <MGroupLabel label="Horarios disponibles · Domingo" icon={<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>} />
+                    <div style={{
+                      display:'grid',
+                      gridTemplateColumns:'repeat(3, minmax(0, 1fr))',
+                      gap:10,
+                      marginTop:8,
+                    }}>
+                      <TimoteoScheduleToggle
+                        label="7:00 AM"
+                        checked={form.disponibilidad_domingo_7}
+                        onChange={checked => setForm(f => ({ ...f, disponibilidad_domingo_7: checked }))}
+                      />
+                      <TimoteoScheduleToggle
+                        label="9:00 AM"
+                        checked={form.disponibilidad_domingo_9}
+                        onChange={checked => setForm(f => ({ ...f, disponibilidad_domingo_9: checked }))}
+                      />
+                      <TimoteoScheduleToggle
+                        label="11:00 AM"
+                        checked={form.disponibilidad_domingo_11}
+                        onChange={checked => setForm(f => ({ ...f, disponibilidad_domingo_11: checked }))}
+                      />
+                    </div>
+                  </div>
+                </div>
+              ) : (
+              <>
               {/* IDENTIDAD Y DATOS PERSONALES */}
               <div>
                 <MGroupLabel label="Identidad y Datos Personales" icon={<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="5" width="20" height="14" rx="2"/></svg>} />
@@ -747,6 +860,8 @@ export default function ServidorModal({ servidor, onClose, onSave }: Props) {
                     Servidor activo en el sistema
                   </label>
                 </div>
+              )}
+              </>
               )}
 
               {serverError && (
@@ -848,7 +963,13 @@ export default function ServidorModal({ servidor, onClose, onSave }: Props) {
                   <polyline points="20 6 9 17 4 12"/>
                 </svg>
                 <span style={{ position: 'relative', zIndex: 2 }}>
-                  {saving ? 'Guardando...' : compressing ? 'Procesando...' : 'Guardar Servidor'}
+                  {saving
+                    ? 'Guardando...'
+                    : compressing
+                      ? 'Procesando...'
+                      : isTimoteoProfile
+                        ? 'Guardar Timoteo'
+                        : 'Guardar Servidor'}
                 </span>
               </button>
             </div>
@@ -878,6 +999,48 @@ function Input({ label, val, onChange, type = 'text', err }: { label: string, va
       />
       {err && <ErrMsg msg={err} />}
     </div>
+  )
+}
+
+function TimoteoScheduleToggle({
+  label,
+  checked,
+  onChange,
+}: {
+  label: string
+  checked: boolean
+  onChange: (checked: boolean) => void
+}) {
+  return (
+    <label style={{
+      minHeight:52,
+      display:'flex',
+      alignItems:'center',
+      justifyContent:'center',
+      gap:7,
+      borderRadius:14,
+      border:checked ? '1px solid rgba(37,99,235,.55)' : '1px solid rgba(148,163,184,.28)',
+      background:checked
+        ? 'linear-gradient(145deg, rgba(219,234,254,.98), rgba(147,197,253,.76))'
+        : 'linear-gradient(145deg, rgba(255,255,255,.94), rgba(241,245,249,.8))',
+      boxShadow:checked
+        ? 'inset 0 1px 0 rgba(255,255,255,.95), 0 7px 18px rgba(37,99,235,.18), 0 0 0 2px rgba(96,165,250,.12)'
+        : 'inset 0 1px 0 #fff, 0 5px 14px rgba(71,85,105,.08)',
+      color:checked ? '#1456b8' : '#64748b',
+      cursor:'pointer',
+      transition:'transform .22s cubic-bezier(.2,.8,.2,1), box-shadow .22s ease, background .22s ease',
+      fontSize:11,
+      fontWeight:800,
+      userSelect:'none',
+    }}>
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={event => onChange(event.target.checked)}
+        style={{ width:14, height:14, accentColor:'#2563eb' }}
+      />
+      {label}
+    </label>
   )
 }
 

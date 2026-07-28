@@ -1,7 +1,15 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback } from 'react'
-import { loadFaceModels, faceDistance, detectFacesRobust, FACE_MATCH_THRESHOLD } from '@/lib/faceRecognition'
+import { useState, useEffect, useRef, useCallback, type ChangeEvent } from 'react'
+import {
+  loadFaceModels,
+  faceDistance,
+  detectFacesRobust,
+  prepareFaceImage,
+  FACE_MATCH_THRESHOLD,
+  FACE_MATCH_STRICT_THRESHOLD,
+  FACE_MATCH_MIN_MARGIN,
+} from '@/lib/faceRecognition'
 import { type KidsNino } from './NinosSection'
 
 /* ── Types ─────────────────────────────────────────────────────────────── */
@@ -16,7 +24,8 @@ interface AsistenciaRecord {
 }
 
 type Mode    = 'camera' | 'processing' | 'matched' | 'no_match' | 'already'
-type TabView = 'registrar' | 'historial'
+type TabView = 'registrar' | 'latest' | 'historial'
+type RecognitionSource = 'camera' | 'upload'
 type NinoWithDescriptor = KidsNino & { face_descriptor: number[] }
 
 /* ── Helpers de zona horaria Colombia (UTC-5) ── */
@@ -65,6 +74,7 @@ export default function AsistenciasSection({
   const videoRef   = useRef<HTMLVideoElement>(null)
   const canvasRef  = useRef<HTMLCanvasElement>(null)
   const streamRef  = useRef<MediaStream | null>(null)
+  const imageInputRef = useRef<HTMLInputElement>(null)
 
   /* ── state ── */
   const [activeTab,      setActiveTab]     = useState<TabView>('registrar')
@@ -78,9 +88,12 @@ export default function AsistenciasSection({
   const [saveError,      setSaveError]     = useState('')
   const [cameraErr,      setCameraErr]     = useState('')
   const [modelsReady,    setModelsReady]   = useState(false)
+  const [recognitionSource, setRecognitionSource] = useState<RecognitionSource>('camera')
+  const [imageError,     setImageError]     = useState('')
   const [isMobile,       setIsMobile]      = useState(false)
   const [facingMode,     setFacingMode]    = useState<'user' | 'environment'>('environment')
   const [successMsg,     setSuccessMsg]    = useState('')
+  const [isCompact,      setIsCompact]     = useState(false)
   /* ── Historial state ── */
   const [histDate,       setHistDate]      = useState('')   // vacío = mostrar últimas
   const [histGrupo,      setHistGrupo]     = useState('')
@@ -92,7 +105,11 @@ export default function AsistenciasSection({
 
   /* ── responsive ── */
   useEffect(() => {
-    const check = () => setIsMobile(window.innerWidth < 768)
+    const check = () => {
+      const width = window.innerWidth
+      setIsMobile(width < 980)
+      setIsCompact(width < 1600)
+    }
     check()
     window.addEventListener('resize', check)
     return () => window.removeEventListener('resize', check)
@@ -184,14 +201,18 @@ export default function AsistenciasSection({
   }, [facingMode])
 
   useEffect(() => {
-    if (mode === 'camera') startCamera(facingMode)
+    if (mode === 'camera' && activeTab === 'registrar') startCamera(facingMode)
     return () => {
       if (streamRef.current) {
         streamRef.current.getTracks().forEach(t => t.stop())
         streamRef.current = null
       }
     }
-  }, [mode, facingMode, startCamera])
+  }, [mode, facingMode, startCamera, activeTab])
+
+  useEffect(() => {
+    if (!isMobile && activeTab === 'latest') setActiveTab('registrar')
+  }, [isMobile, activeTab])
 
   /* ── capturar foto ── */
   async function handleCapture() {
@@ -211,6 +232,8 @@ export default function AsistenciasSection({
     }
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
     const dataUrl = canvas.toDataURL('image/jpeg', 0.96)
+    setRecognitionSource('camera')
+    setImageError('')
     setCapturedUrl(dataUrl)
 
     // Detener cámara
@@ -221,11 +244,41 @@ export default function AsistenciasSection({
 
     setMode('processing')
     setStatusMsg('Detectando rostros…')
-    await analyzeFace(dataUrl)
+    await analyzeFace(dataUrl, 'camera')
+  }
+
+  /* ── cargar una fotografía y procesarla con el mismo motor de la cámara ── */
+  async function handleImageUpload(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!file) return
+
+    setImageError('')
+    setSaveError('')
+    setRecognitionSource('upload')
+
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop())
+      streamRef.current = null
+    }
+
+    try {
+      setMode('processing')
+      setStatusMsg('Preparando imagen…')
+      const prepared = await prepareFaceImage(file)
+      setCapturedUrl(prepared.dataUrl)
+      setStatusMsg('Validando calidad y buscando rostros…')
+      await analyzeFace(prepared.dataUrl, 'upload')
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'No fue posible procesar la imagen.'
+      setCapturedUrl(null)
+      setImageError(message)
+      setMode('camera')
+    }
   }
 
   /* ── analizar rostros (multi-face) ── */
-  async function analyzeFace(dataUrl: string) {
+  async function analyzeFace(dataUrl: string, source: RecognitionSource) {
     if (!modelsReady) {
       setStatusMsg('Cargando modelos de IA…')
       try { await loadFaceModels() } catch {
@@ -245,7 +298,12 @@ export default function AsistenciasSection({
       setStatusMsg('Analizando rostros…')
 
       // Detección robusta multi-rostro: mejora de imagen + busca TODAS las caras (hasta 5+)
-      const result = await detectFacesRobust(dataUrl, msg => setStatusMsg(msg), true)
+      const result = await detectFacesRobust(
+        dataUrl,
+        msg => setStatusMsg(msg),
+        true,
+        source === 'upload',
+      )
       const descriptors = result.descriptors
 
       console.log(`[analyzeFace] ${result.detail} | intento #${result.attempt} | mejorada=${result.enhanced} | niños en BD:`, allNinos.length)
@@ -279,7 +337,12 @@ export default function AsistenciasSection({
         const margin = secondDist - bestDist
         console.log(`  rostro → ${bestNino?.nombre ?? '?'} dist=${bestDist.toFixed(3)} (2º=${secondDist === Infinity ? '∞' : secondDist.toFixed(3)}, margen=${margin === Infinity ? '∞' : margin.toFixed(3)})`)
 
-        if (bestNino && bestDist < FACE_MATCH_THRESHOLD) {
+        const hasClearLead =
+          secondDist === Infinity ||
+          bestDist <= FACE_MATCH_STRICT_THRESHOLD ||
+          margin >= FACE_MATCH_MIN_MARGIN
+
+        if (bestNino && bestDist < FACE_MATCH_THRESHOLD && hasClearLead) {
           usedIds.add(bestNino.id)
           const already = todayRecords.some(r => r.nino_id === bestNino!.id)
           matches.push({ nino: bestNino, dist: bestDist, already })
@@ -304,7 +367,10 @@ export default function AsistenciasSection({
   }
 
   /* ── registrar una asistencia (un solo niño) ── */
-  async function handleRegister(nino: KidsNino, metodo = 'facial') {
+  async function handleRegister(
+    nino: KidsNino,
+    metodo = recognitionSource === 'upload' ? 'imagen_facial' : 'facial',
+  ) {
     setSaving(true)
     setSaveError('')
     try {
@@ -346,7 +412,7 @@ export default function AsistenciasSection({
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               nino_id:        m.nino.id,
-              metodo:         'facial_grupal',
+              metodo: recognitionSource === 'upload' ? 'imagen_facial_grupal' : 'facial_grupal',
               registrado_por: usuario ? `${usuario.nombre} ${usuario.apellido}` : null,
             }),
           }).then(r => r.json())
@@ -376,6 +442,8 @@ export default function AsistenciasSection({
     setCapturedUrl(null)
     setMultiMatches([])
     setStatusMsg('')
+    setImageError('')
+    setRecognitionSource('camera')
     setMode('camera')
   }
 
@@ -389,6 +457,20 @@ export default function AsistenciasSection({
     weekday:'long', day:'numeric', month:'long', timeZone:'America/Bogota',
   }).format(new Date())
   const todayCount = todayRecords.length
+  const navigationTabs: Array<{
+    key: TabView
+    label: string
+    icon: 'camera' | 'latest' | 'history'
+  }> = isMobile
+    ? [
+        { key:'registrar', label:'Registrar', icon:'camera' },
+        { key:'latest', label:'Últimas', icon:'latest' },
+        { key:'historial', label:'Historial', icon:'history' },
+      ]
+    : [
+        { key:'registrar', label:'Registrar', icon:'camera' },
+        { key:'historial', label:'Historial', icon:'history' },
+      ]
 
   /* ════════════════════════════════════════════════════════════════════════
      RENDER
@@ -414,78 +496,180 @@ export default function AsistenciasSection({
 
       {/* ── Header ── */}
       <div style={{
-        padding: isMobile ? '14px 16px 0' : '20px 28px 0',
-        flexShrink:0, borderBottom:'1px solid rgba(0,0,0,.07)',
-        background:'rgba(255,255,255,.55)',
+        padding: isMobile ? '9px 12px 10px' : '7px 18px',
+        flexShrink:0, borderBottom:'1px solid rgba(255,255,255,.38)',
+        background:'linear-gradient(135deg,rgba(255,255,255,.48),rgba(226,232,240,.16))',
+        backdropFilter:'blur(24px) saturate(145%)',
+        WebkitBackdropFilter:'blur(24px) saturate(145%)',
+        boxShadow:'inset 0 1px 0 rgba(255,255,255,.62), 0 8px 24px rgba(15,23,42,.04)',
+        display:'flex',
+        flexDirection:isMobile ? 'column' : 'row',
+        alignItems:isMobile ? 'stretch' : 'center',
+        gap:isMobile ? 9 : 14,
       }}>
         {/* Top row: título + counter */}
-        <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', gap:12, paddingBottom:14 }}>
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:10, paddingBottom:isMobile ? 3 : 0, flex:1, minWidth:0 }}>
           <div>
-            <div style={{ fontSize:11, fontWeight:700, color:'#0d9488', letterSpacing:'2px', textTransform:'uppercase', marginBottom:3 }}>
+            <div style={{ fontSize:isMobile ? 8 : 7, fontWeight:750, color:'#0d9488', letterSpacing:'1.4px', textTransform:'uppercase', marginBottom:0 }}>
               Módulo Kids
             </div>
-            <div style={{ fontSize: isMobile ? 20 : 26, fontWeight:900, color:'#0f172a', letterSpacing:'-0.5px' }}>
+            <div style={{ fontSize:isMobile ? 17 : 18, lineHeight:1.05, fontWeight:850, color:'#0f172a', letterSpacing:'-0.4px' }}>
               Asistencias
             </div>
-            <div style={{ fontSize:11, color:'#6b7280', marginTop:2, textTransform:'capitalize' }}>{today}</div>
+            <div style={{ fontSize:isMobile ? 8 : 7.5, color:'#6b7280', marginTop:1, textTransform:'capitalize', whiteSpace:'nowrap' }}>{today}</div>
           </div>
           {!isMobile && (
             <div style={{
-              display:'flex', alignItems:'center', gap:8, flexShrink:0,
+              display:'flex', alignItems:'center', gap:5, flexShrink:0,
               background:'linear-gradient(135deg,rgba(16,185,129,.12),rgba(5,150,105,.08))',
-              border:'1px solid rgba(16,185,129,.25)', borderRadius:16, padding:'10px 18px',
+              border:'1px solid rgba(16,185,129,.25)', borderRadius:11, padding:'5px 9px',
               boxShadow:'inset 0 1px 0 rgba(255,255,255,.7)',
             }}>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#059669" strokeWidth="2" strokeLinecap="round">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#059669" strokeWidth="2" strokeLinecap="round">
                 <polyline points="9 11 12 14 22 4"/>
                 <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
               </svg>
               <div style={{ textAlign:'right' }}>
-                <div style={{ fontSize:22, fontWeight:900, color:'#059669', lineHeight:1 }}>{todayCount}</div>
-                <div style={{ fontSize:9, fontWeight:700, color:'#6b7280', textTransform:'uppercase', letterSpacing:'1px' }}>Hoy</div>
+                <div style={{ fontSize:15, fontWeight:900, color:'#059669', lineHeight:1 }}>{todayCount}</div>
+                <div style={{ fontSize:6.5, fontWeight:700, color:'#6b7280', textTransform:'uppercase', letterSpacing:'.8px' }}>Hoy</div>
               </div>
             </div>
           )}
         </div>
 
-        {/* ── Tabs ── */}
-        <div style={{ display:'flex', gap:2 }}>
-          {([
-            { key:'registrar', label:'📷  Registrar' },
-            { key:'historial', label:'📋  Historial' },
-          ] as const).map(tab => (
+        {/* ── Navegación Liquid Glass ── */}
+        <div className="attendance-tabs-shell" style={{
+          display:'flex', gap:isMobile ? 4 : 3, flexShrink:0,
+          width:isMobile ? '100%' : 'auto',
+          alignSelf:isMobile ? 'stretch' : 'center',
+          padding:isMobile ? 4 : 3,
+          borderRadius:16,
+          background:'linear-gradient(145deg,rgba(255,255,255,.44),rgba(255,255,255,.16))',
+          border:'1px solid rgba(255,255,255,.58)',
+          boxShadow:'inset 0 1px 0 rgba(255,255,255,.72), inset 0 -1px 0 rgba(15,23,42,.04), 0 7px 20px rgba(15,23,42,.08)',
+          backdropFilter:'blur(18px) saturate(150%)',
+          WebkitBackdropFilter:'blur(18px) saturate(150%)',
+        }}>
+          {navigationTabs.map(tab => {
+            const active = activeTab === tab.key
+            return (
             <button
               key={tab.key}
               onClick={() => setActiveTab(tab.key)}
+              className={`attendance-tab-button${active ? ' is-active' : ''}`}
+              aria-pressed={active}
               style={{
-                padding:'8px 20px', border:'none', cursor:'pointer',
-                fontSize:12, fontWeight:700,
-                borderRadius:'10px 10px 0 0',
-                background: activeTab === tab.key
-                  ? 'rgba(255,255,255,.95)'
+                flex:isMobile ? 1 : 'none',
+                minWidth:isMobile ? 0 : 86,
+                minHeight:isMobile ? 38 : 32,
+                padding:isMobile ? '7px 8px' : '6px 11px',
+                border:`1px solid ${active ? 'rgba(255,255,255,.82)' : 'transparent'}`,
+                cursor:'pointer', borderRadius:12,
+                background:active
+                  ? 'linear-gradient(145deg,rgba(255,255,255,.94),rgba(240,253,250,.68))'
                   : 'transparent',
-                color: activeTab === tab.key ? '#0d9488' : '#9ca3af',
-                borderBottom: activeTab === tab.key
-                  ? '2px solid #0d9488'
-                  : '2px solid transparent',
-                transition:'all .18s',
+                color:active ? '#0f766e' : '#64748b',
+                boxShadow:active
+                  ? '0 5px 14px rgba(13,148,136,.13), inset 0 1px 0 #fff, inset 0 -1px 0 rgba(13,148,136,.08)'
+                  : 'none',
+                display:'flex', alignItems:'center', justifyContent:'center',
+                gap:isMobile ? 6 : 5,
+                fontSize:isMobile ? 10 : 9, fontWeight:800,
+                letterSpacing:'-.08px',
               }}
             >
-              {tab.label}
+              <span style={{
+                width:isMobile ? 22 : 19, height:isMobile ? 22 : 19,
+                borderRadius:7, display:'flex', alignItems:'center', justifyContent:'center',
+                background:active ? 'rgba(13,148,136,.1)' : 'rgba(100,116,139,.07)',
+                color:active ? '#0d9488' : '#64748b', flexShrink:0,
+              }}>
+                {tab.icon === 'camera' && (
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M14.5 4 16 7h3a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h3l1.5-3z"/>
+                    <circle cx="12" cy="13" r="3.5"/>
+                  </svg>
+                )}
+                {tab.icon === 'latest' && (
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="12" r="9"/>
+                    <path d="M12 7v5l3 2"/>
+                  </svg>
+                )}
+                {tab.icon === 'history' && (
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="4" y="5" width="16" height="16" rx="2"/>
+                    <path d="M8 3v4M16 3v4M4 10h16M8 14h3M8 17h6"/>
+                  </svg>
+                )}
+              </span>
+              <span style={{ whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{tab.label}</span>
+              {tab.key === 'latest' && isMobile && todayCount > 0 && (
+                <span style={{
+                  minWidth:17, height:17, padding:'0 4px', borderRadius:50,
+                  display:'inline-flex', alignItems:'center', justifyContent:'center',
+                  background:active ? '#0d9488' : 'rgba(100,116,139,.12)',
+                  color:active ? '#fff' : '#64748b', fontSize:8, fontWeight:900,
+                }}>{todayCount}</span>
+              )}
             </button>
-          ))}
+          )})}
         </div>
+        <style>{`
+          .attendance-tab-button {
+            transition: transform .22s cubic-bezier(.2,.8,.2,1), background .2s ease, box-shadow .2s ease, color .2s ease;
+          }
+          .attendance-tab-button:not(.is-active):hover {
+            background: rgba(255,255,255,.38) !important;
+            color: #334155 !important;
+            transform: translateY(-1px);
+          }
+          .attendance-tab-button:active {
+            transform: scale(.97);
+            box-shadow: inset 0 2px 5px rgba(15,23,42,.09) !important;
+          }
+        `}</style>
       </div>
+
+      {/* ── ÚLTIMAS: pestaña independiente únicamente en responsive ── */}
+      {activeTab === 'latest' && isMobile && (
+        <div style={{
+          flex:1, minHeight:0, overflow:'hidden', padding:'10px 12px 12px',
+          background:'linear-gradient(145deg,rgba(255,255,255,.16),rgba(207,250,254,.08))',
+        }}>
+          <div style={{
+            width:'100%', height:'100%', overflow:'hidden', borderRadius:20,
+            border:'1px solid rgba(255,255,255,.58)',
+            boxShadow:'0 16px 40px rgba(15,23,42,.1), inset 0 1px 0 rgba(255,255,255,.7)',
+          }}>
+            <LatestPanel
+              records={latestRecords}
+              loading={latestLoading}
+              todayCount={todayCount}
+              isMobile={isMobile}
+              isCompact={isCompact}
+              onRefresh={() => { loadToday(); loadLatest() }}
+            />
+          </div>
+        </div>
+      )}
 
       {/* ── PANEL HISTORIAL ── */}
       {activeTab === 'historial' && (
-        <div style={{ flex:1, minHeight:0, display:'flex', flexDirection:'column', overflow:'hidden', background:'rgba(248,250,252,.9)' }}>
+        <div style={{
+          flex:1, minHeight:0, display:'flex', flexDirection:'column', overflow:'hidden',
+          background:'linear-gradient(145deg,rgba(248,250,252,.66),rgba(236,254,255,.28))',
+          backdropFilter:'blur(18px) saturate(135%)',
+          WebkitBackdropFilter:'blur(18px) saturate(135%)',
+        }}>
 
           {/* ── Cabecera ── */}
           <div style={{
             padding: isMobile ? '12px 14px 10px' : '14px 20px 10px',
             borderBottom:'1px solid rgba(0,0,0,.06)',
-            background:'rgba(255,255,255,.85)',
+            background:'linear-gradient(135deg,rgba(255,255,255,.72),rgba(241,245,249,.34))',
+            backdropFilter:'blur(18px) saturate(140%)',
+            WebkitBackdropFilter:'blur(18px) saturate(140%)',
             flexShrink:0,
           }}>
             <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:10 }}>
@@ -694,7 +878,7 @@ export default function AsistenciasSection({
             <div style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', padding:'20px 16px', gap:14 }}>
               {/* Video */}
               <div style={{
-                width:'100%', maxWidth:420, aspectRatio:'4/3',
+                width:'min(100%, 420px)', height:'clamp(150px, 34dvh, 315px)',
                 borderRadius:20, overflow:'hidden', background:'#0f172a', position:'relative',
                 boxShadow:'0 12px 40px rgba(0,0,0,.22)',
                 border:'2px solid rgba(255,255,255,.15)',
@@ -760,6 +944,13 @@ export default function AsistenciasSection({
               </div>
 
               {/* Botones de control */}
+              <input
+                ref={imageInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
+                onChange={handleImageUpload}
+                style={{ display:'none' }}
+              />
               <div style={{ display:'flex', alignItems:'center', gap:12 }}>
                 {/* Cambiar cámara */}
                 <button
@@ -800,6 +991,30 @@ export default function AsistenciasSection({
                   </svg>
                 </button>
 
+                {/* Analizar una imagen existente */}
+                <button
+                  type="button"
+                  className="attendance-upload-button"
+                  onClick={() => imageInputRef.current?.click()}
+                  title="Seleccionar una imagen para reconocimiento"
+                  style={{
+                    height:44, minWidth:isMobile ? 112 : 126, padding:'0 14px',
+                    borderRadius:50, border:'1px solid rgba(8,145,178,.24)',
+                    background:'linear-gradient(145deg,rgba(255,255,255,.94),rgba(236,254,255,.78))',
+                    color:'#0e7490', cursor:'pointer', display:'flex',
+                    alignItems:'center', justifyContent:'center', gap:8,
+                    fontSize:11, fontWeight:800, letterSpacing:'-.1px',
+                    boxShadow:'0 5px 16px rgba(8,145,178,.12), inset 0 1px 0 rgba(255,255,255,.95)',
+                  }}
+                >
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="3" y="3" width="18" height="18" rx="3"/>
+                    <circle cx="8.5" cy="8.5" r="1.5"/>
+                    <path d="m21 15-5-5L5 21"/>
+                  </svg>
+                  Subir imagen
+                </button>
+
                 {/* Modelos status */}
                 <div
                   title={modelsReady ? 'IA lista' : 'Cargando IA...'}
@@ -819,8 +1034,41 @@ export default function AsistenciasSection({
               </div>
 
               <p style={{ fontSize:11, color:'#9ca3af', textAlign:'center', margin:0 }}>
-                Ubica hasta 5 niños dentro del marco y presiona capturar
+                Usa la cámara o analiza una foto JPG, PNG o WEBP
               </p>
+              <div style={{
+                display:'flex', alignItems:'center', gap:6, marginTop:-8,
+                color:'#64748b', fontSize:9, fontWeight:600,
+              }}>
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#0d9488" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                  <path d="m9 12 2 2 4-4"/>
+                </svg>
+                Procesamiento local · la imagen no se almacena
+              </div>
+              {imageError && (
+                <div role="alert" style={{
+                  maxWidth:360, padding:'7px 12px', borderRadius:10,
+                  background:'rgba(244,63,94,.08)', border:'1px solid rgba(244,63,94,.18)',
+                  color:'#be123c', fontSize:10, fontWeight:700, textAlign:'center',
+                }}>
+                  {imageError}
+                </div>
+              )}
+              <style>{`
+                .attendance-upload-button {
+                  transition: transform .2s cubic-bezier(.2,.8,.2,1), box-shadow .2s ease, background .2s ease;
+                }
+                .attendance-upload-button:hover {
+                  transform: translateY(-2px);
+                  background: linear-gradient(145deg,rgba(255,255,255,1),rgba(207,250,254,.9)) !important;
+                  box-shadow: 0 9px 22px rgba(8,145,178,.2), inset 0 1px 0 #fff !important;
+                }
+                .attendance-upload-button:active {
+                  transform: translateY(0) scale(.97);
+                  box-shadow: inset 0 2px 5px rgba(8,145,178,.15) !important;
+                }
+              `}</style>
             </div>
           )}
 
@@ -828,7 +1076,11 @@ export default function AsistenciasSection({
           {mode === 'processing' && capturedUrl && (
             <div style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', padding:24, gap:16 }}>
               <div style={{ position:'relative', width:200, height:200 }}>
-                <img src={capturedUrl} alt="" style={{ width:'100%', height:'100%', objectFit:'cover', borderRadius:16 }}/>
+                <img src={capturedUrl} alt="" style={{
+                  width:'100%', height:'100%',
+                  objectFit:recognitionSource === 'upload' ? 'contain' : 'cover',
+                  borderRadius:16, background:'#e2e8f0',
+                }}/>
                 <div style={{
                   position:'absolute', inset:0, borderRadius:16,
                   background:'rgba(13,148,136,.15)',
@@ -840,6 +1092,15 @@ export default function AsistenciasSection({
                     animation:'spin .8s linear infinite',
                   }}/>
                 </div>
+              </div>
+              <div style={{
+                display:'flex', alignItems:'center', gap:6, padding:'4px 10px',
+                borderRadius:50, background:'rgba(13,148,136,.08)',
+                border:'1px solid rgba(13,148,136,.16)',
+                fontSize:9, fontWeight:800, color:'#0f766e', textTransform:'uppercase',
+                letterSpacing:'.7px',
+              }}>
+                {recognitionSource === 'upload' ? 'Imagen cargada' : 'Captura de cámara'}
               </div>
               <p style={{ fontSize:13, fontWeight:600, color:'#374151', margin:0 }}>{statusMsg}</p>
               <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
@@ -854,7 +1115,7 @@ export default function AsistenciasSection({
               saving={saving}
               saveError={saveError}
               onRegisterSelected={(seleccion) => handleRegisterAll(seleccion)}
-              onRegisterOne={(nino) => handleRegister(nino, 'facial')}
+              onRegisterOne={(nino) => handleRegister(nino)}
               onReset={resetCamera}
             />
           )}
@@ -893,7 +1154,7 @@ export default function AsistenciasSection({
                   fontWeight:700, cursor:'pointer',
                 }}
               >
-                Capturar otro grupo
+                  Realizar otra validación
               </button>
             </div>
           )}
@@ -917,12 +1178,16 @@ export default function AsistenciasSection({
         {/* ════════════════════════════════════════
             PANEL DERECHO — Últimas asistencias
         ════════════════════════════════════════ */}
-        <LatestPanel
-          records={latestRecords}
-          loading={latestLoading}
-          todayCount={todayCount}
-          onRefresh={() => { loadToday(); loadLatest() }}
-        />
+        {!isMobile && (
+          <LatestPanel
+            records={latestRecords}
+            loading={latestLoading}
+            todayCount={todayCount}
+            isMobile={isMobile}
+            isCompact={isCompact}
+            onRefresh={() => { loadToday(); loadLatest() }}
+          />
+        )}
 
       </div>} {/* end activeTab === 'registrar' */}
     </div>
@@ -1255,7 +1520,7 @@ function NoMatchPanel({
       <div style={{ textAlign:'center' }}>
         <div style={{ fontSize:14, fontWeight:800, color:'#0f172a' }}>No se reconoció el rostro</div>
         <div style={{ fontSize:11, color:'#6b7280', marginTop:3 }}>
-          Puedes asignar manualmente o capturar de nuevo
+          Puedes asignar manualmente o realizar otra validación
         </div>
       </div>
 
@@ -1276,7 +1541,7 @@ function NoMatchPanel({
             background:'rgba(255,255,255,.9)', color:'#374151', fontSize:12, fontWeight:700, cursor:'pointer',
           }}
         >
-          Capturar de nuevo
+          Intentar de nuevo
         </button>
       </div>
 
@@ -1345,11 +1610,13 @@ function NoMatchPanel({
 
 /* ── LatestPanel — panel de últimas asistencias ─────────────────────────── */
 function LatestPanel({
-  records, loading, todayCount, onRefresh,
+  records, loading, todayCount, isMobile, isCompact, onRefresh,
 }: {
   records:    AsistenciaRecord[]
   loading:    boolean
   todayCount: number
+  isMobile:   boolean
+  isCompact:  boolean
   onRefresh:  () => void
 }) {
   const hoy = getColombiaTodayDate()
@@ -1369,13 +1636,19 @@ function LatestPanel({
   return (
     <div style={{
       flex:1, minWidth:0, display:'flex', flexDirection:'column',
-      background:'rgba(248,250,252,.8)', overflow:'hidden',
+      background:'linear-gradient(145deg,rgba(255,255,255,.64),rgba(236,254,255,.3))',
+      backdropFilter:'blur(22px) saturate(145%)',
+      WebkitBackdropFilter:'blur(22px) saturate(145%)',
+      overflow:'hidden',
     }}>
       {/* Header del panel */}
       <div style={{
-        padding:'14px 18px 10px',
-        borderBottom:'1px solid rgba(0,0,0,.06)',
-        background:'rgba(255,255,255,.75)',
+        padding: isMobile ? '14px 18px 10px' : isCompact ? '12px 16px 9px' : '14px 18px 10px',
+        borderBottom:'1px solid rgba(255,255,255,.5)',
+        background:'linear-gradient(135deg,rgba(255,255,255,.76),rgba(226,232,240,.28))',
+        boxShadow:'inset 0 1px 0 rgba(255,255,255,.86), 0 7px 20px rgba(15,23,42,.05)',
+        backdropFilter:'blur(18px) saturate(140%)',
+        WebkitBackdropFilter:'blur(18px) saturate(140%)',
         flexShrink:0,
       }}>
         <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:8 }}>
@@ -1392,7 +1665,7 @@ function LatestPanel({
               </svg>
             </div>
             <div>
-              <div style={{ fontSize:12, fontWeight:800, color:'#0f172a', lineHeight:1 }}>
+              <div style={{ fontSize:isCompact ? 11 : 12, fontWeight:800, color:'#0f172a', lineHeight:1 }}>
                 Últimas asistencias
               </div>
               <div style={{ fontSize:9, color:'#6b7280', marginTop:2, fontWeight:600 }}>
@@ -1402,13 +1675,13 @@ function LatestPanel({
           </div>
           <div style={{ display:'flex', alignItems:'center', gap:8 }}>
             {/* Counter hoy */}
-            <div style={{
-              display:'flex', flexDirection:'column', alignItems:'center',
-              background:'linear-gradient(135deg,rgba(13,148,136,.12),rgba(8,145,178,.08))',
-              border:'1px solid rgba(13,148,136,.2)', borderRadius:10,
-              padding:'4px 10px', minWidth:42,
-            }}>
-              <span style={{ fontSize:16, fontWeight:900, color:'#0d9488', lineHeight:1 }}>{todayCount}</span>
+              <div style={{
+                display:'flex', flexDirection:'column', alignItems:'center',
+                background:'linear-gradient(135deg,rgba(13,148,136,.12),rgba(8,145,178,.08))',
+                border:'1px solid rgba(13,148,136,.2)', borderRadius:10,
+                padding:isCompact ? '3px 9px' : '4px 10px', minWidth:42,
+              }}>
+              <span style={{ fontSize:isCompact ? 15 : 16, fontWeight:900, color:'#0d9488', lineHeight:1 }}>{todayCount}</span>
               <span style={{ fontSize:8, fontWeight:700, color:'#6b7280', textTransform:'uppercase', letterSpacing:'0.5px' }}>hoy</span>
             </div>
             {/* Botón refresh */}
@@ -1432,7 +1705,7 @@ function LatestPanel({
       </div>
 
       {/* Lista */}
-      <div style={{ flex:1, minHeight:0, overflowY:'auto', padding:'10px 12px 24px', display:'flex', flexDirection:'column', gap:4 }}>
+      <div style={{ flex:1, minHeight:0, overflowY:'auto', padding: isCompact ? '9px 10px 20px' : '10px 12px 24px', display:'flex', flexDirection:'column', gap:4 }}>
         {loading ? (
           <div style={{ display:'flex', flexDirection:'column', gap:8, padding:'8px 0' }}>
             {[...Array(5)].map((_, i) => (
@@ -1494,9 +1767,14 @@ function AttendanceRow({ record, idx }: { record: AsistenciaRecord; idx: number 
   const { hora12 } = formatColombiaTime(record.fecha, record.hora)
   const grupoColor  = GRUPO_COLORS[nino?.grupo ?? ''] ?? '#6b7280'
 
-  const metodoIcon  = record.metodo?.includes('facial') ? '📷' : '✋'
-  const metodoLabel = record.metodo?.includes('grupal') ? 'grupal' : record.metodo?.includes('facial') ? 'facial' : 'manual'
-  const metodoColor = record.metodo?.includes('facial') ? '#0d9488' : '#6366f1'
+  const isImageMethod = record.metodo?.includes('imagen')
+  const isFaceMethod = record.metodo?.includes('facial')
+  const isGroupMethod = record.metodo?.includes('grupal')
+  const metodoIcon = isImageMethod ? '🖼️' : isFaceMethod ? '📷' : '✋'
+  const metodoLabel = isImageMethod
+    ? (isGroupMethod ? 'imagen grupal' : 'imagen')
+    : isGroupMethod ? 'grupal' : isFaceMethod ? 'facial' : 'manual'
+  const metodoColor = isImageMethod ? '#7c3aed' : isFaceMethod ? '#0d9488' : '#6366f1'
 
   return (
     <div style={{

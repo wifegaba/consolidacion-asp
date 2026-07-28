@@ -1,0 +1,380 @@
+/* === Mac 2025 Compact Dashboard === */
+
+:root {
+  --bg: #f8f9fb;
+  --sidebar-bg: #111315;
+  --sidebar-active: #1f2226;
+  --card-bg: #ffffff;
+  --card-border: #e6e8ef;
+  --accent: #6c63ff; /* morado elegante */
+  --text: #1e1f22;
+  --text-light: #6c6f7b;
+  --radius: 14px;
+  --shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
+  --shadow-strong: 0 6px 20px rgba(0, 0, 0, 0.08);
+  --font: "Inter", "SF Pro Display", system-ui, sans-serif;
+}
+
+body {
+  font-family: var(--font);
+  background: var(--bg);
+  color: var(--text);
+  margin: 0;
+}
+
+/* ====== App layout ====== */
+.mac-app {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  height: 100vh;
+}
+
+/* ====== Sidebar ====== */
+.sidebar {
+  background: var(--sidebar-bg);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 24px 16px;
+  border-radius: 0 20px 20px 0;
+}
+
+.brand {
+  text-align: center;
+  padding: 20px 0;
+}
+
+.brand-mark {
+  display: block;
+  width: 40px;
+  height: 40px;
+  margin: auto;
+  border-radius: 12px;
+  background: var(--accent);
+}
+
+.nav {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 20px;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border-radius: var(--radius);
+  color: #d0d3db;
+  text-decoration: none;
+  font-size: 14px;
+  transition: background 0.2s;
+}
+
+.nav-item:hover {
+  background: var(--sidebar-active);
+  color: #fff;
+}
+
+.nav-item.active {
+  background: var(--accent);
+  color: #fff;
+}
+
+.nav-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.sidebar-footer {
+  margin-top: auto;
+}
+
+.user {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border-radius: var(--radius);
+  background: var(--sidebar-active);
+}
+
+.avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: #999;
+}
+
+.user-meta {
+  display: flex;
+  flex-direction: column;
+  font-size: 12px;
+  color: #eee;
+}
+
+.user-name {
+  font-weight: 600;
+  color: #fff;
+}
+
+.user-email {
+  color: #aaa;
+  font-size: 11px;
+}
+
+/* ====== Content ====== */
+.content {
+  padding: 28px 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+/* ====== Toolbar ====== */
+.toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.toolbar-left .title {
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.toolbar-left .subtitle {
+  font-size: 13px;
+  color: var(--text-light);
+  margin-left: 10px;
+}
+
+.btn {
+  font-size: 13px;
+  padding: 8px 16px;
+  border-radius: var(--radius);
+  border: none;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.btn.primary {
+  background: var(--accent);
+  color: #fff;
+}
+
+.btn.ghost {
+  background: transparent;
+  color: var(--text);
+}
+
+.btn.ghost:hover {
+  background: #f0f0f5;
+}
+
+.btn.tiny {
+  font-size: 12px;
+  padding: 4px 10px;
+}
+
+/* ====== KPIs ====== */
+.kpi-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 20px;
+}
+
+.kpi-card {
+  background: var(--card-bg);
+  border-radius: var(--radius);
+  padding: 20px;
+  box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.kpi-label {
+  font-size: 13px;
+  color: var(--text-light);
+}
+
+.kpi-delta {
+  font-size: 12px;
+  color: #1bbf65;
+  font-weight: 600;
+}
+
+.kpi-value {
+  font-size: 24px;
+  font-weight: 700;
+}
+
+/* ====== Grid ====== */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 24px;
+}
+
+.card {
+  background: var(--card-bg);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.card.span-2 {
+  grid-column: span 2;
+}
+
+.card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.card-title {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.card-actions,
+.chip {
+  display: flex;
+  gap: 8px;
+}
+
+.chip {
+  border: none;
+  padding: 6px 12px;
+  border-radius: var(--radius);
+  background: #f2f3f7;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.chip.active {
+  background: var(--accent);
+  color: #fff;
+}
+
+/* ====== Chart placeholder ====== */
+.chart-area {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.chart-donut {
+  width: 160px;
+  height: 160px;
+  border-radius: 50%;
+  background: conic-gradient(
+          var(--accent) 0 40%,
+          #00b894 40% 70%,
+          #ff7675 70% 100%
+  );
+  mask: radial-gradient(circle, transparent 60%, black 62%);
+}
+
+/* Legend */
+.legend {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.legend li {
+  font-size: 13px;
+  margin: 6px 0;
+  color: var(--text-light);
+}
+
+.legend .dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-right: 6px;
+}
+
+.legend .dot.a { background: var(--accent); }
+.legend .dot.b { background: #00b894; }
+.legend .dot.c { background: #ff7675; }
+
+/* ====== List ====== */
+.list .row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--card-border);
+}
+
+.row-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.bullet {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.row-title {
+  font-size: 13px;
+}
+
+.row-meta {
+  font-size: 12px;
+  color: var(--text-light);
+}
+
+/* ====== Table ====== */
+.table {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.table-row {
+  display: grid;
+  grid-template-columns: 1fr 1.2fr 1fr 1fr 1.5fr;
+  font-size: 13px;
+  align-items: center;
+  padding: 10px;
+  border-bottom: 1px solid var(--card-border);
+}
+
+.table-row.header {
+  font-weight: 600;
+  color: var(--text-light);
+  background: #fafbfc;
+}
+
+.badge {
+  padding: 4px 10px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 500;
+  text-align: center;
+}
+
+.badge.completado { background: #eafaf0; color: #1bbf65; }
+.badge.pendiente { background: #fff5e6; color: #e67e22; }
+.badge.programado { background: #eef2ff; color: var(--accent); }
+
+.row-actions {
+  display: flex;
+  gap: 8px;
+}

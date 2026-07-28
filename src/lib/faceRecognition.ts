@@ -2,6 +2,9 @@
 // Utilities for face-api.js model loading, image enhancement and face matching
 
 export const FACE_MATCH_THRESHOLD = 0.58  // umbral de coincidencia (menor = más estricto)
+export const FACE_MATCH_STRICT_THRESHOLD = 0.48
+export const FACE_MATCH_MIN_MARGIN = 0.025
+export const MAX_FACE_IMAGE_BYTES = 15 * 1024 * 1024
 
 /** Estado del proceso de detección facial */
 export type FaceStatus =
@@ -56,6 +59,87 @@ export function loadImage(src: string): Promise<HTMLImageElement> {
     el.onerror = reject
     el.src = src
   })
+}
+
+export interface PreparedFaceImage {
+  dataUrl: string
+  width: number
+  height: number
+}
+
+/**
+ * Valida y normaliza una imagen antes de enviarla al motor facial.
+ * Corrige la orientación EXIF cuando el navegador la soporta, limita la
+ * resolución para evitar picos de memoria y conserva detalle suficiente
+ * para detectar rostros pequeños en fotografías grupales.
+ */
+export async function prepareFaceImage(
+  file: File,
+  maxEdge = 2200,
+): Promise<PreparedFaceImage> {
+  const allowedTypes = new Set(['image/jpeg', 'image/png', 'image/webp'])
+  const extensionOk = /\.(jpe?g|png|webp)$/i.test(file.name)
+
+  if ((!allowedTypes.has(file.type) && !extensionOk) || file.size === 0) {
+    throw new Error('Selecciona una imagen JPG, PNG o WEBP válida.')
+  }
+  if (file.size > MAX_FACE_IMAGE_BYTES) {
+    throw new Error('La imagen supera el límite de 15 MB.')
+  }
+
+  let source: CanvasImageSource
+  let sourceWidth = 0
+  let sourceHeight = 0
+  let bitmap: ImageBitmap | null = null
+  let objectUrl: string | null = null
+
+  try {
+    if ('createImageBitmap' in window) {
+      bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' })
+      source = bitmap
+      sourceWidth = bitmap.width
+      sourceHeight = bitmap.height
+    } else {
+      objectUrl = URL.createObjectURL(file)
+      const image = await loadImage(objectUrl)
+      source = image
+      sourceWidth = image.naturalWidth
+      sourceHeight = image.naturalHeight
+    }
+
+    if (!sourceWidth || !sourceHeight) {
+      throw new Error('No fue posible leer las dimensiones de la imagen.')
+    }
+    if (Math.min(sourceWidth, sourceHeight) < 160) {
+      throw new Error('La imagen es demasiado pequeña para una detección confiable.')
+    }
+
+    const scale = Math.min(1, maxEdge / Math.max(sourceWidth, sourceHeight))
+    const width = Math.max(1, Math.round(sourceWidth * scale))
+    const height = Math.max(1, Math.round(sourceHeight * scale))
+    const canvas = document.createElement('canvas')
+    canvas.width = width
+    canvas.height = height
+
+    const ctx = canvas.getContext('2d', { alpha: false })
+    if (!ctx) throw new Error('No fue posible preparar la imagen.')
+
+    ctx.imageSmoothingEnabled = true
+    ctx.imageSmoothingQuality = 'high'
+    ctx.drawImage(source, 0, 0, width, height)
+
+    return {
+      dataUrl: canvas.toDataURL('image/jpeg', 0.94),
+      width,
+      height,
+    }
+  } catch (error) {
+    if (error instanceof Error && error.message) throw error
+    throw new Error('El navegador no pudo decodificar esta imagen.')
+  } finally {
+    bitmap?.close()
+    if (objectUrl) URL.revokeObjectURL(objectUrl)
+  }
 }
 
 /**
@@ -182,6 +266,7 @@ export async function detectFacesRobust(
   dataUrl: string,
   onStatus?: (msg: string) => void,
   multiFace = false,
+  exhaustive = false,
 ): Promise<RobustDetection> {
   const fa = await import('face-api.js')
   await loadFaceModels()
@@ -249,7 +334,7 @@ export async function detectFacesRobust(
       if (!multiFace) {
         // Registro: con 1 rostro basta
         if (best.length >= 1) break
-      } else {
+      } else if (!exhaustive) {
         // Asistencia: si ya hay grupo (≥2), confiamos; si hay 1 tras 2 intentos, suficiente
         if (best.length >= 2) break
         if (best.length >= 1 && i >= 1) break
@@ -295,15 +380,14 @@ export async function extractFaceDescriptor(
   file: File,
   onStatus?: (s: FaceStatus) => void,
 ): Promise<Float32Array | null> {
-  let url: string | null = null
   try {
     onStatus?.('loading_models')
     await loadFaceModels()
 
-    url = URL.createObjectURL(file)
     onStatus?.('detecting')
 
-    const result = await detectFacesRobust(url)
+    const prepared = await prepareFaceImage(file)
+    const result = await detectFacesRobust(prepared.dataUrl)
 
     if (result.descriptors.length > 0) {
       onStatus?.('found')
@@ -315,7 +399,5 @@ export async function extractFaceDescriptor(
   } catch {
     onStatus?.('error')
     return null
-  } finally {
-    if (url) URL.revokeObjectURL(url)
   }
 }

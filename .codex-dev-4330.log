@@ -1,0 +1,14 @@
+
+> n2n@0.1.0 dev
+> next dev --hostname 0.0.0.0 --port 4330
+
+   ▲ Next.js 16.0.10 (Turbopack)
+   - Local:         http://localhost:4330
+   - Network:       http://0.0.0.0:4330
+   - Environments: .env.local
+   - Experiments (use with caution):
+     · serverActions
+
+ ✓ Starting...
+   Suggestion: If you intended to restart next dev, terminate the other process, and then try again.
+[?25h

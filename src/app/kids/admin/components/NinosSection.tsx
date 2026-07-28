@@ -1,7 +1,10 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { extractFaceDescriptor, type FaceStatus } from '@/lib/faceRecognition'
+import PremiumPagination from './PremiumPagination'
+import { normalizeSearchText } from '../utils/normalizeSearchText'
 
 /* ── Types ─────────────────────────────────────────────────────────────── */
 export interface KidsNino {
@@ -21,6 +24,77 @@ export interface KidsNino {
   face_descriptor: number[] | null   // vector de 128 dimensiones para reconocimiento facial
   activo:          boolean
   creado_en:       string
+}
+
+function MiniHeaderStat({
+  accent,
+  accentEnd,
+  icon,
+  label,
+  value,
+}: {
+  accent: string
+  accentEnd: string
+  icon: React.ReactNode
+  label: string
+  value: number
+}) {
+  return (
+    <div style={{
+      display: 'flex',
+      alignItems: 'center',
+      gap: 8,
+      padding: '6px 10px 6px 7px',
+      borderRadius: 999,
+      background: 'rgba(255,255,255,.82)',
+      border: '1px solid rgba(255,255,255,.7)',
+      boxShadow: [
+        '0 8px 18px rgba(79,70,229,.08)',
+        'inset 0 1px 0 rgba(255,255,255,.95)',
+      ].join(', '),
+      backdropFilter: 'blur(14px) saturate(160%)',
+      WebkitBackdropFilter: 'blur(14px) saturate(160%)',
+      flexShrink: 0,
+      minWidth: 0,
+    }}>
+      <div style={{
+        width: 22,
+        height: 22,
+        borderRadius: '50%',
+        background: `linear-gradient(135deg, ${accent}, ${accentEnd})`,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        boxShadow: `0 3px 10px ${accent}40, inset 0 1px 0 rgba(255,255,255,.35)`,
+        flexShrink: 0,
+      }}>
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'center', transform:'scale(.95)' }}>
+          {icon}
+        </div>
+      </div>
+
+      <div style={{ display:'flex', flexDirection:'column', lineHeight:1, minWidth: 0 }}>
+        <span style={{
+          fontSize: 8,
+          fontWeight: 800,
+          letterSpacing: '.7px',
+          textTransform: 'uppercase',
+          color: 'rgba(15,23,42,.55)',
+          marginBottom: 2,
+        }}>
+          {label}
+        </span>
+        <span style={{
+          fontSize: 13,
+          fontWeight: 900,
+          color: '#0f172a',
+          lineHeight: 1,
+        }}>
+          {value}
+        </span>
+      </div>
+    </div>
+  )
 }
 
 /* ── Constants ──────────────────────────────────────────────────────────── */
@@ -63,7 +137,6 @@ export default function NinosSection({ usuario, logoNavOpen = false }: Props) {
   const [sortOpen,    setSortOpen]   = useState(false)
   const [filterGrupo, setFilterGrupo]= useState('todos')
   const [filterOpen,  setFilterOpen] = useState(false)
-  const [showMore,    setShowMore]   = useState(false)
   const [formErr,     setFormErr]    = useState('')
   const [successMsg,  setSuccessMsg] = useState('')
   const [editNino,         setEditNino]         = useState<KidsNino | null>(null)
@@ -86,11 +159,16 @@ export default function NinosSection({ usuario, logoNavOpen = false }: Props) {
 
   /* ── Responsive & Modal ── */
   const [isMobile,        setIsMobile]        = useState(false)
+  const [isCompact,       setIsCompact]       = useState(false)
   const [showFormModal,   setShowFormModal]   = useState(false)
   const [isClosing,       setIsClosing]       = useState(false)
 
   useEffect(() => {
-    function onResize() { setIsMobile(window.innerWidth < 768) }
+    function onResize() {
+      const width = window.innerWidth
+      setIsMobile(width < 768)
+      setIsCompact(width < 1600)
+    }
     onResize()
     window.addEventListener('resize', onResize)
     return () => window.removeEventListener('resize', onResize)
@@ -129,12 +207,12 @@ export default function NinosSection({ usuario, logoNavOpen = false }: Props) {
   /* ── Filtered & sorted ── */
   const filtered = ninos
     .filter(n => {
-      const q = search.toLowerCase().trim()
+      const q = normalizeSearchText(search)
       const matchSearch = !q ||
-        n.nombre.toLowerCase().includes(q) ||
-        (n.apellido ?? '').toLowerCase().includes(q) ||
-        (n.grupo ?? '').toLowerCase().includes(q) ||
-        (n.nombre_acudiente ?? n.acudiente ?? '').toLowerCase().includes(q)
+        normalizeSearchText(n.nombre).includes(q) ||
+        normalizeSearchText(n.apellido).includes(q) ||
+        normalizeSearchText(n.grupo).includes(q) ||
+        normalizeSearchText(n.nombre_acudiente ?? n.acudiente).includes(q)
       const matchGrupo = filterGrupo === 'todos' || n.grupo === filterGrupo
       return matchSearch && matchGrupo
     })
@@ -144,7 +222,20 @@ export default function NinosSection({ usuario, logoNavOpen = false }: Props) {
       return new Date(b.creado_en).getTime() - new Date(a.creado_en).getTime()
     })
 
-  const displayed = showMore ? filtered : filtered.slice(0, VISIBLE_COUNT)
+  const [currentPage, setCurrentPage] = useState(1)
+  const totalPages = Math.max(1, Math.ceil(filtered.length / VISIBLE_COUNT))
+  const displayed = filtered.slice(
+    (currentPage - 1) * VISIBLE_COUNT,
+    currentPage * VISIBLE_COUNT
+  )
+
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [search, filterGrupo, sortBy])
+
+  useEffect(() => {
+    setCurrentPage(page => Math.min(page, totalPages))
+  }, [totalPages])
 
   /* ── Stats ── */
   const now = new Date()
@@ -392,8 +483,12 @@ export default function NinosSection({ usuario, logoNavOpen = false }: Props) {
     <style>{`
       @keyframes spin { to { transform: rotate(360deg); } }
       @keyframes ninoCardIn {
-        from { opacity:0; transform:translateY(16px) scale(.96); }
-        to   { opacity:1; transform:translateY(0)    scale(1);   }
+        from { opacity:0; transform:translateX(24px) scale(.96); }
+        to   { opacity:1; transform:translateX(0)    scale(1);   }
+      }
+      @keyframes profileSwapIn {
+        from { opacity: 0; transform: translateX(-34px); filter: blur(3px); }
+        to { opacity: 1; transform: translateX(0); filter: blur(0); }
       }
       @keyframes cardAttPulse {
         0%,100% { opacity:.45; }
@@ -421,7 +516,7 @@ export default function NinosSection({ usuario, logoNavOpen = false }: Props) {
       flex:           1,
       minHeight:      0,
       overflow:       'hidden',
-      background:     'linear-gradient(145deg,#f5f3ff 0%,#ede9fe 60%,#e0f2fe 100%)',
+      background:     'linear-gradient(145deg,rgba(245,243,255,.38) 0%,rgba(237,233,254,.26) 60%,rgba(224,242,254,.32) 100%)',
       position:       'relative',
     }}>
 
@@ -433,7 +528,7 @@ export default function NinosSection({ usuario, logoNavOpen = false }: Props) {
         minWidth:      0,
         display:       'flex',
         flexDirection: 'column',
-        padding:       isMobile ? '14px 12px 0 14px' : '14px 20px 0 24px',
+        padding:       isMobile ? '10px 10px 0 10px' : isCompact ? '9px 12px 0 12px' : '10px 16px 0 16px',
         overflow:      'hidden',
       }}>
 
@@ -442,47 +537,84 @@ export default function NinosSection({ usuario, logoNavOpen = false }: Props) {
           display:        'flex',
           alignItems:     'center',
           justifyContent: 'space-between',
-          marginBottom:   isMobile ? 12 : 10,
+          marginBottom:   isMobile ? 8 : isCompact ? 5 : 6,
           flexShrink:     0,
-          gap:            16,
+          gap:            isMobile ? 10 : isCompact ? 12 : 16,
         }}>
           {/* Title (Izquierda) */}
           <div style={{ flex: '0 0 auto' }}>
             <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-              <h1 style={{ fontSize: isMobile ? 20 : 20, fontWeight:900, color:'#111827', margin:0, letterSpacing:'-0.5px', lineHeight:1 }}>
+              <h1 style={{ fontSize: isMobile ? 20 : isCompact ? 18 : 20, fontWeight:900, color:'#111827', margin:0, letterSpacing:'-0.5px', lineHeight:1 }}>
                 Niños
               </h1>
-              <span style={{ fontSize: isMobile ? 16 : 18, lineHeight:1 }}>⭐</span>
+              <span style={{ fontSize: isMobile ? 16 : isCompact ? 16 : 18, lineHeight:1 }}>⭐</span>
             </div>
           </div>
 
-          {/* Search — Centrado y Agrandado (Desktop) */}
+          {/* Search + counters (Desktop) */}
           {!isMobile && (
             <div style={{ flex:1, display:'flex', justifyContent:'center', minWidth:0 }}>
-              <div style={{
-                display:'flex', alignItems:'center', gap:10,
-                background:'rgba(255,255,255,.95)',
-                border:'1px solid rgba(124,58,237,.18)',
-                borderRadius:50,
-                padding:'10px 20px',
-                boxShadow:'0 4px 16px rgba(0,0,0,.06), inset 0 1px 0 rgba(255,255,255,.9)',
-                width:'100%',
-                maxWidth:340,
-                transition:'all .2s ease',
-              }}>
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" strokeWidth="2.5" style={{ flexShrink: 0 }}>
-                  <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
-                </svg>
-                <input
-                  value={search}
-                  onChange={e => setSearch(e.target.value)}
-                  placeholder="Buscar niño por nombre, grupo..."
-                  style={{
-                    border:'none', background:'transparent', outline:'none',
-                    fontSize:13, color:'#1f2937', width:'100%',
-                    fontFamily:'inherit', minWidth: 0, fontWeight:500,
-                  }}
-                />
+              <div style={{ display:'flex', alignItems:'center', gap:10, width:'100%', justifyContent:'center', minWidth:0 }}>
+                <div style={{ display:'flex', alignItems:'center', gap:8, flexShrink:0 }}>
+                  <MiniHeaderStat
+                    accent="#3b82f6"
+                    accentEnd="#60a5fa"
+                    icon={<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.4" strokeLinecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>}
+                    label="REG."
+                    value={ninos.length}
+                  />
+                  <MiniHeaderStat
+                    accent="#22c55e"
+                    accentEnd="#4ade80"
+                    icon={<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.6" strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg>}
+                    label="ASIS."
+                    value={activosCount}
+                  />
+                </div>
+
+                <div style={{
+                  display:'flex', alignItems:'center', gap:10,
+                  background:'rgba(255,255,255,.95)',
+                  border:'1px solid rgba(124,58,237,.18)',
+                  borderRadius:50,
+                  padding:isCompact ? '8px 14px' : '9px 18px',
+                  boxShadow:'0 4px 16px rgba(0,0,0,.06), inset 0 1px 0 rgba(255,255,255,.9)',
+                  width:'100%',
+                  maxWidth:isCompact ? 300 : 340,
+                  transition:'all .2s ease',
+                  minWidth:0,
+                }}>
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" strokeWidth="2.5" style={{ flexShrink: 0 }}>
+                    <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+                  </svg>
+                  <input
+                    value={search}
+                    onChange={e => setSearch(e.target.value)}
+                    placeholder="Buscar niño por nombre, grupo..."
+                    style={{
+                      border:'none', background:'transparent', outline:'none',
+                      fontSize:13, color:'#1f2937', width:'100%',
+                      fontFamily:'inherit', minWidth: 0, fontWeight:500,
+                    }}
+                  />
+                </div>
+
+                <div style={{ display:'flex', alignItems:'center', gap:8, flexShrink:0 }}>
+                  <MiniHeaderStat
+                    accent="#a855f7"
+                    accentEnd="#c084fc"
+                    icon={<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.2" strokeLinecap="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>}
+                    label="MES"
+                    value={mesCount}
+                  />
+                  <MiniHeaderStat
+                    accent="#f59e0b"
+                    accentEnd="#fbbf24"
+                    icon={<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.2" strokeLinecap="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>}
+                    label="GRP."
+                    value={gruposActivos}
+                  />
+                </div>
               </div>
             </div>
           )}
@@ -533,12 +665,12 @@ export default function NinosSection({ usuario, logoNavOpen = false }: Props) {
         </div>
 
         {/* ── Stats row — 4 circular cards ── */}
-        {!isMobile && (
+        {false && (
           <div style={{
             display:'flex',
             justifyContent:'center',
-            gap: isMobile ? 14 : 20,
-            marginBottom: isMobile ? 12 : 10,
+            gap: isMobile ? 14 : 16,
+            marginBottom: isMobile ? 8 : 6,
             flexShrink:0,
             flexWrap: isMobile ? 'wrap' : 'nowrap',
           }}>
@@ -589,7 +721,7 @@ export default function NinosSection({ usuario, logoNavOpen = false }: Props) {
         {/* ── List header + filter/sort ── */}
         <div style={{
           display:'flex', alignItems:'center', justifyContent:'space-between',
-          marginBottom: 6, flexShrink:0,
+          marginBottom: 4, flexShrink:0,
         }}>
           <h2 style={{ fontSize:13, fontWeight:700, color:'#111827', margin:0 }}>
             Listado de niños
@@ -748,7 +880,7 @@ export default function NinosSection({ usuario, logoNavOpen = false }: Props) {
         </div>
 
         {/* ── Scrollable children grid ── */}
-        <div style={{ flex:1, minHeight:0, overflowY:'auto', paddingRight:4, paddingBottom: isMobile ? 90 : 28 }}>
+        <div style={{ flex:1, minHeight:0, overflowY:isMobile ? 'auto' : 'hidden', paddingRight:4, paddingBottom: isMobile ? 90 : 76 }}>
           {loading ? (
             <div style={{ textAlign:'center', padding:'60px 0', color:'#9ca3af', fontSize:13, fontWeight:500 }}>
               Cargando niños…
@@ -769,14 +901,31 @@ export default function NinosSection({ usuario, logoNavOpen = false }: Props) {
                 display:'grid',
                 gridTemplateColumns: isMobile
                   ? 'repeat(2,minmax(0,1fr))'
-                  : 'repeat(5,minmax(0,1fr))',
-                gap: isMobile ? 8 : 8,
+                  : 'repeat(7,minmax(0,1fr))',
+                gap: isMobile ? 8 : isCompact ? 7 : 8,
               }}>
-                {displayed.map((n, idx) => (
+                {displayed.slice(0, 5).map((n, idx) => (
                   <NinoCard
                     key={n.id}
                     nino={n}
                     idx={idx}
+                    dense={isCompact || !isMobile}
+                    onEdit={() => startEdit(n)}
+                    onToggle={() => handleToggleActive(n)}
+                    onDelete={() => handleDelete(n)}
+                    onActivateAI={() => handleActivateAI(n)}
+                    onSaveObs={(obs) => handleSaveObs(n, obs)}
+                  />
+                ))}
+                {!isMobile && (
+                  <KidsTeamOverviewPanel ninos={ninos} />
+                )}
+                {displayed.slice(5).map((n, idx) => (
+                  <NinoCard
+                    key={n.id}
+                    nino={n}
+                    idx={idx + 5}
+                    dense={isCompact || !isMobile}
                     onEdit={() => startEdit(n)}
                     onToggle={() => handleToggleActive(n)}
                     onDelete={() => handleDelete(n)}
@@ -786,28 +935,12 @@ export default function NinosSection({ usuario, logoNavOpen = false }: Props) {
                 ))}
               </div>
 
-              {filtered.length > VISIBLE_COUNT && (
-                <button
-                  onClick={() => setShowMore(v => !v)}
-                  style={{
-                    display:'flex', alignItems:'center', justifyContent:'center', gap:6,
-                    width:'100%', marginTop:16,
-                    padding:'12px 0', borderRadius:12,
-                    border:'1px solid rgba(0,0,0,.07)',
-                    background:'rgba(255,255,255,.75)',
-                    fontSize:12, fontWeight:600, color:'#6b7280',
-                    cursor:'pointer', transition:'all .18s',
-                    backdropFilter:'blur(8px)',
-                  }}
-                >
-                  {showMore
-                    ? 'Ver menos'
-                    : `Ver más niños (${filtered.length - VISIBLE_COUNT} más)`}
-                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2.5">
-                    <polyline points={showMore ? '18 15 12 9 6 15' : '6 9 12 15 18 9'}/>
-                  </svg>
-                </button>
-              )}
+              <PremiumPagination
+                page={currentPage}
+                totalPages={totalPages}
+                onPageChange={setCurrentPage}
+                label="Página de niños"
+              />
             </>
           )}
         </div>
@@ -836,7 +969,7 @@ export default function NinosSection({ usuario, logoNavOpen = false }: Props) {
             right: 0,
             bottom: 0,
             zIndex: 95,
-            width: isMobile ? '100%' : '380px',
+            width: isMobile ? '100%' : isCompact ? '340px' : '380px',
             maxWidth: '100%',
             borderRadius: isMobile ? 0 : '24px 0 0 24px',
             background: 'linear-gradient(170deg,rgba(255,255,255,0.98) 0%,rgba(248,245,255,0.98) 100%)',
@@ -846,7 +979,7 @@ export default function NinosSection({ usuario, logoNavOpen = false }: Props) {
             display: 'flex',
             flexDirection: 'column',
             overflowY: 'auto',
-            padding: '20px 22px 24px',
+            padding: isCompact ? '18px 18px 22px' : '20px 22px 24px',
             boxShadow: '-10px 0 40px rgba(0,0,0,0.1), -25px 0 80px rgba(109,40,217,0.15)',
             animation: isClosing ? 'slideOutRight 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards' : 'slideInRight 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards',
           } as React.CSSProperties}>
@@ -880,14 +1013,14 @@ export default function NinosSection({ usuario, logoNavOpen = false }: Props) {
 
         {/* Form title */}
         {/* Form header: Title on Left, Compact Photo Upload + Close Button on Right */}
-        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:16, flexShrink:0 }}>
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:isCompact ? 14 : 16, flexShrink:0 }}>
           <div>
             <div style={{ fontSize:9, fontWeight:800, letterSpacing:'2px', textTransform:'uppercase' as const,
               background:'linear-gradient(90deg,#7c3aed,#6366f1)', WebkitBackgroundClip:'text',
               WebkitTextFillColor:'transparent', marginBottom:3 }}>
               {editNino ? 'EDITAR REGISTRO' : 'NUEVO REGISTRO'}
             </div>
-            <h3 style={{ fontSize:22, fontWeight:900, margin:0, lineHeight:1.1, letterSpacing:'-0.5px',
+            <h3 style={{ fontSize:isCompact ? 20 : 22, fontWeight:900, margin:0, lineHeight:1.1, letterSpacing:'-0.5px',
               background:'linear-gradient(135deg,#1e1b4b 0%,#4c1d95 50%,#2e1065 100%)',
               WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }}>
               {editNino ? editNino.nombre : 'Agregar niño'}
@@ -1250,7 +1383,7 @@ function StatCard({
   sub:       string
   progress:  number
 }) {
-  const size     = 60
+  const size     = 50
   const stroke   = 4
   const r        = (size - stroke) / 2
   const circ     = 2 * Math.PI * r
@@ -1383,11 +1516,138 @@ function StatCard({
 }
 
 /* ── NinoCard ────────────────────────────────────────────────────────────── */
+function KidsTeamOverviewPanel({ ninos }: { ninos: KidsNino[] }) {
+  const active = ninos.filter(nino => nino.activo !== false)
+  const ageBetween = (from: number, to: number) =>
+    active.filter(nino => nino.edad != null && nino.edad >= from && nino.edad <= to).length
+  const age4to6 = ageBetween(4, 6)
+  const age7to8 = ageBetween(7, 8)
+  const age9 = active.filter(nino => nino.edad === 9).length
+  const ptmdKids = active.filter(nino => (nino.grupo || '').toUpperCase().includes('PTMD')).length
+  const faceReady = active.filter(nino => nino.face_descriptor?.length === 128).length
+  const guardianReady = active.filter(nino =>
+    Boolean(nino.nombre_acudiente || nino.acudiente) &&
+    Boolean(nino.telefono_acudiente || nino.telefono)
+  ).length
+  const maxMetric = Math.max(age4to6, age7to8, age9, ptmdKids, 1)
+  const metrics = [
+    { label: '4 a 6 años', value: age4to6, color: '#8b5cf6' },
+    { label: '7 a 8 años', value: age7to8, color: '#10b981' },
+    { label: '9 años', value: age9, color: '#f59e0b' },
+    { label: 'PTMD Kids', value: ptmdKids, color: '#0ea5e9' },
+  ]
+
+  return (
+    <aside className="server-team-overview kids-team-overview" aria-label="Resumen de niños por edades">
+      <div className="server-team-overview__glow" />
+      <header className="server-team-overview__header">
+        <div>
+          <span>Resumen de la comunidad</span>
+          <h3>Niños por etapa</h3>
+        </div>
+        <div className="server-team-overview__status"><i /> Actualizado</div>
+      </header>
+      <div className="server-team-overview__total">
+        <strong>{active.length}</strong>
+        <div>
+          <b>Niños activos</b>
+          <span>Comunidad Kids registrada</span>
+        </div>
+      </div>
+      <div className="server-team-overview__metrics">
+        {metrics.map(metric => (
+          <div className="server-team-overview__metric" key={metric.label}>
+            <i style={{ background: metric.color, boxShadow: `0 0 9px ${metric.color}66` }} />
+            <span>{metric.label}</span>
+            <div><b style={{ width: `${metric.value === 0 ? 0 : Math.max(12, (metric.value / maxMetric) * 100)}%`, background: metric.color }} /></div>
+            <strong>{metric.value}</strong>
+          </div>
+        ))}
+      </div>
+      <footer className="server-team-overview__footer">
+        <div><span>Reconocimiento IA</span><strong>{faceReady}</strong></div>
+        <div><span>Acudiente completo</span><strong>{guardianReady}</strong></div>
+      </footer>
+    </aside>
+  )
+}
+
+function ninoAladdinOriginFromRect(rect: DOMRect) {
+  const modalWidth = Math.min(window.innerWidth * .9, 468)
+  const modalHeight = Math.min(window.innerHeight * .84, 520)
+  const modalLeft = (window.innerWidth - modalWidth) / 2
+  const modalTop = (window.innerHeight - modalHeight) / 2
+  return {
+    '--server-origin-x': `${rect.left + rect.width / 2 - (modalLeft + modalWidth / 2)}px`,
+    '--server-origin-y': `${rect.top + rect.height / 2 - (modalTop + modalHeight / 2)}px`,
+    '--server-scale-x': `${Math.max(.12, rect.width / modalWidth)}`,
+    '--server-scale-y': `${Math.max(.12, rect.height / modalHeight)}`,
+  }
+}
+
+function NinoAladdinModal({
+  nino, origin, closing, onClose, onEdit,
+}: {
+  nino: KidsNino
+  origin: Record<string, string>
+  closing: boolean
+  onClose: () => void
+  onEdit: () => void
+}) {
+  const initials = `${nino.nombre.charAt(0)}${(nino.apellido || '').charAt(0)}`.toUpperCase()
+  const details = [
+    ['Edad', nino.edad == null ? 'No registrada' : `${nino.edad} años`],
+    ['Grupo', nino.grupo || 'Sin grupo asignado'],
+    ['Acudiente', nino.nombre_acudiente || nino.acudiente || 'No registrado'],
+    ['Teléfono', nino.telefono_acudiente || nino.telefono || 'No registrado'],
+    ['Observaciones', nino.observaciones || 'Sin observaciones registradas'],
+  ]
+
+  return (
+    <div className={`server-aladdin-backdrop nino-aladdin-backdrop ${closing ? 'is-closing' : 'is-opening'}`} onClick={onClose} role="presentation">
+      <section
+        className={`server-aladdin-modal nino-aladdin-modal ${closing ? 'is-closing' : 'is-opening'}`}
+        style={origin as React.CSSProperties}
+        onClick={event => event.stopPropagation()}
+        aria-label={`Información de ${nino.nombre} ${nino.apellido || ''}`}
+      >
+        <div className="server-aladdin-modal__shine" />
+        <header className="server-profile-header">
+          <div className="server-profile-avatar nino-profile-avatar">
+            {nino.foto_url
+              ? <img src={nino.foto_url} alt="" style={{ width:'100%', height:'100%', objectFit:'cover' }} />
+              : initials}
+          </div>
+          <div className="server-profile-identity">
+            <div className="server-profile-eyebrow">Perfil del niño</div>
+            <h2>{nino.nombre} {nino.apellido}</h2>
+            <p>{nino.grupo || 'Comunidad Kids'}</p>
+          </div>
+          <button type="button" onClick={onClose} className="server-profile-close nino-profile-close" aria-label="Cerrar">×</button>
+        </header>
+        <div className="server-profile-details">
+          {details.map(([label, value]) => (
+            <div className="server-profile-row" key={label}>
+              <span>{label}</span>
+              <strong className={label === 'Observaciones' ? 'is-notes' : undefined}>{value}</strong>
+            </div>
+          ))}
+        </div>
+        <footer className="server-profile-actions nino-profile-actions">
+          <button type="button" onClick={onClose} className="server-profile-delete">Cerrar</button>
+          <button type="button" onClick={onEdit} className="server-profile-edit">Editar perfil</button>
+        </footer>
+      </section>
+    </div>
+  )
+}
+
 function NinoCard({
-  nino, idx, onEdit, onToggle, onDelete, onActivateAI, onSaveObs,
+  nino, idx, dense, onEdit, onToggle, onDelete, onActivateAI, onSaveObs,
 }: {
   nino:          KidsNino
   idx:           number
+  dense?:        boolean
   onEdit:        () => void
   onToggle:      () => void
   onDelete:      () => void
@@ -1405,7 +1665,11 @@ function NinoCard({
   const [obsEditing, setObsEditing] = useState(false)
   const [obsSaving,  setObsSaving]  = useState(false)
   const [obsErr,     setObsErr]     = useState('')
+  const [expanded, setExpanded] = useState(false)
+  const [closingExpanded, setClosingExpanded] = useState(false)
+  const [aladdinOrigin, setAladdinOrigin] = useState<Record<string, string>>({})
   const menuRef = useRef<HTMLDivElement>(null)
+  const cardRef = useRef<HTMLDivElement>(null)
 
   /* Sincronizar obsText si cambia el prop desde fuera */
   useEffect(() => {
@@ -1456,21 +1720,44 @@ function NinoCard({
   const acudiente = nino.nombre_acudiente || nino.acudiente
   const telefono  = nino.telefono_acudiente || nino.telefono
 
+  function openExpanded() {
+    if (!cardRef.current || expanded) return
+    setAladdinOrigin(ninoAladdinOriginFromRect(cardRef.current.getBoundingClientRect()))
+    setHov(false)
+    setFlipped(true)
+    setClosingExpanded(false)
+    setExpanded(true)
+  }
+
+  function closeExpanded() {
+    if (closingExpanded) return
+    setClosingExpanded(true)
+    window.setTimeout(() => {
+      setExpanded(false)
+      setClosingExpanded(false)
+      setFlipped(false)
+    }, 620)
+  }
+
   return (
+    <>
     <div
+      ref={cardRef}
+      className="nino-card-entry"
       onMouseEnter={() => { if (!flipped) setHov(true) }}
       onMouseLeave={() => setHov(false)}
       style={{
         perspective:  '1200px',
-        height:       195,
+        height:       dense ? 184 : 195,
         borderRadius: 16,
         opacity:      nino.activo ? 1 : 0.6,
+        transform:    hov && !flipped ? (dense ? 'translateY(-7px) scale(1.012)' : 'translateY(-9px) scale(1.018)') : 'translateY(0) scale(1)',
         boxShadow:    flipped
           ? '0 14px 40px rgba(124,58,237,.22), 0 4px 12px rgba(0,0,0,.1)'
           : hov
-            ? '0 8px 28px rgba(0,0,0,.13)'
+            ? '0 24px 44px rgba(42,35,118,.22), 0 0 26px rgba(124,58,237,.14)'
             : '0 2px 12px rgba(0,0,0,.07)',
-        transition:   'box-shadow .25s',
+        transition:   'transform .55s cubic-bezier(.16,1,.3,1), box-shadow .55s cubic-bezier(.16,1,.3,1)',
         animation:    `ninoCardIn .38s ${Math.min(idx, 8) * 0.04}s cubic-bezier(0.25,0.46,0.45,0.94) both`,
       }}
     >
@@ -1487,17 +1774,18 @@ function NinoCard({
 
         {/* ══════════════ FRONT ══════════════ */}
         <div
+          className="lgx-content-card"
           onClick={e => {
             if (menuRef.current?.contains(e.target as Node)) return
-            setFlipped(true)
+            openExpanded()
           }}
           style={{
             position:                 'absolute', top:0, left:0, right:0, bottom:0,
             backfaceVisibility:       'hidden',
             WebkitBackfaceVisibility: 'hidden',
-            background:               '#fff',
+            background:               'transparent',
             borderRadius:             16,
-            padding:                  '6px 6px 30px',
+            padding:                  dense ? '5px 5px 24px' : '6px 6px 30px',
             display:                  'flex', flexDirection:'column', alignItems:'center',
             justifyContent:           'center',
             cursor:                   'pointer',
@@ -1567,7 +1855,7 @@ function NinoCard({
             filter: hov ? 'drop-shadow(0 0 9px rgba(124,58,237,.38))' : 'none',
           }}>
             <div style={{ padding:2, borderRadius:'50%', background:'#fff', display:'flex', alignItems:'center', justifyContent:'center' }}>
-              <div style={{ width:64, height:64, borderRadius:'50%', background:nino.foto_url && !imgBroken ? 'transparent' : grad, overflow:'hidden', display:'flex', alignItems:'center', justifyContent:'center', fontSize:20, fontWeight:800, color:'#fff' }}>
+              <div style={{ width:dense ? 58 : 64, height:dense ? 58 : 64, borderRadius:'50%', background:nino.foto_url && !imgBroken ? 'transparent' : grad, overflow:'hidden', display:'flex', alignItems:'center', justifyContent:'center', fontSize:dense ? 18 : 20, fontWeight:800, color:'#fff' }}>
                 {nino.foto_url && !imgBroken
                   ? <img src={nino.foto_url} alt="" style={{ width:'100%', height:'100%', objectFit:'cover' }} onError={() => setImgBroken(true)} />
                   : ini
@@ -1577,13 +1865,13 @@ function NinoCard({
           </div>
 
           {/* Nombre */}
-          <div style={{ fontSize:10, fontWeight:700, color:'#111827', textAlign:'center', lineHeight:1.1, marginBottom:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', width:'100%' }}>
+          <div style={{ fontSize:dense ? 9.5 : 10, fontWeight:700, color:'#111827', textAlign:'center', lineHeight:1.1, marginBottom:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', width:'100%' }}>
             {nino.nombre}{nino.apellido ? ` ${nino.apellido}` : ''}
           </div>
 
           {/* Edad */}
           {nino.edad != null && (
-            <div style={{ fontSize:8, color:'#9ca3af', marginBottom:2 }}>
+            <div style={{ fontSize:dense ? 7.5 : 8, color:'#9ca3af', marginBottom:2 }}>
               {nino.edad} {nino.edad === 1 ? 'año' : 'años'}
             </div>
           )}
@@ -1591,11 +1879,11 @@ function NinoCard({
           {/* Grupo badge */}
           {nino.grupo && (
             <div style={{
-              display:'flex', alignItems:'center', gap:3, padding:'1px 5px', borderRadius:50,
+              display:'flex', alignItems:'center', gap:3, padding:dense ? '1px 4px' : '1px 5px', borderRadius:50,
               background:'linear-gradient(135deg,rgba(59,130,246,.13),rgba(99,102,241,.10))',
               border:'1px solid rgba(99,102,241,.30)',
               boxShadow:'0 2px 8px rgba(99,102,241,.12),inset 0 1px 0 rgba(255,255,255,.75)',
-              fontSize:8, fontWeight:700, color:'#4338ca', whiteSpace:'nowrap',
+              fontSize:dense ? 7.5 : 8, fontWeight:700, color:'#4338ca', whiteSpace:'nowrap',
             }}>
               <svg width="6" height="6" viewBox="0 0 24 24" fill="#6366f1"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
               {nino.grupo}
@@ -1844,6 +2132,20 @@ function NinoCard({
 
       </div>
     </div>
+    {expanded && createPortal(
+      <NinoAladdinModal
+        nino={nino}
+        origin={aladdinOrigin}
+        closing={closingExpanded}
+        onClose={closeExpanded}
+        onEdit={() => {
+          closeExpanded()
+          window.setTimeout(onEdit, 640)
+        }}
+      />,
+      document.body,
+    )}
+    </>
   )
 }
 

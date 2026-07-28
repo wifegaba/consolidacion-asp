@@ -1,0 +1,13 @@
+@media (max-width: 768px) {
+  .contactos1-header-btns {
+    flex-wrap: nowrap !important;
+    gap: 4px !important;
+  }
+  .contactos1-header-btns button {
+    font-size: 0.92rem !important;
+    padding: 0.3rem 0.5rem !important;
+    min-width: 0 !important;
+    border-radius: 10px !important;
+    white-space: nowrap;
+  }
+}

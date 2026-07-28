@@ -2,12 +2,7 @@
 import { NextResponse } from 'next/server';
 import { getServerSupabase } from '@/lib/supabaseClient';
 
-const SELECT_FIELDS = [
-  'id', 'cedula', 'nombre', 'apellido', 'telefono', 'foto_url',
-  'roles', 'direccion', 'edad', 'hijos', 'estado_civil', 'profesion', 'estudios',
-  'grupo_asignado', 'grupo_timoteos_asignado', 'puede_dirigir', 'sirve_entre_semana', 'horario_servicio', 'grupo_servicio',
-  'activo', 'creado_en'
-].join(', ');
+const SELECT_FIELDS = '*';
 
 // ── GET — Listar servidores ──────────────────────────────────────────────────
 // Query params opcionales:
@@ -52,16 +47,23 @@ export async function POST(req: Request) {
       cedula, nombre, apellido, telefono, foto_url, roles,
       direccion, edad, hijos, estado_civil, profesion, estudios,
       grupo_asignado, grupo_timoteos_asignado, puede_dirigir, sirve_entre_semana, horario_servicio, grupo_servicio,
+      cumpleanos, disponibilidad_domingo_7, disponibilidad_domingo_9, disponibilidad_domingo_11,
     } = body;
 
-    if (!cedula || !nombre || !apellido) {
+    const rolesArr = Array.isArray(roles) ? roles : [];
+    const isTimoteoProfile = rolesArr.includes('TIMOTEOS');
+    const normalizedCedula = cedula?.trim()
+      || (isTimoteoProfile && telefono?.trim() ? `TIM-${telefono.trim().replace(/\D/g, '')}` : '');
+
+    if (!normalizedCedula || !nombre || !apellido) {
       return NextResponse.json(
-        { error: 'Cédula, nombre y apellido son obligatorios.' },
+        { error: isTimoteoProfile
+          ? 'Nombre, apellido y celular son obligatorios.'
+          : 'Cédula, nombre y apellido son obligatorios.' },
         { status: 400 },
       );
     }
 
-    const rolesArr = Array.isArray(roles) ? roles : [];
     if (rolesArr.length === 0) {
       return NextResponse.json(
         { error: 'Debe asignar al menos un rol al servidor.' },
@@ -75,7 +77,7 @@ export async function POST(req: Request) {
     const { data: existe } = await supabase
       .from('kids_servidores')
       .select('id')
-      .eq('cedula', cedula.trim())
+      .eq('cedula', normalizedCedula)
       .single();
 
     if (existe) {
@@ -88,7 +90,7 @@ export async function POST(req: Request) {
     const { data, error } = await supabase
       .from('kids_servidores')
       .insert({
-        cedula:             cedula.trim(),
+        cedula:             normalizedCedula,
         nombre:             nombre.trim(),
         apellido:           apellido.trim(),
         telefono:           telefono?.trim()       || null,
@@ -106,6 +108,10 @@ export async function POST(req: Request) {
         sirve_entre_semana: sirve_entre_semana     ?? false,
         horario_servicio:   horario_servicio?.trim() || null,
         grupo_servicio:     grupo_servicio?.trim()   || null,
+        cumpleanos:         cumpleanos?.trim()       || null,
+        disponibilidad_domingo_7:  disponibilidad_domingo_7  ?? false,
+        disponibilidad_domingo_9:  disponibilidad_domingo_9  ?? false,
+        disponibilidad_domingo_11: disponibilidad_domingo_11 ?? false,
         activo:             true,
       })
       .select(SELECT_FIELDS)

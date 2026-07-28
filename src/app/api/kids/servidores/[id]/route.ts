@@ -12,7 +12,8 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     const {
       cedula, nombre, apellido, telefono, foto_url, roles,
       direccion, edad, hijos, estado_civil, profesion, estudios,
-      grupo_asignado, grupo_timoteos_asignado, puede_dirigir, sirve_entre_semana, horario_servicio, grupo_servicio, activo,
+      grupo_asignado, grupo_timoteos_asignado, puede_dirigir, sirve_entre_semana, horario_servicio, grupo_servicio,
+      cumpleanos, disponibilidad_domingo_7, disponibilidad_domingo_9, disponibilidad_domingo_11, activo,
     } = body;
 
     const supabase = getServerSupabase();
@@ -42,6 +43,10 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     if (sirve_entre_semana!== undefined) updates.sirve_entre_semana= sirve_entre_semana;
     if (horario_servicio  !== undefined) updates.horario_servicio  = horario_servicio?.trim() || null;
     if (grupo_servicio    !== undefined) updates.grupo_servicio    = grupo_servicio?.trim() || null;
+    if (cumpleanos        !== undefined) updates.cumpleanos        = cumpleanos?.trim() || null;
+    if (disponibilidad_domingo_7  !== undefined) updates.disponibilidad_domingo_7  = Boolean(disponibilidad_domingo_7);
+    if (disponibilidad_domingo_9  !== undefined) updates.disponibilidad_domingo_9  = Boolean(disponibilidad_domingo_9);
+    if (disponibilidad_domingo_11 !== undefined) updates.disponibilidad_domingo_11 = Boolean(disponibilidad_domingo_11);
     if (activo            !== undefined) updates.activo            = activo;
 
     const { data, error } = await supabase

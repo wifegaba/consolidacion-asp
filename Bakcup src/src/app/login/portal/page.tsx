@@ -1,0 +1,230 @@
+import { cookies } from 'next/headers';
+import { redirect } from 'next/navigation';
+import jwt from 'jsonwebtoken';
+import { getServerSupabase } from '@/lib/supabaseClient';
+import PortalClient from './PortalClient';
+
+export const dynamic = 'force-dynamic';
+
+export default async function PortalPage() {
+    const cookieStore = await cookies();
+    const isProd = process.env.NODE_ENV === 'production';
+    const tokenName = isProd ? '__Host-session' : 'session';
+    const token = cookieStore.get(tokenName)?.value;
+
+    if (!token || !process.env.JWT_SECRET) {
+        redirect('/login');
+    }
+
+    let payload: any;
+    try {
+        payload = jwt.verify(token, process.env.JWT_SECRET);
+    } catch (e) {
+        redirect('/login');
+    }
+
+    const { servidorId, nombre: nombreToken, asignaciones: asignacionesToken } = payload;
+    if (!servidorId) redirect('/login');
+
+    let nombre = nombreToken || 'Servidor';
+    let asignaciones: any[] = [];
+
+    // OPTIMIZACIÓN: Si el token ya tiene las asignaciones, las usamos directamente
+    // Esto evita 5 consultas a la base de datos, reduciendo el tiempo de carga ~80%
+    if (asignacionesToken && Array.isArray(asignacionesToken) && asignacionesToken.length > 0) {
+        // Transformar a la estructura esperada con keys
+        asignaciones = asignacionesToken.map((a: any) => {
+            const key = a.tipo === 'contacto' ? `c-${a.etapa}-${a.dia}-${a.semana}` :
+                a.tipo === 'maestro' ? `m-${a.etapa}-${a.dia}` :
+                    a.tipo === 'logistica' ? `l-${a.franja}-${a.dia}` :
+                        `r-${a.etapa}`;
+
+            return {
+                ...a,
+                tipo: a.tipo as 'contacto' | 'maestro' | 'logistica' | 'director' | 'administrador' | 'estudiante_ptm' | 'kids' | 'kids_coordinador',
+                etapa: a.etapa || 'Logística',
+                dia: a.dia || '',
+                cursos: a.cursos || [],
+                key
+            };
+        });
+    } else {
+        // FALLBACK: Si el token no tiene asignaciones (login antiguo), consultamos BD
+        const supabase = getServerSupabase();
+
+        const [contactosRes, maestrosRes, logisticaRes, rolesRes, servidorRes, maestroPtmDiaRes, academiaRes] = await Promise.all([
+            supabase
+                .from('asignaciones_contacto')
+                .select('etapa, dia, semana')
+                .eq('servidor_id', servidorId)
+                .eq('vigente', true),
+            supabase
+                .from('asignaciones_maestro')
+                .select('etapa, dia')
+                .eq('servidor_id', servidorId)
+                .eq('vigente', true),
+            supabase
+                .from('asignaciones_logistica')
+                .select('dia:dia_culto, franja')
+                .eq('servidor_id', servidorId)
+                .eq('vigente', true),
+            supabase
+                .from('servidores_roles')
+                .select('rol, dia_acceso, cursos_asignados')
+                .eq('servidor_id', servidorId)
+                .eq('vigente', true)
+                .in('rol', ['Director', 'Administrador', 'Maestro Ptm']),
+            supabase
+                .from('servidores')
+                .select('nombre')
+                .eq('id', servidorId)
+                .single(),
+            // NEW: Consulta para asignaciones Maestro PTM (Día)
+            supabase
+                .from('asignaciones_maestro_ptm')
+                .select('dia')
+                .eq('servidor_id', servidorId)
+                .eq('vigente', true)
+                .maybeSingle(),
+            // NEW: Consulta para asignaciones Academia (Curso/Etapa)
+            supabase
+                .from('asignaciones_academia')
+                .select('curso:cursos(nombre)')
+                .eq('servidor_id', servidorId)
+                .eq('vigente', true)
+                .maybeSingle()
+        ]);
+
+        const contactos = contactosRes.data || [];
+        const maestros = maestrosRes.data || [];
+        const logistica = logisticaRes.data || [];
+        const roles = rolesRes.data || [];
+        nombre = servidorRes.data?.nombre || 'Servidor';
+
+        // NEW: Datos de Maestro PTM
+        const maestroPtmDia = maestroPtmDiaRes.data?.dia || '';
+        const maestroPtmEtapa = (academiaRes.data?.curso as any)?.nombre || 'Maestro';
+
+        asignaciones = [
+            ...contactos.map((c: any) => ({
+                tipo: 'contacto' as const,
+                etapa: c.etapa,
+                dia: c.dia,
+                semana: c.semana,
+                key: `c-${c.etapa}-${c.dia}-${c.semana}`
+            })),
+            ...maestros.map((m: any) => ({
+                tipo: 'maestro' as const,
+                etapa: m.etapa,
+                dia: m.dia,
+                key: `m-${m.etapa}-${m.dia}`
+            })),
+            ...logistica.map((l: any) => ({
+                tipo: 'logistica' as const,
+                etapa: 'Logística',
+                dia: l.dia,
+                franja: l.franja,
+                key: `l-${l.franja}-${l.dia}`
+            })),
+            ...roles.map((r: any) => {
+                let etapa = r.rol;
+                let dia = r.dia_acceso || '';
+                let tipo = r.rol.toLowerCase();
+
+                if (r.rol === 'Maestro Ptm') {
+                    tipo = 'estudiante_ptm';
+                    etapa = maestroPtmEtapa;
+                    dia = maestroPtmDia;
+                }
+
+                return {
+                    tipo: tipo as 'director' | 'administrador' | 'estudiante_ptm',
+                    etapa,
+                    dia,
+                    cursos: r.cursos_asignados || [],
+                    key: `r-${r.rol}`
+                };
+            })
+        ];
+    }
+
+    // ── Kids Ministry + Coordinador check ───────────────────────────────────
+    // Verificar si el usuario es admin Kids y/o coordinador Kids.
+    // Se hace con la cédula extraída del JWT, independiente del servidor_id.
+    const cedulaPayload = payload.cedula as string | undefined;
+    if (cedulaPayload) {
+        const supabaseKids = getServerSupabase();
+        const [kidsAdminRes, kidsCoorRes] = await Promise.all([
+            supabaseKids
+                .from('kids_administradores')
+                .select('id')
+                .eq('cedula', cedulaPayload)
+                .eq('activo', true)
+                .maybeSingle(),
+            supabaseKids
+                .from('kids_coordinadores')
+                .select('id, grupo_asignado')
+                .eq('cedula', cedulaPayload)
+                .eq('activo', true)
+                .maybeSingle(),
+        ]);
+
+        if (kidsAdminRes.data) {
+            asignaciones.push({
+                tipo:  'kids' as const,
+                etapa: 'Kids Ministry',
+                dia:   '',
+                key:   'kids',
+            });
+        }
+
+        if (kidsCoorRes.data) {
+            asignaciones.push({
+                tipo:  'kids_coordinador' as const,
+                etapa: kidsCoorRes.data.grupo_asignado ?? 'Grupo asignado',
+                dia:   '',
+                key:   'kids_coordinador',
+            });
+        }
+    }
+
+    if (asignaciones.length === 0) {
+        return (
+            <div className="min-h-screen grid place-items-center bg-slate-50">
+                <div className="text-center">
+                    <h1 className="text-xl font-bold text-slate-800">Sin asignaciones vigentes</h1>
+                    <p className="text-slate-600 mt-2">No se encontraron roles activos para tu usuario.</p>
+                    <a href="/login" className="mt-4 inline-block text-sky-600 hover:underline">Volver al inicio</a>
+                </div>
+            </div>
+        );
+    }
+
+    // If only 1 assignment, redirect automatically (failsafe)
+    // NOTE: 'kids' is intentionally excluded — redirecting to /kids/login would
+    // create an infinite loop (/kids/login → /login → /login/portal → loop).
+    // Instead the portal renders the single Kids card and the click handler calls
+    // /api/kids/portal-login which sets the kids_session cookie and redirects correctly.
+    if (asignaciones.length === 1) {
+        const a: any = asignaciones[0];
+        if (a.tipo === 'contacto') {
+            redirect(`/login/contactos1?etapa=${encodeURIComponent(a.etapa)}&dia=${encodeURIComponent(a.dia)}&semana=${a.semana}`);
+        } else if (a.tipo === 'maestro') {
+            redirect(`/login/maestros?etapa=${encodeURIComponent(a.etapa)}&dia=${encodeURIComponent(a.dia)}`);
+        } else if (a.tipo === 'logistica') {
+            redirect(`/login/logistica?dia=${encodeURIComponent(a.dia)}`);
+        } else if (a.tipo === 'director') {
+            redirect('/panel');
+        } else if (a.tipo === 'administrador') {
+            redirect('/admin');
+        }
+        // 'kids' falls through → portal renders with the single Kids card
+    }
+
+    return (
+        <PortalClient
+            nombre={nombre}
+            asignaciones={asignaciones}
+        />
+    );
+}
