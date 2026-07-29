@@ -187,7 +187,7 @@
 .server-profile-quick-actions {
   align-self: flex-start;
   display: flex;
-  flex: 0 0 67px;
+  flex: 0 0 75px;
   flex-direction: column;
   align-items: center;
   gap: 7px;
@@ -199,8 +199,8 @@
   gap: 7px;
 }
 .server-profile-contact {
-  width: 30px;
-  height: 30px;
+  width: 34px;
+  height: 34px;
   display: grid;
   place-items: center;
   border: 1px solid rgba(255,255,255,.42);
@@ -214,8 +214,8 @@
   transition: transform .18s ease, box-shadow .18s ease, color .18s ease;
 }
 .server-profile-contact svg {
-  width: 14px;
-  height: 14px;
+  width: 17px;
+  height: 17px;
 }
 .server-profile-contact--whatsapp { color: #18a95f; }
 .server-profile-contact--whatsapp svg { fill: currentColor; }

@@ -111,6 +111,17 @@ function initials(nombre: string, apellido: string) {
 function gradient(idx: number) {
   return GRADIENTS[idx % GRADIENTS.length]
 }
+function servidorDisplayPriority(servidor: KidsServidor) {
+  const roles = Array.isArray(servidor.roles)
+    ? servidor.roles.map(role => String(role).replace(/_/g, ' ').toUpperCase())
+    : []
+
+  if (roles.some(role => role.includes('ADMINISTRADOR') || role === 'ADMIN')) return 0
+  if (roles.some(role => role.includes('COORDINADOR'))) return 1
+  if (roles.some(role => role.includes('MAESTRO') || role.includes('AUXILIAR'))) return 2
+  if (roles.some(role => role.includes('TIMOTEO'))) return 3
+  return 4
+}
 function formatDate(iso: string) {
   const d = new Date(iso)
   return d.toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' })
@@ -239,22 +250,24 @@ export default function KidsAdminPage() {
     ? new Date(activeList[0].creado_en).toLocaleDateString('es-CO', { day:'numeric', month:'long', year:'numeric' })
     : ''
 
-  const filtered = activeList.filter(a => {
-    const matchFilter =
-      filter === 'todos'         ? true :
-      filter === 'coordinadores' ? a.roles?.some((r: string) => r.includes('COORDINADOR')) :
-      filter === 'maestros'      ? a.roles?.some((r: string) => r.includes('MAESTRO') && !r.includes('AUXILIAR')) :
-      filter === 'auxiliares'    ? a.roles?.some((r: string) => r.includes('AUXILIAR')) :
-      filter === 'timoteos'      ? a.roles?.some((r: string) => r.includes('TIMOTEOS')) : true
+  const filtered = activeList
+    .filter(a => {
+      const matchFilter =
+        filter === 'todos'         ? true :
+        filter === 'coordinadores' ? a.roles?.some((r: string) => r.includes('COORDINADOR')) :
+        filter === 'maestros'      ? a.roles?.some((r: string) => r.includes('MAESTRO') && !r.includes('AUXILIAR')) :
+        filter === 'auxiliares'    ? a.roles?.some((r: string) => r.includes('AUXILIAR')) :
+        filter === 'timoteos'      ? a.roles?.some((r: string) => r.includes('TIMOTEOS')) : true
 
-    const q = normalizeSearchText(search)
-    const matchSearch = !q ||
-      normalizeSearchText(a.nombre).includes(q)   ||
-      normalizeSearchText(a.apellido).includes(q) ||
-      normalizeSearchText(a.cedula).includes(q)
+      const q = normalizeSearchText(search)
+      const matchSearch = !q ||
+        normalizeSearchText(a.nombre).includes(q)   ||
+        normalizeSearchText(a.apellido).includes(q) ||
+        normalizeSearchText(a.cedula).includes(q)
 
-    return matchFilter && matchSearch
-  })
+      return matchFilter && matchSearch
+    })
+    .sort((a, b) => servidorDisplayPriority(a) - servidorDisplayPriority(b))
   const servidorTotalPages = Math.max(1, Math.ceil(filtered.length / servidorPageSize))
   const paginatedServers = filtered.slice(
     (servidorPage - 1) * servidorPageSize,
