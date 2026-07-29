@@ -8,7 +8,7 @@ import { Fire, Student } from '@phosphor-icons/react';
 import Image from 'next/image';
 
 type Asignacion = {
-    tipo: 'maestro' | 'contacto' | 'logistica' | 'director' | 'administrador' | 'estudiante_ptm' | 'kids' | 'kids_coordinador';
+    tipo: 'maestro' | 'contacto' | 'logistica' | 'director' | 'administrador' | 'estudiante_ptm' | 'kids_hub';
     etapa: string;
     dia: string;
     semana?: number;
@@ -167,26 +167,14 @@ export default function PortalClient({ nombre, asignaciones }: { nombre: string,
         setLoadingKey(a.key);
 
         try {
-            // ── Kids Admin: endpoint propio que crea kids_session ────────────────────
-            if (a.tipo === 'kids') {
-                const res = await fetch('/api/kids/portal-login', {
+            // ── Entrada principal Kids: crea el centro de roles interno ──────────────
+            if (a.tipo === 'kids_hub') {
+                const res = await fetch('/api/kids/equipo/portal-login', {
                     method: 'POST',
                     credentials: 'include',
                 });
                 const data = await res.json();
-                if (!res.ok) throw new Error(data.error || 'Error al acceder a Kids');
-                if (data.redirect) router.push(data.redirect);
-                return;
-            }
-
-            // ── Kids Coordinador: endpoint propio que crea kids_coord_session ────────
-            if (a.tipo === 'kids_coordinador') {
-                const res = await fetch('/api/kids/coordinador-portal-login', {
-                    method: 'POST',
-                    credentials: 'include',
-                });
-                const data = await res.json();
-                if (!res.ok) throw new Error(data.error || 'Error al acceder como coordinador');
+                if (!res.ok) throw new Error(data.error || 'Error al acceder al equipo Kids');
                 if (data.redirect) router.push(data.redirect);
                 return;
             }
@@ -222,8 +210,7 @@ export default function PortalClient({ nombre, asignaciones }: { nombre: string,
             case 'director':          return 'Consolidación';
             case 'administrador':     return 'Gestor Académico';
             case 'estudiante_ptm':    return 'Maestro';
-            case 'kids':              return 'Kids';
-            case 'kids_coordinador':  return 'Grupo a Cargo';
+            case 'kids_hub':          return 'Kids';
         }
     };
 
@@ -315,8 +302,7 @@ export default function PortalClient({ nombre, asignaciones }: { nombre: string,
                                                 {a.tipo === 'director' && <DirectorIcon />}
                                                 {a.tipo === 'administrador' && <AdminIcon />}
                                                 {a.tipo === 'estudiante_ptm' && <EstudianteIcon />}
-                                                {a.tipo === 'kids' && <KidsIcon />}
-                                                {a.tipo === 'kids_coordinador' && <KidsCoordinadorIcon etapa={a.etapa} />}
+                                                {a.tipo === 'kids_hub' && <KidsIcon />}
                                             </div>
                                         </>
                                     );
@@ -327,7 +313,7 @@ export default function PortalClient({ nombre, asignaciones }: { nombre: string,
                                 {getTitle(a.tipo)}
                             </h3>
 
-                            {!['director', 'administrador', 'kids', 'kids_coordinador'].includes(a.tipo) && (
+                            {!['director', 'administrador', 'kids_hub'].includes(a.tipo) && (
                                 <p className="text-blue-100/90 font-medium tracking-wide mb-4 uppercase text-sm drop-shadow-sm">
                                     {a.etapa}
                                 </p>
@@ -344,15 +330,10 @@ export default function PortalClient({ nombre, asignaciones }: { nombre: string,
                             )}
 
                             <div className="mt-auto pt-4 border-t border-white/10 w-full">
-                                {a.tipo === 'kids' ? (
+                                {a.tipo === 'kids_hub' ? (
                                     <span className="text-xs font-bold tracking-[0.2em] uppercase"
                                         style={{ color: '#5eead4' }}>
                                         Módulo Kids Ministry
-                                    </span>
-                                ) : a.tipo === 'kids_coordinador' ? (
-                                    <span className="text-xs font-bold tracking-[0.2em] uppercase"
-                                        style={{ color: '#e9d5ff' }}>
-                                        Coordinadora Kids
                                     </span>
                                 ) : !a.dia ? (
                                     <span className="text-blue-100/50 text-xs font-bold tracking-[0.2em] uppercase">

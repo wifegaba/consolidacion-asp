@@ -3,11 +3,18 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import AsistenciasSection from '../admin/components/AsistenciasSection'
-import { type KidsCoordinador } from '../admin/components/CoordinadorModal'
+
+type KidsPanelUser = {
+  nombre: string
+  apellido: string
+}
+
+type AccessSource = 'hub' | 'coordinador' | 'administrador'
 
 export default function KidsAsistenciasPage() {
   const router = useRouter()
-  const [coord,       setCoord]      = useState<KidsCoordinador | null>(null)
+  const [user,        setUser]       = useState<KidsPanelUser | null>(null)
+  const [accessSource, setAccessSource] = useState<AccessSource>('hub')
   const [loading,     setLoading]    = useState(true)
   const [logoNavOpen, setLogoNavOpen] = useState(false)
   const [logoPressed, setLogoPressed] = useState(false)
@@ -15,30 +22,46 @@ export default function KidsAsistenciasPage() {
   /* ── Logout ── */
   async function handleLogout() {
     await Promise.allSettled([
+      fetch('/api/kids/equipo/logout',     { method: 'POST' }),
       fetch('/api/kids/coordinador/logout', { method: 'POST' }),
-      fetch('/api/kids/admin/logout',       { method: 'POST' }),
+      fetch('/api/kids/logout',              { method: 'POST' }),
+      fetch('/api/logout',                   { method: 'POST' }),
     ])
     router.replace('/login')
   }
 
-  /* ── Auth: coordinador primero, luego admin ── */
+  /* ── Auth: centro Kids, coordinador heredado o administrador ── */
   useEffect(() => {
     async function load() {
       try {
-        const res = await fetch('/api/kids/coordinador/me')
-        if (res.ok) {
-          const json = await res.json()
-          if (json.ok && json.coordinador) {
-            setCoord(json.coordinador)
+        const hubRes = await fetch('/api/kids/equipo/me')
+        if (hubRes.ok) {
+          const hubJson = await hubRes.json()
+          if (hubJson.ok && hubJson.servidor) {
+            setUser(hubJson.servidor)
+            setAccessSource('hub')
             setLoading(false)
             return
           }
         }
-        const adminRes = await fetch('/api/kids/admin/me')
+
+        const coordRes = await fetch('/api/kids/coordinador/me')
+        if (coordRes.ok) {
+          const coordJson = await coordRes.json()
+          if (coordJson.ok && coordJson.coordinador) {
+            setUser(coordJson.coordinador)
+            setAccessSource('coordinador')
+            setLoading(false)
+            return
+          }
+        }
+
+        const adminRes = await fetch('/api/kids/me')
         if (adminRes.ok) {
           const adminJson = await adminRes.json()
-          if (adminJson.ok) {
-            setCoord(null)
+          if (adminJson.ok && adminJson.usuario) {
+            setUser(adminJson.usuario)
+            setAccessSource('administrador')
             setLoading(false)
             return
           }
@@ -71,9 +94,14 @@ export default function KidsAsistenciasPage() {
     )
   }
 
-  const usuario = coord
-    ? { nombre: coord.nombre, apellido: coord.apellido }
+  const usuario = user
+    ? { nombre: user.nombre, apellido: user.apellido }
     : null
+  const homePath = accessSource === 'hub'
+    ? '/kids/equipo'
+    : accessSource === 'administrador'
+      ? '/kids/admin'
+      : '/kids/coordinador'
 
   return (
     <>
@@ -85,7 +113,7 @@ export default function KidsAsistenciasPage() {
     `}</style>
     <div style={{
       fontFamily:"'Segoe UI',system-ui,sans-serif",
-      minHeight:'100vh',
+      minHeight:'100dvh', height:'100dvh', overflow:'hidden',
       background:'linear-gradient(145deg,#b2f0e0 0%,#d4c8ff 50%,#b3dcf7 100%)',
       display:'flex', flexDirection:'column', alignItems:'center',
       position:'relative',
@@ -109,7 +137,7 @@ export default function KidsAsistenciasPage() {
 
         {/* Izquierda 1: Mi Panel */}
         <div
-          onClick={() => { setLogoNavOpen(false); router.push('/kids/coordinador') }}
+          onClick={() => { setLogoNavOpen(false); router.push(homePath) }}
           style={{
             position:'absolute', left:'calc(50% - 96px)', top:42,
             display:'flex', flexDirection:'column', alignItems:'center', gap:4,

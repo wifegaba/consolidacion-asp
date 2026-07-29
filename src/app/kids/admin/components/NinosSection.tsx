@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { extractFaceDescriptor, type FaceStatus } from '@/lib/faceRecognition'
-import PremiumPagination from './PremiumPagination'
 import { normalizeSearchText } from '../utils/normalizeSearchText'
 
 /* ── Types ─────────────────────────────────────────────────────────────── */
@@ -118,7 +117,6 @@ const CHILD_GRADIENTS = [
 ]
 
 const GRUPOS_DISPONIBLES = ['Semillitas', 'Exploradores', 'Junior']
-const VISIBLE_COUNT = 10
 
 /* ════════════════════════════════════════════════════════════════════════
    NinosSection — Panel principal de niños
@@ -126,9 +124,16 @@ const VISIBLE_COUNT = 10
 interface Props {
   usuario: { nombre: string; apellido: string; foto_url: string | null } | null
   logoNavOpen?: boolean
+  hideManagementControls?: boolean
+  onTakeAttendance?: () => void
 }
 
-export default function NinosSection({ usuario, logoNavOpen = false }: Props) {
+export default function NinosSection({
+  usuario,
+  logoNavOpen = false,
+  hideManagementControls = false,
+  onTakeAttendance,
+}: Props) {
   const [ninos,       setNinos]      = useState<KidsNino[]>([])
   const [loading,     setLoading]    = useState(true)
   const [saving,      setSaving]     = useState(false)
@@ -223,20 +228,9 @@ export default function NinosSection({ usuario, logoNavOpen = false }: Props) {
       return new Date(b.creado_en).getTime() - new Date(a.creado_en).getTime()
     })
 
-  const [currentPage, setCurrentPage] = useState(1)
-  const totalPages = Math.max(1, Math.ceil(filtered.length / VISIBLE_COUNT))
-  const displayed = filtered.slice(
-    (currentPage - 1) * VISIBLE_COUNT,
-    currentPage * VISIBLE_COUNT
-  )
-
-  useEffect(() => {
-    setCurrentPage(1)
-  }, [search, filterGrupo, sortBy])
-
-  useEffect(() => {
-    setCurrentPage(page => Math.min(page, totalPages))
-  }, [totalPages])
+  // El panel Kids muestra todo el listado en una sola vista. El contenedor
+  // inferior es el responsable del desplazamiento, tanto en celular como en escritorio.
+  const displayed = filtered
 
   /* ── Stats ── */
   const now = new Date()
@@ -625,7 +619,7 @@ export default function NinosSection({ usuario, logoNavOpen = false }: Props) {
 
           {/* Botón Agregar Niño (Derecha) */}
           <div style={{ flex: '0 0 auto', display:'flex', alignItems:'center', gap:8 }}>
-            {isMobile && !showFormModal && (
+            {!hideManagementControls && isMobile && !showFormModal && (
               <FabButton
                 onClick={() => {
                   setEditNino(null)
@@ -640,6 +634,7 @@ export default function NinosSection({ usuario, logoNavOpen = false }: Props) {
 
 
             {/* Botón Agregar Niño en seguida del saludo */}
+            {!hideManagementControls && (
             <button
               onClick={() => {
                 setEditNino(null)
@@ -665,6 +660,7 @@ export default function NinosSection({ usuario, logoNavOpen = false }: Props) {
               </svg>
               <span>Agregar niño</span>
             </button>
+            )}
           </div>
         </div>
 
@@ -737,35 +733,56 @@ export default function NinosSection({ usuario, logoNavOpen = false }: Props) {
             Listado de niños
           </h2>
           <div style={{ display:'flex', gap:6 }}>
-            {/* Regenerar IA de todos */}
-            <button
-              onClick={handleRegenerateAllAI}
-              disabled={regen.running}
-              title="Regenerar reconocimiento facial de todos los niños"
-              style={{
-                display:'flex', alignItems:'center', gap:5,
-                padding:'5px 10px', borderRadius:50,
-                border:'1px solid transparent',
-                background: regen.running
-                  ? 'rgba(124,58,237,.5)'
-                  : ['linear-gradient(#fff,#fff) padding-box','linear-gradient(135deg,#7c3aed,#a78bfa) border-box'].join(','),
-                color: regen.running ? '#fff' : '#7c3aed',
-                fontSize:10, fontWeight:700,
-                cursor: regen.running ? 'wait' : 'pointer',
-                boxShadow:'0 2px 8px rgba(124,58,237,.18)',
-                transition:'all .15s', whiteSpace:'nowrap',
-              } as React.CSSProperties}
-            >
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none"
-                stroke={regen.running ? '#fff' : '#7c3aed'} strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round"
-                style={regen.running ? { animation:'spin 0.9s linear infinite' } : undefined}>
-                {regen.running
-                  ? <><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></>
-                  : <><path d="M12 2a3 3 0 0 0-3 3v1a3 3 0 0 0-2 5.8V13a3 3 0 0 0 3 3 3 3 0 0 0 6 0 3 3 0 0 0 3-3v-1.2A3 3 0 0 0 15 6V5a3 3 0 0 0-3-3z"/></>
-                }
-              </svg>
-              {isMobile ? 'IA' : regen.running ? 'Regenerando…' : 'Regenerar IA'}
-            </button>
+            {onTakeAttendance ? (
+              <button
+                type="button"
+                onClick={onTakeAttendance}
+                title="Tomar asistencia"
+                style={{
+                  display:'flex', alignItems:'center', gap:5,
+                  padding:'5px 10px', borderRadius:50,
+                  border:'1px solid rgba(15,155,142,.22)',
+                  background:'linear-gradient(135deg,#0f9b8e,#14b8a6)',
+                  color:'#fff', fontSize:10, fontWeight:800,
+                  cursor:'pointer', boxShadow:'0 3px 10px rgba(15,155,142,.24)',
+                  whiteSpace:'nowrap',
+                }}
+              >
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+                </svg>
+                Asistencia
+              </button>
+            ) : (
+              <button
+                onClick={handleRegenerateAllAI}
+                disabled={regen.running}
+                title="Regenerar reconocimiento facial de todos los niños"
+                style={{
+                  display:'flex', alignItems:'center', gap:5,
+                  padding:'5px 10px', borderRadius:50,
+                  border:'1px solid transparent',
+                  background: regen.running
+                    ? 'rgba(124,58,237,.5)'
+                    : ['linear-gradient(#fff,#fff) padding-box','linear-gradient(135deg,#7c3aed,#a78bfa) border-box'].join(','),
+                  color: regen.running ? '#fff' : '#7c3aed',
+                  fontSize:10, fontWeight:700,
+                  cursor: regen.running ? 'wait' : 'pointer',
+                  boxShadow:'0 2px 8px rgba(124,58,237,.18)',
+                  transition:'all .15s', whiteSpace:'nowrap',
+                } as React.CSSProperties}
+              >
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none"
+                  stroke={regen.running ? '#fff' : '#7c3aed'} strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round"
+                  style={regen.running ? { animation:'spin 0.9s linear infinite' } : undefined}>
+                  {regen.running
+                    ? <><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></>
+                    : <><path d="M12 2a3 3 0 0 0-3 3v1a3 3 0 0 0-2 5.8V13a3 3 0 0 0 3 3 3 3 0 0 0 6 0 3 3 0 0 0 3-3v-1.2A3 3 0 0 0 15 6V5a3 3 0 0 0-3-3z"/></>
+                  }
+                </svg>
+                {isMobile ? 'IA' : regen.running ? 'Regenerando…' : 'Regenerar IA'}
+              </button>
+            )}
             {/* Filter dropdown */}
             <div ref={filterRef} style={{ position:'relative' }}>
               <button
@@ -890,7 +907,15 @@ export default function NinosSection({ usuario, logoNavOpen = false }: Props) {
         </div>
 
         {/* ── Scrollable children grid ── */}
-        <div style={{ flex:1, minHeight:0, overflowY:isMobile ? 'auto' : 'hidden', paddingRight:4, paddingBottom: isMobile ? 90 : 76 }}>
+        <div style={{
+          flex:1,
+          minHeight:0,
+          overflowY:'auto',
+          WebkitOverflowScrolling:'touch',
+          overscrollBehavior:'contain',
+          paddingRight:4,
+          paddingBottom: isMobile ? 90 : 76,
+        }}>
           {loading ? (
             <div style={{ textAlign:'center', padding:'60px 0', color:'#9ca3af', fontSize:13, fontWeight:500 }}>
               Cargando niños…
@@ -948,12 +973,6 @@ export default function NinosSection({ usuario, logoNavOpen = false }: Props) {
                 ))}
               </div>
 
-              <PremiumPagination
-                page={currentPage}
-                totalPages={totalPages}
-                onPageChange={setCurrentPage}
-                label="Página de niños"
-              />
             </>
           )}
         </div>

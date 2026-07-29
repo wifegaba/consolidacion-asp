@@ -7,6 +7,7 @@ const JWT_SECRET    = process.env.JWT_SECRET;
 const COOKIE_NAME   = process.env.NODE_ENV === 'production' ? '__Host-session'            : 'session';
 const KIDS_COOKIE   = process.env.NODE_ENV === 'production' ? '__Host-kids-session'       : 'kids_session';
 const COORD_COOKIE  = process.env.NODE_ENV === 'production' ? '__Host-kids-coord-session' : 'kids_coord_session';
+const HUB_COOKIE    = process.env.NODE_ENV === 'production' ? '__Host-kids-hub-session'   : 'kids_hub_session';
 
 interface JwtPayload {
   rol:   string;
@@ -25,6 +26,64 @@ export async function middleware(req: NextRequest) {
   if (!JWT_SECRET) {
     console.error('CRITICAL: JWT_SECRET no está configurado en el middleware.');
     return NextResponse.redirect(new URL('/login?error=config', origin));
+  }
+
+  // ── Shared Kids children and attendance routes ───────────────────────────
+  if (
+    pathname.startsWith('/kids/ninos')
+    || pathname.startsWith('/kids/asistencias')
+  ) {
+    const candidates = [
+      req.cookies.get(HUB_COOKIE)?.value,
+      req.cookies.get(COORD_COOKIE)?.value,
+      req.cookies.get(KIDS_COOKIE)?.value,
+    ].filter((token): token is string => Boolean(token));
+
+    for (const token of candidates) {
+      try {
+        const { payload } = await jwtVerify<JwtPayload>(
+          token,
+          new TextEncoder().encode(JWT_SECRET),
+        );
+        const allowed =
+          (payload.tipo === 'kids_hub' && payload.rol === 'equipo_kids')
+          || (payload.tipo === 'kids_coord' && payload.rol === 'coordinador')
+          || (payload.tipo === 'kids' && payload.rol === 'administrador');
+        if (allowed) return NextResponse.next();
+      } catch {
+        // Probar la siguiente sesión Kids disponible.
+      }
+    }
+
+    return NextResponse.redirect(new URL('/login', origin));
+  }
+
+  // ── Kids teaching team routes ────────────────────────────────────────────
+  if (pathname.startsWith('/kids/equipo')) {
+    const hubToken = req.cookies.get(HUB_COOKIE)?.value;
+    if (!hubToken) {
+      return NextResponse.redirect(new URL('/login', origin));
+    }
+
+    try {
+      const { payload } = await jwtVerify<JwtPayload>(
+        hubToken,
+        new TextEncoder().encode(JWT_SECRET),
+      );
+      if (
+        payload.tipo === 'kids_hub'
+        && payload.rol === 'equipo_kids'
+        && Array.isArray(payload.roles)
+        && payload.roles.length > 0
+      ) {
+        return NextResponse.next();
+      }
+      throw new Error('Rol de equipo Kids no autorizado');
+    } catch {
+      const response = NextResponse.redirect(new URL('/login', origin));
+      response.cookies.set(HUB_COOKIE, '', { maxAge: 0, path: '/' });
+      return response;
+    }
   }
 
   // ── Kids Coordinador routes ──────────────────────────────────────────────
@@ -123,5 +182,11 @@ export const config = {
     '/kids/admin/:path*',
     '/kids/coordinador',
     '/kids/coordinador/:path*',
+    '/kids/equipo',
+    '/kids/equipo/:path*',
+    '/kids/ninos',
+    '/kids/ninos/:path*',
+    '/kids/asistencias',
+    '/kids/asistencias/:path*',
   ],
 };

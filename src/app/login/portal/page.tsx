@@ -2,6 +2,7 @@ import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import jwt from 'jsonwebtoken';
 import { getServerSupabase } from '@/lib/supabaseClient';
+import { allowedKidsHubRoles } from '@/lib/kidsStaffAuth';
 import PortalClient from './PortalClient';
 
 export const dynamic = 'force-dynamic';
@@ -34,20 +35,27 @@ export default async function PortalPage() {
     if (asignacionesToken && Array.isArray(asignacionesToken) && asignacionesToken.length > 0) {
         // Transformar a la estructura esperada con keys
         asignaciones = asignacionesToken.map((a: any) => {
-            const key = a.tipo === 'contacto' ? `c-${a.etapa}-${a.dia}-${a.semana}` :
+            const isKidsAccess = ['kids', 'kids_coordinador', 'kids_staff', 'kids_hub'].includes(a.tipo);
+            const tipo = isKidsAccess ? 'kids_hub' : a.tipo;
+            const key = isKidsAccess ? 'kids_hub' :
+                a.tipo === 'contacto' ? `c-${a.etapa}-${a.dia}-${a.semana}` :
                 a.tipo === 'maestro' ? `m-${a.etapa}-${a.dia}` :
                     a.tipo === 'logistica' ? `l-${a.franja}-${a.dia}` :
                         `r-${a.etapa}`;
 
             return {
                 ...a,
-                tipo: a.tipo as 'contacto' | 'maestro' | 'logistica' | 'director' | 'administrador' | 'estudiante_ptm' | 'kids' | 'kids_coordinador',
+                tipo: tipo as 'contacto' | 'maestro' | 'logistica' | 'director' | 'administrador' | 'estudiante_ptm' | 'kids_hub',
                 etapa: a.etapa || 'Logística',
                 dia: a.dia || '',
                 cursos: a.cursos || [],
                 key
             };
         });
+        asignaciones = asignaciones.filter(
+            (asignacion, index, all) =>
+                all.findIndex(candidate => candidate.key === asignacion.key) === index,
+        );
     } else {
         // FALLBACK: Si el token no tiene asignaciones (login antiguo), consultamos BD
         const supabase = getServerSupabase();
@@ -148,13 +156,12 @@ export default async function PortalPage() {
         ];
     }
 
-    // ── Kids Ministry + Coordinador check ───────────────────────────────────
-    // Verificar si el usuario es admin Kids y/o coordinador Kids.
-    // Se hace con la cédula extraída del JWT, independiente del servidor_id.
+    // ── Acceso principal Kids ────────────────────────────────────────────────
+    // Todos los roles Kids se consolidan en una única tarjeta principal.
     const cedulaPayload = payload.cedula as string | undefined;
     if (cedulaPayload) {
         const supabaseKids = getServerSupabase();
-        const [kidsAdminRes, kidsCoorRes] = await Promise.all([
+        const [kidsAdminRes, kidsCoorRes, kidsStaffRes] = await Promise.all([
             supabaseKids
                 .from('kids_administradores')
                 .select('id')
@@ -167,23 +174,28 @@ export default async function PortalPage() {
                 .eq('cedula', cedulaPayload)
                 .eq('activo', true)
                 .maybeSingle(),
+            supabaseKids
+                .from('kids_servidores')
+                .select('id, grupo_asignado, roles')
+                .eq('cedula', cedulaPayload)
+                .eq('activo', true)
+                .maybeSingle(),
         ]);
 
-        if (kidsAdminRes.data) {
+        const kidsRoles = allowedKidsHubRoles([
+            ...(kidsStaffRes.data?.roles ?? []),
+            ...(kidsAdminRes.data ? ['ADMINISTRADOR'] : []),
+            ...(kidsCoorRes.data ? ['COORDINADOR DE CLASE'] : []),
+        ]);
+        if (
+            kidsRoles.length > 0
+            && !asignaciones.some((asignacion: any) => asignacion.tipo === 'kids_hub')
+        ) {
             asignaciones.push({
-                tipo:  'kids' as const,
+                tipo:  'kids_hub' as const,
                 etapa: 'Kids Ministry',
                 dia:   '',
-                key:   'kids',
-            });
-        }
-
-        if (kidsCoorRes.data) {
-            asignaciones.push({
-                tipo:  'kids_coordinador' as const,
-                etapa: kidsCoorRes.data.grupo_asignado ?? 'Grupo asignado',
-                dia:   '',
-                key:   'kids_coordinador',
+                key:   'kids_hub',
             });
         }
     }

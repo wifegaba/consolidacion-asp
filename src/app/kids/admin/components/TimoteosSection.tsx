@@ -70,9 +70,6 @@ type FocusPhase =
   | 'open'
   | 'closing'
 
-const DESKTOP_TIMOTEO_PAGE_SIZE = 6
-const MOBILE_TIMOTEO_PAGE_SIZE = 4
-
 interface FocusGeometry {
   left: number
   top: number
@@ -121,8 +118,6 @@ export default function TimoteosSection({ servidores }: Props) {
   const [focusPhase, setFocusPhase] = useState<FocusPhase>('idle')
   const [focusGeometry, setFocusGeometry] = useState<FocusGeometry | null>(null)
   const [hasInteracted, setHasInteracted] = useState(false)
-  const [memberPage, setMemberPage] = useState(1)
-  const [memberPageSize, setMemberPageSize] = useState(DESKTOP_TIMOTEO_PAGE_SIZE)
   const [memberSearch, setMemberSearch] = useState('')
 
   const coordinadores = servidores.filter(isTimoteosCoordinator)
@@ -148,46 +143,13 @@ export default function TimoteosSection({ servidores }: Props) {
       servidor.cumpleanos ?? '',
     ].join(' ')).includes(normalizedMemberSearch)
   }) ?? []
-  const memberPageCount = Math.max(
-    1,
-    Math.ceil(filteredTimoteos.length / memberPageSize),
-  )
-  const visibleTimoteos = filteredTimoteos.slice(
-    (memberPage - 1) * memberPageSize,
-    memberPage * memberPageSize,
-  )
-
   useEffect(() => () => {
     if (transitionTimerRef.current) clearTimeout(transitionTimerRef.current)
   }, [])
 
   useEffect(() => {
-    setMemberPage(1)
     setMemberSearch('')
   }, [selectedGroupNumber])
-
-  useEffect(() => {
-    setMemberPage(1)
-  }, [memberSearch])
-
-  useEffect(() => {
-    const compactViewport = window.matchMedia('(max-width: 720px)')
-    const syncPageSize = () => {
-      setMemberPageSize(
-        compactViewport.matches
-          ? MOBILE_TIMOTEO_PAGE_SIZE
-          : DESKTOP_TIMOTEO_PAGE_SIZE,
-      )
-    }
-
-    syncPageSize()
-    compactViewport.addEventListener('change', syncPageSize)
-    return () => compactViewport.removeEventListener('change', syncPageSize)
-  }, [])
-
-  useEffect(() => {
-    setMemberPage(current => Math.min(current, memberPageCount))
-  }, [memberPageCount])
 
   const scheduleLabels = (servidor: KidsServidor) => {
     const labels = [
@@ -840,7 +802,8 @@ export default function TimoteosSection({ servidores }: Props) {
         .timoteos-member-list {
           min-height: 0;
           flex: 1;
-          overflow: hidden;
+          overflow-x: hidden;
+          overflow-y: auto;
           margin-top: clamp(8px, .9vw, 12px);
           border: 1px solid rgba(255,255,255,.72);
           border-radius: 19px;
@@ -851,6 +814,21 @@ export default function TimoteosSection({ servidores }: Props) {
             0 18px 48px rgba(31,45,78,.08);
           backdrop-filter: blur(24px) saturate(132%);
           -webkit-backdrop-filter: blur(24px) saturate(132%);
+          scrollbar-width: thin;
+          scrollbar-color: color-mix(in srgb, var(--accent-a) 38%, transparent) transparent;
+          overscroll-behavior: contain;
+        }
+        .timoteos-member-list::-webkit-scrollbar {
+          width: 8px;
+        }
+        .timoteos-member-list::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        .timoteos-member-list::-webkit-scrollbar-thumb {
+          border: 2px solid transparent;
+          border-radius: 999px;
+          background: color-mix(in srgb, var(--accent-a) 38%, transparent);
+          background-clip: padding-box;
         }
         .timoteos-list-head,
         .timoteos-member-row {
@@ -986,60 +964,6 @@ export default function TimoteosSection({ servidores }: Props) {
         }
         .timoteos-member-schedule.is-pending {
           color: #9a6a18;
-        }
-        .timoteos-member-pagination {
-          min-height: 42px;
-          display: flex;
-          flex: 0 0 auto;
-          align-items: center;
-          justify-content: center;
-          gap: 6px;
-          padding: 7px 4px 0;
-        }
-        .timoteos-page-button {
-          min-width: 29px;
-          height: 29px;
-          display: grid;
-          place-items: center;
-          border: 1px solid rgba(255,255,255,.72);
-          border-radius: 10px;
-          background: rgba(241,246,253,.58);
-          box-shadow:
-            inset 0 1px 0 rgba(255,255,255,.9),
-            0 5px 13px rgba(37,51,83,.07);
-          color: #66728a;
-          font: inherit;
-          font-size: .62rem;
-          font-weight: 760;
-          cursor: pointer;
-          transition:
-            transform .22s cubic-bezier(.16,1,.3,1),
-            background .22s ease,
-            color .22s ease;
-        }
-        .timoteos-page-button:hover:not(:disabled) {
-          transform: translateY(-1px);
-          background: rgba(255,255,255,.78);
-          color: var(--accent-a);
-        }
-        .timoteos-page-button.is-current {
-          border-color: color-mix(in srgb, var(--accent-a) 34%, white);
-          background: color-mix(in srgb, var(--accent-a) 13%, rgba(255,255,255,.9));
-          box-shadow:
-            inset 0 1px 0 rgba(255,255,255,.92),
-            0 7px 17px color-mix(in srgb, var(--accent-a) 13%, transparent);
-          color: var(--accent-a);
-        }
-        .timoteos-page-button:disabled {
-          opacity: .32;
-          cursor: default;
-        }
-        .timoteos-page-status {
-          margin-left: 5px;
-          color: #758198;
-          font-size: .58rem;
-          font-weight: 680;
-          white-space: nowrap;
         }
         .timoteos-empty-detail {
           min-height: 210px;
@@ -1372,7 +1296,7 @@ export default function TimoteosSection({ servidores }: Props) {
                   </div>
                 )}
                 {filteredTimoteos.length > 0 ? (
-                  visibleTimoteos.map((servidor, index) => {
+                  filteredTimoteos.map((servidor, index) => {
                     const schedules = scheduleLabels(servidor)
                     return (
                       <div
@@ -1430,43 +1354,6 @@ export default function TimoteosSection({ servidores }: Props) {
                   </div>
                 )}
               </div>
-              {filteredTimoteos.length > 0 && (
-                <nav className="timoteos-member-pagination" aria-label="Páginas del listado de Timoteos">
-                  <button
-                    type="button"
-                    className="timoteos-page-button"
-                    onClick={() => setMemberPage(page => Math.max(1, page - 1))}
-                    disabled={memberPage === 1}
-                    aria-label="Página anterior"
-                  >
-                    ‹
-                  </button>
-                  {Array.from({ length: memberPageCount }, (_, index) => index + 1).map(page => (
-                    <button
-                      type="button"
-                      key={page}
-                      className={`timoteos-page-button ${page === memberPage ? 'is-current' : ''}`}
-                      onClick={() => setMemberPage(page)}
-                      aria-label={`Ir a la página ${page}`}
-                      aria-current={page === memberPage ? 'page' : undefined}
-                    >
-                      {page}
-                    </button>
-                  ))}
-                  <button
-                    type="button"
-                    className="timoteos-page-button"
-                    onClick={() => setMemberPage(page => Math.min(memberPageCount, page + 1))}
-                    disabled={memberPage === memberPageCount}
-                    aria-label="Página siguiente"
-                  >
-                    ›
-                  </button>
-                  <span className="timoteos-page-status">
-                    {memberPage} de {memberPageCount}
-                  </span>
-                </nav>
-              )}
                 </>
               }
             />

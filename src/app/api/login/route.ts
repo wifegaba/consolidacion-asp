@@ -2,6 +2,7 @@
 import { NextResponse } from 'next/server';
 import jwt from 'jsonwebtoken';
 import { getServerSupabase } from '@/lib/supabaseClient';
+import { allowedKidsHubRoles } from '@/lib/kidsStaffAuth';
 
 const normalizeCedula = (raw: string) => raw?.trim() ?? '';
 
@@ -64,35 +65,56 @@ export async function POST(req: Request) {
 
     // ── Caso especial: coordinador Kids que NO está en servidores ─────────────
     if (!servidor) {
-      const { data: coordSolo } = await supabase
-        .from('kids_coordinadores')
-        .select('id, nombre, apellido, foto_url, grupo_asignado, activo')
-        .eq('cedula', cedula)
-        .eq('activo', true)
-        .maybeSingle();
+      const [{ data: coordSolo }, { data: staffSolo }, { data: adminSolo }] = await Promise.all([
+        supabase
+          .from('kids_coordinadores')
+          .select('id, nombre, apellido, foto_url, grupo_asignado, activo')
+          .eq('cedula', cedula)
+          .eq('activo', true)
+          .maybeSingle(),
+        supabase
+          .from('kids_servidores')
+          .select('id, nombre, apellido, grupo_asignado, activo, roles')
+          .eq('cedula', cedula)
+          .eq('activo', true)
+          .maybeSingle(),
+        supabase
+          .from('kids_administradores')
+          .select('id, nombre, apellido, foto_url, activo')
+          .eq('cedula', cedula)
+          .eq('activo', true)
+          .maybeSingle(),
+      ]);
 
-      if (coordSolo) {
-        const coordCookie = isProd ? '__Host-kids-coord-session' : 'kids_coord_session';
-        const tokenCoord  = jwt.sign(
+      const kidsRoles = allowedKidsHubRoles([
+        ...(staffSolo?.roles ?? []),
+        ...(adminSolo ? ['ADMINISTRADOR'] : []),
+        ...(coordSolo ? ['COORDINADOR DE CLASE'] : []),
+      ]);
+      const kidsOnlyProfile = staffSolo ?? adminSolo ?? coordSolo;
+      if (kidsOnlyProfile && kidsRoles.length > 0) {
+        const token = jwt.sign(
           {
-            tipo:     'kids_coord',
-            rol:      'coordinador',
-            id:       coordSolo.id,
             cedula,
-            nombre:   coordSolo.nombre,
-            apellido: coordSolo.apellido,
-            foto_url: coordSolo.foto_url  ?? null,
-            grupo:    coordSolo.grupo_asignado,
+            roles: ['portal'],
+            servidorId: kidsOnlyProfile.id,
+            nombre: kidsOnlyProfile.nombre,
+            asignaciones: [{
+              tipo: 'kids_hub',
+              etapa: 'Kids Ministry',
+              dia: '',
+            }],
           },
           secret,
           { expiresIn: '8h' },
         );
-        console.log(`[LOGIN] ✅ Coordinador Kids (solo): ${coordSolo.nombre} ${coordSolo.apellido}`);
-        const res = NextResponse.json({ redirect: '/kids/ninos' });
-        res.cookies.set(coordCookie, tokenCoord, {
-          httpOnly: true, secure: isProd, sameSite: 'lax', path: '/', maxAge: 60 * 60 * 8,
-        });
-        return res;
+        const response = NextResponse.json({ redirect: '/login/portal' });
+        response.cookies.set(
+          isProd ? '__Host-session' : 'session',
+          token,
+          { httpOnly: true, secure: isProd, sameSite: 'lax', path: '/', maxAge: 60 * 60 * 8 },
+        );
+        return response;
       }
 
       return NextResponse.json({ error: 'Cédula o usuario no encontrado.' }, { status: 404 });
@@ -101,6 +123,32 @@ export async function POST(req: Request) {
     if (!servidor.activo) return NextResponse.json({ error: 'Este usuario se encuentra inactivo.' }, { status: 403 });
 
     const servidorId = servidor.id;
+    const [kidsStaffResult, kidsAdminResult, kidsCoordinatorResult] = await Promise.all([
+      supabase
+        .from('kids_servidores')
+        .select('id, grupo_asignado, activo, roles')
+        .eq('cedula', cedula)
+        .eq('activo', true)
+        .maybeSingle(),
+      supabase
+        .from('kids_administradores')
+        .select('id')
+        .eq('cedula', cedula)
+        .eq('activo', true)
+        .maybeSingle(),
+      supabase
+        .from('kids_coordinadores')
+        .select('id, grupo_asignado')
+        .eq('cedula', cedula)
+        .eq('activo', true)
+        .maybeSingle(),
+    ]);
+    const kidsStaffProfile = kidsStaffResult.data;
+    const kidsStaffRoles = allowedKidsHubRoles([
+      ...(kidsStaffProfile?.roles ?? []),
+      ...(kidsAdminResult.data ? ['ADMINISTRADOR'] : []),
+      ...(kidsCoordinatorResult.data ? ['COORDINADOR DE CLASE'] : []),
+    ]);
 
     // --- OPTIMIZACIÓN: EJECUTAR TODAS LAS CONSULTAS DE ROLES EN PARALELO ---
     // Usamos select() en lugar de maybeSingle() para obtener TODOS los registros,
@@ -200,6 +248,55 @@ export async function POST(req: Request) {
     const maestroPtmEtapa = (academiaResult.data?.curso as any)?.nombre || 'Maestro';
 
     // --- LÓGICA DE DECISIÓN ---
+
+    // Todo integrante docente de Kids pasa por el portal para ver la tarjeta
+    // Kids y, desde allí, sus roles específicos dentro del ministerio.
+    if (kidsStaffRoles.length > 0) {
+      const asignaciones = [
+        ...contactos.map((c: any) => ({ tipo: 'contacto', etapa: c.etapa, dia: c.dia, semana: c.semana })),
+        ...maestros.map((m: any) => ({ tipo: 'maestro', etapa: m.etapa, dia: m.dia })),
+        ...logistica.map((l: any) => ({ tipo: 'logistica', dia: l.dia, franja: l.franja })),
+        ...(rolDirector ? [{ tipo: 'director', etapa: 'Director', dia: '' }] : []),
+        ...(rolAdministrador ? [{
+          tipo: 'administrador',
+          etapa: 'Administrador',
+          dia: rolAdministrador.dia_acceso,
+          cursos: rolAdministrador.cursos_asignados,
+        }] : []),
+        ...(rolMaestroPtm ? [{
+          tipo: 'estudiante_ptm',
+          etapa: maestroPtmEtapa,
+          dia: maestroPtmDia,
+        }] : []),
+        {
+          tipo: 'kids_hub',
+          etapa: 'Kids Ministry',
+          dia: '',
+        },
+      ];
+
+      await registrarAuditoria({
+        supabase,
+        servidorId,
+        cedula,
+        nombre: servidor.nombre,
+        rol: `Equipo Kids: ${kidsStaffRoles.join(', ')}`,
+        userAgent: req.headers.get('user-agent') || 'Unknown',
+      });
+
+      const token = jwt.sign(
+        { cedula, roles: ['portal'], servidorId, nombre: servidor.nombre, asignaciones },
+        secret,
+        { expiresIn: '8h' },
+      );
+      const response = NextResponse.json({ redirect: '/login/portal' });
+      response.cookies.set(
+        isProd ? '__Host-session' : 'session',
+        token,
+        { httpOnly: true, secure: isProd, sameSite: 'lax', path: '/', maxAge: 60 * 60 * 8 },
+      );
+      return response;
+    }
 
     // Contar roles administrativos
     const rolesAdmin = [rolDirector, rolAdministrador].filter(Boolean).length;
