@@ -133,6 +133,7 @@ export default function NinosSection({ usuario, logoNavOpen = false }: Props) {
   const [loading,     setLoading]    = useState(true)
   const [saving,      setSaving]     = useState(false)
   const [search,      setSearch]     = useState('')
+  const [searchInteracted, setSearchInteracted] = useState(false)
   const [sortBy,      setSortBy]     = useState<'recientes' | 'nombre' | 'grupo'>('recientes')
   const [sortOpen,    setSortOpen]   = useState(false)
   const [filterGrupo, setFilterGrupo]= useState('todos')
@@ -589,7 +590,10 @@ export default function NinosSection({ usuario, logoNavOpen = false }: Props) {
                   </svg>
                   <input
                     value={search}
-                    onChange={e => setSearch(e.target.value)}
+                    onChange={e => {
+                      setSearchInteracted(true)
+                      setSearch(e.target.value)
+                    }}
                     placeholder="Buscar niño por nombre, grupo..."
                     style={{
                       border:'none', background:'transparent', outline:'none',
@@ -715,7 +719,13 @@ export default function NinosSection({ usuario, logoNavOpen = false }: Props) {
 
         {/* ── Buscador móvil — encima del listado ── */}
         {isMobile && (
-          <MobileSearchBar search={search} onSearch={setSearch} />
+          <MobileSearchBar
+            search={search}
+            onSearch={value => {
+              setSearchInteracted(true)
+              setSearch(value)
+            }}
+          />
         )}
 
         {/* ── List header + filter/sort ── */}
@@ -897,7 +907,10 @@ export default function NinosSection({ usuario, logoNavOpen = false }: Props) {
             </div>
           ) : (
             <>
-              <div style={{
+              <div
+                className="nino-results-grid"
+                data-searching={searchInteracted ? 'true' : 'false'}
+                style={{
                 display:'grid',
                 gridTemplateColumns: isMobile
                   ? 'repeat(2,minmax(0,1fr))'
@@ -1736,7 +1749,7 @@ function NinoCard({
       setExpanded(false)
       setClosingExpanded(false)
       setFlipped(false)
-    }, 620)
+    }, 500)
   }
 
   return (

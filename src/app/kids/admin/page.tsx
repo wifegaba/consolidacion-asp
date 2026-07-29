@@ -162,6 +162,7 @@ export default function KidsAdminPage() {
   const [servidorLaunchOrigin, setServidorLaunchOrigin] = useState<ServerLaunchOrigin | null>(null)
   const [deletingServidorId, setDeletingServidorId] = useState<string | null>(null)
   const newServidorButtonRef = useRef<HTMLButtonElement>(null)
+  const fullscreenRequestPendingRef = useRef(false)
 
   // ── Shared ───────────────────────────────────────────────────────────────
   const [activeNav,      setActiveNav]      = useState<string>('ninos')
@@ -187,6 +188,7 @@ export default function KidsAdminPage() {
   const search    = servidorSearch
   const setSearch = setServidorSearch
   const [searchFocused, setSearchFocused] = useState(false)
+  const [serverSearchInteracted, setServerSearchInteracted] = useState(false)
 
 
   /* ── Responsive detection ─────────────────────────────────────────────── */
@@ -300,7 +302,47 @@ export default function KidsAdminPage() {
     router.replace('/kids/login')
   }
 
+  function ensureFullscreenFromDock() {
+    if (typeof document === 'undefined' || fullscreenRequestPendingRef.current) return
+
+    const fullscreenDocument = document as Document & {
+      webkitFullscreenElement?: Element | null
+    }
+    if (document.fullscreenElement || fullscreenDocument.webkitFullscreenElement) return
+
+    const root = document.documentElement as HTMLElement & {
+      webkitRequestFullscreen?: () => Promise<void> | void
+    }
+    const requestFullscreen = root.requestFullscreen
+      ? () => root.requestFullscreen({ navigationUI: 'hide' })
+      : root.webkitRequestFullscreen
+        ? () => root.webkitRequestFullscreen?.()
+        : null
+
+    if (!requestFullscreen) return
+
+    fullscreenRequestPendingRef.current = true
+    try {
+      const request = requestFullscreen()
+      if (request && typeof request.finally === 'function') {
+        void request
+          .catch(() => {
+            // Algunos navegadores o políticas corporativas bloquean fullscreen.
+            // La navegación del dock debe continuar normalmente.
+          })
+          .finally(() => {
+            fullscreenRequestPendingRef.current = false
+          })
+      } else {
+        fullscreenRequestPendingRef.current = false
+      }
+    } catch {
+      fullscreenRequestPendingRef.current = false
+    }
+  }
+
   function handleNavClick(section: string) {
+    ensureFullscreenFromDock()
     if (section === activeNav) { setSidebarOpen(false); return }
     setSidebarOpen(false)
     setActiveNav(section)
@@ -928,7 +970,10 @@ export default function KidsAdminPage() {
                   <input
                     type="text"
                     value={search}
-                    onChange={e => setSearch(e.target.value)}
+                    onChange={e => {
+                      setServerSearchInteracted(true)
+                      setSearch(e.target.value)
+                    }}
                     onFocus={() => setSearchFocused(true)}
                     onBlur={() => setSearchFocused(false)}
                     placeholder={isCoordinadoresView ? "Buscar coordinador..." : isMaestrosView ? "Buscar maestro..." : "Buscar servidor..."}
@@ -941,7 +986,10 @@ export default function KidsAdminPage() {
                   {/* Botón limpiar texto */}
                   {search && (
                     <button
-                      onClick={() => setSearch('')}
+                      onClick={() => {
+                        setServerSearchInteracted(true)
+                        setSearch('')
+                      }}
                       style={{
                         background: 'none', border: 'none', cursor: 'pointer', padding: 4, display: 'flex', zIndex: 2, marginRight: 2
                       }}
@@ -1073,7 +1121,9 @@ export default function KidsAdminPage() {
                 {/* ── Área animada con morphing espacial estilo FluidUIProject ── */}
                 <div>
                   <div
-                    key={`${filter}_${search}`}
+                    key={filter}
+                    className="server-search-results"
+                    data-searching={serverSearchInteracted ? 'true' : 'false'}
                     style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 10 }}
                   >
                     {/* ── Grid de tarjetas — Coordinadores ── */}
@@ -1494,7 +1544,7 @@ function AdminCard({
       setExpanded(false)
       setClosingExpanded(false)
       setFlipped(false)
-    }, 620)
+    }, 500)
   }
 
   return (

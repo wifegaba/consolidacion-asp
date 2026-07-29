@@ -34,6 +34,16 @@
   to { opacity: 1; transform: translateX(0) scale(1); }
 }
 
+/*
+ * La animación de llegada pertenece únicamente al montaje inicial.
+ * Durante una búsqueda, las tarjetas que aparecen al cambiar el filtro no
+ * deben volver a animarse: así evitamos el destello al escribir o borrar.
+ */
+.nino-results-grid[data-searching="true"] .nino-card-entry,
+.server-search-results[data-searching="true"] .server-card-entry {
+  animation: none !important;
+}
+
 .server-aladdin-backdrop {
   position: fixed;
   inset: 0;
@@ -41,13 +51,13 @@
   display: grid;
   place-items: center;
   padding: clamp(14px, 3vw, 28px);
-  background: rgba(7, 12, 29, .4);
-  backdrop-filter: blur(18px) saturate(108%);
-  -webkit-backdrop-filter: blur(18px) saturate(108%);
+  background: rgba(7, 12, 29, .58);
+  contain: strict;
+  will-change: opacity;
 }
 
-.server-aladdin-backdrop.is-opening { animation: server-backdrop-in .42s ease both; }
-.server-aladdin-backdrop.is-closing { animation: server-backdrop-out .62s ease both; }
+.server-aladdin-backdrop.is-opening { animation: server-backdrop-in .28s ease-out both; }
+.server-aladdin-backdrop.is-closing { animation: server-backdrop-out .48s ease-in both; }
 
 .server-aladdin-modal {
   position: relative;
@@ -64,15 +74,14 @@
     inset 0 -1px 0 rgba(255,255,255,.34),
     0 32px 80px rgba(4,12,38,.3),
     0 8px 24px rgba(4,12,38,.14);
-  backdrop-filter: blur(46px) saturate(112%);
-  -webkit-backdrop-filter: blur(46px) saturate(112%);
   transform-origin: center center;
-  transform-style: preserve-3d;
-  will-change: transform, opacity, filter;
+  will-change: transform, opacity;
+  backface-visibility: hidden;
+  contain: layout paint;
 }
 
-.server-aladdin-modal.is-opening { animation: server-aladdin-open .72s cubic-bezier(.2,.78,.2,1) both; }
-.server-aladdin-modal.is-closing { animation: server-aladdin-close .6s cubic-bezier(.48,.02,.78,.3) both; }
+.server-aladdin-modal.is-opening { animation: server-aladdin-open .58s cubic-bezier(.18,.78,.2,1) both; }
+.server-aladdin-modal.is-closing { animation: server-aladdin-close .48s cubic-bezier(.4,0,.3,1) both; }
 
 .server-aladdin-modal__shine {
   position: absolute;
@@ -83,8 +92,9 @@
   left: -55%;
   pointer-events: none;
   background: linear-gradient(100deg, transparent, rgba(255,255,255,.28), transparent);
-  transform: skewX(-14deg);
-  animation: server-modal-sweep .88s cubic-bezier(.2,.72,.2,1) .08s both;
+  transform: translate3d(0,0,0) skewX(-14deg);
+  will-change: transform, opacity;
+  animation: server-modal-sweep .64s cubic-bezier(.2,.72,.2,1) .04s both;
 }
 
 .server-profile-header {
@@ -649,9 +659,7 @@
     0 8px 24px rgba(9,32,61,.08);
 }
 .server-profile-backdrop {
-  background: rgba(8, 15, 34, .62);
-  backdrop-filter: blur(32px) saturate(88%);
-  -webkit-backdrop-filter: blur(32px) saturate(88%);
+  background: rgba(8, 15, 34, .7);
 }
 
 .premium-pagination {
@@ -760,16 +768,12 @@
     inset 0 -1px 0 rgba(255,255,255,.52),
     0 36px 96px rgba(2,8,24,.46),
     0 10px 30px rgba(2,8,24,.22);
-  backdrop-filter: blur(56px) saturate(106%);
-  -webkit-backdrop-filter: blur(56px) saturate(106%);
 }
 .server-aladdin-modal:not(.nino-aladdin-modal) .server-profile-details {
   background: rgba(246,249,253,.82);
 }
 .nino-aladdin-backdrop {
-  background: rgba(8, 15, 34, .62);
-  backdrop-filter: blur(32px) saturate(88%);
-  -webkit-backdrop-filter: blur(32px) saturate(88%);
+  background: rgba(8, 15, 34, .7);
 }
 .nino-aladdin-modal {
   background:
@@ -780,8 +784,6 @@
     inset 0 -1px 0 rgba(255,255,255,.52),
     0 36px 96px rgba(2,8,24,.46),
     0 10px 30px rgba(2,8,24,.22);
-  backdrop-filter: blur(56px) saturate(106%);
-  -webkit-backdrop-filter: blur(56px) saturate(106%);
 }
 .nino-aladdin-modal .server-profile-details {
   background: rgba(246,249,253,.82);
@@ -972,31 +974,30 @@
 
 @keyframes server-aladdin-open {
   from {
-    opacity: .12;
-    filter: blur(3px);
-    border-radius: 16px;
-    transform: translate3d(var(--server-origin-x), var(--server-origin-y), 0) scale3d(var(--server-scale-x), var(--server-scale-y), 1) rotateY(-58deg);
+    opacity: .18;
+    transform: translate3d(var(--server-origin-x), var(--server-origin-y), 0) scale3d(var(--server-scale-x), var(--server-scale-y), 1) rotate(-1.5deg);
   }
   to {
     opacity: 1;
-    filter: blur(0);
-    border-radius: 30px;
-    transform: translate3d(0,0,0) scale3d(1,1,1) rotateY(0);
+    transform: translate3d(0,0,0) scale3d(1,1,1) rotate(0);
   }
 }
 
 @keyframes server-aladdin-close {
-  from { opacity: 1; filter: blur(0); transform: translate3d(0,0,0) scale3d(1,1,1) rotateY(0); }
+  from { opacity: 1; transform: translate3d(0,0,0) scale3d(1,1,1) rotate(0); }
   to {
-    opacity: 0;
-    filter: blur(3px);
-    transform: translate3d(var(--server-origin-x), var(--server-origin-y), 0) scale3d(var(--server-scale-x), var(--server-scale-y), 1) rotateY(58deg);
+    opacity: .08;
+    transform: translate3d(var(--server-origin-x), var(--server-origin-y), 0) scale3d(var(--server-scale-x), var(--server-scale-y), 1) rotate(1.5deg);
   }
 }
 
 @keyframes server-backdrop-in { from { opacity:0; } to { opacity:1; } }
 @keyframes server-backdrop-out { from { opacity:1; } to { opacity:0; } }
-@keyframes server-modal-sweep { 0% { left:-55%; opacity:0; } 25% { opacity:.8; } 100% { left:125%; opacity:0; } }
+@keyframes server-modal-sweep {
+  0% { opacity:0; transform:translate3d(0,0,0) skewX(-14deg); }
+  24% { opacity:.7; }
+  100% { opacity:0; transform:translate3d(475%,0,0) skewX(-14deg); }
+}
 
 @media (max-width: 560px) {
   .server-profile-header { gap: 12px; padding: 18px 17px 15px; }
