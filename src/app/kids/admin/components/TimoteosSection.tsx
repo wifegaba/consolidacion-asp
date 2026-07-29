@@ -55,11 +55,22 @@ function initials(servidor: KidsServidor) {
   return `${servidor.nombre?.[0] ?? ''}${servidor.apellido?.[0] ?? ''}`.toUpperCase()
 }
 
+function normalizeSearchText(value: string) {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLocaleLowerCase('es')
+    .trim()
+}
+
 type FocusPhase =
   | 'idle'
   | 'expanding'
   | 'open'
   | 'closing'
+
+const DESKTOP_TIMOTEO_PAGE_SIZE = 6
+const MOBILE_TIMOTEO_PAGE_SIZE = 4
 
 interface FocusGeometry {
   left: number
@@ -109,6 +120,9 @@ export default function TimoteosSection({ servidores }: Props) {
   const [focusPhase, setFocusPhase] = useState<FocusPhase>('idle')
   const [focusGeometry, setFocusGeometry] = useState<FocusGeometry | null>(null)
   const [hasInteracted, setHasInteracted] = useState(false)
+  const [memberPage, setMemberPage] = useState(1)
+  const [memberPageSize, setMemberPageSize] = useState(DESKTOP_TIMOTEO_PAGE_SIZE)
+  const [memberSearch, setMemberSearch] = useState('')
 
   const coordinadores = servidores.filter(isTimoteosCoordinator)
   const timoteos = servidores.filter(isTimoteoMember)
@@ -124,10 +138,55 @@ export default function TimoteosSection({ servidores }: Props) {
   const coveredGroups = grouped.filter(group => group.coordinadores.length > 0).length
   const selectedGroup = grouped.find(group => group.number === selectedGroupNumber) ?? null
   const focusActive = focusPhase !== 'idle'
+  const normalizedMemberSearch = normalizeSearchText(memberSearch)
+  const filteredTimoteos = selectedGroup?.timoteos.filter(servidor => {
+    if (!normalizedMemberSearch) return true
+    return normalizeSearchText([
+      displayName(servidor),
+      servidor.telefono ?? '',
+      servidor.cumpleanos ?? '',
+    ].join(' ')).includes(normalizedMemberSearch)
+  }) ?? []
+  const memberPageCount = Math.max(
+    1,
+    Math.ceil(filteredTimoteos.length / memberPageSize),
+  )
+  const visibleTimoteos = filteredTimoteos.slice(
+    (memberPage - 1) * memberPageSize,
+    memberPage * memberPageSize,
+  )
 
   useEffect(() => () => {
     if (transitionTimerRef.current) clearTimeout(transitionTimerRef.current)
   }, [])
+
+  useEffect(() => {
+    setMemberPage(1)
+    setMemberSearch('')
+  }, [selectedGroupNumber])
+
+  useEffect(() => {
+    setMemberPage(1)
+  }, [memberSearch])
+
+  useEffect(() => {
+    const compactViewport = window.matchMedia('(max-width: 720px)')
+    const syncPageSize = () => {
+      setMemberPageSize(
+        compactViewport.matches
+          ? MOBILE_TIMOTEO_PAGE_SIZE
+          : DESKTOP_TIMOTEO_PAGE_SIZE,
+      )
+    }
+
+    syncPageSize()
+    compactViewport.addEventListener('change', syncPageSize)
+    return () => compactViewport.removeEventListener('change', syncPageSize)
+  }, [])
+
+  useEffect(() => {
+    setMemberPage(current => Math.min(current, memberPageCount))
+  }, [memberPageCount])
 
   const scheduleLabels = (servidor: KidsServidor) => {
     const labels = [
@@ -165,7 +224,7 @@ export default function TimoteosSection({ servidores }: Props) {
       scaleY: source.height / target.height,
     })
     setFocusPhase('expanding')
-    transitionTimerRef.current = setTimeout(() => setFocusPhase('open'), 1150)
+    transitionTimerRef.current = setTimeout(() => setFocusPhase('open'), 880)
   }
 
   const closeGroup = () => {
@@ -176,7 +235,7 @@ export default function TimoteosSection({ servidores }: Props) {
       setFocusPhase('idle')
       setSelectedGroupNumber(null)
       setFocusGeometry(null)
-    }, 1000)
+    }, 820)
   }
 
   return (
@@ -189,90 +248,61 @@ export default function TimoteosSection({ servidores }: Props) {
         @keyframes timoteosCardArrival {
           0% {
             opacity: 0;
-            transform: translate3d(46px, 10px, 0) scale(.965);
-            filter: blur(8px);
-          }
-          58% {
-            opacity: 1;
-            filter: blur(0);
+            transform: translate3d(38px, 6px, 0) scale(.975);
           }
           100% {
             opacity: 1;
             transform: translate3d(0, 0, 0) scale(1);
-            filter: blur(0);
           }
         }
         @keyframes timoteosSweepAway {
           0% {
             opacity: 1;
             transform: translate3d(0, 0, 0) scale(1);
-            filter: blur(0);
-          }
-          42% {
-            opacity: .75;
-            transform: translate3d(5vw, -2px, 0) scale(.985);
-            filter: blur(1px);
           }
           100% {
             opacity: 0;
-            transform: translate3d(112vw, -8px, 0) scale(.94);
-            filter: blur(8px);
+            transform: translate3d(104vw, -5px, 0) scale(.965);
           }
         }
         @keyframes timoteosSweepBack {
           0% {
             opacity: 0;
-            transform: translate3d(112vw, -8px, 0) scale(.94);
-            filter: blur(8px);
-          }
-          60% {
-            opacity: .84;
-            filter: blur(0);
+            transform: translate3d(104vw, -5px, 0) scale(.965);
           }
           100% {
             opacity: 1;
             transform: translate3d(0, 0, 0) scale(1);
-            filter: blur(0);
           }
         }
         @keyframes timoteosFocusExpand {
           0% {
-            border-radius: 28px;
             transform:
               translate3d(var(--focus-from-x), var(--focus-from-y), 0)
               scale(var(--focus-scale-x), var(--focus-scale-y));
-            box-shadow: 0 18px 46px rgba(44,56,94,.15);
           }
           100% {
-            border-radius: 32px;
             transform: translate3d(0, 0, 0) scale(1);
-            box-shadow: 0 42px 110px rgba(18,29,62,.28);
           }
         }
         @keyframes timoteosFocusCollapse {
           0% {
-            border-radius: 32px;
             transform: translate3d(0, 0, 0) scale(1);
-            box-shadow: 0 42px 110px rgba(18,29,62,.28);
           }
           100% {
-            border-radius: 28px;
             transform:
               translate3d(var(--focus-from-x), var(--focus-from-y), 0)
               scale(var(--focus-scale-x), var(--focus-scale-y));
-            box-shadow: 0 18px 46px rgba(44,56,94,.15);
           }
         }
         @keyframes timoteosDetailReveal {
           0% {
             opacity: 0;
-            transform: translate3d(-44px, 0, 0);
-            filter: blur(10px);
+            transform: translate3d(-18px, 0, 0);
           }
           100% {
             opacity: 1;
             transform: translate3d(0, 0, 0);
-            filter: blur(0);
           }
         }
         @keyframes timoteosRowReveal {
@@ -388,9 +418,9 @@ export default function TimoteosSection({ servidores }: Props) {
             0 2px 8px rgba(32,42,72,.06);
           backdrop-filter: blur(30px) saturate(135%);
           -webkit-backdrop-filter: blur(30px) saturate(135%);
-          animation: timoteosCardArrival .72s cubic-bezier(.16,1,.3,1) both;
-          animation-delay: calc(var(--card-index) * 70ms);
-          will-change: transform, opacity, filter;
+          animation: timoteosCardArrival .58s cubic-bezier(.16,1,.3,1) both;
+          animation-delay: calc(var(--card-index) * 48ms);
+          will-change: transform, opacity;
           transition:
             transform .42s cubic-bezier(.16,1,.3,1),
             box-shadow .42s ease,
@@ -406,8 +436,11 @@ export default function TimoteosSection({ servidores }: Props) {
           animation: none;
         }
         .timoteos-grid.is-departing .timoteos-group-card:not(.is-source) {
-          animation: timoteosSweepAway .82s cubic-bezier(.32,.02,.18,1) both;
-          animation-delay: calc(var(--sweep-order) * 20ms);
+          animation: timoteosSweepAway .68s cubic-bezier(.4,0,.2,1) both;
+          animation-delay: calc(var(--sweep-order) * 14ms);
+          backdrop-filter: none;
+          -webkit-backdrop-filter: none;
+          box-shadow: 0 12px 30px rgba(44,56,94,.12);
           pointer-events: none;
         }
         .timoteos-grid.is-departing .timoteos-group-card.is-source {
@@ -417,8 +450,11 @@ export default function TimoteosSection({ servidores }: Props) {
           transition: opacity .1s linear;
         }
         .timoteos-grid.is-returning .timoteos-group-card:not(.is-source) {
-          animation: timoteosSweepBack .82s cubic-bezier(.16,1,.3,1) both;
-          animation-delay: calc((5 - var(--sweep-order)) * 18ms);
+          animation: timoteosSweepBack .72s cubic-bezier(.16,1,.3,1) both;
+          animation-delay: calc((5 - var(--sweep-order)) * 12ms);
+          backdrop-filter: none;
+          -webkit-backdrop-filter: none;
+          box-shadow: 0 12px 30px rgba(44,56,94,.12);
           pointer-events: none;
         }
         .timoteos-grid.is-returning .timoteos-group-card.is-source {
@@ -572,9 +608,7 @@ export default function TimoteosSection({ servidores }: Props) {
           z-index: 129;
           border: 0;
           background: rgba(18,27,50,.24);
-          backdrop-filter: blur(5px) saturate(88%);
-          -webkit-backdrop-filter: blur(5px) saturate(88%);
-          animation: timoteosDetailReveal .36s ease both;
+          animation: timoteosDetailReveal .24s ease-out both;
           cursor: default;
         }
         .timoteos-focus-card {
@@ -597,17 +631,22 @@ export default function TimoteosSection({ servidores }: Props) {
             inset 16px 0 34px rgba(255,255,255,.12),
             0 42px 110px rgba(18,29,62,.26),
             0 8px 30px color-mix(in srgb, var(--accent-a) 12%, transparent);
-          backdrop-filter: blur(42px) saturate(158%) contrast(102%);
-          -webkit-backdrop-filter: blur(42px) saturate(158%) contrast(102%);
           transform-origin: top left;
-          will-change: transform, border-radius, box-shadow;
+          will-change: transform;
+          contain: layout paint;
+          backface-visibility: hidden;
         }
         .timoteos-focus-card.is-expanding {
-          animation: timoteosFocusExpand 1.15s cubic-bezier(.42,.02,.16,1) both;
+          animation: timoteosFocusExpand .88s cubic-bezier(.22,.72,.18,1) both;
         }
         .timoteos-focus-card.is-closing {
-          animation: timoteosFocusCollapse 1s cubic-bezier(.42,0,.22,1) both;
+          animation: timoteosFocusCollapse .82s cubic-bezier(.4,0,.24,1) both;
           pointer-events: none;
+        }
+        .timoteos-focus-card.is-open {
+          backdrop-filter: blur(24px) saturate(142%);
+          -webkit-backdrop-filter: blur(24px) saturate(142%);
+          will-change: auto;
         }
         .timoteos-focus-card::before {
           content: '';
@@ -655,12 +694,13 @@ export default function TimoteosSection({ servidores }: Props) {
           flex-direction: column;
           padding: clamp(12px, 1.35vw, 18px);
           opacity: 0;
+          overflow: hidden;
           pointer-events: none;
         }
         .timoteos-focus-card.is-open .timoteos-focus-content {
           opacity: 1;
           pointer-events: auto;
-          animation: timoteosDetailReveal .56s cubic-bezier(.16,1,.3,1) both;
+          animation: timoteosDetailReveal .34s cubic-bezier(.16,1,.3,1) both;
         }
         .timoteos-detail-header {
           position: relative;
@@ -689,6 +729,68 @@ export default function TimoteosSection({ servidores }: Props) {
           align-items: center;
           flex-wrap: wrap;
           gap: 5px 13px;
+        }
+        .timoteos-detail-search {
+          width: clamp(170px, 22vw, 300px);
+          height: 32px;
+          display: flex;
+          flex: 0 1 auto;
+          align-items: center;
+          gap: 8px;
+          margin-left: auto;
+          padding: 0 11px;
+          border: 1px solid rgba(255,255,255,.82);
+          border-radius: 999px;
+          background:
+            linear-gradient(112deg, rgba(255,255,255,.68), rgba(235,242,251,.54));
+          box-shadow:
+            inset 0 1px 0 rgba(255,255,255,.96),
+            inset 0 -1px 0 rgba(107,121,151,.08),
+            0 7px 20px rgba(37,51,82,.07);
+          color: #718097;
+          transition:
+            border-color .24s ease,
+            box-shadow .24s ease,
+            background .24s ease;
+        }
+        .timoteos-detail-search:focus-within {
+          border-color: color-mix(in srgb, var(--accent-a) 36%, white);
+          background: rgba(255,255,255,.78);
+          box-shadow:
+            inset 0 1px 0 #fff,
+            0 0 0 3px color-mix(in srgb, var(--accent-a) 10%, transparent),
+            0 10px 24px rgba(37,51,82,.09);
+        }
+        .timoteos-detail-search svg {
+          flex: 0 0 auto;
+          color: var(--accent-a);
+        }
+        .timoteos-detail-search input {
+          width: 100%;
+          min-width: 0;
+          border: 0;
+          outline: 0;
+          background: transparent;
+          color: #172038;
+          font: inherit;
+          font-size: .66rem;
+          font-weight: 650;
+        }
+        .timoteos-detail-search input::placeholder {
+          color: #8a95aa;
+          font-weight: 560;
+        }
+        .timoteos-search-clear {
+          width: 20px;
+          height: 20px;
+          display: grid;
+          flex: 0 0 20px;
+          place-items: center;
+          border: 0;
+          border-radius: 50%;
+          background: rgba(102,115,145,.12);
+          color: #66728a;
+          cursor: pointer;
         }
         .timoteos-detail-eyebrow {
           display: flex;
@@ -742,40 +844,83 @@ export default function TimoteosSection({ servidores }: Props) {
         }
         .timoteos-member-list {
           min-height: 0;
-          display: grid;
-          grid-template-columns: repeat(2, minmax(0, 1fr));
           flex: 1;
-          align-content: start;
-          gap: clamp(8px, .85vw, 12px);
-          overflow: auto;
-          padding: clamp(8px, .9vw, 11px) 2px 2px;
-          scrollbar-width: thin;
+          overflow: hidden;
+          margin-top: clamp(8px, .9vw, 12px);
+          border: 1px solid rgba(255,255,255,.72);
+          border-radius: 19px;
+          background:
+            linear-gradient(112deg, rgba(249,251,255,.58), rgba(230,241,250,.42));
+          box-shadow:
+            inset 0 1px 0 rgba(255,255,255,.86),
+            0 18px 48px rgba(31,45,78,.08);
+          backdrop-filter: blur(24px) saturate(132%);
+          -webkit-backdrop-filter: blur(24px) saturate(132%);
         }
+        .timoteos-list-head,
         .timoteos-member-row {
           display: grid;
-          grid-template-columns: auto minmax(0, 1fr) auto;
+          grid-template-columns: minmax(240px, 1.45fr) minmax(150px, .72fr) minmax(220px, 1fr);
           align-items: center;
-          gap: clamp(8px, .8vw, 12px);
-          min-width: 0;
-          min-height: 72px;
-          padding: clamp(8px, .8vw, 11px);
-          border: 1px solid rgba(255,255,255,.9);
-          border-radius: 17px;
+          column-gap: clamp(14px, 1.4vw, 24px);
+        }
+        .timoteos-list-head {
+          position: sticky;
+          z-index: 4;
+          top: 0;
+          min-height: 34px;
+          padding: 0 clamp(14px, 1.25vw, 20px);
+          border-bottom: 1px solid rgba(98,112,143,.14);
           background:
-            radial-gradient(circle at 4% 10%, rgba(255,255,255,.74), transparent 40%),
-            linear-gradient(120deg, rgba(255,255,255,.68), rgba(241,247,255,.44));
+            linear-gradient(102deg, rgba(238,242,253,.94), rgba(224,241,247,.9));
           box-shadow:
-            inset 0 1px 0 #fff,
-            inset 0 -1px 0 rgba(255,255,255,.34),
-            0 12px 32px rgba(43,56,91,.09);
-          backdrop-filter: blur(18px) saturate(135%);
-          -webkit-backdrop-filter: blur(18px) saturate(135%);
+            inset 0 1px 0 rgba(255,255,255,.92),
+            0 5px 16px rgba(40,54,88,.06);
+          backdrop-filter: blur(28px) saturate(140%);
+          -webkit-backdrop-filter: blur(28px) saturate(140%);
+          color: #657189;
+          font-size: .55rem;
+          font-weight: 820;
+          letter-spacing: .12em;
+          text-transform: uppercase;
+        }
+        .timoteos-member-row {
+          position: relative;
+          min-width: 0;
+          min-height: 55px;
+          padding: 5px clamp(14px, 1.25vw, 20px);
+          border-bottom: 1px solid rgba(99,113,142,.12);
+          background: transparent;
           animation: timoteosRowReveal .56s cubic-bezier(.16,1,.3,1) both;
-          animation-delay: calc(var(--member-index) * 75ms);
+          animation-delay: calc(var(--member-index) * 42ms);
+          transition:
+            background .24s ease,
+            box-shadow .24s ease;
+        }
+        .timoteos-member-row:nth-child(odd) {
+          background: rgba(255,255,255,.1);
+        }
+        .timoteos-member-row:last-child {
+          border-bottom: 0;
+        }
+        .timoteos-member-row:hover {
+          background:
+            linear-gradient(90deg, color-mix(in srgb, var(--accent-a) 7%, rgba(255,255,255,.58)), rgba(255,255,255,.22));
+          box-shadow:
+            inset 3px 0 0 color-mix(in srgb, var(--accent-a) 62%, white);
+        }
+        .timoteos-member-cell {
+          min-width: 0;
+        }
+        .timoteos-member-identity {
+          display: grid;
+          grid-template-columns: auto minmax(0, 1fr);
+          align-items: center;
+          gap: 11px;
         }
         .timoteos-detail-avatar {
-          width: clamp(42px, 3.7vw, 52px);
-          height: clamp(42px, 3.7vw, 52px);
+          width: clamp(35px, 2.8vw, 41px);
+          height: clamp(35px, 2.8vw, 41px);
           display: grid;
           place-items: center;
           overflow: hidden;
@@ -783,9 +928,10 @@ export default function TimoteosSection({ servidores }: Props) {
           border-radius: 50%;
           background: linear-gradient(145deg, var(--accent-a), var(--accent-b));
           box-shadow:
-            0 10px 25px rgba(31,44,76,.17),
+            0 7px 18px rgba(31,44,76,.13),
             0 0 0 1px color-mix(in srgb, var(--accent-a) 34%, transparent);
           color: #fff;
+          font-size: .68rem;
           font-weight: 850;
         }
         .timoteos-detail-avatar img {
@@ -798,45 +944,113 @@ export default function TimoteosSection({ servidores }: Props) {
           margin: 0;
           color: #172038;
           overflow: hidden;
-          font-size: clamp(.76rem, .9vw, .9rem);
+          font-size: clamp(.72rem, .84vw, .84rem);
+          font-weight: 720;
           letter-spacing: -.025em;
           text-overflow: ellipsis;
           white-space: nowrap;
         }
         .timoteos-member-role {
-          margin: 2px 0 0;
+          margin: 1px 0 0;
           overflow: hidden;
           color: #6a768d;
-          font-size: .62rem;
+          font-size: .58rem;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+        .timoteos-member-contact {
+          color: #5d6980;
+          overflow: hidden;
+          font-size: .66rem;
           text-overflow: ellipsis;
           white-space: nowrap;
         }
         .timoteos-member-meta {
           display: flex;
           align-items: center;
-          justify-content: flex-end;
           flex-wrap: wrap;
-          gap: 7px;
+          gap: 5px 12px;
         }
-        .timoteos-member-pill {
-          padding: 5px 7px;
-          border: 1px solid color-mix(in srgb, var(--accent-a) 20%, white);
-          border-radius: 999px;
-          background: color-mix(in srgb, var(--accent-a) 8%, white);
+        .timoteos-member-schedule {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
           color: var(--accent-a);
-          font-size: .57rem;
-          font-weight: 780;
+          font-size: .61rem;
+          font-weight: 760;
+          white-space: nowrap;
+        }
+        .timoteos-member-schedule::before {
+          width: 5px;
+          height: 5px;
+          flex: 0 0 5px;
+          border-radius: 50%;
+          background: currentColor;
+          box-shadow: 0 0 0 3px color-mix(in srgb, currentColor 11%, transparent);
+          content: '';
+        }
+        .timoteos-member-schedule.is-pending {
+          color: #9a6a18;
+        }
+        .timoteos-member-pagination {
+          min-height: 42px;
+          display: flex;
+          flex: 0 0 auto;
+          align-items: center;
+          justify-content: center;
+          gap: 6px;
+          padding: 7px 4px 0;
+        }
+        .timoteos-page-button {
+          min-width: 29px;
+          height: 29px;
+          display: grid;
+          place-items: center;
+          border: 1px solid rgba(255,255,255,.72);
+          border-radius: 10px;
+          background: rgba(241,246,253,.58);
+          box-shadow:
+            inset 0 1px 0 rgba(255,255,255,.9),
+            0 5px 13px rgba(37,51,83,.07);
+          color: #66728a;
+          font: inherit;
+          font-size: .62rem;
+          font-weight: 760;
+          cursor: pointer;
+          transition:
+            transform .22s cubic-bezier(.16,1,.3,1),
+            background .22s ease,
+            color .22s ease;
+        }
+        .timoteos-page-button:hover:not(:disabled) {
+          transform: translateY(-1px);
+          background: rgba(255,255,255,.78);
+          color: var(--accent-a);
+        }
+        .timoteos-page-button.is-current {
+          border-color: color-mix(in srgb, var(--accent-a) 34%, white);
+          background: color-mix(in srgb, var(--accent-a) 13%, rgba(255,255,255,.9));
+          box-shadow:
+            inset 0 1px 0 rgba(255,255,255,.92),
+            0 7px 17px color-mix(in srgb, var(--accent-a) 13%, transparent);
+          color: var(--accent-a);
+        }
+        .timoteos-page-button:disabled {
+          opacity: .32;
+          cursor: default;
+        }
+        .timoteos-page-status {
+          margin-left: 5px;
+          color: #758198;
+          font-size: .58rem;
+          font-weight: 680;
           white-space: nowrap;
         }
         .timoteos-empty-detail {
-          grid-column: 1 / -1;
           min-height: 210px;
           display: grid;
           place-items: center;
           padding: 24px;
-          border: 1px dashed rgba(77,92,126,.2);
-          border-radius: 26px;
-          background: rgba(255,255,255,.42);
           color: #718097;
           text-align: center;
         }
@@ -888,21 +1102,33 @@ export default function TimoteosSection({ servidores }: Props) {
           .timoteos-detail-header {
             gap: 12px;
           }
+          .timoteos-detail-search {
+            width: clamp(126px, 34vw, 174px);
+            margin-left: 0;
+          }
           .timoteos-detail-close {
             width: 32px;
             height: 32px;
             flex-basis: 32px;
           }
           .timoteos-member-list {
-            grid-template-columns: 1fr;
+            border-radius: 16px;
+          }
+          .timoteos-list-head {
+            display: none;
           }
           .timoteos-member-row {
-            grid-template-columns: auto minmax(0, 1fr);
+            grid-template-columns: minmax(0, 1fr);
+            gap: 3px;
+            min-height: 72px;
+            padding-block: 8px;
           }
           .timoteos-member-meta {
-            grid-column: 1 / -1;
             justify-content: flex-start;
-            padding-left: 3px;
+            padding-left: 46px;
+          }
+          .timoteos-member-contact {
+            padding-left: 46px;
           }
           .timoteos-focus-preview {
             grid-template-columns: 102px minmax(0, 1fr) 52px;
@@ -1088,10 +1314,35 @@ export default function TimoteosSection({ servidores }: Props) {
                     {selectedGroup.name}
                   </h2>
                   <p className="timoteos-detail-subtitle">
-                    {selectedGroup.timoteos.length === 1
-                      ? '1 Timoteo asignado a este grupo'
-                      : `${selectedGroup.timoteos.length} Timoteos asignados a este grupo`}
+                    {memberSearch.trim()
+                      ? `${filteredTimoteos.length} ${filteredTimoteos.length === 1 ? 'resultado' : 'resultados'}`
+                      : selectedGroup.timoteos.length === 1
+                        ? '1 Timoteo asignado a este grupo'
+                        : `${selectedGroup.timoteos.length} Timoteos asignados a este grupo`}
                   </p>
+                </div>
+                <div className="timoteos-detail-search" role="search">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <circle cx="11" cy="11" r="7" />
+                    <path d="m20 20-3.4-3.4" />
+                  </svg>
+                  <input
+                    type="search"
+                    value={memberSearch}
+                    onChange={event => setMemberSearch(event.target.value)}
+                    placeholder="Buscar Timoteo..."
+                    aria-label={`Buscar Timoteo en ${selectedGroup.name}`}
+                  />
+                  {memberSearch && (
+                    <button
+                      type="button"
+                      className="timoteos-search-clear"
+                      onClick={() => setMemberSearch('')}
+                      aria-label="Limpiar búsqueda"
+                    >
+                      ×
+                    </button>
+                  )}
                 </div>
                 <button
                   type="button"
@@ -1105,53 +1356,110 @@ export default function TimoteosSection({ servidores }: Props) {
                 </button>
               </header>
 
-              <div className="timoteos-member-list">
-                {selectedGroup.timoteos.length > 0 ? (
-                  selectedGroup.timoteos.map((servidor, index) => {
+              <div className="timoteos-member-list" role="table" aria-label={`Timoteos de ${selectedGroup.name}`}>
+                {filteredTimoteos.length > 0 && (
+                  <div className="timoteos-list-head" role="row">
+                    <span role="columnheader">Timoteo</span>
+                    <span role="columnheader">Contacto</span>
+                    <span role="columnheader">Disponibilidad</span>
+                  </div>
+                )}
+                {filteredTimoteos.length > 0 ? (
+                  visibleTimoteos.map((servidor, index) => {
                     const schedules = scheduleLabels(servidor)
                     return (
-                      <article
+                      <div
                         key={servidor.id}
                         className="timoteos-member-row"
                         style={{ '--member-index': index } as React.CSSProperties}
+                        role="row"
                       >
-                        <div className="timoteos-detail-avatar">
+                        <div className="timoteos-member-cell timoteos-member-identity" role="cell">
+                          <div className="timoteos-detail-avatar">
                           {servidor.foto_url ? (
                             <img src={servidor.foto_url} alt={displayName(servidor)} />
                           ) : (
                             <span>{initials(servidor)}</span>
                           )}
-                        </div>
-                        <div>
+                          </div>
+                          <div>
                           <h3 className="timoteos-member-name">{displayName(servidor)}</h3>
                           <p className="timoteos-member-role">
                             Timoteo
-                            {servidor.telefono ? ` · ${servidor.telefono}` : ''}
                           </p>
+                          </div>
                         </div>
-                        <div className="timoteos-member-meta">
+                        <div className="timoteos-member-cell timoteos-member-contact" role="cell">
+                          {servidor.telefono || 'Sin teléfono registrado'}
+                        </div>
+                        <div className="timoteos-member-cell timoteos-member-meta" role="cell">
                           {schedules.length > 0 ? (
                             schedules.map(schedule => (
-                              <span key={schedule} className="timoteos-member-pill">
+                              <span key={schedule} className="timoteos-member-schedule">
                                 {/^\s*domingo\b/i.test(schedule) ? schedule : `Domingo ${schedule}`}
                               </span>
                             ))
                           ) : (
-                            <span className="timoteos-member-pill">Horario pendiente</span>
+                            <span className="timoteos-member-schedule is-pending">Horario pendiente</span>
                           )}
                         </div>
-                      </article>
+                      </div>
                     )
                   })
                 ) : (
                   <div className="timoteos-empty-detail">
                     <div>
-                      <strong>Aún no hay Timoteos asignados</strong>
-                      <p>Los servidores con rol Timoteos vinculados a este grupo aparecerán aquí automáticamente.</p>
+                      <strong>
+                        {memberSearch.trim()
+                          ? 'No encontramos coincidencias'
+                          : 'Aún no hay Timoteos asignados'}
+                      </strong>
+                      <p>
+                        {memberSearch.trim()
+                          ? 'Prueba con otro nombre o número de teléfono.'
+                          : 'Los servidores con rol Timoteos vinculados a este grupo aparecerán aquí automáticamente.'}
+                      </p>
                     </div>
                   </div>
                 )}
               </div>
+              {filteredTimoteos.length > 0 && (
+                <nav className="timoteos-member-pagination" aria-label="Páginas del listado de Timoteos">
+                  <button
+                    type="button"
+                    className="timoteos-page-button"
+                    onClick={() => setMemberPage(page => Math.max(1, page - 1))}
+                    disabled={memberPage === 1}
+                    aria-label="Página anterior"
+                  >
+                    ‹
+                  </button>
+                  {Array.from({ length: memberPageCount }, (_, index) => index + 1).map(page => (
+                    <button
+                      type="button"
+                      key={page}
+                      className={`timoteos-page-button ${page === memberPage ? 'is-current' : ''}`}
+                      onClick={() => setMemberPage(page)}
+                      aria-label={`Ir a la página ${page}`}
+                      aria-current={page === memberPage ? 'page' : undefined}
+                    >
+                      {page}
+                    </button>
+                  ))}
+                  <button
+                    type="button"
+                    className="timoteos-page-button"
+                    onClick={() => setMemberPage(page => Math.min(memberPageCount, page + 1))}
+                    disabled={memberPage === memberPageCount}
+                    aria-label="Página siguiente"
+                  >
+                    ›
+                  </button>
+                  <span className="timoteos-page-status">
+                    {memberPage} de {memberPageCount}
+                  </span>
+                </nav>
+              )}
             </div>
           </article>
         </>

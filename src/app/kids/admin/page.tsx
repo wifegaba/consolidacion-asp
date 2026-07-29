@@ -705,6 +705,7 @@ export default function KidsAdminPage() {
           items={liquidDockItems}
           activeId={displayNav}
           onActiveChange={handleNavClick}
+          defaultFullscreen
           windowLabel="Administración ASP Kids"
         >
         <main style={{
