@@ -12,7 +12,7 @@
   },
   "dependencies": {
     "@imgly/background-removal": "^1.7.0",
-    "@kids/liquid-glass-ui": "file:vendor/kids-liquid-glass-ui-1.0.1.tgz",
+    "@kids/liquid-glass-ui": "file:vendor/kids-liquid-glass-ui-1.0.2.tgz",
     "@phosphor-icons/react": "^2.1.10",
     "@supabase/supabase-js": "^2.57.0",
     "aos": "^2.3.4",

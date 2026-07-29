@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { LiquidGlassSweepTransition } from '@kids/liquid-glass-ui'
 import type { KidsServidor } from './ServidorModal'
 
 interface Props {
@@ -679,11 +680,10 @@ export default function TimoteosSection({ servidores }: Props) {
           gap: 22px;
           padding: clamp(20px, 3vw, 42px);
           opacity: 1;
-          transition: opacity .16s ease;
         }
-        .timoteos-focus-card.is-open .timoteos-focus-preview {
+        .timoteos-focus-preview .timoteos-portrait-stack {
+          visibility: hidden;
           opacity: 0;
-          pointer-events: none;
         }
         .timoteos-focus-content {
           position: relative;
@@ -696,11 +696,6 @@ export default function TimoteosSection({ servidores }: Props) {
           opacity: 0;
           overflow: hidden;
           pointer-events: none;
-        }
-        .timoteos-focus-card.is-open .timoteos-focus-content {
-          opacity: 1;
-          pointer-events: auto;
-          animation: timoteosDetailReveal .34s cubic-bezier(.16,1,.3,1) both;
         }
         .timoteos-detail-header {
           position: relative;
@@ -1282,7 +1277,18 @@ export default function TimoteosSection({ servidores }: Props) {
               '--accent-b': GROUP_ACCENTS[selectedGroup.number - 1][1],
             } as React.CSSProperties}
           >
-            <div className="timoteos-focus-preview" aria-hidden="true">
+            <LiquidGlassSweepTransition
+              state={
+                focusPhase === 'open'
+                  ? 'active'
+                  : focusPhase === 'closing'
+                    ? 'closing'
+                    : 'idle'
+              }
+              outgoingClassName="timoteos-focus-preview"
+              incomingClassName="timoteos-focus-content"
+              outgoing={
+                <>
               <div className="timoteos-portrait-stack">
                 {selectedGroup.coordinadores.slice(0, 3).map((servidor, index) => (
                   <Portrait
@@ -1301,9 +1307,10 @@ export default function TimoteosSection({ servidores }: Props) {
                 <strong>{selectedGroup.coordinadores.length}</strong>
                 <span>Integrantes</span>
               </div>
-            </div>
-
-            <div className="timoteos-focus-content">
+                </>
+              }
+              incoming={
+                <>
               <header className="timoteos-detail-header">
                 <div>
                   <p className="timoteos-detail-eyebrow">
@@ -1460,7 +1467,9 @@ export default function TimoteosSection({ servidores }: Props) {
                   </span>
                 </nav>
               )}
-            </div>
+                </>
+              }
+            />
           </article>
         </>
       )}
