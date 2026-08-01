@@ -55,13 +55,14 @@ export const MoverEstudianteModal = memo(function MoverEstudianteModal({
 }) {
   const [etapa, setEtapa] = useState<EtapaDestino | null>(null);
   const [modulo, setModulo] = useState<number | null>(null);
+  const [semana, setSemana] = useState<1 | 2 | 3>(1);
   const [diaD, setDiaD] = useState<Dia | null>(null);
   const [saving, setSaving] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   useEffect(() => {
-    if (open) { setEtapa(null); setModulo(null); setDiaD(null); setErrorMsg(null); setIsSuccess(false); }
+    if (open) { setEtapa(null); setModulo(null); setSemana(1); setDiaD(null); setErrorMsg(null); setIsSuccess(false); }
   }, [open]);
 
   const [mounted, setMounted] = useState(false);
@@ -87,7 +88,7 @@ export const MoverEstudianteModal = memo(function MoverEstudianteModal({
         progresoId,
         etapa,
         modulo,
-        1, // semana siempre 1
+        semana,
         diaD
       );
       if (!success) throw new Error(err || 'Error al mover el estudiante');
@@ -227,6 +228,29 @@ export const MoverEstudianteModal = memo(function MoverEstudianteModal({
                   >{d}</button>
                 ))}
               </div>
+            </div>
+          )}
+
+          {/* Semana de inicio */}
+          {etapa && modulo && (
+            <div>
+              <label className="block text-[11px] font-semibold text-neutral-400 uppercase tracking-widest mb-2.5">Semana de inicio</label>
+              <div className="flex gap-2">
+                {([1, 2, 3] as const).map((s) => (
+                  <button
+                    key={s}
+                    onClick={() => setSemana(s)}
+                    className={`flex-1 py-2.5 rounded-[10px] border font-semibold text-[13px] transition-all duration-150 ${
+                      semana === s
+                        ? 'border-transparent text-white bg-indigo-600 shadow-[0_2px_10px_rgba(79,70,229,0.28)] scale-[1.03]'
+                        : 'border-neutral-200/80 text-neutral-700 bg-white hover:bg-neutral-50 hover:border-neutral-300'
+                    }`}
+                  >Semana {s}</button>
+                ))}
+              </div>
+              <p className="mt-2 text-[12px] text-neutral-500">
+                Selecciona semana 3 solo para gestionar directamente el cierre del ciclo.
+              </p>
             </div>
           )}
 

@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState, useEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
 
 interface GroupAssignment {
   coordinador: string
@@ -62,8 +63,9 @@ export default function AgendaSection({ servidores = [], isMobile: isMobileProp 
     }
     return '7:00 AM'
   })
+  const [scheduleMotion, setScheduleMotion] = useState<'idle' | 'leaving' | 'entering'>('idle')
+  const scheduleTransitionTimers = useRef<number[]>([])
 
-  const [openDiaMenu, setOpenDiaMenu] = useState<string | null>(null)
   
   const [selectedDate, setSelectedDate] = useState<string>(() => {
     if (typeof window !== 'undefined') {
@@ -71,6 +73,28 @@ export default function AgendaSection({ servidores = [], isMobile: isMobileProp 
     }
     return '2026-07-26'
   })
+
+  const clearScheduleTransitionTimers = () => {
+    scheduleTransitionTimers.current.forEach(timer => window.clearTimeout(timer))
+    scheduleTransitionTimers.current = []
+  }
+
+  const changeSchedule = (day: string, time: string) => {
+    if (day === selectedDia && time === selectedCulto) return
+
+    clearScheduleTransitionTimers()
+    setScheduleMotion('leaving')
+    const changeTimer = window.setTimeout(() => {
+      setSelectedDia(day)
+      setSelectedCulto(time)
+      setScheduleMotion('entering')
+      const settleTimer = window.setTimeout(() => setScheduleMotion('idle'), 420)
+      scheduleTransitionTimers.current = [settleTimer]
+    }, 180)
+    scheduleTransitionTimers.current = [changeTimer]
+  }
+
+  useEffect(() => () => clearScheduleTransitionTimers(), [])
 
   const gruposEdades = ['4 a 6 años', '7 a 9 años', '9 años', 'Timoteos', 'PTMD Kids']
   const areasApoyo = ['Consolidación', 'Disciplina']
@@ -205,6 +229,16 @@ export default function AgendaSection({ servidores = [], isMobile: isMobileProp 
     }
   }
 
+  const agendaGroupsSummary = gruposEdades.map(grupo => {
+    const data = getGroupData(grupo)
+    const assigned = [data.coordinador, ...data.maestros, ...data.auxiliares, ...data.timoteos].filter(Boolean).length
+    return { grupo, assigned, hasCoordinator: Boolean(data.coordinador) }
+  })
+  const totalAssignments = agendaGroupsSummary.reduce((total, group) => total + group.assigned, 0)
+  const activeGroups = agendaGroupsSummary.filter(group => group.assigned > 0).length
+  const readyCoordinators = agendaGroupsSummary.filter(group => group.hasCoordinator).length
+  const supportAssignments = areasApoyo.filter(area => areaAssignments[`${selectedDia}_${selectedCulto}_${area}`]).length
+
   return (
     <div 
       className="no-scrollbar"
@@ -238,7 +272,7 @@ export default function AgendaSection({ servidores = [], isMobile: isMobileProp 
         gap: isMobile ? 10 : 6 
       }}>
         <div>
-          <h2 style={{
+          <h2 className="kids-panel-title" style={{
             fontSize: isMobile ? 16 : isCompact ? 14 : 15, fontWeight: 800, color: '#111827', margin: 0,
             letterSpacing: '-0.4px'
           }}>
@@ -315,18 +349,15 @@ export default function AgendaSection({ servidores = [], isMobile: isMobileProp 
       <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap', position: 'relative', zIndex: 30 }}>
         {Object.keys(cultosOpciones).map((dia) => {
           const isCurrentDia = selectedDia === dia
-          const isOpen = openDiaMenu === dia
+          const isOpen = false
           return (
             <div 
               key={dia} 
               style={{ position: 'relative' }}
-              onMouseEnter={() => setOpenDiaMenu(dia)}
-              onMouseLeave={() => setOpenDiaMenu(null)}
             >
               <button
                 onClick={() => {
-                  setSelectedDia(dia)
-                  setOpenDiaMenu(dia)
+                  changeSchedule(dia, cultosOpciones[dia].includes(selectedCulto) ? selectedCulto : cultosOpciones[dia][0])
                 }}
                 style={{
                   position: 'relative',
@@ -370,21 +401,6 @@ export default function AgendaSection({ servidores = [], isMobile: isMobileProp 
                 }}
               >
                 <span>{dia}</span>
-                <svg 
-                  width="8" 
-                  height="8" 
-                  viewBox="0 0 24 24" 
-                  fill="none" 
-                  stroke="currentColor" 
-                  strokeWidth="2.8"
-                  style={{
-                    transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)',
-                    transition: 'transform 0.2s ease',
-                    opacity: 0.7
-                  }}
-                >
-                  <polyline points="6 9 12 15 18 9"/>
-                </svg>
               </button>
 
               {/* Liquid Glass Dropdown Menu para los horarios del día */}
@@ -418,9 +434,7 @@ export default function AgendaSection({ servidores = [], isMobile: isMobileProp 
                       <button
                         key={opcion}
                         onClick={() => {
-                          setSelectedDia(dia)
-                          setSelectedCulto(opcion)
-                          setOpenDiaMenu(null)
+                          changeSchedule(dia, opcion)
                         }}
                         style={{
                           textAlign: 'left',
@@ -483,7 +497,7 @@ export default function AgendaSection({ servidores = [], isMobile: isMobileProp 
             return (
               <button
                 key={culto}
-                onClick={() => setSelectedCulto(culto)}
+                onClick={() => changeSchedule(selectedDia, culto)}
                 style={{
                   position: 'relative', overflow: 'hidden', padding: isMobile ? '4px 10px' : '2.5px 8px',
                   borderRadius: 20, fontSize: isMobile ? 10.5 : 8.5, fontWeight: 700, cursor: 'pointer',
@@ -534,7 +548,8 @@ export default function AgendaSection({ servidores = [], isMobile: isMobileProp 
           msOverflowStyle: 'none',
         }}
       >
-        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fill, minmax(260px, 1fr))', gap: 12 }}>
+        <div className={`agenda-board-layout${isMobile ? ' is-mobile' : ''}`}>
+          <div className="agenda-board-cards">
           {/* Grupos por Edades */}
           {gruposEdades.map(grupo => {
             const data = getGroupData(grupo)
@@ -544,6 +559,7 @@ export default function AgendaSection({ servidores = [], isMobile: isMobileProp 
                 key={grupo}
                 title={grupo}
                 isMobile={isMobile}
+                scheduleMotion={scheduleMotion}
                 accent={gStyle}
                 summary={`Programa el turno de ${grupo.toLowerCase()}`}
                 note={`${[data.coordinador, ...data.maestros, ...data.auxiliares, ...data.timoteos].filter(Boolean).length} asignaciones activas`}
@@ -555,7 +571,7 @@ export default function AgendaSection({ servidores = [], isMobile: isMobileProp 
                 ]}
               >
                 {/* Header Fresco Sutil */}
-                <div style={{
+                <div className="agenda-assignment-summary" style={{
                   display: 'flex', alignItems: 'center', gap: 6,
                   padding: '4px 9px', borderRadius: 8,
                   background: gStyle.bg,
@@ -575,7 +591,7 @@ export default function AgendaSection({ servidores = [], isMobile: isMobileProp 
                 </div>
                 
                 {/* 1. Coordinador de Clase */}
-                <div>
+                <div className="agenda-assignment-section">
                   <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                     <span style={{ fontSize: isMobile ? 10 : 8.5, color: '#dc2626', fontWeight: 700 }}>
                       Coordinador de Clase
@@ -593,7 +609,7 @@ export default function AgendaSection({ servidores = [], isMobile: isMobileProp 
                 </div>
 
                 {/* 2. Maestros (Múltiples) */}
-                <div>
+                <div className="agenda-assignment-section">
                   <div style={{ display: 'flex', alignItems: 'center' }}>
                     <span style={{ fontSize: isMobile ? 10 : 8.5, color: '#0284c7', fontWeight: 700 }}>
                       Maestros
@@ -636,7 +652,7 @@ export default function AgendaSection({ servidores = [], isMobile: isMobileProp 
                 </div>
 
                 {/* 3. Maestras Auxiliares (Múltiples) */}
-                <div>
+                <div className="agenda-assignment-section">
                   <div style={{ display: 'flex', alignItems: 'center' }}>
                     <span style={{ fontSize: isMobile ? 10 : 8.5, color: '#7c3aed', fontWeight: 700 }}>
                       Maestras Auxiliares
@@ -645,11 +661,14 @@ export default function AgendaSection({ servidores = [], isMobile: isMobileProp 
 
                   <GlassSelect 
                     isMobile={isMobile}
+                    multiple
+                    selectedIds={data.auxiliares}
                     placeholder="Seleccionar maestr@ auxiliar..."
                     options={auxiliaresList
-                      .filter(m => !data.auxiliares.includes(m.id) && !getAssignedIdsForCurrentSchedule(grupo, 'auxiliares').has(m.id))
+                      .filter(m => data.auxiliares.includes(m.id) || !getAssignedIdsForCurrentSchedule(grupo, 'auxiliares').has(m.id))
                       .map(m => ({ id: m.id, label: `${m.nombre} ${m.apellido}` }))}
                     onSelect={(id) => handleAddPerson(grupo, 'auxiliares', id)}
+                    onRemove={(id) => handleRemovePerson(grupo, 'auxiliares', id)}
                   />
 
                   {/* Selected auxiliares pills */}
@@ -679,7 +698,7 @@ export default function AgendaSection({ servidores = [], isMobile: isMobileProp 
                 </div>
 
                 {/* 4. Timoteos (Múltiples) */}
-                <div>
+                <div className="agenda-assignment-section">
                   <div style={{ display: 'flex', alignItems: 'center' }}>
                     <span style={{ fontSize: isMobile ? 10 : 8.5, color: '#059669', fontWeight: 700 }}>
                       Timoteos
@@ -688,11 +707,14 @@ export default function AgendaSection({ servidores = [], isMobile: isMobileProp 
 
                   <GlassSelect 
                     isMobile={isMobile}
+                    multiple
+                    selectedIds={data.timoteos}
                     placeholder="Seleccionar timoteo..."
                     options={timoteosList
-                      .filter(t => !data.timoteos.includes(t.id) && !getAssignedIdsForCurrentSchedule(grupo, 'timoteos').has(t.id))
+                      .filter(t => data.timoteos.includes(t.id) || !getAssignedIdsForCurrentSchedule(grupo, 'timoteos').has(t.id))
                       .map(t => ({ id: t.id, label: `${t.nombre} ${t.apellido}` }))}
                     onSelect={(id) => handleAddPerson(grupo, 'timoteos', id)}
+                    onRemove={(id) => handleRemovePerson(grupo, 'timoteos', id)}
                   />
 
                   {/* Selected timoteos pills */}
@@ -730,6 +752,7 @@ export default function AgendaSection({ servidores = [], isMobile: isMobileProp 
             key="areas-apoyo"
             title="Áreas de Apoyo"
             isMobile={isMobile}
+            scheduleMotion={scheduleMotion}
             accent={DEFAULT_GROUP_HEADER}
             summary="Asignaciones complementarias del servicio"
             note={`${areasApoyo.length} áreas activas`}
@@ -739,7 +762,7 @@ export default function AgendaSection({ servidores = [], isMobile: isMobileProp 
             ]}
           >
             {areasApoyo.map(area => (
-              <div key={area}>
+              <div key={area} className="agenda-assignment-section">
                 <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                   <span style={{ fontSize: isMobile ? 10 : 8.5, color: '#4f46e5', fontWeight: 700 }}>
                     {area}
@@ -761,9 +784,85 @@ export default function AgendaSection({ servidores = [], isMobile: isMobileProp 
             ))}
           </ProgramacionFlipShell>
 
+          </div>
+          <AgendaSummaryCard
+            day={selectedDia}
+            time={selectedCulto}
+            date={selectedDate}
+            totalAssignments={totalAssignments}
+            activeGroups={activeGroups}
+            readyCoordinators={readyCoordinators}
+            supportAssignments={supportAssignments}
+            scheduleMotion={scheduleMotion}
+          />
         </div>
       </div>
     </div>
+  )
+}
+
+function AgendaSummaryCard({
+  day,
+  time,
+  date,
+  totalAssignments,
+  activeGroups,
+  readyCoordinators,
+  supportAssignments,
+  scheduleMotion,
+}: {
+  day: string
+  time: string
+  date: string
+  totalAssignments: number
+  activeGroups: number
+  readyCoordinators: number
+  supportAssignments: number
+  scheduleMotion: 'idle' | 'leaving' | 'entering'
+}) {
+  const formattedDate = new Date(`${date}T12:00:00`).toLocaleDateString('es-CO', {
+    day: 'numeric', month: 'short', year: 'numeric',
+  })
+  const completion = Math.round(((readyCoordinators + activeGroups) / 10) * 100)
+
+  return (
+    <aside className={`agenda-summary-card agenda-info-transition is-${scheduleMotion} lgx-content-card lgx-content-card--static`} aria-label="Resumen de la agenda">
+      <div className="agenda-summary-card__glow" />
+      <div className="agenda-summary-card__header">
+        <div className="agenda-summary-card__icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <rect x="3" y="5" width="18" height="16" rx="3" />
+            <path d="M8 3v4M16 3v4M3 10h18M8 14h3M8 18h7" />
+          </svg>
+        </div>
+        <div>
+          <div className="agenda-summary-card__eyebrow">Vista del turno</div>
+          <h3>Resumen de agenda</h3>
+        </div>
+      </div>
+
+      <div className="agenda-summary-card__schedule">
+        <span>{day}</span>
+        <strong>{time}</strong>
+        <small>{formattedDate}</small>
+      </div>
+
+      <div className="agenda-summary-card__progress" aria-label={`${completion}% de preparación`}>
+        <div className="agenda-summary-card__progress-label"><span>Preparación</span><strong>{completion}%</strong></div>
+        <div className="agenda-summary-card__progress-track"><span style={{ width: `${completion}%` }} /></div>
+      </div>
+
+      <div className="agenda-summary-card__metrics">
+        <div><strong>{totalAssignments}</strong><span>Asignaciones</span></div>
+        <div><strong>{activeGroups}/5</strong><span>Grupos activos</span></div>
+        <div><strong>{readyCoordinators}/5</strong><span>Coordinadores</span></div>
+      </div>
+
+      <div className="agenda-summary-card__footer">
+        <span className={supportAssignments === 2 ? 'is-ready' : ''}>{supportAssignments}/2</span>
+        <p>Áreas de apoyo asignadas</p>
+      </div>
+    </aside>
   )
 }
 
@@ -774,6 +873,7 @@ function ProgramacionFlipShell({
   note,
   frontMeta,
   isMobile = false,
+  scheduleMotion = 'idle',
   children,
 }: {
   title: string
@@ -782,21 +882,59 @@ function ProgramacionFlipShell({
   note: string
   frontMeta: { label: string; value: string }[]
   isMobile?: boolean
+  scheduleMotion?: 'idle' | 'leaving' | 'entering'
   children: React.ReactNode
 }) {
   const [flipped, setFlipped] = useState(false)
+  const [expanded, setExpanded] = useState(false)
+  const [closingExpanded, setClosingExpanded] = useState(false)
+  const [aladdinOrigin, setAladdinOrigin] = useState<Record<string, string>>({})
+  const cardRef = useRef<HTMLDivElement>(null)
   const panelHeight = isMobile ? 378 : 420
   const frontHeight = Math.round(panelHeight * 0.52)
   const [coordinadorMeta, ...restMeta] = frontMeta
+  const contentNodes = React.Children.toArray(children)
+  const firstContentNode = contentNodes[0]
+  const hasAssignmentHeader = React.isValidElement<{ className?: string }>(firstContentNode)
+    && firstContentNode.props.className === 'agenda-assignment-summary'
+  const assignmentHeader = hasAssignmentHeader ? firstContentNode : null
+  const assignmentFields = hasAssignmentHeader ? contentNodes.slice(1) : contentNodes
+
+  function openExpanded() {
+    const rect = cardRef.current?.getBoundingClientRect()
+    if (!rect) return
+
+    const modalWidth = Math.min(window.innerWidth * .88, 560)
+    const modalHeight = Math.min(window.innerHeight * .86, 680)
+    setAladdinOrigin({
+      '--server-origin-x': `${rect.left + rect.width / 2 - window.innerWidth / 2}px`,
+      '--server-origin-y': `${rect.top + rect.height / 2 - window.innerHeight / 2}px`,
+      '--server-scale-x': `${Math.max(.1, rect.width / modalWidth)}`,
+      '--server-scale-y': `${Math.max(.1, rect.height / modalHeight)}`,
+    })
+    setClosingExpanded(false)
+    setExpanded(true)
+  }
+
+  function closeExpanded() {
+    if (closingExpanded) return
+    setClosingExpanded(true)
+    window.setTimeout(() => {
+      setExpanded(false)
+      setClosingExpanded(false)
+      setFlipped(false)
+    }, 500)
+  }
 
   return (
+    <>
     <div
-      onClick={() => setFlipped(v => !v)}
+      ref={cardRef}
+      onClick={openExpanded}
       style={{
         perspective: 1200,
-        minHeight: flipped ? panelHeight : frontHeight,
-        height: flipped ? panelHeight : frontHeight,
-        transition: 'height .68s cubic-bezier(.2,.9,.18,1), min-height .68s cubic-bezier(.2,.9,.18,1)',
+        minHeight: frontHeight,
+        height: frontHeight,
       }}
     >
       <div
@@ -813,7 +951,7 @@ function ProgramacionFlipShell({
       >
         {/* Front side of Card */}
         <div
-          className="lgx-content-card lgx-content-card--static"
+          className={`lgx-content-card lgx-content-card--static agenda-program-card agenda-info-transition is-${scheduleMotion}`}
           style={{
             position: 'absolute',
             inset: 0,
@@ -829,10 +967,8 @@ function ProgramacionFlipShell({
             justifyContent: 'space-between',
             background: '#ffffff',
             border: '1px solid rgba(226, 232, 240, 0.85)',
-            boxShadow: flipped
-              ? '0 4px 12px rgba(0, 0, 0, 0.04)'
-              : '0 8px 24px -4px rgba(0, 0, 0, 0.06), 0 2px 6px rgba(0, 0, 0, 0.03)',
-            opacity: flipped ? 0 : 1,
+            boxShadow: '0 8px 24px -4px rgba(0, 0, 0, 0.06), 0 2px 6px rgba(0, 0, 0, 0.03)',
+            opacity: 1,
             transition: 'opacity .34s ease, box-shadow .35s ease',
           }}
         >
@@ -857,11 +993,11 @@ function ProgramacionFlipShell({
                 <span style={{ width: 9, height: 9, borderRadius: '50%', background: accent.dot }} />
               </div>
               <div>
-                <h3 style={{ margin: 0, fontSize: isMobile ? 14.5 : 14, color: '#1e293b', fontWeight: 800, letterSpacing: '-0.3px' }}>
+                <h3 style={{ margin: 0, fontSize: isMobile ? 14.5 : 14, color: '#172033', fontWeight: 800, letterSpacing: '-0.3px' }}>
                   {title}
                 </h3>
-                <p style={{ margin: 0, fontSize: 9.5, color: '#94a3b8', fontWeight: 500 }}>
-                  Toca para voltear
+                <p style={{ margin: 0, fontSize: 9.5, color: '#52637a', fontWeight: 600 }}>
+                  Toca para programar
                 </p>
               </div>
             </div>
@@ -887,7 +1023,7 @@ function ProgramacionFlipShell({
             padding: '2px 0 0',
           }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-              <div style={{ fontSize: isMobile ? 13.5 : 13, fontWeight: 800, color: '#1e293b', letterSpacing: '-0.3px', lineHeight: 1.15 }}>
+              <div style={{ fontSize: isMobile ? 13.5 : 13, fontWeight: 800, color: '#172033', letterSpacing: '-0.3px', lineHeight: 1.15 }}>
                 {summary}
               </div>
               <div style={{ fontSize: 10, color: accent.text, fontWeight: 600, opacity: .9 }}>
@@ -900,10 +1036,9 @@ function ProgramacionFlipShell({
               {/* Coordinador Box (if age group card) */}
               {coordinadorMeta && (
                 <div style={{
-                  borderRadius: 14,
-                  padding: '7px 10px',
-                  background: '#f8fafc',
-                  border: '1px solid #f1f5f9',
+                  padding: '8px 4px',
+                  borderTop: '1px solid rgba(100,116,139,.16)',
+                  borderBottom: '1px solid rgba(100,116,139,.16)',
                   display: 'flex',
                   alignItems: 'center',
                   gap: 10,
@@ -925,13 +1060,13 @@ function ProgramacionFlipShell({
                     </svg>
                   </div>
                   <div>
-                    <div style={{ fontSize: 9.5, color: '#64748b', fontWeight: 600 }}>
+                    <div style={{ fontSize: 9.5, color: '#52637a', fontWeight: 650 }}>
                       {coordinadorMeta.label}
                     </div>
                     <div style={{
                       fontSize: 11.5,
                       fontWeight: 800,
-                      color: coordinadorMeta.value === 'Listo' || (coordinadorMeta.value !== 'Pendiente' && coordinadorMeta.value !== 'Libre') ? '#16a34a' : '#d97706'
+                      color: coordinadorMeta.value === 'Listo' || (coordinadorMeta.value !== 'Pendiente' && coordinadorMeta.value !== 'Libre') ? '#15803d' : '#b85c00'
                     }}>
                       {coordinadorMeta.value}
                     </div>
@@ -941,8 +1076,8 @@ function ProgramacionFlipShell({
 
               {/* Roles Grid (Maestros, Auxiliares, Timoteos) or Áreas de Apoyo */}
               {title !== 'Áreas de Apoyo' ? (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 6 }}>
-                  {restMeta.map((item) => {
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' }}>
+                  {restMeta.map((item, index) => {
                     let iconEl = null;
                     if (item.label === 'Maestros') {
                       iconEl = (
@@ -970,19 +1105,17 @@ function ProgramacionFlipShell({
 
                     return (
                       <div key={item.label} style={{
-                        borderRadius: 12,
-                        padding: '6px 6px',
-                        background: '#f8fafc',
-                        border: '1px solid #f1f5f9',
+                        padding: '4px 8px',
                         display: 'flex',
+                        flexDirection: 'column',
                         alignItems: 'center',
-                        gap: 6,
+                        justifyContent: 'center',
+                        gap: 2,
+                        borderLeft: index === 0 ? '0' : '1px solid rgba(100,116,139,.16)',
                       }}>
                         <div style={{
-                          width: 22,
-                          height: 22,
-                          borderRadius: '50%',
-                          background: accent.badgeBg || '#f1f5f9',
+                          width: 20,
+                          height: 20,
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
@@ -991,11 +1124,11 @@ function ProgramacionFlipShell({
                         }}>
                           {iconEl}
                         </div>
-                        <div>
-                          <div style={{ fontSize: 9, color: '#64748b', fontWeight: 600 }}>
+                        <div style={{ textAlign: 'center' }}>
+                          <div style={{ fontSize: 9, color: '#52637a', fontWeight: 650, lineHeight: 1.1 }}>
                             {item.label}
                           </div>
-                          <div style={{ fontSize: 12, color: item.value !== '0' ? accent.text : '#64748b', fontWeight: 800 }}>
+                          <div style={{ fontSize: 13, color: item.value !== '0' ? accent.text : '#334155', fontWeight: 800, lineHeight: 1.15 }}>
                             {item.value}
                           </div>
                         </div>
@@ -1057,6 +1190,7 @@ function ProgramacionFlipShell({
         {/* Back side of Card (Edit Mode) */}
         <div
           className="lgx-content-card lgx-content-card--static"
+          inert
           style={{
             position: 'absolute',
             inset: 0,
@@ -1132,6 +1266,51 @@ function ProgramacionFlipShell({
         </div>
       </div>
     </div>
+    {expanded && typeof document !== 'undefined' && createPortal(
+      <div
+        className={`server-aladdin-backdrop agenda-aladdin-backdrop ${closingExpanded ? 'is-closing' : 'is-opening'}`}
+        onClick={closeExpanded}
+        role="presentation"
+      >
+        <section
+          className={`server-aladdin-modal agenda-aladdin-modal ${closingExpanded ? 'is-closing' : 'is-opening'}`}
+          style={aladdinOrigin as React.CSSProperties}
+          onClick={event => event.stopPropagation()}
+          aria-label={`Programación de ${title}`}
+        >
+          <div className="server-aladdin-modal__shine" />
+          <header className="agenda-aladdin-modal__header">
+            {assignmentHeader && <div className="agenda-aladdin-modal__group-header">{assignmentHeader}</div>}
+            <div className="agenda-aladdin-modal__legacy-header" style={{ display: 'flex', alignItems: 'center', gap: 9, minWidth: 0 }}>
+              <div style={{
+                width: 26,
+                height: 26,
+                borderRadius: '50%',
+                background: accent.badgeBg || '#f1f5f9',
+                display: 'grid',
+                placeItems: 'center',
+                flex: '0 0 auto',
+              }}>
+                <span style={{ width: 8, height: 8, borderRadius: '50%', background: accent.dot }} />
+              </div>
+              <div style={{ minWidth: 0 }}>
+                <div className="agenda-aladdin-modal__eyebrow">Programación de agenda</div>
+              </div>
+            </div>
+            <button type="button" onClick={closeExpanded} className="agenda-aladdin-modal__close" aria-label="Cerrar programación">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round">
+                <path d="M18 6 6 18M6 6l12 12" />
+              </svg>
+            </button>
+          </header>
+          <div className={`agenda-aladdin-modal__content${hasAssignmentHeader ? ' agenda-assignment-grid' : ''}`}>
+            {assignmentFields}
+          </div>
+        </section>
+      </div>,
+      document.body,
+    )}
+    </>
   )
 }
 
@@ -1141,12 +1320,18 @@ function GlassSelect({
   options,
   value,
   onSelect,
+  multiple = false,
+  selectedIds = [],
+  onRemove,
   isMobile = false
 }: {
   placeholder: string
   options: { id: string; label: string }[]
   value?: string
   onSelect: (id: string) => void
+  multiple?: boolean
+  selectedIds?: string[]
+  onRemove?: (id: string) => void
   isMobile?: boolean
 }) {
   const [open, setOpen] = useState(false)
@@ -1154,28 +1339,28 @@ function GlassSelect({
   const ref = useRef<HTMLDivElement>(null)
 
   const selectedOption = options.find(o => o.id === value)
-  const displayText = selectedOption ? selectedOption.label : placeholder
-
-  const handleMouseEnter = () => {
-    if (ref.current) {
-      const rect = ref.current.getBoundingClientRect()
-      const spaceBelow = window.innerHeight - rect.bottom
-      setOpenUp(spaceBelow < 210)
-    }
-    setOpen(true)
-  }
+  const displayText = multiple && selectedIds.length > 0
+    ? `${selectedIds.length} ${selectedIds.length === 1 ? 'seleccionado' : 'seleccionados'}`
+    : selectedOption ? selectedOption.label : placeholder
 
   return (
-    <div 
+    <div
+      className="agenda-glass-select"
       ref={ref}
       style={{ position: 'relative', width: '100%' }}
       onClick={(e) => e.stopPropagation()}
-      onMouseEnter={handleMouseEnter}
       onMouseLeave={() => setOpen(false)}
     >
       <button
         type="button"
-        onClick={() => setOpen(prev => !prev)}
+        className="agenda-glass-select__trigger"
+        onClick={() => {
+          if (!open && ref.current) {
+            const rect = ref.current.getBoundingClientRect()
+            setOpenUp(window.innerHeight - rect.bottom < 210)
+          }
+          setOpen(prev => !prev)
+        }}
         style={{
           width: '100%',
           display: 'flex',
@@ -1234,7 +1419,7 @@ function GlassSelect({
           paddingBottom: openUp ? 3 : 0,
           zIndex: 60
         }}>
-          <div style={{
+          <div className="agenda-glass-select__menu" style={{
             background: 'linear-gradient(145deg, rgba(255,255,255,0.98), rgba(244,248,255,0.95))',
             backdropFilter: 'blur(20px) saturate(160%)',
             WebkitBackdropFilter: 'blur(20px) saturate(160%)',
@@ -1249,17 +1434,22 @@ function GlassSelect({
             display: 'flex',
             flexDirection: 'column',
             gap: 2,
-            animation: 'aspSlideInRight 0.15s cubic-bezier(0.16, 1, 0.3, 1) both'
+            animation: 'agenda-select-reveal .34s cubic-bezier(.16, 1, .3, 1) both'
           }}>
-            {options.map(opt => {
-              const isOptSelected = opt.id === value
+            {options.map((opt, index) => {
+              const isOptSelected = multiple ? selectedIds.includes(opt.id) : opt.id === value
               return (
                 <button
                   key={opt.id}
                   type="button"
                   onClick={() => {
-                    onSelect(opt.id)
-                    setOpen(false)
+                    if (multiple) {
+                      if (isOptSelected) onRemove?.(opt.id)
+                      else onSelect(opt.id)
+                    } else {
+                      onSelect(opt.id)
+                      setOpen(false)
+                    }
                   }}
                   style={{
                     textAlign: 'left',
@@ -1276,7 +1466,8 @@ function GlassSelect({
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between',
-                    transition: 'all 0.14s cubic-bezier(0.25, 0.46, 0.45, 0.94)'
+                    transition: 'transform .2s cubic-bezier(.16, 1, .3, 1), background .2s ease, box-shadow .2s ease',
+                    animation: `agenda-select-option-in .28s ${Math.min(index, 7) * 32}ms cubic-bezier(.16, 1, .3, 1) both`,
                   }}
                   onMouseEnter={(e) => {
                     const btn = e.currentTarget as HTMLButtonElement

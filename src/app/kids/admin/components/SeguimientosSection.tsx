@@ -249,32 +249,36 @@ export default function SeguimientosSection() {
 
       {/* ══ HEADER ══ */}
       <div style={{
-        padding: isMobile ? '18px 16px 0' : isCompact ? '20px 24px 0' : '24px 32px 0',
+        padding: isMobile ? '18px 16px 0' : '11px 24px',
         flexShrink:0,
+        display: isMobile ? 'block' : 'flex',
+        alignItems:'center',
+        gap:16,
         background:'rgba(255,255,255,.65)',
         backdropFilter:'blur(24px)',
         borderBottom:'1px solid rgba(124,58,237,.08)',
       }}>
         {/* Título + stats */}
-        <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', gap:14, flexWrap:'wrap', paddingBottom:14 }}>
+        <div style={{ display:'flex', alignItems: isMobile ? 'flex-start' : 'center', justifyContent:'space-between', gap:14, flexWrap: isMobile ? 'wrap' : 'nowrap', paddingBottom: isMobile ? 14 : 0, flex:1, minWidth:0 }}>
           <div>
             <div style={{
+              display: isMobile ? 'block' : 'none',
               fontSize:9, fontWeight:800, letterSpacing:'2.5px', textTransform:'uppercase',
               background:'linear-gradient(90deg,#7c3aed,#6366f1)',
               WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent', marginBottom:4,
             }}>Panel Kids</div>
-            <h1 style={{
-              fontSize: isMobile ? 22 : isCompact ? 25 : 28, fontWeight:900, margin:0, lineHeight:1,
+            <h1 className="kids-panel-title" style={{
+              fontSize: isMobile ? 22 : 20, fontWeight:900, margin:0, lineHeight:1,
               letterSpacing:'-0.6px',
               background:'linear-gradient(135deg,#1e1b4b,#4c1d95,#1e40af)',
               WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent',
             }}>Seguimientos</h1>
-            <div style={{ fontSize:11, color:'#6b7280', marginTop:4 }}>
+            <div style={{ display: isMobile ? 'block' : 'none', fontSize:11, color:'#6b7280', marginTop:4 }}>
               Reporte individual por maestro · zona horaria Colombia
             </div>
           </div>
           {!isMobile && (
-            <div style={{ display:'flex', gap:10, flexWrap:'wrap' }}>
+            <div style={{ display:'flex', gap:6, flexWrap:'nowrap', flexShrink:0 }}>
               <StatChip grad="linear-gradient(135deg,#7c3aed,#6366f1)"
                 icon={<CalIcon/>} value={diasFiltrados.length} label="Días" />
               <StatChip grad="linear-gradient(135deg,#ec4899,#8b5cf6)"
@@ -286,7 +290,7 @@ export default function SeguimientosSection() {
         </div>
 
         {/* Filtros */}
-        <div style={{ display:'flex', gap:8, flexWrap:'wrap', paddingBottom:14 }}>
+        <div style={{ display:'flex', gap:6, flexWrap: isMobile ? 'wrap' : 'nowrap', paddingBottom: isMobile ? 14 : 0, flexShrink:0 }}>
           <FilterSelect value={filterMes} onChange={setFilterMes} placeholder="Todos los meses">
             {meses.map(m => {
               const [y, mo] = m.split('-')
@@ -426,8 +430,8 @@ function DiaBlock({ dia, idx, isHoy, isExpanded, onToggle, isMobile, fotoMap }: 
         </div>
 
         {/* Texto */}
-        <div style={{ flex:1, minWidth:0 }}>
-          <div style={{ display:'flex', alignItems:'center', gap:7, flexWrap:'wrap' }}>
+        <div style={{ flex:1, minWidth:0, display: isMobile ? 'block' : 'flex', alignItems:'center', gap:14 }}>
+          <div style={{ display:'flex', alignItems:'center', gap:7, flexWrap:'nowrap', flexShrink:0 }}>
             <span style={{ fontSize:isMobile?13:15, fontWeight:800, color:'#0f172a' }}>{dia.diaSemana}</span>
             {isHoy && (
               <span style={{
@@ -436,12 +440,12 @@ function DiaBlock({ dia, idx, isHoy, isExpanded, onToggle, isMobile, fotoMap }: 
               }}>HOY</span>
             )}
           </div>
-          <div style={{ fontSize:11, color:'#6b7280', marginTop:1 }}>
+          <div style={{ fontSize:11, color:'#6b7280', marginTop: isMobile ? 1 : 0, whiteSpace:'nowrap' }}>
             {dia.label.split(',').slice(1).join(',').trim()}
           </div>
           {/* Mini-avatares maestros */}
           {!isMobile && (
-            <div style={{ display:'flex', alignItems:'center', gap:5, marginTop:5, flexWrap:'wrap' }}>
+            <div style={{ display:'flex', alignItems:'center', gap:5, marginTop:0, flexWrap:'nowrap', overflow:'hidden' }}>
               {dia.clases.map((c,i) => {
                 const [a,b] = MAESTRO_GRADS[i % MAESTRO_GRADS.length]
                 return (
@@ -468,7 +472,7 @@ function DiaBlock({ dia, idx, isHoy, isExpanded, onToggle, isMobile, fotoMap }: 
         </div>
 
         {/* Derecha: stats + chevron */}
-        <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-end', gap:6, flexShrink:0 }}>
+        <div style={{ display:'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: isMobile ? 'flex-end' : 'center', gap: isMobile ? 6 : 8, flexShrink:0 }}>
           <div style={{
             display:'flex', alignItems:'center', gap:5,
             background:'rgba(13,148,136,.08)', border:'1px solid rgba(13,148,136,.18)',
@@ -504,7 +508,9 @@ function DiaBlock({ dia, idx, isHoy, isExpanded, onToggle, isMobile, fotoMap }: 
           borderRadius:'0 0 20px 20px',
           boxShadow:'0 8px 28px rgba(0,0,0,.08)',
           padding: isMobile ? '14px 12px 18px' : '16px 18px 20px',
-          display:'flex', flexDirection:'column', gap:14,
+          display:'grid',
+          gridTemplateColumns: isMobile ? '1fr' : 'repeat(4, minmax(0, 1fr))',
+          gap:14,
           animation:'segSlideDown .26s ease both',
         }}>
           {dia.clases.map((clase, ci) => (

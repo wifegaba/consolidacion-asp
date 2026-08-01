@@ -370,6 +370,16 @@ export default function Contactos1Client(
     try {
       const count = await getUserAssignmentsCount(servidorId);
       if (count > 1) {
+        const etapaOrigen = params?.get('etapa');
+        const diaOrigen = params?.get('dia');
+        if (etapaOrigen && diaOrigen) {
+          // La semana es parte de la llave del portal; el prefijo permite
+          // identificar la tarjeta correspondiente aunque no venga en la URL.
+          const returnKey = `c-${etapaOrigen}-${diaOrigen}-`;
+          window.sessionStorage.setItem('portal-return-key', returnKey);
+          router.push(`/login/portal?return=${encodeURIComponent(returnKey)}`);
+          return;
+        }
         router.push('/login/portal');
       } else {
         router.push('/login');
@@ -378,7 +388,7 @@ export default function Contactos1Client(
       console.error('Error checking user roles:', error);
       router.push('/login');
     }
-  }, [servidorId, router]);
+  }, [servidorId, router, params]);
 
 
 

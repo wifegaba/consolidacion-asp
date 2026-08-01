@@ -923,7 +923,7 @@ export default function KidsAdminPage() {
                 flexShrink:     0,
               }}>
                 <div>
-                  <div style={{
+                  <div className="kids-panel-title" style={{
                     fontSize: isMobile ? 13 : 14,
                     fontWeight: 700,
                     letterSpacing: '-0.3px',
@@ -1367,6 +1367,51 @@ export default function KidsAdminPage() {
       </div>
 
       {/* ── Modales ── */}
+      <button
+        type="button"
+        onClick={() => { window.location.href = '/login/portal' }}
+        title="Cambiar perfil"
+        aria-label="Volver al selector de perfiles"
+        style={{
+          position: 'fixed',
+          left: isMobile ? 12 : 20,
+          bottom: isMobile ? 74 : 18,
+          zIndex: 180,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 7,
+          padding: isMobile ? '9px 11px' : '8px 12px',
+          border: '1px solid rgba(255,255,255,.72)',
+          borderRadius: 999,
+          color: '#172554',
+          background: 'linear-gradient(145deg, rgba(255,255,255,.88), rgba(219,234,254,.72))',
+          boxShadow: 'inset 0 1px 0 rgba(255,255,255,.96), 0 8px 22px rgba(15,23,42,.18)',
+          backdropFilter: 'blur(18px) saturate(150%)',
+          WebkitBackdropFilter: 'blur(18px) saturate(150%)',
+          fontSize: isMobile ? 10 : 11,
+          fontWeight: 800,
+          cursor: 'pointer',
+          transition: 'transform .25s cubic-bezier(.16,1,.3,1), box-shadow .25s ease, background .25s ease',
+        }}
+        onMouseEnter={event => {
+          const button = event.currentTarget
+          button.style.transform = 'translateY(-2px)'
+          button.style.background = 'linear-gradient(145deg, rgba(255,255,255,.98), rgba(224,242,254,.9))'
+          button.style.boxShadow = 'inset 0 1px 0 rgba(255,255,255,1), 0 12px 26px rgba(15,23,42,.22)'
+        }}
+        onMouseLeave={event => {
+          const button = event.currentTarget
+          button.style.transform = 'translateY(0)'
+          button.style.background = 'linear-gradient(145deg, rgba(255,255,255,.88), rgba(219,234,254,.72))'
+          button.style.boxShadow = 'inset 0 1px 0 rgba(255,255,255,.96), 0 8px 22px rgba(15,23,42,.18)'
+        }}
+      >
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <path d="M7 7h11M14 4l4 3-4 3M17 17H6M10 14l-4 3 4 3" />
+        </svg>
+        <span>Cambiar perfil</span>
+      </button>
+
       {servidorModal && (
         <ServidorModal
           servidor={editServidor}

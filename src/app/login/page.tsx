@@ -22,6 +22,7 @@ export default function LoginPage() {
   const [cedula, setCedula] = useState('');
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const cedulaInputRef = useRef<HTMLInputElement>(null);
   const pendingRef = useRef(false); // evita doble submit rápido
 
   // ESTADO PREMIUM: Controla la visibilidad del campo (text vs password)
@@ -31,12 +32,43 @@ export default function LoginPage() {
     setShowPassword(prev => !prev);
   };
 
+  // Se ejecuta solamente al interactuar con el campo; no hay intervalos ni
+  // sondeo continuo del navegador, por lo que no afecta el rendimiento.
+  const ensureFullscreen = () => {
+    if (window.matchMedia('(pointer: coarse)').matches) {
+      if (document.fullscreenElement) void document.exitFullscreen?.();
+      return;
+    }
+    if (document.fullscreenElement || !document.documentElement.requestFullscreen) return;
+    void document.documentElement.requestFullscreen().catch(() => {
+      // Algunos navegadores pueden requerir un gesto adicional o bloquearlo.
+      // El inicio de sesión sigue funcionando normalmente en ese caso.
+    });
+  };
+
+  const handleCredentialFocus = () => {
+    ensureFullscreen();
+    window.setTimeout(() => {
+      cedulaInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 80);
+  };
+
+  const enterFullscreenForPortal = () => {
+    if (!window.matchMedia('(pointer: coarse)').matches) return;
+    if (document.fullscreenElement || !document.documentElement.requestFullscreen) return;
+    void document.documentElement.requestFullscreen().catch(() => {
+      // Algunos navegadores solo permiten pantalla completa tras un gesto
+      // adicional; la navegación al portal continúa sin interrupciones.
+    });
+  };
+
   useEffect(() => {
     // kept for future use
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    enterFullscreenForPortal();
     await submitCedula();
   };
 
@@ -89,7 +121,7 @@ export default function LoginPage() {
   // no custom keyboard helper - using native keyboard on responsive
 
   return (
-    <main className="min-h-[100dvh] relative flex flex-col items-center justify-start pt-[8vh] sm:justify-center sm:pt-0 px-4 pb-6 sm:p-6 bg-[url('/fondo-login.jpg')] bg-cover bg-center bg-no-repeat overflow-hidden">
+    <main className="min-h-[100dvh] relative flex flex-col items-center justify-start pt-[8vh] sm:justify-center sm:pt-0 px-4 pb-6 sm:p-6 bg-[url('/fondo-login.jpg')] bg-cover bg-center bg-no-repeat overflow-x-hidden overflow-y-auto">
       {/* Overlay suave para mejor legibilidad (opcional, más claro) */}
       <div className="absolute inset-0 bg-white/10 pointer-events-none" />
 
@@ -209,12 +241,14 @@ export default function LoginPage() {
             <label htmlFor="cedula" className="sr-only">Cédula o Usuario</label>
             <input
               id="cedula"
+              ref={cedulaInputRef}
               type="tel"
               inputMode="numeric"
               autoComplete="off"
               placeholder="Ingrese su cédula o usuario"
               value={cedula}
               onChange={(e) => setCedula(normalizeCedula(e.target.value))}
+              onFocus={handleCredentialFocus}
               className="w-full px-4 py-3 pr-12 rounded-2xl bg-white/35 border border-white/60 text-slate-800 placeholder-slate-400 shadow-inner focus:outline-none focus:ring-2 focus:ring-sky-400 focus:border-transparent backdrop-blur-md"
               style={{ WebkitTextSecurity: showPassword ? 'none' : 'disc' } as React.CSSProperties}
             />

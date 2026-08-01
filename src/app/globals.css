@@ -20,6 +20,19 @@
 }
 @import "tailwindcss";
 
+/* Títulos principales de las pestañas del panel Kids: un único tono del sistema. */
+:root {
+  --kids-panel-title: #172554;
+}
+.kids-panel-title {
+  color: var(--kids-panel-title) !important;
+  background: none !important;
+  background-image: none !important;
+  -webkit-text-fill-color: var(--kids-panel-title) !important;
+  background-clip: border-box !important;
+  -webkit-background-clip: border-box !important;
+}
+
 /*
  * El workspace liquid glass controla la única entrada de contenido:
  * .lgx-window__content (lgxContentEnter). Las secciones internas no deben
@@ -82,6 +95,330 @@
 
 .server-aladdin-modal.is-opening { animation: server-aladdin-open .58s cubic-bezier(.18,.78,.2,1) both; }
 .server-aladdin-modal.is-closing { animation: server-aladdin-close .48s cubic-bezier(.4,0,.3,1) both; }
+
+/* Agenda: misma transición Aladdin de Servidores, con un panel de edición amplio. */
+.agenda-aladdin-backdrop {
+  background: rgba(8, 15, 34, .54);
+}
+.agenda-aladdin-modal {
+  width: min(88vw, 560px);
+  height: min(86dvh, 680px);
+  max-height: min(90dvh, 720px);
+  display: flex;
+  flex-direction: column;
+  background:
+    radial-gradient(circle at 12% 0%, rgba(255,255,255,.98), transparent 44%),
+    linear-gradient(145deg, rgba(249,251,255,.98), rgba(226,238,246,.96));
+}
+.agenda-aladdin-modal__header {
+  position: relative;
+  z-index: 3;
+  padding: 16px 18px;
+  border-bottom: 1px solid rgba(35, 43, 56, .12);
+  background:
+    radial-gradient(circle at 11% 0%, rgba(255,255,255,.9), transparent 36%),
+    linear-gradient(112deg, rgba(255,255,255,.56), rgba(148,163,184,.11));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.82), 0 1px 0 rgba(255,255,255,.5);
+}
+.agenda-aladdin-modal__header:has(.agenda-aladdin-modal__group-header) .agenda-aladdin-modal__legacy-header {
+  display: none !important;
+}
+.agenda-aladdin-modal__group-header {
+  margin-right: 54px;
+}
+.agenda-aladdin-modal__group-header .agenda-assignment-summary {
+  min-height: 64px;
+  margin: 0 !important;
+  padding: 12px 16px !important;
+  border-radius: 16px !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.96), 0 5px 14px rgba(15,23,42,.045) !important;
+}
+.agenda-aladdin-modal__group-header .agenda-assignment-summary h3 {
+  font-size: 18px !important;
+  letter-spacing: -.35px !important;
+}
+.agenda-aladdin-modal__group-header .agenda-assignment-summary span {
+  width: 9px !important;
+  height: 9px !important;
+}
+.agenda-aladdin-modal__eyebrow {
+  color: #64748b;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+.agenda-aladdin-modal__title {
+  margin: 1px 0 0;
+  overflow: hidden;
+  color: #172033;
+  font-size: 16px;
+  font-weight: 800;
+  line-height: 1.15;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.agenda-aladdin-modal__close {
+  position: absolute;
+  top: 50%;
+  right: 18px;
+  z-index: 4;
+  display: grid;
+  width: 30px;
+  height: 30px;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid rgba(100,116,139,.18);
+  border-radius: 50%;
+  color: #334155;
+  background: rgba(255,255,255,.72);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.9), 0 2px 7px rgba(15,23,42,.08);
+  cursor: pointer;
+  transition: transform .2s ease, background .2s ease;
+  transform: translateY(-50%);
+}
+.agenda-aladdin-modal__close:hover { transform: translateY(-50%) scale(1.06); background: #fff; }
+.agenda-aladdin-modal__content {
+  position: relative;
+  z-index: 3;
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 12px;
+  overflow: auto;
+  padding: 18px;
+}
+.agenda-aladdin-modal__content .agenda-assignment-summary {
+  min-height: 50px;
+  padding: 10px 13px !important;
+  border-radius: 14px !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.96), 0 5px 14px rgba(15,23,42,.045) !important;
+}
+.agenda-aladdin-modal__content .agenda-assignment-summary h3 {
+  font-size: 16px !important;
+  letter-spacing: -.3px !important;
+}
+.agenda-aladdin-modal__content .agenda-assignment-summary span {
+  width: 8px !important;
+  height: 8px !important;
+}
+.agenda-aladdin-modal__content .agenda-assignment-section {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 10px 2px 2px;
+  border-top: 1px solid rgba(100,116,139,.13);
+}
+.agenda-aladdin-modal__content.agenda-assignment-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-auto-rows: min-content;
+  align-content: start;
+  column-gap: 22px;
+  row-gap: 28px;
+}
+.agenda-aladdin-modal__content.agenda-assignment-grid .agenda-assignment-section {
+  min-width: 0;
+}
+.agenda-aladdin-modal__content .agenda-assignment-section > div:first-child span {
+  font-size: 13px !important;
+  font-weight: 750 !important;
+  letter-spacing: -.1px;
+}
+.agenda-aladdin-modal .agenda-glass-select__trigger {
+  height: 44px !important;
+  min-height: 44px;
+  padding: 0 14px !important;
+  border-radius: 13px !important;
+  font-size: 14px !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,1), 0 5px 14px rgba(15,23,42,.055) !important;
+}
+.agenda-aladdin-modal .agenda-glass-select__trigger svg {
+  width: 13px;
+  height: 13px;
+}
+.agenda-aladdin-modal .agenda-glass-select__menu {
+  z-index: 80 !important;
+  padding: 6px !important;
+  border-radius: 15px !important;
+  box-shadow: 0 16px 34px rgba(15,23,42,.18), inset 0 1px 0 rgba(255,255,255,1) !important;
+}
+.agenda-aladdin-modal .agenda-glass-select__menu button {
+  min-height: 36px;
+  padding: 8px 10px !important;
+  border-radius: 10px !important;
+  font-size: 12.5px !important;
+}
+.agenda-aladdin-modal .agenda-assignment-section > div:last-child:not(.agenda-glass-select) {
+  gap: 6px !important;
+  margin-top: 1px !important;
+}
+.agenda-aladdin-modal .agenda-assignment-section > div:last-child:not(.agenda-glass-select) > span {
+  padding: 5px 9px !important;
+  font-size: 11px !important;
+}
+@keyframes agenda-select-reveal {
+  from { opacity: 0; transform: translate3d(0, -7px, 0) scale(.975); filter: blur(3px); }
+  to { opacity: 1; transform: translate3d(0, 0, 0) scale(1); filter: blur(0); }
+}
+@keyframes agenda-select-option-in {
+  from { opacity: 0; transform: translate3d(0, -5px, 0); }
+  to { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+@media (max-width: 560px) {
+  .agenda-aladdin-modal__content.agenda-assignment-grid {
+    grid-template-columns: 1fr;
+    row-gap: 16px;
+  }
+}
+
+/* La tarjeta responde como una superficie de cristal presionada, sin saltos. */
+.agenda-program-card {
+  transform: translate3d(0, 0, 0);
+  transform-origin: center center;
+  will-change: transform, box-shadow;
+  transition:
+    transform .56s cubic-bezier(.22, 1, .36, 1),
+    box-shadow .56s cubic-bezier(.22, 1, .36, 1) !important;
+}
+
+/* Tablero de agenda: seis tarjetas en dos filas y un resumen de turno lateral. */
+.agenda-board-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1148px) minmax(286px, 390px);
+  align-items: stretch;
+  gap: 20px;
+  justify-content: space-between;
+}
+.agenda-info-transition {
+  overflow: hidden;
+}
+.agenda-info-transition.is-leaving > * {
+  pointer-events: none;
+  animation: agenda-schedule-out .18s cubic-bezier(.4, 0, 1, 1) both;
+}
+.agenda-info-transition.is-entering > * {
+  animation: agenda-schedule-in .42s cubic-bezier(.16, 1, .3, 1) both;
+}
+.agenda-info-transition.is-entering > :nth-child(2) { animation-delay: .018s; }
+.agenda-info-transition.is-entering > :nth-child(3) { animation-delay: .034s; }
+@keyframes agenda-schedule-out {
+  from { opacity: 1; transform: translate3d(0, 0, 0) scale(1); filter: blur(0); }
+  to { opacity: .08; transform: translate3d(34px, 0, 0) scale(.992); filter: blur(2px); }
+}
+@keyframes agenda-schedule-in {
+  from { opacity: .08; transform: translate3d(-26px, 0, 0) scale(.992); filter: blur(2px); }
+  65% { opacity: 1; transform: translate3d(2px, 0, 0) scale(1.002); filter: blur(0); }
+  to { opacity: 1; transform: translate3d(0, 0, 0) scale(1); filter: blur(0); }
+}
+.agenda-board-cards {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(260px, 1fr));
+  align-content: start;
+  gap: 12px;
+}
+.agenda-summary-card {
+  position: relative;
+  min-height: 448px;
+  overflow: hidden;
+  padding: 20px !important;
+  border: 1px solid rgba(255,255,255,.68) !important;
+  border-radius: 22px !important;
+  color: #172033;
+  background:
+    radial-gradient(circle at 12% 0%, rgba(255,255,255,.96), transparent 35%),
+    linear-gradient(145deg, rgba(241,248,255,.8), rgba(214,238,248,.56)) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.9),
+    inset 0 -1px 0 rgba(255,255,255,.36),
+    0 18px 42px rgba(15,23,42,.13) !important;
+}
+.agenda-summary-card__glow {
+  position: absolute;
+  width: 180px;
+  height: 180px;
+  right: -80px;
+  bottom: -84px;
+  border-radius: 50%;
+  pointer-events: none;
+  background: radial-gradient(circle, rgba(34,211,238,.28), rgba(59,130,246,.04) 60%, transparent 70%);
+}
+.agenda-summary-card__header,
+.agenda-summary-card__schedule,
+.agenda-summary-card__progress,
+.agenda-summary-card__metrics,
+.agenda-summary-card__footer { position: relative; z-index: 1; }
+.agenda-summary-card__header { display: flex; align-items: center; gap: 11px; }
+.agenda-summary-card__icon {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  place-items: center;
+  border-radius: 13px;
+  color: #0284c7;
+  background: rgba(224,242,254,.76);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.92), 0 5px 13px rgba(2,132,199,.12);
+}
+.agenda-summary-card__icon svg { width: 20px; height: 20px; }
+.agenda-summary-card__eyebrow { color: #64748b; font-size: 9px; font-weight: 750; letter-spacing: .1em; text-transform: uppercase; }
+.agenda-summary-card h3 { margin: 2px 0 0; color: #172033; font-size: 16px; font-weight: 800; letter-spacing: -.35px; }
+.agenda-summary-card__schedule {
+  display: grid;
+  gap: 3px;
+  margin-top: 20px;
+  padding: 13px 14px;
+  border: 1px solid rgba(148,163,184,.18);
+  border-radius: 15px;
+  background: rgba(255,255,255,.48);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.74);
+}
+.agenda-summary-card__schedule span { color: #0284c7; font-size: 10px; font-weight: 800; letter-spacing: .08em; }
+.agenda-summary-card__schedule strong { color: #172033; font-size: 21px; letter-spacing: -.55px; }
+.agenda-summary-card__schedule small { color: #64748b; font-size: 10px; font-weight: 600; }
+.agenda-summary-card__progress { margin-top: 18px; }
+.agenda-summary-card__progress-label { display: flex; justify-content: space-between; margin-bottom: 7px; color: #52637a; font-size: 10px; font-weight: 700; }
+.agenda-summary-card__progress-label strong { color: #0284c7; }
+.agenda-summary-card__progress-track { height: 7px; overflow: hidden; border-radius: 999px; background: rgba(148,163,184,.2); }
+.agenda-summary-card__progress-track span { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #38bdf8, #0284c7); box-shadow: 0 1px 5px rgba(2,132,199,.32); transition: width .45s cubic-bezier(.16,1,.3,1); }
+.agenda-summary-card__metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 18px; }
+.agenda-summary-card__metrics div { display: grid; gap: 2px; padding: 8px 3px; text-align: center; border-right: 1px solid rgba(100,116,139,.14); }
+.agenda-summary-card__metrics div:last-child { border-right: 0; }
+.agenda-summary-card__metrics strong { color: #172033; font-size: 17px; letter-spacing: -.4px; }
+.agenda-summary-card__metrics span { color: #64748b; font-size: 8.5px; font-weight: 650; line-height: 1.15; }
+.agenda-summary-card__footer { display: flex; align-items: center; gap: 8px; margin-top: 18px; padding-top: 14px; border-top: 1px solid rgba(100,116,139,.14); }
+.agenda-summary-card__footer span { display: grid; min-width: 30px; height: 22px; place-items: center; border-radius: 999px; color: #64748b; background: rgba(148,163,184,.14); font-size: 9px; font-weight: 800; }
+.agenda-summary-card__footer span.is-ready { color: #15803d; background: rgba(34,197,94,.14); }
+.agenda-summary-card__footer p { margin: 0; color: #52637a; font-size: 10px; font-weight: 650; }
+@media (max-width: 1640px) {
+  .agenda-board-layout { grid-template-columns: minmax(0, 1fr) minmax(286px, 340px); }
+}
+@media (max-width: 1240px) {
+  .agenda-board-layout { grid-template-columns: 1fr; }
+  .agenda-board-cards { grid-template-columns: repeat(3, minmax(220px, 1fr)); }
+  .agenda-summary-card { min-height: 0; }
+}
+@media (max-width: 760px) {
+  .agenda-board-layout.is-mobile,
+  .agenda-board-cards { grid-template-columns: 1fr; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .agenda-info-transition.is-leaving > *,
+  .agenda-info-transition.is-entering > * { animation: none; }
+}
+@media (hover: hover) and (pointer: fine) {
+  .agenda-program-card:hover {
+    transform: translate3d(0, 3px, 0) scale(.988);
+    box-shadow:
+      inset 0 2px 7px rgba(15,23,42,.07),
+      inset 0 -1px 0 rgba(255,255,255,.76),
+      0 3px 8px rgba(15,23,42,.075) !important;
+  }
+  .agenda-program-card:active {
+    transform: translate3d(0, 4px, 0) scale(.984);
+    transition-duration: .16s !important;
+  }
+}
 
 .server-aladdin-modal__shine {
   position: absolute;
@@ -630,14 +967,17 @@
 
 .nino-aladdin-modal .server-profile-header {
   background:
-    radial-gradient(circle at 35% -35%, rgba(255,255,255,.96), transparent 48%),
+    radial-gradient(circle at 35% -35%, rgba(255,255,255,.8), transparent 48%),
     linear-gradient(
       112deg,
-      rgba(9,32,61,.76) 0%,
-      rgba(238,245,252,.94) 34%,
-      rgba(250,252,255,.92) 61%,
-      rgba(14,20,30,.68) 100%
-    );
+      rgba(255,255,255,.34) 0%,
+      rgba(255,255,255,.12) 52%,
+      rgba(9,20,38,.22) 100%
+    ),
+    var(--nino-header-gradient, linear-gradient(135deg,#38bdf8,#7dd3fc));
+  background-blend-mode: screen, normal, normal;
+  backdrop-filter: blur(24px) saturate(145%);
+  -webkit-backdrop-filter: blur(24px) saturate(145%);
   box-shadow:
     inset 0 1px 0 rgba(255,255,255,.88),
     inset 0 -1px 0 rgba(5,16,31,.16),

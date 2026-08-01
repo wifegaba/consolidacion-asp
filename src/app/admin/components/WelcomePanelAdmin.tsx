@@ -214,9 +214,9 @@ export default function WelcomePanelAdmin({
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -20 }}
                         transition={{ duration: 0.3, ease: "easeOut" }}
-                        className="mt-2 relative z-20 flex flex-col sm:flex-row gap-3 items-center justify-center"
+                        className="mt-2 relative z-20 flex flex-col sm:flex-row gap-3 md:gap-7 items-center justify-center"
                     >
-                        <DirectorAccessCard onEnter={() => setShowDirectorMenu(true)} />
+                        <DirectorAccessCard onEnter={() => onSelectSection('maestros')} />
                         <DirectorDashboardCard onSelectDashboard={() => onSelectSection('dashboard')} />
                     </motion.div>
                 ) : (
@@ -309,7 +309,8 @@ function DirectorAccessCard({ onEnter }: { onEnter: () => void }) {
     return (
         <button
             onClick={onEnter}
-            className="group relative w-full max-w-[240px] mx-auto rounded-2xl overflow-hidden shadow-2xl transition-all duration-500 hover:scale-[1.02] hover:shadow-blue-900/20 focus:outline-none focus:ring-4 focus:ring-blue-400/30"
+            className="lgx-content-card lgx-content-card--blue group relative w-full max-w-[240px] mx-auto rounded-2xl overflow-hidden shadow-2xl will-change-transform hover:translate-y-[2px] hover:scale-[.992] hover:shadow-blue-900/10 focus:outline-none focus:ring-4 focus:ring-blue-400/30"
+            style={{ transition: 'transform 700ms cubic-bezier(.16, 1, .3, 1), box-shadow 700ms cubic-bezier(.16, 1, .3, 1), filter 500ms ease' }}
         >
             <img
                 src="/director-access-card.png"
@@ -327,7 +328,11 @@ function DirectorDashboardCard({ onSelectDashboard }: { onSelectDashboard: () =>
     return (
         <button
             onClick={onSelectDashboard}
-            className="group relative w-full max-w-[240px] mx-auto rounded-2xl overflow-hidden shadow-2xl transition-all duration-500 hover:scale-[1.02] hover:shadow-emerald-900/20 focus:outline-none focus:ring-4 focus:ring-emerald-400/30"
+            className="lgx-content-card group relative w-full max-w-[240px] mx-auto rounded-2xl overflow-hidden shadow-2xl will-change-transform hover:translate-y-[2px] hover:scale-[.992] hover:shadow-emerald-900/10 focus:outline-none focus:ring-4 focus:ring-emerald-400/30"
+            style={{
+                '--lgx-card-tone': '#10b981',
+                transition: 'transform 700ms cubic-bezier(.16, 1, .3, 1), box-shadow 700ms cubic-bezier(.16, 1, .3, 1), filter 500ms ease',
+            } as React.CSSProperties}
         >
             <img
                 src="/dashboard-card.png"

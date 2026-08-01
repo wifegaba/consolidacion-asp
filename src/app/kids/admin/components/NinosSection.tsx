@@ -539,7 +539,7 @@ export default function NinosSection({
           {/* Title (Izquierda) */}
           <div style={{ flex: '0 0 auto' }}>
             <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-              <h1 style={{ fontSize: isMobile ? 20 : isCompact ? 18 : 20, fontWeight:900, color:'#111827', margin:0, letterSpacing:'-0.5px', lineHeight:1 }}>
+              <h1 className="kids-panel-title" style={{ fontSize: isMobile ? 20 : isCompact ? 18 : 20, fontWeight:900, color:'#111827', margin:0, letterSpacing:'-0.5px', lineHeight:1 }}>
                 Niños
               </h1>
               <span style={{ fontSize: isMobile ? 16 : isCompact ? 16 : 18, lineHeight:1 }}>⭐</span>
@@ -1618,10 +1618,11 @@ function ninoAladdinOriginFromRect(rect: DOMRect) {
 }
 
 function NinoAladdinModal({
-  nino, origin, closing, onClose, onEdit,
+  nino, origin, headerGradient, closing, onClose, onEdit,
 }: {
   nino: KidsNino
   origin: Record<string, string>
+  headerGradient: string
   closing: boolean
   onClose: () => void
   onEdit: () => void
@@ -1639,7 +1640,7 @@ function NinoAladdinModal({
     <div className={`server-aladdin-backdrop nino-aladdin-backdrop ${closing ? 'is-closing' : 'is-opening'}`} onClick={onClose} role="presentation">
       <section
         className={`server-aladdin-modal nino-aladdin-modal ${closing ? 'is-closing' : 'is-opening'}`}
-        style={origin as React.CSSProperties}
+        style={{ ...origin, '--nino-header-gradient': headerGradient } as React.CSSProperties}
         onClick={event => event.stopPropagation()}
         aria-label={`Información de ${nino.nombre} ${nino.apellido || ''}`}
       >
@@ -2168,6 +2169,7 @@ function NinoCard({
       <NinoAladdinModal
         nino={nino}
         origin={aladdinOrigin}
+        headerGradient={grad}
         closing={closingExpanded}
         onClose={closeExpanded}
         onEdit={() => {

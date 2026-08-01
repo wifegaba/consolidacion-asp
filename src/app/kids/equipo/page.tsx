@@ -142,9 +142,19 @@ export default function KidsEquipoPage() {
               <strong>Equipo de clase</strong>
             </div>
           </div>
-          <button type="button" className="kids-staff-logout" onClick={logout}>
-            Salir
-          </button>
+          <div className="kids-staff-header-actions">
+            <button
+              type="button"
+              className="kids-staff-profile-switch"
+              onClick={() => router.push('/login/portal')}
+            >
+              <span aria-hidden="true">←</span>
+              Cambiar perfil
+            </button>
+            <button type="button" className="kids-staff-logout" onClick={logout}>
+              Salir
+            </button>
+          </div>
         </header>
 
         <div className="kids-staff-welcome">
@@ -236,6 +246,14 @@ const styles = `
     box-shadow: 0 10px 28px rgba(33,59,95,.12), inset 0 1px #fff;
   }
   .kids-staff-logo img { width: 43px; height: 43px; object-fit: contain; }
+  .kids-staff-header-actions { display: flex; align-items: center; gap: 9px; }
+  .kids-staff-profile-switch {
+    min-height: 42px; padding: 0 16px; border: 1px solid rgba(15,118,110,.15); border-radius: 999px;
+    background: rgba(255,255,255,.62); color: #0f766e; font: inherit; font-size: 12px; font-weight: 800;
+    cursor: pointer; box-shadow: inset 0 1px rgba(255,255,255,.92); transition: transform .22s ease, background .22s ease;
+  }
+  .kids-staff-profile-switch span { margin-right: 5px; font-size: 16px; line-height: 0; vertical-align: -1px; }
+  .kids-staff-profile-switch:hover { background: rgba(255,255,255,.9); transform: translateY(-1px); }
   .kids-staff-logout {
     min-height: 42px; padding: 0 18px; border: 1px solid rgba(220,38,38,.13); border-radius: 999px;
     background: rgba(255,255,255,.64); color: #dc2626; font: inherit; font-size: 12px; font-weight: 800; cursor: pointer;
@@ -307,6 +325,8 @@ const styles = `
   @media (max-width: 600px) {
     .kids-staff-shell { padding: 14px 12px 30px; overflow-y: auto; }
     .kids-staff-header { margin-bottom: 15px; }
+    .kids-staff-header-actions { gap: 6px; }
+    .kids-staff-profile-switch, .kids-staff-logout { min-height: 38px; padding: 0 11px; font-size: 10px; }
     .kids-staff-welcome { padding: 19px 16px; border-radius: 24px; }
     .kids-staff-avatar { width: 64px; height: 64px; flex-basis: 64px; border-radius: 20px; }
     .kids-staff-roles, .kids-staff-access { margin-top: 23px; }

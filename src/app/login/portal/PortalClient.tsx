@@ -2,7 +2,7 @@
 
 import { motion } from 'framer-motion';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import PremiumLoader from '../../components/PremiumLoader';
 import { Fire, Student } from '@phosphor-icons/react';
 import Image from 'next/image';
@@ -17,6 +17,15 @@ type Asignacion = {
     key: string;
 };
 
+type RoleFocusPhase = 'idle' | 'expanding' | 'open' | 'returning';
+
+type RoleFocusGeometry = {
+    fromX: number;
+    fromY: number;
+    scaleX: number;
+    scaleY: number;
+};
+
 // Custom SVG Icons matching the panel
 const ContactoIcon = ({ variant }: { variant?: 'martes' | 'virtual' | 'default' }) => (
     <svg width="60" height="60" viewBox="0 0 24 24" fill="currentColor" className={`${variant === 'virtual' ? 'text-fuchsia-400' :
@@ -28,8 +37,8 @@ const ContactoIcon = ({ variant }: { variant?: 'martes' | 'virtual' | 'default' 
 
 const MaestroIcon = ({ variant }: { variant?: 'martes' | 'virtual' | 'default' }) => (
     <svg width="60" height="60" viewBox="0 0 24 24" fill="currentColor" className={`${variant === 'virtual' ? 'text-fuchsia-400' :
-        variant === 'martes' ? 'text-sky-400' : 'text-indigo-600'
-        } drop-shadow-md transition-colors duration-500`}>
+        variant === 'martes' ? 'text-sky-300' : 'text-sky-100'
+        } drop-shadow-[0_0_14px_rgba(191,219,254,.72)] transition-colors duration-500`}>
         <circle cx="12" cy="6" r="3.5" fillOpacity="0.9" />
         <circle cx="6" cy="16" r="3.5" fillOpacity="0.7" />
         <circle cx="18" cy="16" r="3.5" fillOpacity="0.7" />
@@ -66,13 +75,14 @@ const DirectorIcon = () => (
 
 const AdminIcon = () => (
     <div className="relative w-24 h-24 flex items-center justify-center">
+        <div className="absolute inset-2 rounded-full bg-white/15 blur-xl" />
         <div className="absolute inset-0 flex items-center justify-center" style={{ transform: 'scale(6.2)', pointerEvents: 'none' }}>
             <Image
                 src="/gestor-academico.png"
                 alt="Gestor Académico"
                 width={800}
                 height={800}
-                className="object-contain"
+                className="object-contain brightness-0 invert drop-shadow-[0_0_12px_rgba(255,255,255,.82)]"
                 priority
             />
         </div>
@@ -161,6 +171,73 @@ const KidsCoordinadorIcon = ({ etapa }: { etapa: string }) => (
 export default function PortalClient({ nombre, asignaciones }: { nombre: string, asignaciones: Asignacion[] }) {
     const router = useRouter();
     const [loadingKey, setLoadingKey] = useState<string | null>(null);
+    const [focusedRole, setFocusedRole] = useState<Asignacion | null>(null);
+    const [focusPhase, setFocusPhase] = useState<RoleFocusPhase>('idle');
+    const [focusGeometry, setFocusGeometry] = useState<RoleFocusGeometry | null>(null);
+
+    useEffect(() => {
+        const ensurePortalFullscreen = () => {
+            if (document.hidden || document.fullscreenElement || !document.documentElement.requestFullscreen) return;
+            void document.documentElement.requestFullscreen().catch(() => {
+                // Algunos navegadores requieren un gesto del usuario; el
+                // listener pointerdown lo reintentará en el siguiente clic.
+            });
+        };
+
+        const onVisibilityChange = () => {
+            if (!document.hidden) ensurePortalFullscreen();
+        };
+
+        ensurePortalFullscreen();
+        document.addEventListener('fullscreenchange', ensurePortalFullscreen);
+        document.addEventListener('visibilitychange', onVisibilityChange);
+        window.addEventListener('pageshow', ensurePortalFullscreen);
+        window.addEventListener('pointerdown', ensurePortalFullscreen, { passive: true });
+
+        return () => {
+            document.removeEventListener('fullscreenchange', ensurePortalFullscreen);
+            document.removeEventListener('visibilitychange', onVisibilityChange);
+            window.removeEventListener('pageshow', ensurePortalFullscreen);
+            window.removeEventListener('pointerdown', ensurePortalFullscreen);
+        };
+    }, []);
+
+    useEffect(() => {
+        const returningKey = window.sessionStorage.getItem('portal-return-key')
+            ?? new URLSearchParams(window.location.search).get('return');
+        if (!returningKey) return;
+        window.sessionStorage.removeItem('portal-return-key');
+
+        const returningRole = asignaciones.find((role) =>
+            role.key === returningKey || (returningKey.endsWith('-') && role.key.startsWith(returningKey)),
+        );
+        if (!returningRole) return;
+
+        const frame = window.requestAnimationFrame(() => {
+            const source = document.querySelector<HTMLElement>(`[data-role-key="${returningRole.key}"]`);
+            if (!source) return;
+            const sourceRect = source.getBoundingClientRect();
+            const inset = window.innerWidth < 640 ? 12 : 24;
+            const targetWidth = window.innerWidth - inset * 2;
+            const targetHeight = window.innerHeight - inset * 2;
+
+            setFocusedRole(returningRole);
+            setFocusGeometry({
+                fromX: sourceRect.left - inset,
+                fromY: sourceRect.top - inset,
+                scaleX: sourceRect.width / targetWidth,
+                scaleY: sourceRect.height / targetHeight,
+            });
+            setFocusPhase('returning');
+            window.setTimeout(() => {
+                setFocusPhase('idle');
+                setFocusedRole(null);
+                setFocusGeometry(null);
+            }, 620);
+        });
+
+        return () => window.cancelAnimationFrame(frame);
+    }, [asignaciones]);
 
     const handleSelect = async (a: Asignacion) => {
         if (loadingKey) return;
@@ -199,6 +276,9 @@ export default function PortalClient({ nombre, asignaciones }: { nombre: string,
         } catch (error) {
             console.error(error);
             setLoadingKey(null);
+            setFocusPhase('idle');
+            setFocusedRole(null);
+            setFocusGeometry(null);
         }
     };
 
@@ -214,16 +294,44 @@ export default function PortalClient({ nombre, asignaciones }: { nombre: string,
         }
     };
 
+    const openRolePreview = (role: Asignacion, source: HTMLElement) => {
+        if (focusPhase !== 'idle' || loadingKey) return;
+        const sourceRect = source.getBoundingClientRect();
+        const inset = window.innerWidth < 640 ? 12 : 24;
+        const targetWidth = window.innerWidth - inset * 2;
+        const targetHeight = window.innerHeight - inset * 2;
+
+        setFocusedRole(role);
+        setFocusGeometry({
+            fromX: sourceRect.left - inset,
+            fromY: sourceRect.top - inset,
+            scaleX: sourceRect.width / targetWidth,
+            scaleY: sourceRect.height / targetHeight,
+        });
+        setFocusPhase('expanding');
+        window.setTimeout(() => {
+            setFocusPhase('open');
+            void handleSelect(role);
+        }, 720);
+    };
+
     return (
         <main
             className="min-h-screen relative flex flex-col items-center justify-center p-6 overflow-hidden"
             style={{
-                background: 'radial-gradient(circle at 50% 0%, #1e40af 0%, #0f172a 50%, #020617 100%)', // Cleaner Cosmic Blue -> Dark
-                backgroundColor: '#020617'
+                background: [
+                    'radial-gradient(ellipse 64% 52% at 20% -10%, rgba(190, 224, 255, 0.70) 0%, rgba(118, 184, 255, 0.29) 42%, transparent 74%)',
+                    'radial-gradient(ellipse 58% 48% at 92% 16%, rgba(223, 211, 255, 0.58) 0%, rgba(161, 130, 255, 0.20) 45%, transparent 74%)',
+                    'radial-gradient(ellipse 50% 42% at 50% 104%, rgba(66, 183, 204, 0.20) 0%, transparent 72%)',
+                    'linear-gradient(145deg, #18346f 0%, #0d1e4b 45%, #050b1d 100%)',
+                ].join(', '),
             }}
         >
-            {/* Top Light Source - Stronger Glow */}
-            <div className="absolute top-[-10%] left-1/2 -translate-x-1/2 w-[600px] h-[500px] bg-blue-500/20 blur-[120px] rounded-full pointer-events-none mix-blend-screen" />
+            {/* Luces ambientales suaves, inspiradas en el acabado de vidrio de Apple. */}
+            <div className="absolute top-[-16%] left-[8%] h-[520px] w-[520px] rounded-full bg-sky-100/30 blur-[130px] pointer-events-none" />
+            <div className="absolute top-[-8%] right-[-10%] h-[500px] w-[500px] rounded-full bg-violet-100/25 blur-[145px] pointer-events-none" />
+            <div className="absolute bottom-[-25%] left-[28%] h-[460px] w-[700px] rounded-full bg-cyan-300/10 blur-[150px] pointer-events-none" />
+            <div className="absolute inset-0 pointer-events-none opacity-30 bg-[radial-gradient(circle_at_50%_0%,rgba(255,255,255,.16),transparent_34%)]" />
 
             <div className="w-full max-w-4xl z-10 relative">
                 <header className="mb-8 text-center">
@@ -254,22 +362,14 @@ export default function PortalClient({ nombre, asignaciones }: { nombre: string,
                             transition={{ delay: i * 0.1, duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
                             whileHover={!loadingKey ? { y: -8, scale: 1.02 } : {}}
                             whileTap={!loadingKey ? { scale: 0.98 } : {}}
-                            onClick={() => handleSelect(a)}
-                            disabled={!!loadingKey}
-                            className={`relative group flex flex-col items-center rounded-[32px] text-center w-full h-full transition-all duration-300 ${asignaciones.length <= 2 ? 'px-8 py-8' : 'p-5'
-                                } ${loadingKey && loadingKey !== a.key ? 'opacity-50 blur-sm' : ''} ${loadingKey === a.key ? 'cursor-wait' : ''}`}
+                            onClick={(event) => openRolePreview(a, event.currentTarget)}
+                            disabled={!!loadingKey || focusPhase !== 'idle'}
+                            data-role-key={a.key}
+                            className={`lgx-content-card lgx-content-card--deep relative group flex flex-col items-center overflow-hidden rounded-[32px] text-center w-full h-full transition-all duration-300 ${asignaciones.length <= 2 ? 'px-8 py-8' : 'p-5'
+                                } ${loadingKey && loadingKey !== a.key ? 'opacity-50 blur-sm' : ''} ${loadingKey === a.key ? 'cursor-wait' : ''} ${focusedRole?.key === a.key ? 'opacity-0 pointer-events-none' : ''}`}
                             style={{
-                                // Ultra Glass Effect - Cleaner with Glowing Edges
-                                background: 'linear-gradient(180deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.0) 100%)',
-                                backdropFilter: 'blur(16px)',
-                                WebkitBackdropFilter: 'blur(16px)',
-                                borderTop: '1px solid rgba(255, 255, 255, 0.5)', // Brighter top
-                                borderLeft: '1px solid rgba(255, 255, 255, 0.2)',
-                                borderRight: '1px solid rgba(255, 255, 255, 0.2)',
-                                borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
-                                // Outer Blue Glow + Inner White highlight
-                                boxShadow: '0 0 15px rgba(59, 130, 246, 0.4), inset 0 0 0 1px rgba(255, 255, 255, 0.1), inset 0 0 20px rgba(59, 130, 246, 0.2)',
-                            }}
+                                '--lgx-card-tone': a.tipo === 'administrador' ? '#8b5cf6' : '#2563eb',
+                            } as React.CSSProperties}
                         >
                             {/* Card Inner Glow Hover Effect */}
                             <div className="absolute inset-0 rounded-[40px] bg-gradient-to-b from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
@@ -385,7 +485,11 @@ export default function PortalClient({ nombre, asignaciones }: { nombre: string,
                     transition={{ delay: 1 }}
                     className="mt-8 text-center"
                 >
-                    <a href="/login" className="relative group inline-flex items-center gap-3 px-8 py-3 rounded-full overflow-hidden transition-all">
+                    <a
+                        href="/login"
+                        className="lgx-content-card lgx-content-card--deep relative group inline-flex items-center gap-3 px-8 py-3 rounded-full overflow-hidden transition-all"
+                        style={{ '--lgx-card-tone': '#2563eb' } as React.CSSProperties}
+                    >
                         {/* Button Glow */}
                         <div className="absolute inset-0 bg-white/5 border border-white/20 rounded-full group-hover:bg-white/10 group-hover:border-white/40 transition-all duration-300" />
                         <div className="absolute inset-0 bg-blue-500/20 blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
@@ -395,6 +499,62 @@ export default function PortalClient({ nombre, asignaciones }: { nombre: string,
                     </a>
                 </motion.div>
             </div>
+
+            {focusedRole && focusGeometry && (
+                <>
+                    {focusPhase !== 'returning' && (
+                        <div className="fixed inset-0 z-40 bg-slate-950/35 backdrop-blur-sm" />
+                    )}
+                    <section
+                        role="dialog"
+                        aria-modal="true"
+                        aria-label={`Vista previa de ${getTitle(focusedRole.tipo)}`}
+                        className={`lgx-content-card lgx-content-card--deep fixed z-50 flex flex-col items-center justify-center overflow-hidden rounded-[32px] px-8 text-center text-white ${
+                            focusPhase === 'expanding'
+                                ? 'portal-role-focus--expanding'
+                                : focusPhase === 'returning'
+                                    ? 'portal-role-focus--returning pointer-events-none'
+                                    : 'portal-role-focus--open'
+                        }`}
+                        style={{
+                            left: 24,
+                            top: 24,
+                            width: 'calc(100vw - 48px)',
+                            height: 'calc(100vh - 48px)',
+                            '--lgx-card-tone': focusedRole.tipo === 'administrador' ? '#8b5cf6' : '#2563eb',
+                            '--portal-from-x': `${focusGeometry.fromX}px`,
+                            '--portal-from-y': `${focusGeometry.fromY}px`,
+                            '--portal-scale-x': focusGeometry.scaleX,
+                            '--portal-scale-y': focusGeometry.scaleY,
+                        } as React.CSSProperties}
+                    >
+                        <div className={`max-w-md transition-all duration-300 ${focusPhase === 'open' ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
+                            <p className="text-xs font-bold uppercase tracking-[.24em] text-sky-100/80">Perfil de acceso</p>
+                            <h2 className="mt-3 text-4xl font-bold tracking-tight">{getTitle(focusedRole.tipo)}</h2>
+                            <p className="mt-3 text-base text-white/80">
+                                {focusedRole.etapa} · {focusedRole.dia}
+                            </p>
+                            <p className="mt-8 text-sm font-semibold text-white/80">Abriendo panel…</p>
+                        </div>
+                    </section>
+                </>
+            )}
+            <style>{`
+                @keyframes portalRoleExpand {
+                    from { transform: translate3d(var(--portal-from-x), var(--portal-from-y), 0) scale(var(--portal-scale-x), var(--portal-scale-y)); }
+                    to { transform: translate3d(0, 0, 0) scale(1); }
+                }
+                @keyframes portalRoleCollapse {
+                    from { transform: translate3d(0, 0, 0) scale(1); }
+                    to { transform: translate3d(var(--portal-from-x), var(--portal-from-y), 0) scale(var(--portal-scale-x), var(--portal-scale-y)); }
+                }
+                .portal-role-focus--expanding { animation: portalRoleExpand .72s cubic-bezier(.22,.72,.18,1) both; transform-origin: top left; }
+                .portal-role-focus--open { transform: translate3d(0, 0, 0) scale(1); transform-origin: top left; }
+                .portal-role-focus--returning { animation: portalRoleCollapse .62s cubic-bezier(.4,0,.24,1) both; transform-origin: top left; }
+                @media (max-width: 639px) {
+                    .portal-role-focus--expanding, .portal-role-focus--open, .portal-role-focus--returning { left: 12px !important; top: 12px !important; width: calc(100vw - 24px) !important; height: calc(100vh - 24px) !important; }
+                }
+            `}</style>
         </main>
     );
 }

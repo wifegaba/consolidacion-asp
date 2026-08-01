@@ -268,11 +268,13 @@ const PendienteItem = memo(({
       variants={LIST_ITEM_VARIANTS}
       layout
       className={`px-4 md:px-5 py-3 transition
-        ${selectedId === c.progreso_id ? 'bg-white/50' : ''}
-        rounded-lg m-2 ring-2 ${c._ui === 'new' ? 'ring-emerald-300/60 animate-fadeInScale' : 'ring-transparent'}
+        ${selectedId === c.progreso_id
+          ? 'bg-gradient-to-r from-cyan-100/95 via-sky-100/90 to-indigo-100/90 ring-sky-400/70 shadow-[0_10px_24px_-12px_rgba(14,165,233,.75)]'
+          : ''}
+        rounded-xl m-2 ring-2 ${selectedId === c.progreso_id ? '' : (c._ui === 'new' ? 'ring-emerald-300/60 animate-fadeInScale' : 'ring-transparent')}
         ${c._ui === 'changed' ? 'animate-flashBg' : ''}
         ${disabled ? 'opacity-55 cursor-not-allowed' : 'hover:bg-white/40 cursor-pointer'}
-        transition-[box-shadow] duration-500`}
+        transition-all duration-300`}
       onClick={(e) => {
         onSelect(e, c);
       }}
@@ -401,6 +403,14 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
     try {
       const count = await getUserAssignmentsCount(servidorId);
       if (count > 1) {
+        const etapaOrigen = params?.get('etapa');
+        const diaOrigen = params?.get('dia');
+        if (etapaOrigen && diaOrigen) {
+          const returnKey = `m-${etapaOrigen}-${diaOrigen}`;
+          window.sessionStorage.setItem('portal-return-key', returnKey);
+          router.push(`/login/portal?return=${encodeURIComponent(returnKey)}`);
+          return;
+        }
         router.push('/login/portal');
       } else {
         router.push('/login');
@@ -409,7 +419,7 @@ export default function MaestrosClient({ cedula: cedulaProp }: { cedula?: string
       console.error('Error checking user roles:', error);
       router.push('/login');
     }
-  }, [servidorId, router]);
+  }, [servidorId, router, params]);
 
 
 
@@ -2741,13 +2751,20 @@ function FollowUp({
 
         <div>
           <label className="text-xs text-neutral-700">Resultado de la llamada</label>
-          <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+          <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-px overflow-hidden rounded-xl bg-sky-200/70 ring-1 ring-white/70 shadow-[0_10px_24px_-20px_rgba(14,116,144,.5)]">
             {opciones.map((o) => (
-              <label key={o.value} className="flex items-center gap-2 rounded-lg ring-1 ring-white/60 bg-white/60 supports-[backdrop-filter]:bg-white/40 px-3 py-2 cursor-pointer">
+              <label
+                key={o.value}
+                className={`flex items-center gap-2 px-3 py-2 cursor-pointer transition-colors duration-200 ${
+                  resultado === o.value
+                    ? 'bg-gradient-to-r from-cyan-100 via-sky-100 to-indigo-100 text-slate-950'
+                    : 'bg-white/45 supports-[backdrop-filter]:bg-white/30 hover:bg-white/60'
+                }`}
+              >
                 <input
                   type="radio"
                   name="resultado"
-                  className="accent-blue-600"
+                  className="accent-sky-600"
                   onChange={() => setResultado(o.value)}
                   checked={resultado === o.value}
                 />

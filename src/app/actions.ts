@@ -454,17 +454,59 @@ export async function moverEstudianteAction(
   modulo: number,
   semana: number,
   dia: string
-): Promise<{ success: boolean; error?: string }> {
+): Promise<{ success: boolean; newProgresoId?: string; error?: string }> {
   unstable_noStore();
   const supabaseAdmin = getSupabaseAdminClient();
   try {
-    const { error } = await supabaseAdmin
+    // Un traslado inicia un nuevo ciclo de llamadas. Reutilizar el mismo
+    // progreso conserva los registros de llamada y la restriccion por semana
+    // impide registrar el resultado en el grupo destino.
+    const { data: progresoAnterior, error: sourceError } = await supabaseAdmin
       .from('progreso')
-      .update({ etapa, modulo, semana, dia, activo: true, estado: 'pendiente_llamar' })
-      .eq('id', progresoId);
+      .eq('id', progresoId)
+      .select('persona_id')
+      .maybeSingle();
 
-    if (error) throw error;
-    return { success: true };
+    if (sourceError) throw sourceError;
+    if (!progresoAnterior) throw new Error('No se encontr\u00f3 el progreso original para trasladar.');
+
+    const { data: progresoCerrado, error: closeError } = await supabaseAdmin
+      .from('progreso')
+      .update({ activo: false })
+      .eq('id', progresoId)
+      .eq('activo', true)
+      .select('id')
+      .maybeSingle();
+
+    if (closeError || !progresoCerrado) {
+      throw closeError ?? new Error('El progreso original ya no est\u00e1 activo.');
+    }
+
+    const { data: progresoNuevo, error: insertError } = await supabaseAdmin
+      .from('progreso')
+      .insert({
+        persona_id: progresoAnterior.persona_id,
+        etapa,
+        modulo,
+        semana,
+        dia,
+        activo: true,
+        estado: 'pendiente_llamar',
+        // El nuevo grupo debe estar disponible de inmediato y no heredar el
+        // bloqueo temporal que pudiera tener el registro anterior.
+        habilitado_desde: null,
+      })
+      .select('id')
+      .single();
+
+    if (insertError) {
+      // La tabla solo admite un progreso activo por persona. Si no se pudo
+      // crear el destino, se restaura inmediatamente el registro origen.
+      await supabaseAdmin.from('progreso').update({ activo: true }).eq('id', progresoId);
+      throw insertError;
+    }
+
+    return { success: true, newProgresoId: progresoNuevo.id };
   } catch (err: any) {
     console.error("Error en moverEstudianteAction:", err);
     return { success: false, error: err.message || 'Error al mover estudiante' };

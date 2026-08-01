@@ -513,7 +513,7 @@ export default function AsistenciasSection({
             <div style={{ fontSize:isMobile ? 8 : 7, fontWeight:750, color:'#0d9488', letterSpacing:'1.4px', textTransform:'uppercase', marginBottom:0 }}>
               Módulo Kids
             </div>
-            <div style={{ fontSize:isMobile ? 17 : 18, lineHeight:1.05, fontWeight:850, color:'#0f172a', letterSpacing:'-0.4px' }}>
+            <div className="kids-panel-title" style={{ fontSize:isMobile ? 17 : 18, lineHeight:1.05, fontWeight:850, color:'#0f172a', letterSpacing:'-0.4px' }}>
               Asistencias
             </div>
             <div style={{ fontSize:isMobile ? 8 : 7.5, color:'#6b7280', marginTop:1, textTransform:'capitalize', whiteSpace:'nowrap' }}>{today}</div>

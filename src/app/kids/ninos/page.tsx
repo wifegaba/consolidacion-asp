@@ -297,6 +297,26 @@ export default function KidsNinosPage() {
           onTakeAttendance={accessSource === 'hub' ? () => router.push('/kids/asistencias') : undefined}
         />
       </div>
+      {accessSource === 'hub' && (
+        <button
+          type="button"
+          onClick={() => router.push('/kids/equipo')}
+          aria-label="Volver al menú de roles"
+          style={{
+            position:'fixed', bottom: isMobile ? 14 : 20, left: isMobile ? 14 : 20, zIndex:50,
+            minHeight:40, padding:'0 14px 0 11px', borderRadius:999,
+            border:'1px solid rgba(255,255,255,.88)',
+            background:'rgba(255,255,255,.76)', color:'#0f766e',
+            boxShadow:'0 10px 28px rgba(15,118,110,.16), inset 0 1px rgba(255,255,255,.96)',
+            backdropFilter:'blur(16px) saturate(150%)', WebkitBackdropFilter:'blur(16px) saturate(150%)',
+            display:'flex', alignItems:'center', gap:7, cursor:'pointer',
+            fontSize:isMobile ? 11 : 12, fontWeight:800,
+          }}
+        >
+          <span aria-hidden="true" style={{ fontSize:19, lineHeight:1 }}>←</span>
+          Volver a roles
+        </button>
+      )}
     </div>
     </>
   )

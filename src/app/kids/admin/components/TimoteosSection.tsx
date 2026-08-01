@@ -311,22 +311,27 @@ export default function TimoteosSection({ servidores }: Props) {
         }
         .timoteos-eyebrow {
           margin: 0 0 5px;
-          color: #0d817c;
+          color: #075f78;
           font-size: clamp(.66rem, .8vw, .76rem);
           font-weight: 850;
           letter-spacing: .19em;
           text-transform: uppercase;
+          text-shadow: 0 1px 0 rgba(255,255,255,.42);
         }
         .timoteos-title {
           margin: 0;
+          color: var(--kids-panel-title) !important;
           font-size: clamp(1.65rem, 2.6vw, 2.65rem);
           line-height: 1;
           letter-spacing: -.055em;
+          text-shadow: 0 1px 0 rgba(255,255,255,.5);
         }
         .timoteos-subtitle {
           margin: 8px 0 0;
-          color: #60708b;
+          color: #334b6b;
           font-size: clamp(.76rem, 1vw, .94rem);
+          font-weight: 600;
+          text-shadow: 0 1px 0 rgba(255,255,255,.36);
         }
         .timoteos-summary {
           display: flex;
@@ -349,11 +354,13 @@ export default function TimoteosSection({ servidores }: Props) {
           box-shadow: 0 0 0 5px rgba(36,188,169,.12);
         }
         .timoteos-summary strong {
+          color: #172554;
           font-size: .78rem;
         }
         .timoteos-summary span {
-          color: #748098;
+          color: #40546e;
           font-size: .7rem;
+          font-weight: 600;
         }
         .timoteos-grid {
           display: grid;
@@ -1068,7 +1075,7 @@ export default function TimoteosSection({ servidores }: Props) {
       <header className="timoteos-header">
         <div>
           <p className="timoteos-eyebrow">Ministerio Kids · Coordinación</p>
-          <h1 id="timoteos-title" className="timoteos-title">Equipos de Timoteos</h1>
+          <h1 id="timoteos-title" className="timoteos-title kids-panel-title">Equipos de Timoteos</h1>
           <p className="timoteos-subtitle">
             Coordinadores organizados automáticamente según su grupo asignado.
           </p>
