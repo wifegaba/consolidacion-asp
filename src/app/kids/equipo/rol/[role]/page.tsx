@@ -2,8 +2,10 @@
 
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
+import TimoteosCoordinatorClient from './TimoteosCoordinatorClient'
 
 type Profile = {
+  id: string
   nombre: string
   apellido: string
   foto_url: string | null
@@ -68,6 +70,15 @@ export default function KidsRolePanelPage() {
   }
 
   const label = ROLE_LABELS[requestedRole] ?? requestedRole
+
+  if (requestedRole === 'COORDINADOR DE TIMOTEOS') {
+    return (
+      <TimoteosCoordinatorClient
+        coordinator={profile}
+        onBack={() => router.push('/kids/equipo')}
+      />
+    )
+  }
 
   return (
     <main className="kids-role-shell">

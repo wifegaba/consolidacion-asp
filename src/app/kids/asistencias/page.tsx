@@ -130,7 +130,7 @@ export default function KidsAsistenciasPage() {
       {/* ══════════════════════════════════════════
           LOGO NAV — centrado, items a los lados
       ══════════════════════════════════════════ */}
-      <div style={{
+      {false && <div style={{
         position:'relative', width:'100%', height:110,
         flexShrink:0, zIndex:10,
       }}>
@@ -275,12 +275,30 @@ export default function KidsAsistenciasPage() {
             pointerEvents:'none', zIndex:1,
           }}/>
         )}
-      </div>
+      </div>}
 
       {/* ── AsistenciasSection ocupa el resto ── */}
       <div style={{ position:'relative', zIndex:1, width:'100%', flex:1 }}>
         <AsistenciasSection usuario={usuario} />
       </div>
+      <button
+        type="button"
+        onClick={() => router.push('/kids/ninos')}
+        aria-label="Volver al panel de niños"
+        style={{
+          position:'fixed', left:16, bottom:16, zIndex:50,
+          display:'flex', alignItems:'center', gap:7,
+          minHeight:42, padding:'0 15px 0 12px', borderRadius:999,
+          border:'1px solid rgba(15,118,110,.18)',
+          background:'rgba(255,255,255,.84)', color:'#0f766e',
+          boxShadow:'inset 0 1px rgba(255,255,255,.96), 0 10px 26px rgba(38,62,96,.16)',
+          backdropFilter:'blur(16px) saturate(150%)',
+          font:'inherit', fontSize:12, fontWeight:850, cursor:'pointer',
+        }}
+      >
+        <span aria-hidden="true" style={{ fontSize:19, lineHeight:1 }}>←</span>
+        Volver a niños
+      </button>
     </div>
     </>
   )

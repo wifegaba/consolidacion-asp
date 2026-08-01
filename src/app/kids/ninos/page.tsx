@@ -293,7 +293,6 @@ export default function KidsNinosPage() {
         <NinosSection
           usuario={usuario}
           logoNavOpen={logoNavOpen}
-          hideManagementControls={accessSource === 'hub'}
           onTakeAttendance={accessSource === 'hub' ? () => router.push('/kids/asistencias') : undefined}
         />
       </div>

@@ -619,20 +619,6 @@ export default function NinosSection({
 
           {/* Botón Agregar Niño (Derecha) */}
           <div style={{ flex: '0 0 auto', display:'flex', alignItems:'center', gap:8 }}>
-            {!hideManagementControls && isMobile && !showFormModal && (
-              <FabButton
-                onClick={() => {
-                  setEditNino(null)
-                  resetPhotoState()
-                  setForm({ nombreCompleto:'', edad:'', acudiente:'', telefono:'', grupo:'', observaciones:'' })
-                  setFormErr('')
-                  setShowFormModal(true)
-                }}
-              />
-            )}
-
-
-
             {/* Botón Agregar Niño en seguida del saludo */}
             {!hideManagementControls && (
             <button
@@ -738,20 +724,25 @@ export default function NinosSection({
                 type="button"
                 onClick={onTakeAttendance}
                 title="Tomar asistencia"
+                aria-label="Tomar asistencia"
                 style={{
-                  display:'flex', alignItems:'center', gap:5,
-                  padding:'5px 10px', borderRadius:50,
+                  position: isMobile ? 'fixed' : 'static',
+                  right: isMobile ? 16 : undefined,
+                  bottom: isMobile ? 76 : undefined,
+                  zIndex: isMobile ? 40 : undefined,
+                  display:'flex', alignItems:'center', gap:6,
+                  padding: isMobile ? '10px 15px' : '5px 10px', borderRadius:50,
                   border:'1px solid rgba(15,155,142,.22)',
                   background:'linear-gradient(135deg,#0f9b8e,#14b8a6)',
-                  color:'#fff', fontSize:10, fontWeight:800,
-                  cursor:'pointer', boxShadow:'0 3px 10px rgba(15,155,142,.24)',
+                  color:'#fff', fontSize:isMobile ? 12 : 10, fontWeight:800,
+                  cursor:'pointer', boxShadow: isMobile ? '0 12px 26px rgba(15,155,142,.3), inset 0 1px rgba(255,255,255,.34)' : '0 3px 10px rgba(15,155,142,.24)',
                   whiteSpace:'nowrap',
                 }}
               >
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
+                <svg width={isMobile ? 15 : 11} height={isMobile ? 15 : 11} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
                 </svg>
-                Asistencia
+                Tomar asistencia
               </button>
             ) : (
               <button
@@ -1904,7 +1895,7 @@ function NinoCard({
 
           {/* Edad */}
           {nino.edad != null && (
-            <div style={{ fontSize:dense ? 7.5 : 8, color:'#9ca3af', marginBottom:2 }}>
+            <div style={{ fontSize:dense ? 8.5 : 9, fontWeight:700, color:'#64748b', marginBottom:3, textShadow:'0 1px rgba(255,255,255,.72)' }}>
               {nino.edad} {nino.edad === 1 ? 'año' : 'años'}
             </div>
           )}

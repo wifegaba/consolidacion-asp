@@ -74,6 +74,7 @@ export default function AsistenciasSection({
   const videoRef   = useRef<HTMLVideoElement>(null)
   const canvasRef  = useRef<HTMLCanvasElement>(null)
   const streamRef  = useRef<MediaStream | null>(null)
+  const cameraRequestRef = useRef(0)
   const imageInputRef = useRef<HTMLInputElement>(null)
 
   /* ── state ── */
@@ -92,6 +93,7 @@ export default function AsistenciasSection({
   const [imageError,     setImageError]     = useState('')
   const [isMobile,       setIsMobile]      = useState(false)
   const [facingMode,     setFacingMode]    = useState<'user' | 'environment'>('environment')
+  const [cameraFullscreen, setCameraFullscreen] = useState(false)
   const [successMsg,     setSuccessMsg]    = useState('')
   const [isCompact,      setIsCompact]     = useState(false)
   /* ── Historial state ── */
@@ -180,29 +182,53 @@ export default function AsistenciasSection({
 
   /* ── iniciar cámara ── */
   const startCamera = useCallback(async (facing: 'user' | 'environment' = facingMode) => {
+    const requestId = ++cameraRequestRef.current
     setCameraErr('')
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setCameraErr('La cámara no está disponible en este navegador.')
+      return
+    }
     if (streamRef.current) {
-      streamRef.current.getTracks().forEach(t => t.stop())
+      streamRef.current.getTracks().forEach(track => track.stop())
       streamRef.current = null
     }
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: facing, width: { ideal: 1280 }, height: { ideal: 720 } },
-        audio: false,
-      })
-      streamRef.current = stream
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream
-        await videoRef.current.play()
+
+    const attempts: MediaStreamConstraints[] = [
+      { video: { facingMode: { ideal: facing }, width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false },
+      { video: { facingMode: { ideal: facing } }, audio: false },
+      { video: true, audio: false },
+    ]
+
+    let lastError: unknown
+    for (const constraints of attempts) {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia(constraints)
+        if (requestId !== cameraRequestRef.current) {
+          stream.getTracks().forEach(track => track.stop())
+          return
+        }
+        streamRef.current = stream
+        const video = videoRef.current
+        if (!video) return
+        video.srcObject = stream
+        await video.play()
+        return
+      } catch (error) {
+        lastError = error
       }
-    } catch (e: any) {
-      setCameraErr('No se pudo acceder a la cámara. Verifique los permisos.')
     }
+
+    if (requestId !== cameraRequestRef.current) return
+    const reason = lastError instanceof DOMException && lastError.name === 'NotAllowedError'
+      ? 'Permite el acceso a la cámara desde el navegador y vuelve a intentarlo.'
+      : 'No se pudo abrir la cámara. Verifica los permisos e inténtalo de nuevo.'
+    setCameraErr(reason)
   }, [facingMode])
 
   useEffect(() => {
     if (mode === 'camera' && activeTab === 'registrar') startCamera(facingMode)
     return () => {
+      cameraRequestRef.current += 1
       if (streamRef.current) {
         streamRef.current.getTracks().forEach(t => t.stop())
         streamRef.current = null
@@ -232,6 +258,7 @@ export default function AsistenciasSection({
     }
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
     const dataUrl = canvas.toDataURL('image/jpeg', 0.96)
+    setCameraFullscreen(false)
     setRecognitionSource('camera')
     setImageError('')
     setCapturedUrl(dataUrl)
@@ -255,6 +282,7 @@ export default function AsistenciasSection({
 
     setImageError('')
     setSaveError('')
+    setCameraFullscreen(false)
     setRecognitionSource('upload')
 
     if (streamRef.current) {
@@ -878,30 +906,51 @@ export default function AsistenciasSection({
             <div style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', padding:'20px 16px', gap:14 }}>
               {/* Video */}
               <div style={{
-                width:'min(100%, 420px)', height:'clamp(150px, 34dvh, 315px)',
-                borderRadius:20, overflow:'hidden', background:'#0f172a', position:'relative',
-                boxShadow:'0 12px 40px rgba(0,0,0,.22)',
-                border:'2px solid rgba(255,255,255,.15)',
+                width: cameraFullscreen ? '100vw' : 'min(100%, 420px)',
+                height: cameraFullscreen ? '100dvh' : 'clamp(150px, 34dvh, 315px)',
+                inset: cameraFullscreen ? 0 : undefined,
+                zIndex: cameraFullscreen ? 120 : undefined,
+                borderRadius: cameraFullscreen ? 0 : 20,
+                overflow:'hidden', background:'#0f172a', position: cameraFullscreen ? 'fixed' : 'relative',
+                boxShadow: cameraFullscreen ? 'none' : '0 12px 40px rgba(0,0,0,.22)',
+                border: cameraFullscreen ? 'none' : '2px solid rgba(255,255,255,.15)',
               }}>
+                {isMobile && !cameraFullscreen && (
+                  <button
+                    type="button"
+                    onClick={() => { setCameraFullscreen(true); void startCamera(facingMode) }}
+                    aria-label="Abrir cámara"
+                    style={{
+                      position:'absolute', inset:0, zIndex:3, border:0,
+                      background:'#0f172a', color:'rgba(255,255,255,.84)', cursor:'pointer',
+                      display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:14,
+                    }}
+                  >
+                    <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.55" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                    <span style={{ fontSize:14, fontWeight:750, letterSpacing:'-.1px' }}>
+                      Toca para abrir la cámara
+                    </span>
+                  </button>
+                )}
                 {cameraErr ? (
                   <div style={{
                     position:'absolute', inset:0, display:'flex', flexDirection:'column',
                     alignItems:'center', justifyContent:'center', gap:10, padding:24,
                   }}>
-                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.4)" strokeWidth="1.5">
+                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.4)" strokeWidth="1.5" style={{ display: isMobile ? 'none' : 'block' }}>
                       <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
                       <circle cx="12" cy="13" r="4"/>
                     </svg>
-                    <p style={{ fontSize:12, color:'rgba(255,255,255,.55)', textAlign:'center' }}>{cameraErr}</p>
+                    {!isMobile && <p style={{ fontSize:12, color:'rgba(255,255,255,.55)', textAlign:'center' }}>{cameraErr}</p>}
                     <button
                       onClick={() => startCamera(facingMode)}
                       style={{
-                        padding:'8px 20px', borderRadius:50, background:'rgba(255,255,255,.15)',
-                        border:'1px solid rgba(255,255,255,.3)', color:'#fff', fontSize:12,
-                        cursor:'pointer', fontWeight:600,
+                        width:72, height:72, borderRadius:'50%', background:'rgba(255,255,255,.1)',
+                        border:'1px solid rgba(255,255,255,.3)', color:'#fff',
+                        cursor:'pointer', display:'grid', placeItems:'center',
                       }}
                     >
-                      Reintentar
+                      <svg width="37" height="37" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1 2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
                     </button>
                   </div>
                 ) : (
@@ -951,7 +1000,15 @@ export default function AsistenciasSection({
                 onChange={handleImageUpload}
                 style={{ display:'none' }}
               />
-              <div style={{ display:'flex', alignItems:'center', gap:12 }}>
+              <div style={{
+                display: cameraFullscreen || !isMobile ? 'flex' : 'none', alignItems:'center', gap:12,
+                position: cameraFullscreen ? 'fixed' : 'static',
+                zIndex: cameraFullscreen ? 121 : undefined,
+                left: cameraFullscreen ? 0 : undefined,
+                right: cameraFullscreen ? 0 : undefined,
+                bottom: cameraFullscreen ? 96 : undefined,
+                justifyContent: cameraFullscreen ? 'center' : undefined,
+              }}>
                 {/* Cambiar cámara */}
                 <button
                   onClick={switchCamera}
@@ -997,9 +1054,10 @@ export default function AsistenciasSection({
                   className="attendance-upload-button"
                   onClick={() => imageInputRef.current?.click()}
                   title="Seleccionar una imagen para reconocimiento"
+                  aria-label="Subir imagen"
                   style={{
-                    height:44, minWidth:isMobile ? 112 : 126, padding:'0 14px',
-                    borderRadius:50, border:'1px solid rgba(8,145,178,.24)',
+                    height:44, minWidth:isMobile && cameraFullscreen ? 44 : (isMobile ? 112 : 126), padding:isMobile && cameraFullscreen ? 0 : '0 14px',
+                    borderRadius:isMobile && cameraFullscreen ? '50%' : 50, border:'1px solid rgba(8,145,178,.24)',
                     background:'linear-gradient(145deg,rgba(255,255,255,.94),rgba(236,254,255,.78))',
                     color:'#0e7490', cursor:'pointer', display:'flex',
                     alignItems:'center', justifyContent:'center', gap:8,
@@ -1012,11 +1070,27 @@ export default function AsistenciasSection({
                     <circle cx="8.5" cy="8.5" r="1.5"/>
                     <path d="m21 15-5-5L5 21"/>
                   </svg>
-                  Subir imagen
+                  {!(isMobile && cameraFullscreen) && 'Subir imagen'}
                 </button>
 
+                {isMobile && cameraFullscreen && (
+                  <button
+                    type="button"
+                    onClick={() => setCameraFullscreen(false)}
+                    title="Cerrar cámara"
+                    aria-label="Cerrar cámara"
+                    style={{
+                      width:44, height:44, borderRadius:'50%', border:'1px solid rgba(255,255,255,.42)',
+                      background:'rgba(15,23,42,.72)', color:'#fff', cursor:'pointer',
+                      display:'grid', placeItems:'center', boxShadow:'0 5px 18px rgba(0,0,0,.25)',
+                    }}
+                  >
+                    <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"><path d="m6 6 12 12M18 6 6 18"/></svg>
+                  </button>
+                )}
+
                 {/* Modelos status */}
-                <div
+                {!isMobile && <div
                   title={modelsReady ? 'IA lista' : 'Cargando IA...'}
                   style={{
                     width:44, height:44, borderRadius:'50%',
@@ -1030,14 +1104,14 @@ export default function AsistenciasSection({
                     background: modelsReady ? '#10b981' : '#f59e0b',
                     boxShadow: modelsReady ? '0 0 6px rgba(16,185,129,.8)' : '0 0 6px rgba(245,158,11,.8)',
                   }}/>
-                </div>
+                </div>}
               </div>
 
-              <p style={{ fontSize:11, color:'#9ca3af', textAlign:'center', margin:0 }}>
+              <p style={{ display: isMobile || cameraFullscreen ? 'none' : 'block', fontSize:11, color:'#9ca3af', textAlign:'center', margin:0 }}>
                 Usa la cámara o analiza una foto JPG, PNG o WEBP
               </p>
               <div style={{
-                display:'flex', alignItems:'center', gap:6, marginTop:-8,
+                display: isMobile || cameraFullscreen ? 'none' : 'flex', alignItems:'center', gap:6, marginTop:-8,
                 color:'#64748b', fontSize:9, fontWeight:600,
               }}>
                 <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#0d9488" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">

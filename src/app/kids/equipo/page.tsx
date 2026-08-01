@@ -73,6 +73,32 @@ export default function KidsEquipoPage() {
       .finally(() => setLoading(false))
   }, [router])
 
+  useEffect(() => {
+    const ensureKidsMenuFullscreen = () => {
+      if (document.hidden || document.fullscreenElement || !document.documentElement.requestFullscreen) return
+      void document.documentElement.requestFullscreen().catch(() => {
+        // Algunos navegadores requieren un gesto; se reintenta con la siguiente interacción.
+      })
+    }
+
+    const onVisibilityChange = () => {
+      if (!document.hidden) ensureKidsMenuFullscreen()
+    }
+
+    ensureKidsMenuFullscreen()
+    document.addEventListener('fullscreenchange', ensureKidsMenuFullscreen)
+    document.addEventListener('visibilitychange', onVisibilityChange)
+    window.addEventListener('pageshow', ensureKidsMenuFullscreen)
+    window.addEventListener('pointerdown', ensureKidsMenuFullscreen, { passive: true })
+
+    return () => {
+      document.removeEventListener('fullscreenchange', ensureKidsMenuFullscreen)
+      document.removeEventListener('visibilitychange', onVisibilityChange)
+      window.removeEventListener('pageshow', ensureKidsMenuFullscreen)
+      window.removeEventListener('pointerdown', ensureKidsMenuFullscreen)
+    }
+  }, [])
+
   async function logout() {
     await Promise.allSettled([
       fetch('/api/kids/equipo/logout', { method: 'POST' }),
@@ -184,12 +210,12 @@ export default function KidsEquipoPage() {
           </div>
 
           <div className="kids-staff-access-grid">
-            {panels.map(panel => (
+            {panels.map((panel, index) => (
               <button
                 type="button"
                 key={panel.key}
                 className="kids-staff-access-card"
-                style={{ '--panel-color': panel.color } as React.CSSProperties}
+                style={{ '--panel-color': panel.color, '--panel-delay': `${180 + index * 70}ms` } as React.CSSProperties}
                 onClick={() => router.push(panel.href)}
               >
                 <div className="kids-staff-access-icon">
@@ -234,7 +260,7 @@ const styles = `
   .kids-staff-panel { position: relative; z-index: 1; width: min(100%, 1040px); margin: 0 auto; }
   .kids-staff-header {
     display: flex; align-items: center; justify-content: space-between; gap: 14px;
-    margin-bottom: 24px;
+    margin-bottom: 24px; animation: kidsStaffPanelEnter .55s cubic-bezier(.16,1,.3,1) both; will-change: transform, opacity;
   }
   .kids-staff-brand { display: flex; align-items: center; gap: 11px; }
   .kids-staff-brand div:last-child { display: flex; flex-direction: column; }
@@ -263,7 +289,7 @@ const styles = `
     border: 1px solid rgba(255,255,255,.92); border-radius: 30px;
     background: linear-gradient(120deg, rgba(255,255,255,.82), rgba(245,249,255,.57));
     box-shadow: 0 26px 70px rgba(47,61,99,.13), inset 0 1px #fff;
-    backdrop-filter: blur(24px);
+    backdrop-filter: blur(24px); animation: kidsStaffPanelEnter .62s .06s cubic-bezier(.16,1,.3,1) both; will-change: transform, opacity;
   }
   .kids-staff-avatar {
     width: 76px; height: 76px; display: grid; flex: 0 0 76px; place-items: center; overflow: hidden;
@@ -274,7 +300,7 @@ const styles = `
   .kids-staff-welcome p { margin: 0 0 3px; color: #0f9b8e; font-size: 12px; font-weight: 800; }
   .kids-staff-welcome h1 { margin: 0; font-size: clamp(27px, 5vw, 42px); line-height: 1; letter-spacing: -.05em; }
   .kids-staff-welcome div:last-child > span { display: inline-block; margin-top: 9px; color: #68758d; font-size: 13px; font-weight: 650; }
-  .kids-staff-roles, .kids-staff-access { margin-top: 28px; }
+  .kids-staff-roles, .kids-staff-access { margin-top: 28px; animation: kidsStaffPanelEnter .62s .12s cubic-bezier(.16,1,.3,1) both; will-change: transform, opacity; }
   .kids-staff-section-title { display: flex; align-items: end; justify-content: space-between; margin: 0 3px 12px; }
   .kids-staff-section-title span { color: #718096; font-size: 10px; font-weight: 850; letter-spacing: .16em; text-transform: uppercase; }
   .kids-staff-section-title h2 { margin: 2px 0 0; font-size: 21px; letter-spacing: -.035em; }
@@ -304,7 +330,7 @@ const styles = `
       radial-gradient(circle at 96% 0, color-mix(in srgb, var(--panel-color) 14%, transparent), transparent 42%),
       linear-gradient(125deg, rgba(255,255,255,.88), rgba(239,245,252,.68));
     box-shadow: 0 18px 50px color-mix(in srgb, var(--panel-color) 13%, transparent), inset 0 1px #fff;
-    color: inherit; text-align: left; cursor: pointer; transition: transform .28s ease, box-shadow .28s ease;
+    color: inherit; text-align: left; cursor: pointer; animation: kidsStaffCardEnter .56s var(--panel-delay) cubic-bezier(.16,1,.3,1) both; transition: transform .28s ease, box-shadow .28s ease; will-change: transform, opacity; contain: layout paint;
   }
   .kids-staff-access-card:hover { transform: translateY(-3px); box-shadow: 0 24px 58px color-mix(in srgb, var(--panel-color) 19%, transparent), inset 0 1px #fff; }
   .kids-staff-access-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(310px, 1fr)); gap: 13px; }
@@ -322,6 +348,9 @@ const styles = `
   .kids-staff-loading { display: grid; place-content: center; justify-items: center; gap: 13px; background: #e6f7f4; color: #536176; font-size: 13px; font-weight: 700; }
   .kids-staff-spinner { width: 38px; height: 38px; border: 3px solid rgba(15,155,142,.16); border-top-color: #0f9b8e; border-radius: 50%; animation: kidsStaffSpin .8s linear infinite; }
   @keyframes kidsStaffSpin { to { transform: rotate(360deg); } }
+  @keyframes kidsStaffPanelEnter { from { opacity: 0; transform: translateY(18px) scale(.985); } to { opacity: 1; transform: translateY(0) scale(1); } }
+  @keyframes kidsStaffCardEnter { from { opacity: 0; transform: translateX(28px) translateY(14px) scale(.97); } to { opacity: 1; transform: translateX(0) translateY(0) scale(1); } }
+  @media (prefers-reduced-motion: reduce) { .kids-staff-header, .kids-staff-welcome, .kids-staff-roles, .kids-staff-access, .kids-staff-access-card { animation: none !important; } }
   @media (max-width: 600px) {
     .kids-staff-shell { padding: 14px 12px 30px; overflow-y: auto; }
     .kids-staff-header { margin-bottom: 15px; }
