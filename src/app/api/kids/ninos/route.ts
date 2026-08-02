@@ -2,6 +2,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { getServerSupabase } from '@/lib/supabaseClient';
 import { canCreateKids, getKidsNinosActor } from '@/lib/kidsNinosAuth';
+import { findPossibleKidsDuplicates } from '@/lib/kidsDuplicateDetection';
 
 // foto_url SIEMPRE existe en la tabla (text, nullable) → va en BASE_FIELDS
 const BASE_FIELDS = [
@@ -61,6 +62,47 @@ export async function POST(req: NextRequest) {
     }
 
     const supabase = getServerSupabase();
+
+    // Validación final en servidor: previene duplicados incluso si se salta la
+    // interfaz o si otro dispositivo registra al mismo niño a la vez.
+    const duplicateFields = [...BASE_FIELDS, ...EXTRA_FIELDS].join(', ');
+    let { data: existingKids, error: duplicateError } = await supabase
+      .from('kids_ninos')
+      .select(duplicateFields);
+    if (duplicateError && duplicateError.message.includes('column')) {
+      const fallback = await supabase.from('kids_ninos').select(BASE_FIELDS.join(', '));
+      if (fallback.error) throw fallback.error;
+      existingKids = fallback.data;
+      duplicateError = null;
+    }
+    if (duplicateError) throw duplicateError;
+
+    const duplicates = findPossibleKidsDuplicates(
+      {
+        nombre,
+        apellido,
+        edad: edad != null ? Number(edad) : null,
+        telefono,
+        face_descriptor: validFaceDescriptor(face_descriptor) ? face_descriptor : null,
+      },
+      (existingKids ?? []).map((kid: any) => ({
+        id: kid.id,
+        nombre: kid.nombre,
+        apellido: kid.apellido,
+        edad: kid.edad,
+        telefono: kid.telefono ?? kid.telefono_acudiente,
+        face_descriptor: validFaceDescriptor(kid.face_descriptor) ? kid.face_descriptor : null,
+        activo: kid.activo,
+      })),
+    );
+    if (duplicates.length > 0) {
+      const duplicate = duplicates[0];
+      return NextResponse.json({
+        error: `Posible duplicado: ya existe ${duplicate.nombre} ${duplicate.apellido}. Revisa el registro antes de crear otro.`,
+        code: 'POSSIBLE_DUPLICATE',
+        duplicates,
+      }, { status: 409 });
+    }
 
     const record: Record<string, any> = {
       nombre:             nombre.trim(),

@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { extractFaceDescriptor, type FaceStatus } from '@/lib/faceRecognition'
+import { findPossibleKidsDuplicates, type PossibleDuplicate } from '@/lib/kidsDuplicateDetection'
 import { normalizeSearchText } from '../utils/normalizeSearchText'
 
 /* ── Types ─────────────────────────────────────────────────────────────── */
@@ -146,6 +147,7 @@ export default function NinosSection({
   const [filterGrupo, setFilterGrupo]= useState('todos')
   const [filterOpen,  setFilterOpen] = useState(false)
   const [formErr,     setFormErr]    = useState('')
+  const [possibleDuplicate, setPossibleDuplicate] = useState<PossibleDuplicate | null>(null)
   const [successMsg,  setSuccessMsg] = useState('')
   const [editNino,         setEditNino]         = useState<KidsNino | null>(null)
   const [photoFile,        setPhotoFile]        = useState<File | null>(null)   // archivo a subir
@@ -258,6 +260,7 @@ export default function NinosSection({
     if (!nombre) { setFormErr('El nombre es obligatorio'); return }
     setSaving(true)
     setFormErr('')
+    setPossibleDuplicate(null)
     try {
       // Esperar el descriptor de la foto seleccionada antes de guardar evita
       // que una imagen nueva quede asociada al rostro anterior o a ninguno.
@@ -268,6 +271,33 @@ export default function NinosSection({
         if (extractionRun === faceExtractionRunRef.current) {
           descriptorForSave = extracted ? Array.from(extracted) : null
           setFaceDescriptor(descriptorForSave)
+        }
+      }
+
+      // Al tener la foto lista hacemos una alerta inmediata antes de subirla.
+      // El servidor repite la validación para que no sea posible evadirla.
+      if (!editNino) {
+        const duplicates = findPossibleKidsDuplicates(
+          {
+            nombre,
+            apellido,
+            edad: form.edad ? parseInt(form.edad) : null,
+            telefono: form.telefono,
+            face_descriptor: descriptorForSave,
+          },
+          ninos.map(n => ({
+            id: n.id,
+            nombre: n.nombre,
+            apellido: n.apellido,
+            edad: n.edad,
+            telefono: n.telefono ?? n.telefono_acudiente,
+            face_descriptor: n.face_descriptor,
+            activo: n.activo,
+          })),
+        )
+        if (duplicates.length > 0) {
+          setPossibleDuplicate(duplicates[0])
+          return
         }
       }
 
@@ -307,7 +337,15 @@ export default function NinosSection({
         }),
       })
       const json = await res.json()
-      if (!res.ok) { setFormErr(json.error ?? 'Error al guardar'); return }
+      if (!res.ok) {
+        const duplicate = json.duplicates?.[0] as PossibleDuplicate | undefined
+        if (res.status === 409 && json.code === 'POSSIBLE_DUPLICATE' && duplicate) {
+          setPossibleDuplicate(duplicate)
+        } else {
+          setFormErr(json.error ?? 'Error al guardar')
+        }
+        return
+      }
 
       if (editNino) {
         setNinos(prev => prev.map(n => n.id === editNino.id ? json.data : n))
@@ -339,6 +377,7 @@ export default function NinosSection({
   }
 
   function startEdit(n: KidsNino) {
+    setPossibleDuplicate(null)
     setEditNino(n)
     resetPhotoState()
     setExistingPhotoUrl(n.foto_url ?? null)
@@ -363,6 +402,7 @@ export default function NinosSection({
   }
 
   function cancelEdit() {
+    setPossibleDuplicate(null)
     setEditNino(null)
     resetPhotoState()
     setForm({ nombreCompleto:'', edad:'', acudiente:'', telefono:'', grupo:'', observaciones:'' })
@@ -495,6 +535,13 @@ export default function NinosSection({
   function handleSaveObs(n: KidsNino, obs: string) {
     setNinos(prev => prev.map(x => x.id === n.id ? { ...x, observaciones: obs || null } : x))
   }
+
+  const duplicateNino = possibleDuplicate
+    ? ninos.find(n => n.id === possibleDuplicate.id) ?? null
+    : null
+  const duplicateName = possibleDuplicate
+    ? `${possibleDuplicate.nombre}${possibleDuplicate.apellido ? ` ${possibleDuplicate.apellido}` : ''}`
+    : ''
 
   /* ════════════════════════════════════════════════════════════════════
      RENDER
@@ -653,6 +700,7 @@ export default function NinosSection({
                 resetPhotoState()
                 setForm({ nombreCompleto:'', edad:'', acudiente:'', telefono:'', grupo:'', observaciones:'' })
                 setFormErr('')
+                setPossibleDuplicate(null)
                 setShowFormModal(true)
               }}
               style={{
@@ -1315,6 +1363,30 @@ export default function NinosSection({
       </div>
     </>
   )}
+
+    {possibleDuplicate && (
+      <div role="dialog" aria-modal="true" aria-labelledby="duplicate-kid-title" style={{ position:'fixed', inset:0, zIndex:150, display:'flex', alignItems:'center', justifyContent:'center', padding:20, background:'rgba(15,12,41,.58)', backdropFilter:'blur(5px)' }}>
+        <div style={{ width:'100%', maxWidth:390, borderRadius:26, padding:'28px 24px 22px', background:'linear-gradient(160deg,#ffffff 0%,#f5f3ff 100%)', boxShadow:'0 26px 80px rgba(30,27,75,.35)', animation:'ninoCardIn .28s ease both', textAlign:'center' }}>
+          <div style={{ width:60, height:60, margin:'0 auto 14px', borderRadius:20, display:'flex', alignItems:'center', justifyContent:'center', color:'#fff', fontSize:29, background:'linear-gradient(135deg,#8b5cf6,#6366f1)', boxShadow:'0 10px 24px rgba(124,58,237,.32)' }}>👋</div>
+          <h3 id="duplicate-kid-title" style={{ margin:'0 0 8px', color:'#2e1065', fontSize:20, fontWeight:900 }}>¡Hola, {usuario?.nombre?.trim() || 'amigo'}!</h3>
+          <p style={{ margin:'0 0 16px', color:'#4b5563', fontSize:13, lineHeight:1.55 }}>Encontramos que este registro ya está en nuestro sistema. Así evitamos crear una ficha repetida.</p>
+          <div style={{ display:'flex', alignItems:'center', gap:12, textAlign:'left', padding:12, borderRadius:16, border:'1px solid #ddd6fe', background:'rgba(255,255,255,.82)', marginBottom:16 }}>
+            {duplicateNino?.foto_url ? (
+              <img src={duplicateNino.foto_url} alt="" style={{ width:48, height:48, borderRadius:'50%', objectFit:'cover', border:'3px solid #c4b5fd' }} />
+            ) : (
+              <div style={{ width:48, height:48, flexShrink:0, borderRadius:'50%', display:'grid', placeItems:'center', background:'#ede9fe', color:'#6d28d9', fontWeight:900, fontSize:18 }}>{duplicateName.charAt(0).toUpperCase()}</div>
+            )}
+            <div style={{ minWidth:0 }}>
+              <div style={{ color:'#1f2937', fontSize:15, fontWeight:800, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{duplicateName}</div>
+              <div style={{ color:'#6b7280', fontSize:11, marginTop:3 }}>{duplicateNino?.edad != null ? `${duplicateNino.edad} años` : 'Registro existente'}{duplicateNino?.grupo ? ` · ${duplicateNino.grupo}` : ''}</div>
+            </div>
+          </div>
+          <p style={{ margin:'0 0 18px', color:'#6b7280', fontSize:12, lineHeight:1.45 }}>Puedes revisar su ficha y actualizarla si hace falta.</p>
+          <button type="button" onClick={() => { if (duplicateNino) startEdit(duplicateNino); else setPossibleDuplicate(null) }} style={{ width:'100%', border:0, borderRadius:14, padding:'12px 16px', cursor:'pointer', color:'#fff', fontSize:13, fontWeight:800, background:'linear-gradient(135deg,#7c3aed,#6366f1)', boxShadow:'0 8px 20px rgba(99,102,241,.25)' }}>{duplicateNino ? `Ver ficha de ${possibleDuplicate.nombre}` : 'Entendido'}</button>
+          <button type="button" onClick={() => setPossibleDuplicate(null)} style={{ marginTop:10, border:0, background:'transparent', cursor:'pointer', color:'#6d28d9', fontSize:12, fontWeight:700, padding:7 }}>Seguir revisando</button>
+        </div>
+      </div>
+    )}
 
     {/* ── Overlay: Regenerar IA de todos ── */}
     {(regen.running || regen.finished) && (
