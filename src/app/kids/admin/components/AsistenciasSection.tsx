@@ -9,6 +9,9 @@ import {
   FACE_MATCH_THRESHOLD,
   FACE_MATCH_STRICT_THRESHOLD,
   FACE_MATCH_MIN_MARGIN,
+  FaceDetectionCancelledError,
+  isValidFaceDescriptor,
+  type DetectedFace,
 } from '@/lib/faceRecognition'
 import { type KidsNino } from './NinosSection'
 
@@ -52,7 +55,59 @@ function formatColombiaTime(fechaStr: string, horaStr: string): { hora12: string
 interface FaceMatch {
   nino:    NinoWithDescriptor
   dist:    number
+  margin:  number
   already: boolean
+}
+
+function matchDetectedFaces(
+  faces: DetectedFace[],
+  ninos: NinoWithDescriptor[],
+  registeredIds: ReadonlySet<string>,
+): FaceMatch[] {
+  // Primero resuelve las caras con menor distancia. Así una coincidencia débil
+  // nunca puede apropiarse del niño que corresponde a otra cara más clara.
+  const ranked = faces.map((face, faceIndex) => {
+    const distances = ninos
+      .map(nino => ({ nino, dist: faceDistance(face.descriptor, nino.face_descriptor) }))
+      .filter(item => Number.isFinite(item.dist))
+      .sort((a, b) => a.dist - b.dist)
+
+    const best = distances[0]
+    const secondDist = distances[1]?.dist ?? Infinity
+    const margin = best ? secondDist - best.dist : -Infinity
+    const lowQuality = face.detectionScore < 0.38 || face.relativeArea < 0.0025
+    const requiredMargin = FACE_MATCH_MIN_MARGIN * (lowQuality ? 1.5 : 1)
+    const viableFace = face.detectionScore >= 0.22 && face.relativeArea >= 0.0008
+    const accepted = !!best && viableFace && (
+      best.dist <= FACE_MATCH_STRICT_THRESHOLD
+      || (Number.isFinite(secondDist)
+        ? best.dist <= FACE_MATCH_THRESHOLD && margin >= requiredMargin
+        // Sin un segundo candidato no existe margen comparativo: exigir una
+        // distancia casi estricta impide que cualquier cara coincida por defecto.
+        : best.dist <= FACE_MATCH_STRICT_THRESHOLD + 0.025)
+    )
+
+    return { faceIndex, best, margin, accepted }
+  })
+    .filter(item => item.accepted && item.best)
+    .sort((a, b) => a.best!.dist - b.best!.dist || b.margin - a.margin)
+
+  const usedFaces = new Set<number>()
+  const usedNinos = new Set<string>()
+  const matches: FaceMatch[] = []
+  for (const item of ranked) {
+    const best = item.best!
+    if (usedFaces.has(item.faceIndex) || usedNinos.has(best.nino.id)) continue
+    usedFaces.add(item.faceIndex)
+    usedNinos.add(best.nino.id)
+    matches.push({
+      nino: best.nino,
+      dist: best.dist,
+      margin: item.margin,
+      already: registeredIds.has(best.nino.id),
+    })
+  }
+  return matches
 }
 
 const GRUPO_COLORS: Record<string, string> = {
@@ -75,6 +130,12 @@ export default function AsistenciasSection({
   const canvasRef  = useRef<HTMLCanvasElement>(null)
   const streamRef  = useRef<MediaStream | null>(null)
   const cameraRequestRef = useRef(0)
+  const analysisRunRef = useRef(0)
+  const allNinosRef = useRef<NinoWithDescriptor[]>([])
+  const faceIndexPromiseRef = useRef<Promise<void> | null>(null)
+  const todayRecordsRef = useRef<AsistenciaRecord[]>([])
+  const todayLoadPromiseRef = useRef<Promise<void> | null>(null)
+  const todayLoadIdRef = useRef(0)
   const imageInputRef = useRef<HTMLInputElement>(null)
 
   /* ── state ── */
@@ -88,6 +149,7 @@ export default function AsistenciasSection({
   const [saving,         setSaving]        = useState(false)
   const [saveError,      setSaveError]     = useState('')
   const [cameraErr,      setCameraErr]     = useState('')
+  const [cameraReady,    setCameraReady]   = useState(false)
   const [modelsReady,    setModelsReady]   = useState(false)
   const [recognitionSource, setRecognitionSource] = useState<RecognitionSource>('camera')
   const [imageError,     setImageError]     = useState('')
@@ -126,24 +188,34 @@ export default function AsistenciasSection({
 
   /* ── cargar niños con descriptor ── */
   useEffect(() => {
-    fetch('/api/kids/ninos')
+    const request = fetch('/api/kids/ninos')
       .then(r => r.json())
       .then(j => {
         if (j.ok) {
-          const withDesc = (j.data as KidsNino[]).filter(n => n.face_descriptor && Array.isArray(n.face_descriptor) && n.face_descriptor.length > 0) as NinoWithDescriptor[]
+          const withDesc = (j.data as KidsNino[]).filter(n => isValidFaceDescriptor(n.face_descriptor)) as NinoWithDescriptor[]
+          allNinosRef.current = withDesc
           setAllNinos(withDesc)
         }
       })
       .catch(() => {})
+    faceIndexPromiseRef.current = request
   }, [])
 
   /* ── cargar asistencias de hoy (para verificar duplicados en reconocimiento) ── */
   const loadToday = useCallback(async () => {
-    try {
-      const res  = await fetch('/api/kids/asistencias')
-      const json = await res.json()
-      if (json.ok) setTodayRecords(json.data)
-    } catch {}
+    const loadId = ++todayLoadIdRef.current
+    const request = (async () => {
+      try {
+        const res  = await fetch('/api/kids/asistencias')
+        const json = await res.json()
+        if (json.ok && loadId === todayLoadIdRef.current) {
+          todayRecordsRef.current = json.data
+          setTodayRecords(json.data)
+        }
+      } catch {}
+    })()
+    todayLoadPromiseRef.current = request
+    await request
   }, [])
 
   /* ── cargar últimas asistencias (panel lateral + historial sin fecha) ── */
@@ -184,6 +256,7 @@ export default function AsistenciasSection({
   const startCamera = useCallback(async (facing: 'user' | 'environment' = facingMode) => {
     const requestId = ++cameraRequestRef.current
     setCameraErr('')
+    setCameraReady(false)
     if (!navigator.mediaDevices?.getUserMedia) {
       setCameraErr('La cámara no está disponible en este navegador.')
       return
@@ -209,9 +282,16 @@ export default function AsistenciasSection({
         }
         streamRef.current = stream
         const video = videoRef.current
-        if (!video) return
+        if (!video) {
+          stream.getTracks().forEach(track => track.stop())
+          streamRef.current = null
+          return
+        }
         video.srcObject = stream
         await video.play()
+        if (requestId === cameraRequestRef.current && video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
+          setCameraReady(true)
+        }
         return
       } catch (error) {
         lastError = error
@@ -233,8 +313,15 @@ export default function AsistenciasSection({
         streamRef.current.getTracks().forEach(t => t.stop())
         streamRef.current = null
       }
+      setCameraReady(false)
     }
   }, [mode, facingMode, startCamera, activeTab])
+
+  useEffect(() => {
+    if (activeTab !== 'registrar') analysisRunRef.current += 1
+  }, [activeTab])
+
+  useEffect(() => () => { analysisRunRef.current += 1 }, [])
 
   useEffect(() => {
     if (!isMobile && activeTab === 'latest') setActiveTab('registrar')
@@ -244,13 +331,18 @@ export default function AsistenciasSection({
   async function handleCapture() {
     const video  = videoRef.current
     const canvas = canvasRef.current
-    if (!video || !canvas) return
+    if (!video || !canvas || !cameraReady || !video.videoWidth || !video.videoHeight) return
 
-    canvas.width  = video.videoWidth  || 640
-    canvas.height = video.videoHeight || 480
+    const runId = ++analysisRunRef.current
+    const maxEdge = 1600
+    const scale = Math.min(1, maxEdge / Math.max(video.videoWidth, video.videoHeight))
+
+    canvas.width  = Math.max(1, Math.round(video.videoWidth * scale))
+    canvas.height = Math.max(1, Math.round(video.videoHeight * scale))
     const ctx = canvas.getContext('2d')
     if (!ctx) return
 
+    ctx.setTransform(1, 0, 0, 1, 0, 0)
     // Si cámara frontal, voltear horizontalmente
     if (facingMode === 'user') {
       ctx.translate(canvas.width, 0)
@@ -261,6 +353,8 @@ export default function AsistenciasSection({
     setCameraFullscreen(false)
     setRecognitionSource('camera')
     setImageError('')
+    setSaveError('')
+    setMultiMatches([])
     setCapturedUrl(dataUrl)
 
     // Detener cámara
@@ -271,7 +365,7 @@ export default function AsistenciasSection({
 
     setMode('processing')
     setStatusMsg('Detectando rostros…')
-    await analyzeFace(dataUrl, 'camera')
+    await analyzeFace(dataUrl, 'camera', runId)
   }
 
   /* ── cargar una fotografía y procesarla con el mismo motor de la cámara ── */
@@ -279,6 +373,8 @@ export default function AsistenciasSection({
     const file = event.target.files?.[0]
     event.target.value = ''
     if (!file) return
+
+    const runId = ++analysisRunRef.current
 
     setImageError('')
     setSaveError('')
@@ -294,10 +390,12 @@ export default function AsistenciasSection({
       setMode('processing')
       setStatusMsg('Preparando imagen…')
       const prepared = await prepareFaceImage(file)
+      if (runId !== analysisRunRef.current) return
       setCapturedUrl(prepared.dataUrl)
       setStatusMsg('Validando calidad y buscando rostros…')
-      await analyzeFace(prepared.dataUrl, 'upload')
+      await analyzeFace(prepared.dataUrl, 'upload', runId)
     } catch (error) {
+      if (runId !== analysisRunRef.current) return
       const message = error instanceof Error ? error.message : 'No fue posible procesar la imagen.'
       setCapturedUrl(null)
       setImageError(message)
@@ -306,76 +404,67 @@ export default function AsistenciasSection({
   }
 
   /* ── analizar rostros (multi-face) ── */
-  async function analyzeFace(dataUrl: string, source: RecognitionSource) {
+  async function analyzeFace(dataUrl: string, source: RecognitionSource, runId: number) {
+    const isActive = () => runId === analysisRunRef.current
+    const updateStatus = (message: string) => { if (isActive()) setStatusMsg(message) }
+
     if (!modelsReady) {
-      setStatusMsg('Cargando modelos de IA…')
-      try { await loadFaceModels() } catch {
-        setStatusMsg('Modelos no disponibles.')
-        setTimeout(() => resetCamera(), 2000)
+      updateStatus('Cargando modelos de IA…')
+      try {
+        await loadFaceModels()
+        if (!isActive()) return
+        setModelsReady(true)
+      } catch {
+        if (!isActive()) return
+        setImageError('No fue posible cargar los modelos de reconocimiento.')
+        setMode('no_match')
         return
       }
     }
 
-    if (allNinos.length === 0) {
-      setStatusMsg('⚠️ No hay niños con foto registrada en la base de datos')
-      setTimeout(() => setMode('no_match'), 2000)
+    if (faceIndexPromiseRef.current) {
+      updateStatus('Sincronizando rostros registrados…')
+      await faceIndexPromiseRef.current
+      if (!isActive()) return
+    }
+
+    const ninosSnapshot = allNinosRef.current
+    if (ninosSnapshot.length === 0) {
+      updateStatus('⚠️ No hay niños con rostro registrado en la base de datos')
+      if (isActive()) setMode('no_match')
       return
     }
 
     try {
-      setStatusMsg('Analizando rostros…')
+      updateStatus('Analizando rostros…')
 
       // Detección robusta multi-rostro: mejora de imagen + busca TODAS las caras (hasta 5+)
       const result = await detectFacesRobust(
         dataUrl,
-        msg => setStatusMsg(msg),
-        true,
-        source === 'upload',
+        updateStatus,
+        {
+          multiFace: true,
+          exhaustive: source === 'upload',
+          shouldContinue: isActive,
+        },
       )
-      const descriptors = result.descriptors
+      if (!isActive()) return
+      const faces = result.faces
 
-      console.log(`[analyzeFace] ${result.detail} | intento #${result.attempt} | mejorada=${result.enhanced} | niños en BD:`, allNinos.length)
+      console.log(`[analyzeFace] ${result.detail} | intento #${result.attempt} | mejorada=${result.enhanced} | niños en BD:`, ninosSnapshot.length)
 
-      if (descriptors.length === 0) {
-        setStatusMsg(`Sin rostros detectados (${allNinos.length} niños en BD)`)
-        setTimeout(() => setMode('no_match'), 1500)
+      if (faces.length === 0) {
+        updateStatus(`Sin rostros detectados (${ninosSnapshot.length} niños en BD)`)
+        setMode('no_match')
         return
       }
 
-      setStatusMsg(`${descriptors.length} rostro${descriptors.length > 1 ? 's' : ''} detectado${descriptors.length > 1 ? 's' : ''}… comparando…`)
+      updateStatus(`${faces.length} rostro${faces.length > 1 ? 's' : ''} detectado${faces.length > 1 ? 's' : ''}… comparando…`)
 
-      // Para cada rostro detectado, buscar el mejor match sin repetir niños
-      const usedIds = new Set<string>()
-      const matches: FaceMatch[] = []
-
-      for (const det of descriptors) {
-        const desc = Array.from(det)
-        let bestNino: NinoWithDescriptor | null = null
-        let bestDist = Infinity
-        let secondDist = Infinity
-
-        for (const nino of allNinos) {
-          if (usedIds.has(nino.id)) continue
-          const d = faceDistance(desc, nino.face_descriptor)
-          if (d < bestDist) { secondDist = bestDist; bestDist = d; bestNino = nino }
-          else if (d < secondDist) { secondDist = d }
-        }
-
-        // Margen: el mejor debe destacar sobre el segundo para evitar confusiones
-        const margin = secondDist - bestDist
-        console.log(`  rostro → ${bestNino?.nombre ?? '?'} dist=${bestDist.toFixed(3)} (2º=${secondDist === Infinity ? '∞' : secondDist.toFixed(3)}, margen=${margin === Infinity ? '∞' : margin.toFixed(3)})`)
-
-        const hasClearLead =
-          secondDist === Infinity ||
-          bestDist <= FACE_MATCH_STRICT_THRESHOLD ||
-          margin >= FACE_MATCH_MIN_MARGIN
-
-        if (bestNino && bestDist < FACE_MATCH_THRESHOLD && hasClearLead) {
-          usedIds.add(bestNino.id)
-          const already = todayRecords.some(r => r.nino_id === bestNino!.id)
-          matches.push({ nino: bestNino, dist: bestDist, already })
-        }
-      }
+      if (todayLoadPromiseRef.current) await todayLoadPromiseRef.current
+      if (!isActive()) return
+      const registeredIds = new Set(todayRecordsRef.current.map(record => record.nino_id))
+      const matches = matchDetectedFaces(faces, ninosSnapshot, registeredIds)
 
       console.log('[analyzeFace] matches encontrados:', matches.length)
 
@@ -388,8 +477,9 @@ export default function AsistenciasSection({
       const allAlready = matches.every(m => m.already)
       setMode(allAlready ? 'already' : 'matched')
 
-    } catch (e: any) {
-      console.error('[analyzeFace]', e.message)
+    } catch (error) {
+      if (error instanceof FaceDetectionCancelledError || !isActive()) return
+      console.error('[analyzeFace]', error)
       setMode('no_match')
     }
   }
@@ -467,11 +557,13 @@ export default function AsistenciasSection({
   }
 
   function resetCamera() {
+    analysisRunRef.current += 1
     setCapturedUrl(null)
     setMultiMatches([])
     setStatusMsg('')
     setImageError('')
     setRecognitionSource('camera')
+    setCameraReady(false)
     setMode('camera')
   }
 
@@ -926,7 +1018,6 @@ export default function AsistenciasSection({
                       display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:14,
                     }}
                   >
-                    <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.55" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
                     <span style={{ fontSize:14, fontWeight:750, letterSpacing:'-.1px' }}>
                       Toca para abrir la cámara
                     </span>
@@ -958,6 +1049,12 @@ export default function AsistenciasSection({
                     <video
                       ref={videoRef}
                       autoPlay playsInline muted
+                      onLoadedMetadata={() => {
+                        if (streamRef.current && videoRef.current?.srcObject === streamRef.current) setCameraReady(true)
+                      }}
+                      onCanPlay={() => {
+                        if (streamRef.current && videoRef.current?.srcObject === streamRef.current) setCameraReady(true)
+                      }}
                       style={{
                         width:'100%', height:'100%', objectFit:'cover',
                         transform: facingMode === 'user' ? 'scaleX(-1)' : 'none',
@@ -1030,13 +1127,14 @@ export default function AsistenciasSection({
                 {/* Capturar — botón principal */}
                 <button
                   onClick={handleCapture}
-                  disabled={!!cameraErr}
+                  disabled={!!cameraErr || !cameraReady}
+                  aria-label={cameraReady ? 'Capturar foto' : 'Esperando a que la cámara esté lista'}
                   style={{
                     width:72, height:72, borderRadius:'50%', border:'4px solid #fff',
-                    background: cameraErr
+                    background: cameraErr || !cameraReady
                       ? '#e5e7eb'
                       : 'linear-gradient(135deg,#0d9488,#0891b2)',
-                    cursor: cameraErr ? 'not-allowed' : 'pointer',
+                    cursor: cameraErr || !cameraReady ? 'not-allowed' : 'pointer',
                     display:'flex', alignItems:'center', justifyContent:'center',
                     boxShadow:'0 6px 24px rgba(13,148,136,.45), 0 0 0 4px rgba(13,148,136,.15)',
                     transition:'all .18s',
@@ -1147,14 +1245,17 @@ export default function AsistenciasSection({
           )}
 
           {/* ─── MODO: PROCESANDO ─── */}
-          {mode === 'processing' && capturedUrl && (
+          {mode === 'processing' && (
             <div style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', padding:24, gap:16 }}>
               <div style={{ position:'relative', width:200, height:200 }}>
-                <img src={capturedUrl} alt="" style={{
-                  width:'100%', height:'100%',
-                  objectFit:recognitionSource === 'upload' ? 'contain' : 'cover',
-                  borderRadius:16, background:'#e2e8f0',
-                }}/>
+                {capturedUrl
+                  ? <img src={capturedUrl} alt="" style={{
+                      width:'100%', height:'100%',
+                      objectFit:recognitionSource === 'upload' ? 'contain' : 'cover',
+                      borderRadius:16, background:'#e2e8f0',
+                    }}/>
+                  : <div style={{ width:'100%', height:'100%', borderRadius:16, background:'#e2e8f0' }} />
+                }
                 <div style={{
                   position:'absolute', inset:0, borderRadius:16,
                   background:'rgba(13,148,136,.15)',
@@ -1177,6 +1278,13 @@ export default function AsistenciasSection({
                 {recognitionSource === 'upload' ? 'Imagen cargada' : 'Captura de cámara'}
               </div>
               <p style={{ fontSize:13, fontWeight:600, color:'#374151', margin:0 }}>{statusMsg}</p>
+              <button
+                type="button"
+                onClick={resetCamera}
+                style={{ border:0, background:'none', color:'#64748b', fontSize:11, fontWeight:700, cursor:'pointer', textDecoration:'underline' }}
+              >
+                Cancelar análisis
+              </button>
               <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
             </div>
           )}
@@ -1332,8 +1440,8 @@ function MultiMatchPanel({
       <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
         {matches.map((m, i) => {
           const isDescartado = descartados.has(i)
-          const confianza = Math.round((1 - m.dist) * 100)
-          const confColor = confianza >= 60 ? '#059669' : confianza >= 45 ? '#d97706' : '#dc2626'
+          const quality = m.dist <= 0.40 ? 'Coincidencia muy alta' : m.dist <= FACE_MATCH_STRICT_THRESHOLD ? 'Coincidencia alta' : 'Coincidencia media · confirmar'
+          const confColor = m.dist <= FACE_MATCH_STRICT_THRESHOLD ? '#059669' : '#d97706'
           return (
             <div key={i} style={{
               display:'flex', alignItems:'center', gap:10,
@@ -1373,7 +1481,7 @@ function MultiMatchPanel({
                   {m.nino.nombre} {m.nino.apellido ?? ''}
                 </div>
                 <div style={{ fontSize:9, fontWeight:700, color:'#6b7280', marginTop:1 }}>
-                  {m.nino.grupo ?? ''} · <span style={{ color: confColor }}>{confianza}% confianza</span>
+                  {m.nino.grupo ?? ''} · <span style={{ color: confColor }}>{quality}</span>
                 </div>
               </div>
 

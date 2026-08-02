@@ -1,6 +1,7 @@
 // src/app/api/kids/asistencias/route.ts
-import { NextResponse } from 'next/server'
+import { NextResponse, type NextRequest } from 'next/server'
 import { getServerSupabase } from '@/lib/supabaseClient'
+import { canTakeKidsAttendance, getKidsNinosActor } from '@/lib/kidsNinosAuth'
 
 /* ── Hora y fecha en zona horaria de Colombia (UTC-5) ── */
 function getColombia() {
@@ -14,8 +15,13 @@ function getColombia() {
 }
 
 /* ── GET /api/kids/asistencias?fecha=YYYY-MM-DD&grupo=X&latest=N ── */
-export async function GET(req: Request) {
+export async function GET(req: NextRequest) {
   try {
+    const actor = await getKidsNinosActor(req)
+    if (!canTakeKidsAttendance(actor)) {
+      return NextResponse.json({ error: 'No autorizado.' }, { status: 401 })
+    }
+
     const { searchParams } = new URL(req.url)
     const grupo  = searchParams.get('grupo')
     const latest = searchParams.get('latest')   // número → últimas N asistencias sin filtro de fecha
@@ -69,8 +75,13 @@ export async function GET(req: Request) {
 }
 
 /* ── POST /api/kids/asistencias ── */
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   try {
+    const actor = await getKidsNinosActor(req)
+    if (!canTakeKidsAttendance(actor)) {
+      return NextResponse.json({ error: 'No autorizado.' }, { status: 401 })
+    }
+
     const body = await req.json()
     const { nino_id, metodo = 'facial', registrado_por } = body
 

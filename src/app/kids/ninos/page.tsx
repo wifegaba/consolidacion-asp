@@ -8,6 +8,7 @@ type KidsPanelUser = {
   nombre: string
   apellido: string
   foto_url: string | null
+  roles?: string[]
 }
 
 type AccessSource = 'hub' | 'coordinador' | 'administrador'
@@ -293,6 +294,7 @@ export default function KidsNinosPage() {
         <NinosSection
           usuario={usuario}
           logoNavOpen={logoNavOpen}
+          canDeleteChildren={accessSource !== 'hub' || user?.roles?.includes('ADMINISTRADOR') === true}
           onTakeAttendance={accessSource === 'hub' ? () => router.push('/kids/asistencias') : undefined}
         />
       </div>

@@ -125,6 +125,7 @@ interface Props {
   usuario: { nombre: string; apellido: string; foto_url: string | null } | null
   logoNavOpen?: boolean
   hideManagementControls?: boolean
+  canDeleteChildren?: boolean
   onTakeAttendance?: () => void
 }
 
@@ -132,6 +133,7 @@ export default function NinosSection({
   usuario,
   logoNavOpen = false,
   hideManagementControls = false,
+  canDeleteChildren = true,
   onTakeAttendance,
 }: Props) {
   const [ninos,       setNinos]      = useState<KidsNino[]>([])
@@ -154,6 +156,8 @@ export default function NinosSection({
   const [faceStatus,       setFaceStatus]       = useState<FaceStatus>('idle')
   const [faceDescriptor,   setFaceDescriptor]   = useState<number[] | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const faceExtractionRunRef = useRef(0)
+  const faceExtractionPromiseRef = useRef<Promise<Float32Array | null> | null>(null)
 
   /* ── Regenerar IA de todos los niños ── */
   const [regen, setRegen] = useState<{
@@ -179,6 +183,7 @@ export default function NinosSection({
     window.addEventListener('resize', onResize)
     return () => window.removeEventListener('resize', onResize)
   }, [])
+
   const [form, setForm] = useState({
     nombreCompleto: '',   // campo único — se divide al guardar
     edad: '',
@@ -254,7 +259,19 @@ export default function NinosSection({
     setSaving(true)
     setFormErr('')
     try {
-      // ── 1. Subir foto si hay archivo nuevo (igual que AdminModal) ──────────
+      // Esperar el descriptor de la foto seleccionada antes de guardar evita
+      // que una imagen nueva quede asociada al rostro anterior o a ninguno.
+      let descriptorForSave = faceDescriptor
+      const extractionRun = faceExtractionRunRef.current
+      if (photoFile && faceExtractionPromiseRef.current) {
+        const extracted = await faceExtractionPromiseRef.current
+        if (extractionRun === faceExtractionRunRef.current) {
+          descriptorForSave = extracted ? Array.from(extracted) : null
+          setFaceDescriptor(descriptorForSave)
+        }
+      }
+
+      // ── 1. Subir foto si hay archivo nuevo (igual que AdminModal) ─────────
       let foto_url: string | undefined | null = undefined
       if (photoFile) {
         const fd = new FormData()
@@ -284,8 +301,9 @@ export default function NinosSection({
           grupo:         form.grupo || null,
           observaciones: form.observaciones.trim() || null,
           ...(foto_url !== undefined ? { foto_url } : {}),
-          // Incluir descriptor solo si se detectó una cara en la nueva foto
-          ...(faceDescriptor ? { face_descriptor: faceDescriptor } : {}),
+          // Foto y descriptor se reemplazan como una unidad. Si no hubo cara,
+          // limpiar el descriptor anterior evita falsos reconocimientos.
+          ...(photoFile || photoRemoved ? { face_descriptor: descriptorForSave } : {}),
         }),
       })
       const json = await res.json()
@@ -308,6 +326,8 @@ export default function NinosSection({
   }
 
   function resetPhotoState() {
+    faceExtractionRunRef.current += 1
+    faceExtractionPromiseRef.current = null
     if (photoPreview) URL.revokeObjectURL(photoPreview)
     setPhotoFile(null)
     setPhotoPreview(null)
@@ -369,7 +389,13 @@ export default function NinosSection({
     e.target.value = ''
 
     // ── Extraer descriptor facial en background ──────────────────────────
-    extractFaceDescriptor(file, setFaceStatus).then(descriptor => {
+    const runId = ++faceExtractionRunRef.current
+    const extraction = extractFaceDescriptor(file, status => {
+      if (runId === faceExtractionRunRef.current) setFaceStatus(status)
+    })
+    faceExtractionPromiseRef.current = extraction
+    extraction.then(descriptor => {
+      if (runId !== faceExtractionRunRef.current) return
       // Convertir Float32Array → number[] para serialización JSON correcta
       setFaceDescriptor(descriptor ? Array.from(descriptor) : null)
     })
@@ -942,6 +968,7 @@ export default function NinosSection({
                     onEdit={() => startEdit(n)}
                     onToggle={() => handleToggleActive(n)}
                     onDelete={() => handleDelete(n)}
+                    canDelete={canDeleteChildren}
                     onActivateAI={() => handleActivateAI(n)}
                     onSaveObs={(obs) => handleSaveObs(n, obs)}
                   />
@@ -958,6 +985,7 @@ export default function NinosSection({
                     onEdit={() => startEdit(n)}
                     onToggle={() => handleToggleActive(n)}
                     onDelete={() => handleDelete(n)}
+                    canDelete={canDeleteChildren}
                     onActivateAI={() => handleActivateAI(n)}
                     onSaveObs={(obs) => handleSaveObs(n, obs)}
                   />
@@ -1667,7 +1695,7 @@ function NinoAladdinModal({
 }
 
 function NinoCard({
-  nino, idx, dense, onEdit, onToggle, onDelete, onActivateAI, onSaveObs,
+  nino, idx, dense, onEdit, onToggle, onDelete, canDelete, onActivateAI, onSaveObs,
 }: {
   nino:          KidsNino
   idx:           number
@@ -1675,6 +1703,7 @@ function NinoCard({
   onEdit:        () => void
   onToggle:      () => void
   onDelete:      () => void
+  canDelete:     boolean
   onActivateAI:  () => Promise<'ok' | 'not_found' | 'error'>
   onSaveObs:     (obs: string) => void
 }) {
@@ -1863,8 +1892,10 @@ function NinoCard({
                     }}
                   />
                 )}
-                <div style={{ height:1, background:'#f3f4f6', margin:'4px 0' }} />
-                <MenuOption icon="🗑️" label="Eliminar" onClick={() => { setMenuOpen(false); onDelete() }} danger />
+                {canDelete && <>
+                  <div style={{ height:1, background:'#f3f4f6', margin:'4px 0' }} />
+                  <MenuOption icon="🗑️" label="Eliminar" onClick={() => { setMenuOpen(false); onDelete() }} danger />
+                </>}
               </div>
             )}
           </div>

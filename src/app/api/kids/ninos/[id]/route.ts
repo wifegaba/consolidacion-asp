@@ -1,6 +1,7 @@
 // src/app/api/kids/ninos/[id]/route.ts
-import { NextResponse } from 'next/server';
+import { NextResponse, type NextRequest } from 'next/server';
 import { getServerSupabase } from '@/lib/supabaseClient';
+import { canDeleteKids, getKidsNinosActor } from '@/lib/kidsNinosAuth';
 
 const BASE_FIELDS = [
   'id', 'nombre', 'apellido', 'edad',
@@ -12,13 +13,28 @@ const EXTRA_FIELDS  = ['grupo', 'acudiente', 'telefono', 'observaciones', 'ti', 
 const ALL_FIELDS    = [...BASE_FIELDS, ...EXTRA_FIELDS].join(', ');
 const OPTIONAL_COLS = new Set(EXTRA_FIELDS);
 
+function validFaceDescriptor(value: unknown): value is number[] {
+  return Array.isArray(value)
+    && value.length === 128
+    && value.every(item => typeof item === 'number' && Number.isFinite(item));
+}
+
 export async function PATCH(
-  req: Request,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
+    const actor = await getKidsNinosActor(req);
+    if (!actor) return NextResponse.json({ error: 'No autorizado.' }, { status: 401 });
+
     const { id } = await params;
     const body   = await req.json();
+
+    if (body.face_descriptor !== undefined
+      && body.face_descriptor !== null
+      && !validFaceDescriptor(body.face_descriptor)) {
+      return NextResponse.json({ error: 'El descriptor facial debe contener 128 valores numéricos.' }, { status: 400 });
+    }
 
     // Mapear campos del formulario → columnas NOT NULL reales
     if (body.acudiente !== undefined) body.nombre_acudiente   = body.acudiente?.trim() || '';
@@ -49,10 +65,14 @@ export async function PATCH(
 }
 
 export async function DELETE(
-  _req: Request,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
+    const actor = await getKidsNinosActor(req);
+    if (!canDeleteKids(actor)) {
+      return NextResponse.json({ error: 'No tienes permiso para eliminar niños.' }, { status: 403 });
+    }
     const { id } = await params;
     const supabase = getServerSupabase();
     const { error } = await supabase.from('kids_ninos').delete().eq('id', id);

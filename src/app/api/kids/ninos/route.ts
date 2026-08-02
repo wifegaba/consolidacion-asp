@@ -1,6 +1,7 @@
 // src/app/api/kids/ninos/route.ts
-import { NextResponse } from 'next/server';
+import { NextResponse, type NextRequest } from 'next/server';
 import { getServerSupabase } from '@/lib/supabaseClient';
+import { canCreateKids, getKidsNinosActor } from '@/lib/kidsNinosAuth';
 
 // foto_url SIEMPRE existe en la tabla (text, nullable) → va en BASE_FIELDS
 const BASE_FIELDS = [
@@ -13,8 +14,17 @@ const BASE_FIELDS = [
 const EXTRA_FIELDS  = ['grupo', 'acudiente', 'telefono', 'observaciones', 'ti', 'face_descriptor'];
 const OPTIONAL_COLS = new Set(EXTRA_FIELDS);
 
-export async function GET(req: Request) {
+function validFaceDescriptor(value: unknown): value is number[] {
+  return Array.isArray(value)
+    && value.length === 128
+    && value.every(item => typeof item === 'number' && Number.isFinite(item));
+}
+
+export async function GET(req: NextRequest) {
   try {
+    const actor = await getKidsNinosActor(req);
+    if (!actor) return NextResponse.json({ error: 'No autorizado.' }, { status: 401 });
+
     const { searchParams } = new URL(req.url);
     const grupo = searchParams.get('grupo');
     const supabase  = getServerSupabase();
@@ -37,12 +47,18 @@ export async function GET(req: Request) {
   }
 }
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   try {
+    const actor = await getKidsNinosActor(req);
+    if (!canCreateKids(actor)) return NextResponse.json({ error: 'No autorizado.' }, { status: 401 });
+
     const body = await req.json();
-    const { nombre, apellido, edad, acudiente, telefono, grupo, observaciones, foto_url } = body;
+    const { nombre, apellido, edad, acudiente, telefono, grupo, observaciones, foto_url, face_descriptor } = body;
 
     if (!nombre?.trim()) return NextResponse.json({ error: 'El nombre es obligatorio.' }, { status: 400 });
+    if (face_descriptor != null && !validFaceDescriptor(face_descriptor)) {
+      return NextResponse.json({ error: 'El descriptor facial debe contener 128 valores numéricos.' }, { status: 400 });
+    }
 
     const supabase = getServerSupabase();
 
@@ -60,6 +76,7 @@ export async function POST(req: Request) {
     if (telefono?.trim())      record.telefono      = telefono.trim();
     if (observaciones?.trim()) record.observaciones = observaciones.trim();
     if (foto_url)              record.foto_url      = foto_url;  // proxy URL ya listo
+    if (face_descriptor)       record.face_descriptor = face_descriptor;
 
     const selectFields = [...BASE_FIELDS, ...EXTRA_FIELDS].join(', ');
     let { data, error } = await supabase.from('kids_ninos').insert(record).select(selectFields).single();

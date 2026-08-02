@@ -1,27 +1,15 @@
 // src/app/api/kids/upload/route.ts
 import { NextResponse } from 'next/server';
-import { jwtVerify } from 'jose';
 import { getServerSupabase } from '@/lib/supabaseClient';
 import type { NextRequest } from 'next/server';
+import { canCreateKids, getKidsNinosActor } from '@/lib/kidsNinosAuth';
 
 export async function POST(req: NextRequest) {
-  const isProd      = process.env.NODE_ENV === 'production';
-  const secret      = process.env.JWT_SECRET;
-
-  // ── Auth check — acepta admin (kids_session) O coordinador (kids_coord_session) ──
-  const adminCookie = isProd ? '__Host-kids-session'       : 'kids_session';
-  const coordCookie = isProd ? '__Host-kids-coord-session' : 'kids_coord_session';
-
-  const token = req.cookies.get(adminCookie)?.value
-             ?? req.cookies.get(coordCookie)?.value;
-
-  if (!token || !secret) {
+  // Administrador, coordinador y equipo docente (incluido Maestro Auxiliar)
+  // pueden subir la foto necesaria para crear un niño.
+  const actor = await getKidsNinosActor(req);
+  if (!canCreateKids(actor)) {
     return NextResponse.json({ error: 'No autorizado.' }, { status: 401 });
-  }
-  try {
-    await jwtVerify(token, new TextEncoder().encode(secret));
-  } catch {
-    return NextResponse.json({ error: 'Sesión inválida.' }, { status: 401 });
   }
 
   // ── Parse form-data ───────────────────────────────────────────────────────
