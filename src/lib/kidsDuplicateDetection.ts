@@ -82,7 +82,9 @@ export function findPossibleKidsDuplicates(
   const firstName = fullName.split(' ')[0] ?? ''
   const phone = normalizedPhone(incoming.telefono)
 
-  if (!fullName) return []
+  // La comprobación puede empezar apenas se detecta una foto, incluso antes de
+  // que el auxiliar haya terminado de escribir el nombre.
+  if (!fullName && (!incoming.face_descriptor || incoming.face_descriptor.length !== 128)) return []
 
   return candidates.flatMap(candidate => {
     const candidateName = normalizeText(`${candidate.nombre} ${candidate.apellido ?? ''}`)

@@ -196,9 +196,15 @@ export function enhanceImageForDetection(
   canvas.height = h
   const ctx = canvas.getContext('2d', { willReadFrequently: true })
   if (!ctx) throw new Error('No fue posible preparar el canvas de reconocimiento.')
-  ctx.drawImage(source, 0, 0, w, h)
-
-  const imageData = ctx.getImageData(0, 0, w, h)
+  let imageData: ImageData
+  try {
+    // Algunos WebViews Android publican momentáneamente un frame 0×0 después
+    // de abrir la cámara. Nunca dejamos que esa condición escape al UI.
+    ctx.drawImage(source, 0, 0, w, h)
+    imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
+  } catch {
+    throw new Error('La imagen aún no está lista para el análisis facial.')
+  }
   const data = imageData.data
   const n = data.length / 4
 

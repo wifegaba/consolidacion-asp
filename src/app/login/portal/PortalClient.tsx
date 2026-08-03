@@ -26,9 +26,63 @@ type RoleFocusGeometry = {
     scaleY: number;
 };
 
+type RolePalette = {
+    tone: string;
+    surface: string;
+    glow: string;
+    badgeBackground: string;
+    badgeBorder: string;
+    badgeText: string;
+};
+
+const ROLE_PALETTES: Record<Asignacion['tipo'], RolePalette> = {
+    director: {
+        tone: '#70b7ff',
+        surface: 'radial-gradient(circle at 18% 4%,rgba(255,255,255,.38),transparent 38%),linear-gradient(145deg,rgba(91,166,244,.76),rgba(48,105,196,.67) 58%,rgba(24,65,137,.72))',
+        glow: 'rgba(115,190,255,.42)',
+        badgeBackground: 'rgba(208,235,255,.15)', badgeBorder: 'rgba(211,238,255,.38)', badgeText: '#e7f5ff',
+    },
+    administrador: {
+        tone: '#ffab87',
+        surface: 'radial-gradient(circle at 18% 4%,rgba(255,255,255,.38),transparent 38%),linear-gradient(145deg,rgba(245,161,124,.78),rgba(219,100,104,.67) 58%,rgba(157,66,91,.72))',
+        glow: 'rgba(255,173,132,.40)',
+        badgeBackground: 'rgba(255,228,207,.14)', badgeBorder: 'rgba(255,225,204,.38)', badgeText: '#fff2e8',
+    },
+    kids_hub: {
+        tone: '#63ddca',
+        surface: 'radial-gradient(circle at 18% 4%,rgba(255,255,255,.36),transparent 38%),linear-gradient(145deg,rgba(54,178,172,.76),rgba(25,131,146,.68) 58%,rgba(15,80,111,.74))',
+        glow: 'rgba(90,224,208,.40)',
+        badgeBackground: 'rgba(188,255,241,.13)', badgeBorder: 'rgba(186,255,239,.36)', badgeText: '#d9fff7',
+    },
+    contacto: {
+        tone: '#ff9faf',
+        surface: 'radial-gradient(circle at 18% 4%,rgba(255,255,255,.36),transparent 38%),linear-gradient(145deg,rgba(240,137,158,.76),rgba(196,80,112,.68) 58%,rgba(128,48,83,.74))',
+        glow: 'rgba(255,161,179,.39)',
+        badgeBackground: 'rgba(255,220,228,.13)', badgeBorder: 'rgba(255,220,228,.36)', badgeText: '#fff0f4',
+    },
+    maestro: {
+        tone: '#70d2ff',
+        surface: 'radial-gradient(circle at 18% 4%,rgba(255,255,255,.36),transparent 38%),linear-gradient(145deg,rgba(65,181,224,.77),rgba(40,119,180,.68) 58%,rgba(24,70,132,.74))',
+        glow: 'rgba(105,213,255,.40)',
+        badgeBackground: 'rgba(207,243,255,.13)', badgeBorder: 'rgba(207,243,255,.36)', badgeText: '#e5f9ff',
+    },
+    logistica: {
+        tone: '#ffc866',
+        surface: 'radial-gradient(circle at 18% 4%,rgba(255,255,255,.38),transparent 38%),linear-gradient(145deg,rgba(231,171,75,.78),rgba(195,116,52,.68) 58%,rgba(126,70,42,.74))',
+        glow: 'rgba(255,199,95,.40)',
+        badgeBackground: 'rgba(255,239,198,.13)', badgeBorder: 'rgba(255,235,185,.37)', badgeText: '#fff4d5',
+    },
+    estudiante_ptm: {
+        tone: '#78dfaa',
+        surface: 'radial-gradient(circle at 18% 4%,rgba(255,255,255,.36),transparent 38%),linear-gradient(145deg,rgba(75,188,132,.77),rgba(34,132,104,.68) 58%,rgba(20,81,76,.74))',
+        glow: 'rgba(116,229,171,.40)',
+        badgeBackground: 'rgba(207,255,229,.13)', badgeBorder: 'rgba(200,255,225,.36)', badgeText: '#e4fff0',
+    },
+};
+
 // Custom SVG Icons matching the panel
 const ContactoIcon = ({ variant }: { variant?: 'martes' | 'virtual' | 'default' }) => (
-    <svg width="60" height="60" viewBox="0 0 24 24" fill="currentColor" className={`${variant === 'virtual' ? 'text-fuchsia-400' :
+    <svg width="60" height="60" viewBox="0 0 24 24" fill="currentColor" className={`${variant === 'virtual' ? 'text-rose-200' :
         variant === 'martes' ? 'text-sky-400' : 'text-white'
         } drop-shadow-lg transition-colors duration-500`}>
         <circle cx="12" cy="12" r="6" fillOpacity="0.9" />
@@ -36,7 +90,7 @@ const ContactoIcon = ({ variant }: { variant?: 'martes' | 'virtual' | 'default' 
 );
 
 const MaestroIcon = ({ variant }: { variant?: 'martes' | 'virtual' | 'default' }) => (
-    <svg width="60" height="60" viewBox="0 0 24 24" fill="currentColor" className={`${variant === 'virtual' ? 'text-fuchsia-400' :
+    <svg width="60" height="60" viewBox="0 0 24 24" fill="currentColor" className={`${variant === 'virtual' ? 'text-cyan-100' :
         variant === 'martes' ? 'text-sky-300' : 'text-sky-100'
         } drop-shadow-[0_0_14px_rgba(191,219,254,.72)] transition-colors duration-500`}>
         <circle cx="12" cy="6" r="3.5" fillOpacity="0.9" />
@@ -320,17 +374,17 @@ export default function PortalClient({ nombre, asignaciones }: { nombre: string,
             className="min-h-screen relative flex flex-col items-center justify-center p-6 overflow-hidden"
             style={{
                 background: [
-                    'radial-gradient(ellipse 64% 52% at 20% -10%, rgba(190, 224, 255, 0.70) 0%, rgba(118, 184, 255, 0.29) 42%, transparent 74%)',
-                    'radial-gradient(ellipse 58% 48% at 92% 16%, rgba(223, 211, 255, 0.58) 0%, rgba(161, 130, 255, 0.20) 45%, transparent 74%)',
-                    'radial-gradient(ellipse 50% 42% at 50% 104%, rgba(66, 183, 204, 0.20) 0%, transparent 72%)',
-                    'linear-gradient(145deg, #18346f 0%, #0d1e4b 45%, #050b1d 100%)',
+                    'radial-gradient(ellipse 66% 52% at 18% -8%, rgba(158,218,255,.62) 0%,rgba(83,156,216,.24) 44%,transparent 74%)',
+                    'radial-gradient(ellipse 56% 48% at 94% 12%,rgba(255,190,154,.34) 0%,rgba(224,119,102,.13) 46%,transparent 75%)',
+                    'radial-gradient(ellipse 55% 44% at 54% 106%,rgba(91,222,198,.24) 0%,transparent 72%)',
+                    'linear-gradient(145deg,#17334b 0%,#0b2132 48%,#06131f 100%)',
                 ].join(', '),
             }}
         >
             {/* Luces ambientales suaves, inspiradas en el acabado de vidrio de Apple. */}
             <div className="absolute top-[-16%] left-[8%] h-[520px] w-[520px] rounded-full bg-sky-100/30 blur-[130px] pointer-events-none" />
-            <div className="absolute top-[-8%] right-[-10%] h-[500px] w-[500px] rounded-full bg-violet-100/25 blur-[145px] pointer-events-none" />
-            <div className="absolute bottom-[-25%] left-[28%] h-[460px] w-[700px] rounded-full bg-cyan-300/10 blur-[150px] pointer-events-none" />
+            <div className="absolute top-[-8%] right-[-10%] h-[500px] w-[500px] rounded-full bg-orange-100/15 blur-[145px] pointer-events-none" />
+            <div className="absolute bottom-[-25%] left-[28%] h-[460px] w-[700px] rounded-full bg-teal-200/15 blur-[150px] pointer-events-none" />
             <div className="absolute inset-0 pointer-events-none opacity-30 bg-[radial-gradient(circle_at_50%_0%,rgba(255,255,255,.16),transparent_34%)]" />
 
             <div className="w-full max-w-4xl z-10 relative">
@@ -340,10 +394,10 @@ export default function PortalClient({ nombre, asignaciones }: { nombre: string,
                         animate={{ opacity: 1, y: 0 }}
                         className="inline-block"
                     >
-                        <h1 className="text-4xl md:text-5xl font-bold text-white tracking-tight mb-3 drop-shadow-[0_0_25px_rgba(59,130,246,0.6)]">
+                        <h1 className="text-4xl md:text-5xl font-bold text-white tracking-tight mb-3 drop-shadow-[0_10px_32px_rgba(4,19,31,.35)]">
                             Hola, {nombre.split(' ')[0]}
                         </h1>
-                        <p className="text-lg text-blue-100/80 font-medium tracking-wide drop-shadow-md">
+                        <p className="text-lg text-slate-100/80 font-medium tracking-wide drop-shadow-md">
                             Selecciona tu perfil de acceso
                         </p>
                     </motion.div>
@@ -365,14 +419,16 @@ export default function PortalClient({ nombre, asignaciones }: { nombre: string,
                             onClick={(event) => openRolePreview(a, event.currentTarget)}
                             disabled={!!loadingKey || focusPhase !== 'idle'}
                             data-role-key={a.key}
-                            className={`lgx-content-card lgx-content-card--deep relative group flex flex-col items-center overflow-hidden rounded-[32px] text-center w-full h-full transition-all duration-300 ${asignaciones.length <= 2 ? 'px-8 py-8' : 'p-5'
+                            className={`portal-role-card lgx-content-card lgx-content-card--deep relative group flex flex-col items-center overflow-hidden rounded-[32px] text-center w-full h-full transition-all duration-300 ${asignaciones.length <= 2 ? 'px-8 py-8' : 'p-5'
                                 } ${loadingKey && loadingKey !== a.key ? 'opacity-50 blur-sm' : ''} ${loadingKey === a.key ? 'cursor-wait' : ''} ${focusedRole?.key === a.key ? 'opacity-0 pointer-events-none' : ''}`}
                             style={{
-                                '--lgx-card-tone': a.tipo === 'administrador' ? '#8b5cf6' : '#2563eb',
+                                '--lgx-card-tone': ROLE_PALETTES[a.tipo].tone,
+                                '--portal-card-glow': ROLE_PALETTES[a.tipo].glow,
+                                background: ROLE_PALETTES[a.tipo].surface,
                             } as React.CSSProperties}
                         >
                             {/* Card Inner Glow Hover Effect */}
-                            <div className="absolute inset-0 rounded-[40px] bg-gradient-to-b from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
+                            <div className="portal-role-card__shine absolute inset-0 rounded-[32px] pointer-events-none" />
 
                             {loadingKey === a.key && (
                                 <div className="absolute inset-0 flex items-center justify-center z-50 bg-black/40 backdrop-blur-md rounded-[40px]">
@@ -386,14 +442,10 @@ export default function PortalClient({ nombre, asignaciones }: { nombre: string,
                                 {(() => {
                                     const diaLower = a.dia.toLowerCase();
                                     const variant = diaLower.includes('virtual') ? 'virtual' : diaLower.includes('martes') ? 'martes' : 'default';
-                                    const isCoordOrTim = ['contacto', 'maestro'].includes(a.tipo);
-
                                     return (
                                         <>
-                                            <div className={`absolute inset-0 blur-2xl rounded-full opacity-60 group-hover:opacity-100 transition-all duration-500 ${isCoordOrTim && variant === 'virtual' ? 'bg-fuchsia-500/40' :
-                                                isCoordOrTim && variant === 'martes' ? 'bg-sky-500/40' :
-                                                    'bg-blue-500/30'
-                                                }`} />
+                                            <div className="absolute inset-0 blur-2xl rounded-full opacity-60 group-hover:opacity-100 transition-all duration-500"
+                                                style={{ background: ROLE_PALETTES[a.tipo].glow }} />
 
                                             <div className="relative z-10 transform transition-transform duration-500 group-hover:scale-110 group-hover:-translate-y-2 drop-shadow-2xl">
                                                 {a.tipo === 'contacto' && <ContactoIcon variant={variant} />}
@@ -409,12 +461,12 @@ export default function PortalClient({ nombre, asignaciones }: { nombre: string,
                                 })()}
                             </div>
 
-                            <h3 className="font-bold text-white text-3xl mb-2 tracking-tight drop-shadow-lg group-hover:text-blue-100 transition-colors">
+                            <h3 className="font-bold text-white text-3xl mb-2 tracking-tight drop-shadow-lg group-hover:text-white transition-colors">
                                 {getTitle(a.tipo)}
                             </h3>
 
                             {!['director', 'administrador', 'kids_hub'].includes(a.tipo) && (
-                                <p className="text-blue-100/90 font-medium tracking-wide mb-4 uppercase text-sm drop-shadow-sm">
+                                <p className="text-white/85 font-medium tracking-wide mb-4 uppercase text-sm drop-shadow-sm">
                                     {a.etapa}
                                 </p>
                             )}
@@ -422,7 +474,7 @@ export default function PortalClient({ nombre, asignaciones }: { nombre: string,
                             {a.tipo === 'administrador' && a.cursos && a.cursos.length > 0 && (
                                 <div className="flex flex-wrap justify-center gap-2 mb-4 max-w-[200px]">
                                     {a.cursos.map((curso, idx) => (
-                                        <span key={idx} className="px-3 py-1 bg-blue-500/20 border border-blue-400/30 rounded-lg text-xs font-medium text-blue-100 backdrop-blur-sm">
+                                        <span key={idx} className="px-3 py-1 bg-white/10 border border-white/25 rounded-lg text-xs font-medium text-white/90 backdrop-blur-sm">
                                             {curso}
                                         </span>
                                     ))}
@@ -432,44 +484,20 @@ export default function PortalClient({ nombre, asignaciones }: { nombre: string,
                             <div className="mt-auto pt-4 border-t border-white/10 w-full">
                                 {a.tipo === 'kids_hub' ? (
                                     <span className="text-xs font-bold tracking-[0.2em] uppercase"
-                                        style={{ color: '#5eead4' }}>
+                                        style={{ color: ROLE_PALETTES[a.tipo].badgeText }}>
                                         Módulo Kids Ministry
                                     </span>
                                 ) : !a.dia ? (
-                                    <span className="text-blue-100/50 text-xs font-bold tracking-[0.2em] uppercase">
+                                    <span className="text-white/55 text-xs font-bold tracking-[0.2em] uppercase">
                                         Acceso Administrativo
                                     </span>
                                 ) : (
-                                    <div className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-full border backdrop-blur-md ${a.tipo === 'estudiante_ptm'
-                                        ? 'bg-emerald-500/10 border-emerald-500/20'
-                                        : a.dia.toLowerCase().includes('todos')
-                                            ? 'bg-gradient-to-r from-amber-500/20 via-yellow-400/20 to-amber-500/20 border-amber-400/40'
-                                            : a.dia.toLowerCase().includes('domingo')
-                                                ? 'bg-emerald-500/10 border-emerald-500/20'
-                                                : a.dia.toLowerCase().includes('martes')
-                                                    ? 'bg-sky-500/10 border-sky-500/20'
-                                                    : a.dia.toLowerCase().includes('virtual')
-                                                        ? 'bg-gradient-to-r from-fuchsia-500/20 to-pink-500/20 border-fuchsia-500/30'
-                                                        : 'bg-white/5 border-white/10'
-                                        }`}>
-                                        <div className={`w-2 h-2 rounded-full shadow-[0_0_8px_currentcolor] ${a.tipo === 'estudiante_ptm'
-                                            ? 'bg-emerald-400 text-emerald-400'
-                                            : a.dia.toLowerCase().includes('todos')
-                                                ? 'bg-gradient-to-r from-amber-400 to-yellow-300 text-amber-400'
-                                                : a.dia.toLowerCase().includes('domingo')
-                                                    ? 'bg-emerald-400 text-emerald-400'
-                                                    : a.dia.toLowerCase().includes('martes')
-                                                        ? 'bg-sky-400 text-sky-400'
-                                                        : a.dia.toLowerCase().includes('virtual')
-                                                            ? 'bg-fuchsia-400 text-fuchsia-400'
-                                                            : 'bg-slate-400 text-slate-400'
-                                            }`} />
-                                        <span className={`text-xs font-semibold tracking-wide ${a.tipo === 'estudiante_ptm'
-                                            ? 'text-emerald-100'
-                                            : a.dia.toLowerCase().includes('todos')
-                                                ? 'bg-gradient-to-r from-amber-300 via-yellow-200 to-amber-300 bg-clip-text text-transparent drop-shadow-[0_0_12px_rgba(251,191,36,0.6)]'
-                                                : 'text-white'
-                                            }`}>
+                                    <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border backdrop-blur-md"
+                                        style={{ background: ROLE_PALETTES[a.tipo].badgeBackground, borderColor: ROLE_PALETTES[a.tipo].badgeBorder }}>
+                                        <div className="w-2 h-2 rounded-full"
+                                            style={{ background: ROLE_PALETTES[a.tipo].tone, boxShadow: `0 0 9px ${ROLE_PALETTES[a.tipo].tone}` }} />
+                                        <span className="text-xs font-semibold tracking-wide"
+                                            style={{ color: ROLE_PALETTES[a.tipo].badgeText }}>
                                             {a.dia} {a.franja && `• ${a.franja}`}
                                         </span>
                                     </div>
@@ -488,14 +516,14 @@ export default function PortalClient({ nombre, asignaciones }: { nombre: string,
                     <a
                         href="/login"
                         className="lgx-content-card lgx-content-card--deep relative group inline-flex items-center gap-3 px-8 py-3 rounded-full overflow-hidden transition-all"
-                        style={{ '--lgx-card-tone': '#2563eb' } as React.CSSProperties}
+                        style={{ '--lgx-card-tone': '#78c9d4' } as React.CSSProperties}
                     >
                         {/* Button Glow */}
                         <div className="absolute inset-0 bg-white/5 border border-white/20 rounded-full group-hover:bg-white/10 group-hover:border-white/40 transition-all duration-300" />
-                        <div className="absolute inset-0 bg-blue-500/20 blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                        <div className="absolute inset-0 bg-cyan-300/15 blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
 
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-blue-200 group-hover:text-white transition-colors relative z-10"><path d="M15 18l-6-6 6-6" /></svg>
-                        <span className="text-blue-100 font-semibold tracking-wide group-hover:text-white transition-colors relative z-10 text-sm">Cerrar Sesión</span>
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-cyan-100 group-hover:text-white transition-colors relative z-10"><path d="M15 18l-6-6 6-6" /></svg>
+                        <span className="text-slate-100 font-semibold tracking-wide group-hover:text-white transition-colors relative z-10 text-sm">Cerrar Sesión</span>
                     </a>
                 </motion.div>
             </div>
@@ -521,7 +549,8 @@ export default function PortalClient({ nombre, asignaciones }: { nombre: string,
                             top: 24,
                             width: 'calc(100vw - 48px)',
                             height: 'calc(100vh - 48px)',
-                            '--lgx-card-tone': focusedRole.tipo === 'administrador' ? '#8b5cf6' : '#2563eb',
+                            '--lgx-card-tone': ROLE_PALETTES[focusedRole.tipo].tone,
+                            background: ROLE_PALETTES[focusedRole.tipo].surface,
                             '--portal-from-x': `${focusGeometry.fromX}px`,
                             '--portal-from-y': `${focusGeometry.fromY}px`,
                             '--portal-scale-x': focusGeometry.scaleX,
@@ -548,6 +577,27 @@ export default function PortalClient({ nombre, asignaciones }: { nombre: string,
                     from { transform: translate3d(0, 0, 0) scale(1); }
                     to { transform: translate3d(var(--portal-from-x), var(--portal-from-y), 0) scale(var(--portal-scale-x), var(--portal-scale-y)); }
                 }
+                .portal-role-card {
+                    border: 1px solid rgba(255,255,255,.52) !important;
+                    box-shadow:
+                        inset 0 1px 0 rgba(255,255,255,.72),
+                        inset 0 -1px 0 rgba(255,255,255,.12),
+                        0 24px 58px rgba(2,13,23,.28),
+                        0 8px 28px var(--portal-card-glow);
+                    backdrop-filter: blur(30px) saturate(150%);
+                    -webkit-backdrop-filter: blur(30px) saturate(150%);
+                    isolation: isolate;
+                }
+                .portal-role-card__shine {
+                    z-index: 0;
+                    opacity: .72;
+                    background:
+                        radial-gradient(ellipse 72% 46% at 26% 0%,rgba(255,255,255,.48),transparent 64%),
+                        linear-gradient(108deg,rgba(255,255,255,.18),transparent 31%,rgba(255,255,255,.05) 64%,rgba(255,255,255,.18));
+                    box-shadow: inset 0 0 0 1px rgba(255,255,255,.08);
+                    transition: opacity .5s ease, transform .6s cubic-bezier(.22,1,.36,1);
+                }
+                .portal-role-card:hover .portal-role-card__shine { opacity: .96; transform: translateY(-2px); }
                 .portal-role-focus--expanding { animation: portalRoleExpand .72s cubic-bezier(.22,.72,.18,1) both; transform-origin: top left; }
                 .portal-role-focus--open { transform: translate3d(0, 0, 0) scale(1); transform-origin: top left; }
                 .portal-role-focus--returning { animation: portalRoleCollapse .62s cubic-bezier(.4,0,.24,1) both; transform-origin: top left; }

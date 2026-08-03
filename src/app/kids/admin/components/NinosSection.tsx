@@ -148,6 +148,7 @@ export default function NinosSection({
   const [filterOpen,  setFilterOpen] = useState(false)
   const [formErr,     setFormErr]    = useState('')
   const [possibleDuplicate, setPossibleDuplicate] = useState<PossibleDuplicate | null>(null)
+  const [isDuplicateClosing, setIsDuplicateClosing] = useState(false)
   const [successMsg,  setSuccessMsg] = useState('')
   const [editNino,         setEditNino]         = useState<KidsNino | null>(null)
   const [photoFile,        setPhotoFile]        = useState<File | null>(null)   // archivo a subir
@@ -296,6 +297,7 @@ export default function NinosSection({
           })),
         )
         if (duplicates.length > 0) {
+          setIsDuplicateClosing(false)
           setPossibleDuplicate(duplicates[0])
           return
         }
@@ -340,6 +342,7 @@ export default function NinosSection({
       if (!res.ok) {
         const duplicate = json.duplicates?.[0] as PossibleDuplicate | undefined
         if (res.status === 409 && json.code === 'POSSIBLE_DUPLICATE' && duplicate) {
+          setIsDuplicateClosing(false)
           setPossibleDuplicate(duplicate)
         } else {
           setFormErr(json.error ?? 'Error al guardar')
@@ -434,11 +437,45 @@ export default function NinosSection({
       if (runId === faceExtractionRunRef.current) setFaceStatus(status)
     })
     faceExtractionPromiseRef.current = extraction
-    extraction.then(descriptor => {
-      if (runId !== faceExtractionRunRef.current) return
-      // Convertir Float32Array → number[] para serialización JSON correcta
-      setFaceDescriptor(descriptor ? Array.from(descriptor) : null)
-    })
+    extraction
+      .then(descriptor => {
+        if (runId !== faceExtractionRunRef.current) return
+        // Convertir Float32Array → number[] para serialización JSON correcta
+        const descriptorForPhoto = descriptor ? Array.from(descriptor) : null
+        setFaceDescriptor(descriptorForPhoto)
+
+        // La foto es la señal principal: en cuanto el motor confirma el rostro,
+        // comprobarlo contra los niños registrados y avisar sin esperar a Guardar.
+        if (!editNino && descriptorForPhoto) {
+          const duplicates = findPossibleKidsDuplicates(
+            {
+              nombre: form.nombreCompleto.trim().split(/\s+/)[0] ?? '',
+              apellido: form.nombreCompleto.trim().split(/\s+/).slice(1).join(' ') || null,
+              edad: form.edad ? parseInt(form.edad) : null,
+              telefono: form.telefono,
+              face_descriptor: descriptorForPhoto,
+            },
+            ninos.map(n => ({
+              id: n.id,
+              nombre: n.nombre,
+              apellido: n.apellido,
+              edad: n.edad,
+              telefono: n.telefono ?? n.telefono_acudiente,
+              face_descriptor: n.face_descriptor,
+              activo: n.activo,
+            })),
+          )
+          if (duplicates.length > 0) {
+            setIsDuplicateClosing(false)
+            setPossibleDuplicate(duplicates[0])
+          }
+        }
+      })
+      .catch(() => {
+        if (runId !== faceExtractionRunRef.current) return
+        setFaceDescriptor(null)
+        setFaceStatus('error')
+      })
   }
 
   /* ── Activar IA: re-extraer descriptor desde la foto ya guardada ── */
@@ -536,6 +573,16 @@ export default function NinosSection({
     setNinos(prev => prev.map(x => x.id === n.id ? { ...x, observaciones: obs || null } : x))
   }
 
+  function dismissDuplicateModal(onClosed?: () => void) {
+    if (isDuplicateClosing) return
+    setIsDuplicateClosing(true)
+    window.setTimeout(() => {
+      setPossibleDuplicate(null)
+      setIsDuplicateClosing(false)
+      onClosed?.()
+    }, 280)
+  }
+
   const duplicateNino = possibleDuplicate
     ? ninos.find(n => n.id === possibleDuplicate.id) ?? null
     : null
@@ -578,6 +625,16 @@ export default function NinosSection({
         from { opacity: 1; }
         to   { opacity: 0; }
       }
+      @keyframes duplicateGlassIn {
+        from { opacity:0; transform:translateY(18px) scale(.94); filter:blur(8px); }
+        to   { opacity:1; transform:translateY(0) scale(1); filter:blur(0); }
+      }
+      @keyframes duplicateGlassOut {
+        from { opacity:1; transform:translateY(0) scale(1); filter:blur(0); }
+        to   { opacity:0; transform:translateY(12px) scale(.97); filter:blur(5px); }
+      }
+      @keyframes duplicateBackdropIn { from { opacity:0; } to { opacity:1; } }
+      @keyframes duplicateBackdropOut { from { opacity:1; } to { opacity:0; } }
     `}</style>
     <div style={{
       display:        'flex',
@@ -1365,25 +1422,25 @@ export default function NinosSection({
   )}
 
     {possibleDuplicate && (
-      <div role="dialog" aria-modal="true" aria-labelledby="duplicate-kid-title" style={{ position:'fixed', inset:0, zIndex:150, display:'flex', alignItems:'center', justifyContent:'center', padding:20, background:'rgba(15,12,41,.58)', backdropFilter:'blur(5px)' }}>
-        <div style={{ width:'100%', maxWidth:390, borderRadius:26, padding:'28px 24px 22px', background:'linear-gradient(160deg,#ffffff 0%,#f5f3ff 100%)', boxShadow:'0 26px 80px rgba(30,27,75,.35)', animation:'ninoCardIn .28s ease both', textAlign:'center' }}>
-          <div style={{ width:60, height:60, margin:'0 auto 14px', borderRadius:20, display:'flex', alignItems:'center', justifyContent:'center', color:'#fff', fontSize:29, background:'linear-gradient(135deg,#8b5cf6,#6366f1)', boxShadow:'0 10px 24px rgba(124,58,237,.32)' }}>👋</div>
-          <h3 id="duplicate-kid-title" style={{ margin:'0 0 8px', color:'#2e1065', fontSize:20, fontWeight:900 }}>¡Hola, {usuario?.nombre?.trim() || 'amigo'}!</h3>
-          <p style={{ margin:'0 0 16px', color:'#4b5563', fontSize:13, lineHeight:1.55 }}>Encontramos que este registro ya está en nuestro sistema. Así evitamos crear una ficha repetida.</p>
-          <div style={{ display:'flex', alignItems:'center', gap:12, textAlign:'left', padding:12, borderRadius:16, border:'1px solid #ddd6fe', background:'rgba(255,255,255,.82)', marginBottom:16 }}>
+      <div role="dialog" aria-modal="true" aria-labelledby="duplicate-kid-title" style={{ position:'fixed', inset:0, zIndex:150, display:'flex', alignItems:'center', justifyContent:'center', padding:20, background:'radial-gradient(circle at 50% 12%,rgba(183,228,238,.24),transparent 43%),rgba(16,24,34,.44)', backdropFilter:'blur(18px) saturate(135%)', WebkitBackdropFilter:'blur(18px) saturate(135%)', animation:`${isDuplicateClosing ? 'duplicateBackdropOut' : 'duplicateBackdropIn'} .28s ease forwards` }}>
+        <div style={{ width:'100%', maxWidth:390, borderRadius:30, padding:'28px 24px 22px', background:'linear-gradient(145deg,rgba(255,255,255,.92),rgba(241,247,249,.76))', border:'1px solid rgba(255,255,255,.82)', boxShadow:'0 28px 90px rgba(6,25,35,.28), inset 0 1px 0 rgba(255,255,255,.95)', backdropFilter:'blur(28px) saturate(155%)', WebkitBackdropFilter:'blur(28px) saturate(155%)', animation:`${isDuplicateClosing ? 'duplicateGlassOut' : 'duplicateGlassIn'} .28s cubic-bezier(.2,.8,.2,1) forwards`, textAlign:'center' }}>
+          <div style={{ width:60, height:60, margin:'0 auto 14px', borderRadius:21, display:'flex', alignItems:'center', justifyContent:'center', color:'#13232b', fontSize:28, background:'linear-gradient(145deg,rgba(255,255,255,.95),rgba(193,229,235,.72))', border:'1px solid rgba(255,255,255,.9)', boxShadow:'0 12px 26px rgba(17,75,86,.16), inset 0 1px 1px rgba(255,255,255,1)' }}>👋</div>
+          <h3 id="duplicate-kid-title" style={{ margin:'0 0 8px', color:'#17242b', fontSize:20, fontWeight:850, letterSpacing:'-.4px' }}>¡Hola, {usuario?.nombre?.trim() || 'amigo'}!</h3>
+          <p style={{ margin:'0 0 16px', color:'#52626a', fontSize:13, lineHeight:1.55 }}>Encontramos que este registro ya está en nuestro sistema. Así evitamos crear una ficha repetida.</p>
+          <div style={{ display:'flex', alignItems:'center', gap:12, textAlign:'left', padding:12, borderRadius:18, border:'1px solid rgba(202,221,225,.88)', background:'linear-gradient(135deg,rgba(255,255,255,.75),rgba(225,240,242,.56))', boxShadow:'inset 0 1px 0 rgba(255,255,255,.9)', marginBottom:16 }}>
             {duplicateNino?.foto_url ? (
-              <img src={duplicateNino.foto_url} alt="" style={{ width:48, height:48, borderRadius:'50%', objectFit:'cover', border:'3px solid #c4b5fd' }} />
+              <img src={duplicateNino.foto_url} alt="" style={{ width:48, height:48, borderRadius:'50%', objectFit:'cover', border:'3px solid rgba(255,255,255,.94)', boxShadow:'0 4px 14px rgba(17,75,86,.2)' }} />
             ) : (
-              <div style={{ width:48, height:48, flexShrink:0, borderRadius:'50%', display:'grid', placeItems:'center', background:'#ede9fe', color:'#6d28d9', fontWeight:900, fontSize:18 }}>{duplicateName.charAt(0).toUpperCase()}</div>
+              <div style={{ width:48, height:48, flexShrink:0, borderRadius:'50%', display:'grid', placeItems:'center', background:'linear-gradient(145deg,#e7f5f5,#b9e0e4)', color:'#15515a', fontWeight:900, fontSize:18, boxShadow:'inset 0 1px 0 rgba(255,255,255,.9)' }}>{duplicateName.charAt(0).toUpperCase()}</div>
             )}
             <div style={{ minWidth:0 }}>
-              <div style={{ color:'#1f2937', fontSize:15, fontWeight:800, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{duplicateName}</div>
-              <div style={{ color:'#6b7280', fontSize:11, marginTop:3 }}>{duplicateNino?.edad != null ? `${duplicateNino.edad} años` : 'Registro existente'}{duplicateNino?.grupo ? ` · ${duplicateNino.grupo}` : ''}</div>
+              <div style={{ color:'#1e3037', fontSize:15, fontWeight:800, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{duplicateName}</div>
+              <div style={{ color:'#60747b', fontSize:11, marginTop:3 }}>{duplicateNino?.edad != null ? `${duplicateNino.edad} años` : 'Registro existente'}{duplicateNino?.grupo ? ` · ${duplicateNino.grupo}` : ''}</div>
             </div>
           </div>
-          <p style={{ margin:'0 0 18px', color:'#6b7280', fontSize:12, lineHeight:1.45 }}>Puedes revisar su ficha y actualizarla si hace falta.</p>
-          <button type="button" onClick={() => { if (duplicateNino) startEdit(duplicateNino); else setPossibleDuplicate(null) }} style={{ width:'100%', border:0, borderRadius:14, padding:'12px 16px', cursor:'pointer', color:'#fff', fontSize:13, fontWeight:800, background:'linear-gradient(135deg,#7c3aed,#6366f1)', boxShadow:'0 8px 20px rgba(99,102,241,.25)' }}>{duplicateNino ? `Ver ficha de ${possibleDuplicate.nombre}` : 'Entendido'}</button>
-          <button type="button" onClick={() => setPossibleDuplicate(null)} style={{ marginTop:10, border:0, background:'transparent', cursor:'pointer', color:'#6d28d9', fontSize:12, fontWeight:700, padding:7 }}>Seguir revisando</button>
+          <p style={{ margin:'0 0 18px', color:'#63747a', fontSize:12, lineHeight:1.45 }}>Puedes revisar su ficha y actualizarla si hace falta.</p>
+          <button type="button" onClick={() => dismissDuplicateModal(() => { if (duplicateNino) startEdit(duplicateNino) })} style={{ width:'100%', border:'1px solid rgba(255,255,255,.3)', borderRadius:15, padding:'12px 16px', cursor:'pointer', color:'#fff', fontSize:13, fontWeight:800, background:'linear-gradient(135deg,#1d353e,#245b67)', boxShadow:'0 10px 22px rgba(19,68,78,.25), inset 0 1px 0 rgba(255,255,255,.18)' }}>{duplicateNino ? `Ver ficha de ${possibleDuplicate.nombre}` : 'Entendido'}</button>
+          <button type="button" onClick={() => dismissDuplicateModal()} style={{ marginTop:10, border:0, background:'transparent', cursor:'pointer', color:'#28636c', fontSize:12, fontWeight:750, padding:7 }}>Seguir revisando</button>
         </div>
       </div>
     )}
@@ -2868,6 +2925,7 @@ function DraggablePhotoCircle({
     const img = imgRef.current
     if (!img) return
     const { naturalWidth: nw, naturalHeight: nh } = img
+    if (!Number.isFinite(nw) || !Number.isFinite(nh) || nw < 1 || nh < 1) return
     const scale = Math.max(size / nw, size / nh)
     const w = Math.round(nw * scale)
     const h = Math.round(nh * scale)
@@ -2887,6 +2945,7 @@ function DraggablePhotoCircle({
     const canvas = canvasRef.current
     const img    = imgRef.current
     if (!canvas || !img) return
+    if (!img.complete || img.naturalWidth < 1 || img.naturalHeight < 1 || iw < 1 || ih < 1) return
     const OUT    = 400                    // resolución de salida
     const ratio  = OUT / size             // factor de escala display→salida
     canvas.width  = OUT
