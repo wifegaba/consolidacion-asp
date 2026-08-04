@@ -238,19 +238,23 @@ export default function LoginPage() {
         <form onSubmit={handleSubmit} className="mt-6 space-y-4">
           {/* CAMPO DE CONTRASEÑA/CÉDULA CON TOGGLE DE VISIBILIDAD */}
           <div className="relative">
+            {/* Campo oculto para el username (requerido por gestores de contraseñas para guardar correctamente) */}
+            <input type="text" name="username" autoComplete="username" value={cedula} className="hidden" readOnly aria-hidden="true" />
+            
             <label htmlFor="cedula" className="sr-only">Cédula o Usuario</label>
             <input
               id="cedula"
+              name="password"
               ref={cedulaInputRef}
-              type="tel"
+              type={showPassword ? 'text' : 'password'}
               inputMode="numeric"
-              autoComplete="off"
+              pattern="[0-9]*"
+              autoComplete="current-password"
               placeholder="Ingrese su cédula o usuario"
               value={cedula}
               onChange={(e) => setCedula(normalizeCedula(e.target.value))}
               onFocus={handleCredentialFocus}
               className="w-full px-4 py-3 pr-12 rounded-2xl bg-white/35 border border-white/60 text-slate-800 placeholder-slate-400 shadow-inner focus:outline-none focus:ring-2 focus:ring-sky-400 focus:border-transparent backdrop-blur-md"
-              style={{ WebkitTextSecurity: showPassword ? 'none' : 'disc' } as React.CSSProperties}
             />
 
             {cedula.length > 0 && (
