@@ -463,8 +463,8 @@ export async function moverEstudianteAction(
     // impide registrar el resultado en el grupo destino.
     const { data: progresoAnterior, error: sourceError } = await supabaseAdmin
       .from('progreso')
-      .eq('id', progresoId)
       .select('persona_id')
+      .eq('id', progresoId)
       .maybeSingle();
 
     if (sourceError) throw sourceError;

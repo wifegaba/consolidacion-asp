@@ -1383,7 +1383,6 @@
 html { overflow-y: scroll; }
 
 body {
-    overflow-y: scroll;
     overflow-x: clip;
     background: transparent;
     color: var(--foreground);
