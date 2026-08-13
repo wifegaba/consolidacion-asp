@@ -1717,38 +1717,81 @@ function KidsTeamOverviewPanel({ ninos }: { ninos: KidsNino[] }) {
     { label: 'PTMD Kids', value: ptmdKids, color: '#0ea5e9' },
   ]
 
+  const currentYear = new Date().getFullYear()
+  const lastYear = currentYear - 1
+  const kidsCurrentYear = active.filter(n => new Date(n.creado_en).getFullYear() === currentYear).length
+  const kidsLastYear = active.filter(n => new Date(n.creado_en).getFullYear() === lastYear).length
+
   return (
-    <aside className="server-team-overview kids-team-overview" aria-label="Resumen de niños por edades">
-      <div className="server-team-overview__glow" />
-      <header className="server-team-overview__header">
-        <div>
-          <span>Resumen de la comunidad</span>
-          <h3>Niños por etapa</h3>
-        </div>
-        <div className="server-team-overview__status"><i /> Actualizado</div>
-      </header>
-      <div className="server-team-overview__total">
-        <strong>{active.length}</strong>
-        <div>
-          <b>Niños activos</b>
-          <span>Comunidad Kids registrada</span>
-        </div>
-      </div>
-      <div className="server-team-overview__metrics">
-        {metrics.map(metric => (
-          <div className="server-team-overview__metric" key={metric.label}>
-            <i style={{ background: metric.color, boxShadow: `0 0 9px ${metric.color}66` }} />
-            <span>{metric.label}</span>
-            <div><b style={{ width: `${metric.value === 0 ? 0 : Math.max(12, (metric.value / maxMetric) * 100)}%`, background: metric.color }} /></div>
-            <strong>{metric.value}</strong>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', gridColumn: '6 / span 2', gridRow: '1 / span 2' }}>
+      <aside className="server-team-overview kids-team-overview" aria-label="Resumen de niños por edades" style={{ gridColumn: 'unset', gridRow: 'unset', position: 'relative', width: '100%', flex: 1, height: 'auto', minHeight: 280 }}>
+        <div className="server-team-overview__glow" />
+        <header className="server-team-overview__header">
+          <div>
+            <span>Resumen de la comunidad</span>
+            <h3>Niños por etapa</h3>
           </div>
-        ))}
+          <div className="server-team-overview__status"><i /> Actualizado</div>
+        </header>
+        <div className="server-team-overview__total">
+          <strong>{active.length}</strong>
+          <div>
+            <b>Niños activos</b>
+            <span>Comunidad Kids registrada</span>
+          </div>
+        </div>
+        <div className="server-team-overview__metrics">
+          {metrics.map(metric => (
+            <div className="server-team-overview__metric" key={metric.label}>
+              <i style={{ background: metric.color, boxShadow: `0 0 9px ${metric.color}66` }} />
+              <span>{metric.label}</span>
+              <div><b style={{ width: `${metric.value === 0 ? 0 : Math.max(12, (metric.value / maxMetric) * 100)}%`, background: metric.color }} /></div>
+              <strong>{metric.value}</strong>
+            </div>
+          ))}
+        </div>
+        <footer className="server-team-overview__footer">
+          <div><span>Reconocimiento IA</span><strong>{faceReady}</strong></div>
+          <div><span>Acudiente completo</span><strong>{guardianReady}</strong></div>
+        </footer>
+      </aside>
+
+      <div style={{ display: 'flex', gap: '10px' }}>
+        {/* Tarjeta de Asistencias Año Actual */}
+        <aside className="server-team-overview kids-team-overview" aria-label={`Asistencias ${currentYear}`} style={{ gridColumn: 'unset', gridRow: 'unset', height: 'auto', padding: '12px 14px', position: 'relative', flex: 1, minHeight: 0 }}>
+          <div className="server-team-overview__glow" style={{ background: 'rgba(59,130,246,0.15)', width: 80, height: 80, top: -30, right: -20 }} />
+          <header className="server-team-overview__header" style={{ marginBottom: '6px' }}>
+            <div>
+              <span style={{ color: '#2563eb', fontSize: 7 }}>AÑO ACTUAL</span>
+            </div>
+            <div className="server-team-overview__status" style={{ padding: '2px 5px', gap: 3, fontSize: 8 }}><i style={{ background: '#3b82f6', boxShadow: '0 0 7px rgba(59,130,246,.55)', width: 4, height: 4 }} /> {currentYear}</div>
+          </header>
+          <div className="server-team-overview__total" style={{ padding: 0, gap: 8 }}>
+            <strong style={{ width: 36, height: 36, flex: '0 0 36px', color: '#2563eb', background: 'linear-gradient(145deg, rgba(255,255,255,.9), rgba(219,234,254,.6))', fontSize: 13 }}>{kidsCurrentYear}</strong>
+            <div>
+              <b style={{ fontSize: 9.5 }}>Asistencias</b>
+            </div>
+          </div>
+        </aside>
+
+        {/* Tarjeta de Asistencias Año Anterior */}
+        <aside className="server-team-overview kids-team-overview" aria-label={`Asistencias ${lastYear}`} style={{ gridColumn: 'unset', gridRow: 'unset', height: 'auto', padding: '12px 14px', position: 'relative', flex: 1, minHeight: 0 }}>
+          <div className="server-team-overview__glow" style={{ background: 'rgba(16,185,129,0.12)', width: 80, height: 80, top: -30, right: -20 }} />
+          <header className="server-team-overview__header" style={{ marginBottom: '6px' }}>
+            <div>
+              <span style={{ color: '#059669', fontSize: 7 }}>AÑO ANTERIOR</span>
+            </div>
+            <div className="server-team-overview__status" style={{ padding: '2px 5px', gap: 3, fontSize: 8, borderColor: 'rgba(0,0,0,0.05)', color: '#6b7280' }}><i style={{ background: '#9ca3af', boxShadow: 'none', width: 4, height: 4 }} /> {lastYear}</div>
+          </header>
+          <div className="server-team-overview__total" style={{ padding: 0, gap: 8 }}>
+            <strong style={{ width: 36, height: 36, flex: '0 0 36px', color: '#059669', background: 'linear-gradient(145deg, rgba(255,255,255,.9), rgba(209,250,229,.6))', fontSize: 13 }}>{kidsLastYear}</strong>
+            <div>
+              <b style={{ fontSize: 9.5 }}>Asistencias</b>
+            </div>
+          </div>
+        </aside>
       </div>
-      <footer className="server-team-overview__footer">
-        <div><span>Reconocimiento IA</span><strong>{faceReady}</strong></div>
-        <div><span>Acudiente completo</span><strong>{guardianReady}</strong></div>
-      </footer>
-    </aside>
+    </div>
   )
 }
 
@@ -1766,7 +1809,7 @@ function ninoAladdinOriginFromRect(rect: DOMRect) {
 }
 
 function NinoAladdinModal({
-  nino, origin, headerGradient, closing, onClose, onEdit,
+  nino, origin, headerGradient, closing, onClose, onEdit, onSaveObs,
 }: {
   nino: KidsNino
   origin: Record<string, string>
@@ -1774,14 +1817,41 @@ function NinoAladdinModal({
   closing: boolean
   onClose: () => void
   onEdit: () => void
+  onSaveObs: (obs: string) => void
 }) {
+  const [obsText, setObsText] = useState(nino.observaciones ?? '')
+  const [obsEditing, setObsEditing] = useState(false)
+  const [obsSaving, setObsSaving] = useState(false)
+
+  useEffect(() => {
+    if (!obsEditing) setObsText(nino.observaciones ?? '')
+  }, [nino.observaciones, obsEditing])
+
+  async function handleSaveObs() {
+    setObsSaving(true)
+    try {
+      const res = await fetch(`/api/kids/ninos/${nino.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ observaciones: obsText.trim() || null }),
+      })
+      if (res.ok) {
+        onSaveObs(obsText.trim() || '')
+        setObsEditing(false)
+      }
+    } catch {
+      // ignore errors
+    } finally {
+      setObsSaving(false)
+    }
+  }
+
   const initials = `${nino.nombre.charAt(0)}${(nino.apellido || '').charAt(0)}`.toUpperCase()
   const details = [
     ['Edad', nino.edad == null ? 'No registrada' : `${nino.edad} años`],
     ['Grupo', nino.grupo || 'Sin grupo asignado'],
     ['Acudiente', nino.nombre_acudiente || nino.acudiente || 'No registrado'],
     ['Teléfono', nino.telefono_acudiente || nino.telefono || 'No registrado'],
-    ['Observaciones', nino.observaciones || 'Sin observaciones registradas'],
   ]
 
   return (
@@ -1810,9 +1880,87 @@ function NinoAladdinModal({
           {details.map(([label, value]) => (
             <div className="server-profile-row" key={label}>
               <span>{label}</span>
-              <strong className={label === 'Observaciones' ? 'is-notes' : undefined}>{value}</strong>
+              <strong>{value}</strong>
             </div>
           ))}
+          <div className="server-profile-row server-profile-row--obs" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '8px' }}>
+            <div style={{ display: 'flex', width: '100%', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span>Observaciones</span>
+              {!obsEditing && (
+                <button
+                  onClick={() => setObsEditing(true)}
+                  style={{
+                    display:'flex', alignItems:'center', gap:4,
+                    border:'none', background:'rgba(124,58,237,.1)',
+                    borderRadius:8, padding:'4px 10px',
+                    fontSize:11, fontWeight:700, color:'#7c3aed',
+                    cursor:'pointer', transition: 'background .2s'
+                  }}
+                >
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
+                  Editar
+                </button>
+              )}
+            </div>
+            {obsEditing ? (
+              <div style={{ width: '100%' }}>
+                <textarea
+                  value={obsText}
+                  onChange={e => setObsText(e.target.value)}
+                  autoFocus
+                  placeholder="Escribe una observación…"
+                  style={{
+                    width:'100%', borderRadius:12, outline:'none',
+                    border: '1.5px solid rgba(124,58,237,.35)',
+                    padding:'10px 12px', fontSize:13, color:'#1e1b4b',
+                    resize:'none', minHeight:70, background:'#fff',
+                    boxShadow: 'inset 0 2px 4px rgba(0,0,0,.02)',
+                    fontFamily: 'inherit'
+                  }}
+                  onFocus={e => e.target.style.borderColor = '#7c3aed'}
+                  onBlur={e => e.target.style.borderColor = 'rgba(124,58,237,.35)'}
+                />
+                <div style={{ display:'flex', justifyContent:'flex-end', gap:6, marginTop:8 }}>
+                  <button
+                    onClick={() => { setObsEditing(false); setObsText(nino.observaciones ?? '') }}
+                    disabled={obsSaving}
+                    style={{
+                      border:'none', background:'transparent',
+                      fontSize:12, fontWeight:700, color:'#6b7280',
+                      padding:'6px 12px', borderRadius:8, cursor:'pointer'
+                    }}
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={handleSaveObs}
+                    disabled={obsSaving}
+                    style={{
+                      display:'flex', alignItems:'center', gap:4,
+                      border:'none', background:'linear-gradient(135deg,#7c3aed,#6366f1)',
+                      color:'#fff', fontSize:12, fontWeight:700,
+                      padding:'6px 14px', borderRadius:8, cursor:'pointer',
+                      boxShadow:'0 2px 8px rgba(124,58,237,.25)'
+                    }}
+                  >
+                    {obsSaving
+                      ? <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" style={{ animation:'spin 0.8s linear infinite' }}><path d="M21 12a9 9 0 1 1-9-9"/></svg>
+                      : <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.8" strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+                    }
+                    {obsSaving ? 'Guardando…' : 'Guardar'}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <strong className="is-notes" style={{ width: '100%', marginTop: 2 }}>
+                {nino.observaciones ? (
+                  <div style={{ fontSize:13, color:'#374151', lineHeight:1.5, whiteSpace:'pre-wrap', fontWeight:500 }}>{nino.observaciones}</div>
+                ) : (
+                  <div style={{ fontSize:13, color:'#d1d5db', fontStyle:'italic', fontWeight:400 }}>Sin observaciones registradas</div>
+                )}
+              </strong>
+            )}
+          </div>
         </div>
         <footer className="server-profile-actions nino-profile-actions">
           <button type="button" onClick={onClose} className="server-profile-delete">Cerrar</button>
@@ -2327,6 +2475,7 @@ function NinoCard({
           closeExpanded()
           window.setTimeout(onEdit, 640)
         }}
+        onSaveObs={onSaveObs}
       />,
       document.body,
     )}

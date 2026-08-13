@@ -804,7 +804,7 @@ export default function PortalClient({ nombre, asignaciones }: { nombre: string,
                 <div className="absolute inset-0 opacity-30 bg-[radial-gradient(circle_at_50%_0%,rgba(255,255,255,.16),transparent_34%)]" />
             </div>
 
-            <div className="w-full max-w-4xl z-10 relative">
+            <div className="w-full max-w-[1400px] z-10 relative px-4 sm:px-6 md:px-8">
                 <header className="mb-8 text-center">
                     <motion.div
                         initial={{ opacity: 0, y: -20 }}
@@ -821,10 +821,10 @@ export default function PortalClient({ nombre, asignaciones }: { nombre: string,
                 </header>
 
                 <LayoutGroup id="portal-responsive-stages">
-                    <div className={`grid gap-6 md:gap-8 justify-center ${overviewCardCount === 1 ? 'grid-cols-1 max-w-sm mx-auto' :
-                        overviewCardCount === 2 ? 'grid-cols-1 md:grid-cols-2 max-w-3xl mx-auto' :
-                            overviewCardCount === 3 ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3' :
-                                'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'
+                    <div className={`grid gap-6 md:gap-8 justify-center w-full mx-auto ${overviewCardCount === 1 ? 'grid-cols-1 max-w-sm' :
+                        overviewCardCount === 2 ? 'grid-cols-1 md:grid-cols-2 max-w-3xl' :
+                            overviewCardCount === 3 ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 max-w-5xl' :
+                                'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 max-w-7xl'
                         }`}>
                     {stageGroups.map((group, index) => {
                         const palette = STAGE_PALETTES[group.name];
@@ -1181,10 +1181,10 @@ export default function PortalClient({ nombre, asignaciones }: { nombre: string,
                     }
                     .portal-stage-mobile-panel { display: block !important; }
                     .portal-stage-card {
-                        min-height: 304px;
+                        min-height: 280px;
                         padding: 24px;
                     }
-                    .portal-stage-card > h2 { margin-top: 24px; }
+                    .portal-stage-card > h2 { margin-top: 24px; font-size: 26px !important; }
                     .portal-stage-mobile-panel {
                         margin-top: 0;
                     }
@@ -1210,15 +1210,18 @@ export default function PortalClient({ nombre, asignaciones }: { nombre: string,
                     }
                     .portal-stage-mobile-panel .portal-level-card h3 {
                         margin-top: 6px;
-                        font-size: 25px;
-                        line-height: 1.08;
+                        font-size: 23px;
+                        line-height: 1.1;
                         letter-spacing: -.035em;
-                        white-space: nowrap;
+                        /* Removed white-space: nowrap to avoid overflowing text */
                     }
                     .portal-stage-mobile-panel .portal-level-card h3 + div {
-                        margin-top: 12px;
-                        padding: 7px 12px;
-                        font-size: 13px;
+                        margin-top: 10px;
+                        padding: 6px 12px;
+                        font-size: 12px;
+                        height: auto;
+                        white-space: normal;
+                        text-align: left;
                     }
                     .portal-stage-mobile-panel .portal-level-card > svg {
                         width: 18px;
