@@ -313,7 +313,7 @@ function DirectorAccessCard({ onEnter }: { onEnter: () => void }) {
             style={{ transition: 'transform 700ms cubic-bezier(.16, 1, .3, 1), box-shadow 700ms cubic-bezier(.16, 1, .3, 1), filter 500ms ease' }}
         >
             <img
-                src="/director-access-card.png"
+                src="/gestion-maestros-estudiantes-card.png"
                 alt="Gestión de Maestros y Estudiantes - Ingresar"
                 className="w-full h-auto"
             />
@@ -328,14 +328,14 @@ function DirectorDashboardCard({ onSelectDashboard }: { onSelectDashboard: () =>
     return (
         <button
             onClick={onSelectDashboard}
-            className="lgx-content-card group relative w-full max-w-[240px] mx-auto rounded-2xl overflow-hidden shadow-2xl will-change-transform hover:translate-y-[2px] hover:scale-[.992] hover:shadow-emerald-900/10 focus:outline-none focus:ring-4 focus:ring-emerald-400/30"
+            className="lgx-content-card group relative w-full max-w-[240px] mx-auto rounded-2xl overflow-hidden shadow-2xl will-change-transform hover:translate-y-[2px] hover:scale-[.992] hover:shadow-cyan-900/10 focus:outline-none focus:ring-4 focus:ring-cyan-400/30"
             style={{
-                '--lgx-card-tone': '#10b981',
+                '--lgx-card-tone': '#06b6d4',
                 transition: 'transform 700ms cubic-bezier(.16, 1, .3, 1), box-shadow 700ms cubic-bezier(.16, 1, .3, 1), filter 500ms ease',
             } as React.CSSProperties}
         >
             <img
-                src="/dashboard-card.png"
+                src="/dashboard-proceso-transformacional-card.png"
                 alt="Dashboard de Proceso Transformacional - Ingresar"
                 className="w-full h-auto"
             />

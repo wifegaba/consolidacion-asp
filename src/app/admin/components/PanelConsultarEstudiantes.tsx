@@ -1,15 +1,16 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
-import { ClipboardList, Search, UserX, UserCheck2, UserCog, UserMinus, Check, AlertTriangle, Loader2, Phone, MessageCircle, Trash2, FileText, MessageSquare } from 'lucide-react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { ClipboardList, Search, UserX, UserCheck2, UserCog, UserMinus, Check, AlertTriangle, Loader2, Phone, MessageCircle, Trash2, FileText, MessageSquare, ChevronLeft, ChevronRight } from 'lucide-react';
 import { AnimatePresence, motion, Variants } from 'framer-motion';
 import { supabase } from '../../../lib/supabaseClient';
-import { GlassCard, CardHeader, FormSelect, GLASS_STYLES, ModalTemplate } from '../page';
+import { GlassCard, FormSelect, GLASS_STYLES, ModalTemplate } from '../page';
 import { HojaDeVidaPanel } from '../../restauracion/estudiante/components/HojaDeVidaPanel';
 import type { MaestroConCursos, Curso, Estudiante, Inscripcion, EstudianteInscrito } from '../page';
 
 // Animaciones premium para las listas de pendientes y matriculados
 const EASE_SMOOTH = [0.16, 1, 0.3, 1] as const;
+const STUDENTS_PER_PAGE = 6;
 
 const LIST_WRAPPER_VARIANTS: Variants = {
     hidden: {
@@ -53,6 +54,8 @@ export default function PanelConsultarEstudiantes({ maestros, cursos, estudiante
     const [selectedMaestroId, setSelectedMaestroId] = useState('');
     const [selectedCourseId, setSelectedCourseId] = useState('');
     const [selectedStudent, setSelectedStudent] = useState<EstudianteInscrito | null>(null);
+    const [pendingPage, setPendingPage] = useState(1);
+    const [enrolledPage, setEnrolledPage] = useState(1);
 
     const procesados = useMemo(() => {
         const mSet = new Map<string, MaestroConCursos>(maestros.map(m => [m.id, m]));
@@ -147,14 +150,31 @@ export default function PanelConsultarEstudiantes({ maestros, cursos, estudiante
         };
     }, [procesados, search, selectedMaestroId, selectedCourseId, currentUser]);
 
+    // Cada cambio de filtro inicia la navegación en la primera página.
+    useEffect(() => {
+        setPendingPage(1);
+        setEnrolledPage(1);
+    }, [search, selectedMaestroId, selectedCourseId]);
+
+    const pendingPageCount = Math.max(1, Math.ceil(pendientes.length / STUDENTS_PER_PAGE));
+    const enrolledPageCount = Math.max(1, Math.ceil(matriculados.length / STUDENTS_PER_PAGE));
+    const visiblePendientes = pendientes.slice((pendingPage - 1) * STUDENTS_PER_PAGE, pendingPage * STUDENTS_PER_PAGE);
+    const visibleMatriculados = matriculados.slice((enrolledPage - 1) * STUDENTS_PER_PAGE, enrolledPage * STUDENTS_PER_PAGE);
+
     return (
         <>
             <GlassCard className="h-full flex flex-col relative">
-                <CardHeader Icon={ClipboardList} title="Estudiantes" subtitle="Base de datos de matrículas." />
+                <div className={`flex shrink-0 items-center gap-3 px-4 py-3 ${GLASS_STYLES.headerGradient}`}>
+                    <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/40 bg-white/50 text-indigo-600 shadow-sm"><ClipboardList size={18} /></div>
+                    <div>
+                        <h2 className="text-base font-bold leading-tight text-gray-900">Estudiantes</h2>
+                        <p className="text-xs text-gray-600">Base de datos de matrículas.</p>
+                    </div>
+                </div>
 
-                <div className="p-4 md:p-6 grid grid-cols-1 md:grid-cols-4 gap-4 shrink-0">
+                <div className="grid shrink-0 grid-cols-1 gap-3 p-3 md:grid-cols-4">
                     <div className="relative md:col-span-2">
-                        <input type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar estudiante..." className={`w-full rounded-lg px-4 py-2.5 pl-10 ${GLASS_STYLES.input}`} />
+                        <input type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar estudiante..." className={`w-full rounded-xl px-3 py-2 pl-9 text-sm outline-none transition-all duration-300 focus:outline-none focus:border-sky-300 focus:bg-white/80 focus:ring-4 focus:ring-sky-400/20 focus:shadow-[0_10px_28px_rgba(56,189,248,0.16)] ${GLASS_STYLES.input}`} />
                         <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
                     </div>
                     <div className={cursos.length <= 1 ? "hidden md:block" : ""}>
@@ -169,18 +189,18 @@ export default function PanelConsultarEstudiantes({ maestros, cursos, estudiante
                     </FormSelect>
                 </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 px-4 pb-4 md:px-6 md:pb-6 flex-1 min-h-0 overflow-hidden">
+                <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 overflow-hidden px-3 pb-3 lg:grid-cols-2">
                     <div className="flex flex-col h-full min-h-0">
-                        <div className="mb-2 flex items-center gap-2 text-rose-700 font-semibold shrink-0"><UserX size={18} /> Pendientes ({pendientes.length})</div>
-                        <div className={`flex-1 overflow-y-auto rounded-xl ${GLASS_STYLES.input} p-0 border-2 border-white/50`}>
+                        <div className="mb-1.5 flex shrink-0 items-center gap-2 text-sm font-semibold text-rose-700"><UserX size={17} /> Pendientes ({pendientes.length})</div>
+                        <div className={`flex-1 overflow-hidden rounded-xl ${GLASS_STYLES.input} p-0 border-2 border-white/50`}>
                             {loading ? <div className="p-4 text-center">Cargando...</div> : pendientes.length === 0 ? <div className="p-8 text-center text-gray-500">No hay pendientes</div> : (
                                 <motion.div
-                                    key={`pendientes-${search}-${pendientes.length}`}
+                                    key={`pendientes-${search}-${pendientes.length}-${pendingPage}`}
                                     variants={LIST_WRAPPER_VARIANTS}
                                     initial="hidden"
                                     animate="visible"
                                 >
-                                    {pendientes.map(e => (
+                                    {visiblePendientes.map(e => (
                                         <motion.div key={e.id} variants={LIST_ITEM_VARIANTS}>
                                             <EstudianteRow e={e} onClick={() => setSelectedStudent(e)} />
                                         </motion.div>
@@ -188,19 +208,20 @@ export default function PanelConsultarEstudiantes({ maestros, cursos, estudiante
                                 </motion.div>
                             )}
                         </div>
+                        <PaginationControls page={pendingPage} pageCount={pendingPageCount} total={pendientes.length} onChange={setPendingPage} color="rose" />
                     </div>
 
                     <div className="flex flex-col h-full min-h-0">
-                        <div className="mb-2 flex items-center gap-2 text-blue-700 font-semibold shrink-0"><UserCheck2 size={18} /> Matriculados ({matriculados.length})</div>
-                        <div className={`flex-1 overflow-y-auto rounded-xl ${GLASS_STYLES.input} p-0 border-2 border-white/50`}>
+                        <div className="mb-1.5 flex shrink-0 items-center gap-2 text-sm font-semibold text-blue-700"><UserCheck2 size={17} /> Matriculados ({matriculados.length})</div>
+                        <div className={`flex-1 overflow-hidden rounded-xl ${GLASS_STYLES.input} p-0 border-2 border-white/50`}>
                             {loading ? <div className="p-4 text-center">Cargando...</div> : matriculados.length === 0 ? <div className="p-8 text-center text-gray-500">No hay matriculados</div> : (
                                 <motion.div
-                                    key={`matriculados-${search}-${matriculados.length}`}
+                                    key={`matriculados-${search}-${matriculados.length}-${enrolledPage}`}
                                     variants={LIST_WRAPPER_VARIANTS}
                                     initial="hidden"
                                     animate="visible"
                                 >
-                                    {matriculados.map(e => (
+                                    {visibleMatriculados.map(e => (
                                         <motion.div key={e.id} variants={LIST_ITEM_VARIANTS}>
                                             <EstudianteRow e={e} matriculado fotoUrl={e.foto_path ? fotoUrls[e.foto_path] : undefined} onClick={() => setSelectedStudent(e)} />
                                         </motion.div>
@@ -208,6 +229,7 @@ export default function PanelConsultarEstudiantes({ maestros, cursos, estudiante
                                 </motion.div>
                             )}
                         </div>
+                        <PaginationControls page={enrolledPage} pageCount={enrolledPageCount} total={matriculados.length} onChange={setEnrolledPage} color="blue" />
                     </div>
                 </div>
             </GlassCard>
@@ -262,6 +284,54 @@ function EstudianteRow({ e, matriculado, fotoUrl, onClick }: { e: EstudianteInsc
     );
 }
 
+function PaginationControls({ page, pageCount, total, onChange, color }: {
+    page: number;
+    pageCount: number;
+    total: number;
+    onChange: (page: number) => void;
+    color: 'rose' | 'blue';
+}) {
+    if (total === 0) return null;
+
+    const start = Math.max(1, Math.min(page - 2, pageCount - 4));
+    const end = Math.min(pageCount, start + 4);
+    const pages = Array.from({ length: end - start + 1 }, (_, index) => start + index);
+    const activeClasses = color === 'rose'
+        ? 'bg-rose-600 text-white shadow-rose-500/25'
+        : 'bg-blue-600 text-white shadow-blue-500/25';
+    const hoverClasses = color === 'rose'
+        ? 'hover:bg-rose-50 hover:text-rose-700'
+        : 'hover:bg-blue-50 hover:text-blue-700';
+
+    return (
+        <nav className="mt-3 flex items-center justify-between gap-2 rounded-xl bg-white/55 px-2.5 py-2 backdrop-blur-sm" aria-label="Paginación de estudiantes">
+            <span className="hidden text-[11px] font-medium text-slate-500 sm:inline">{total} estudiantes</span>
+            <div className="mx-auto flex items-center gap-1">
+                <button type="button" onClick={() => onChange(page - 1)} disabled={page === 1} aria-label="Página anterior" className={`flex h-7 w-7 items-center justify-center rounded-lg text-slate-500 transition-colors disabled:cursor-not-allowed disabled:opacity-35 ${hoverClasses}`}>
+                    <ChevronLeft size={15} />
+                </button>
+                {start > 1 && <><PageButton page={1} active={page === 1} onClick={onChange} activeClasses={activeClasses} hoverClasses={hoverClasses} /><span className="px-0.5 text-xs text-slate-400">…</span></>}
+                {pages.map(pageNumber => <PageButton key={pageNumber} page={pageNumber} active={page === pageNumber} onClick={onChange} activeClasses={activeClasses} hoverClasses={hoverClasses} />)}
+                {end < pageCount && <><span className="px-0.5 text-xs text-slate-400">…</span><PageButton page={pageCount} active={page === pageCount} onClick={onChange} activeClasses={activeClasses} hoverClasses={hoverClasses} /></>}
+                <button type="button" onClick={() => onChange(page + 1)} disabled={page === pageCount} aria-label="Página siguiente" className={`flex h-7 w-7 items-center justify-center rounded-lg text-slate-500 transition-colors disabled:cursor-not-allowed disabled:opacity-35 ${hoverClasses}`}>
+                    <ChevronRight size={15} />
+                </button>
+            </div>
+            <span className="hidden min-w-16 text-right text-[11px] font-medium text-slate-500 sm:inline">{page} de {pageCount}</span>
+        </nav>
+    );
+}
+
+function PageButton({ page, active, onClick, activeClasses, hoverClasses }: {
+    page: number;
+    active: boolean;
+    onClick: (page: number) => void;
+    activeClasses: string;
+    hoverClasses: string;
+}) {
+    return <button type="button" onClick={() => onClick(page)} aria-current={active ? 'page' : undefined} className={`flex h-7 min-w-7 items-center justify-center rounded-lg px-1.5 text-[11px] font-bold transition-all ${active ? activeClasses : `text-slate-600 ${hoverClasses}`}`}>{page}</button>;
+}
+
 function ModalDetalleEstudiante({ estudiante, maestros, fotoUrl, onClose, onSuccess, onRefresh, currentUser, currentUserRole }: { estudiante: EstudianteInscrito, maestros: MaestroConCursos[], fotoUrl?: string, onClose: () => void, onSuccess: () => void, onRefresh: () => void, currentUser: any, currentUserRole?: string }) {
     const [loading, setLoading] = useState(false);
     const [selectedMaestro, setSelectedMaestro] = useState(estudiante.maestro?.id || '');
@@ -271,6 +341,24 @@ function ModalDetalleEstudiante({ estudiante, maestros, fotoUrl, onClose, onSucc
     const [secureConfirmData, setSecureConfirmData] = useState<{ isOpen: boolean; studentName: string; onConfirm: () => void } | null>(null);
     const [alertData, setAlertData] = useState<{ isOpen: boolean; title: string; message: string; type: 'error' | 'info' } | null>(null);
     const [showHojaDeVida, setShowHojaDeVida] = useState(false);
+    const [observationsCount, setObservationsCount] = useState<number | null>(null);
+
+    useEffect(() => {
+        let active = true;
+        fetch(`/api/estudiantes/${encodeURIComponent(estudiante.id)}/observaciones`, { credentials: 'include' })
+            .then(async response => {
+                if (!response.ok) throw new Error('No se pudo cargar el conteo');
+                return response.json();
+            })
+            .then(data => {
+                if (active) setObservationsCount((data.observaciones ?? []).length);
+            })
+            .catch(() => {
+                // Respaldo visual para historiales heredados si el servidor no está disponible.
+                if (active) setObservationsCount(((estudiante as any).notas ?? '').split('\n').filter((line: string) => line.trim()).length);
+            });
+        return () => { active = false; };
+    }, [estudiante.id, (estudiante as any).notas]);
 
     // Filtrar maestros disponibles (mismo rol 'Maestro Ptm')
     const maestrosDisponibles = useMemo(() => maestros.filter(m => m.rol === 'Maestro Ptm'), [maestros]);
@@ -370,6 +458,7 @@ function ModalDetalleEstudiante({ estudiante, maestros, fotoUrl, onClose, onSucc
                         className="flex-1 shadow-none border-0 rounded-none w-full h-full"
                         currentUserName={(currentUser as any).nombre || (currentUser as any).name || (currentUser as any).email || 'Admin'}
                         currentUserRole={currentUserRole}
+                        onObservationsCountChange={setObservationsCount}
                     />
                 </div>
             </ModalTemplate>
@@ -420,8 +509,8 @@ function ModalDetalleEstudiante({ estudiante, maestros, fotoUrl, onClose, onSucc
                         {/* Badge Blanco a la derecha (Icono + Contador) */}
                         <div className="flex items-center justify-center h-7 min-w-[42px] px-2.5 bg-white rounded-full shadow-sm gap-1.5 transition-transform group-hover:scale-105">
                             <MessageSquare size={12} className="text-emerald-500 stroke-[2.5]" />
-                            <span className={`text-[11px] font-extrabold ${(estudiante as any).notas ? 'text-emerald-600' : 'text-gray-300'}`}>
-                                {((estudiante as any).notas ? (estudiante as any).notas.split('\n').filter((l: string) => l.startsWith('[')).length : 0)}
+                            <span className={`text-[11px] font-extrabold ${(observationsCount ?? 0) > 0 ? 'text-emerald-600' : 'text-gray-300'}`}>
+                                {observationsCount ?? '…'}
                             </span>
                         </div>
                     </button>

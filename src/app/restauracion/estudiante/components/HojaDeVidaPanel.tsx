@@ -5,7 +5,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   User, Edit2, SquarePen, Save, Trash2, Landmark, BookOpen,
   HeartPulse, ClipboardList, NotebookPen, IdCard, Phone, Mail,
-  MapPin, Calendar, GraduationCap, Loader2, MessageSquare, Send, Clock, Check
+  MapPin, Calendar, GraduationCap, Loader2, MessageSquare, Send, Clock, Check, LockKeyhole
 } from 'lucide-react';
 import { supabase } from '../../../../lib/supabaseClient';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -26,8 +26,9 @@ export function HojaDeVidaPanel({
   onUpdated,
   onDeleted,
   className,
-  currentUserName = 'Admin',
-  currentUserRole
+  currentUserName: _currentUserName = 'Admin',
+  currentUserRole: _currentUserRole,
+  onObservationsCountChange,
 }: {
   row: Entrevista;
   signedUrl: string | null;
@@ -36,6 +37,7 @@ export function HojaDeVidaPanel({
   className?: string;
   currentUserName?: string;
   currentUserRole?: string;
+  onObservationsCountChange?: (count: number) => void;
 }) {
   const [edit, setEdit] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -49,29 +51,39 @@ export function HojaDeVidaPanel({
   const [viewMode, setViewMode] = useState<'general' | 'observaciones'>('general');
   const [newObs, setNewObs] = useState('');
   const [isFlying, setIsFlying] = useState(false);
-  const [showNewObservation, setShowNewObservation] = useState(false);
+  const [observations, setObservations] = useState<Array<{
+    id: string;
+    autor: string;
+    creado_en: string;
+    contenido: string | null;
+    confidencial: boolean;
+  }>>([]);
+  const [loadingObservations, setLoadingObservations] = useState(true);
 
-  const parsedObservations = React.useMemo(() => {
-    if (!form.notas) return [];
-    return form.notas.split('\n')
-      .filter(line => line.trim()) // Filtrar lineas vacias
-      .map((line, i) => {
-        // 1. Intenta formato estricto: [Fecha] (Usuario): Texto
-        let match = line.match(/^\[(.*?)\] \((.*?)\): (.*)/);
-
-        // 2. Si falla, intenta formato sin paréntesis (común en logs antiguos): [Fecha] Usuario: Texto
-        if (!match) {
-          match = line.match(/^\[(.*?)\] (.*?): (.*)/);
+  useEffect(() => {
+    let active = true;
+    setLoadingObservations(true);
+    fetch(`/api/estudiantes/${encodeURIComponent(row.id)}/observaciones`, { credentials: 'include' })
+      .then(async response => {
+        if (!response.ok) throw new Error('No se pudo cargar el historial');
+        return response.json();
+      })
+      .then(data => {
+        if (active) {
+          const loadedObservations = data.observaciones ?? [];
+          setObservations(loadedObservations);
+          onObservationsCountChange?.(loadedObservations.length);
         }
-
-        if (match) {
-          return { id: i, date: match[1], user: match[2], text: match[3] };
-        }
-
-        // Si no coincide, fallback
-        return { id: i, date: 'Registro', user: 'Sistema', text: line };
+      })
+      .catch(error => {
+        console.error('Error cargando observaciones:', error);
+        if (active) setObservations([]);
+      })
+      .finally(() => {
+        if (active) setLoadingObservations(false);
       });
-  }, [form.notas]);
+    return () => { active = false; };
+  }, [row.id, onObservationsCountChange]);
 
   async function handleAddObservation() {
     if (!newObs.trim() || saving) return;
@@ -80,30 +92,22 @@ export function HojaDeVidaPanel({
       setSaving(true);
       setIsFlying(true); // Activar animación
 
-      const dateStr = new Date().toLocaleString('es-CO');
-      const newEntry = `[${dateStr}] (${currentUserName}): ${newObs.trim()}`;
-      const updatedNotas = form.notas ? `${newEntry}\n${form.notas}` : newEntry;
-
-      const { data, error } = await supabase
-        .from('entrevistas')
-        .update({
-          notas: updatedNotas,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', form.id)
-        .select('*')
-        .single();
-
-      if (error) throw error;
+      const response = await fetch(`/api/estudiantes/${encodeURIComponent(form.id)}/observaciones`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contenido: newObs.trim() }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'No se pudo guardar la observación');
 
       // Esperar a que el avioncito "aterrice" antes de mostrar la observación
       setTimeout(() => {
-        setForm(data as Entrevista);
-        setShowNewObservation(true);
-        onUpdated(data as Entrevista);
-
-        // Resetear la animación de entrada de la observación
-        setTimeout(() => setShowNewObservation(false), 800);
+        setObservations(current => {
+          const updatedObservations = [result.observacion, ...current];
+          onObservationsCountChange?.(updatedObservations.length);
+          return updatedObservations;
+        });
       }, 1400); // Sincronizado con el aterrizaje del avioncito (1.6s animation)
 
       setNewObs('');
@@ -394,7 +398,7 @@ export function HojaDeVidaPanel({
                   "flex items-center justify-center min-w-[22px] h-[22px] md:min-w-[18px] md:h-[18px] px-1.5 rounded-full text-[10px] md:text-[9px] font-extrabold shadow-sm transition-colors",
                   viewMode === 'observaciones' ? "bg-white/20 text-white" : "bg-white text-teal-700"
                 )}>
-                  {parsedObservations.length}
+                  {observations.length}
                 </div>
               </button>
             </div>
@@ -624,9 +628,11 @@ export function HojaDeVidaPanel({
                       initial="hidden"
                       animate="visible"
                     >
-                      {parsedObservations.length === 0 ? (
+                      {loadingObservations ? (
+                        <div className="flex justify-center py-10 text-slate-400"><Loader2 className="animate-spin" size={22} /></div>
+                      ) : observations.length === 0 ? (
                         <div className="text-center py-10 text-slate-400 italic text-sm">No hay observaciones registradas.</div>
-                      ) : parsedObservations.map((obs) => {
+                      ) : observations.map((obs) => {
                         // Paleta Avatar Premium Dinámica
                         const avatars = [
                           "bg-gradient-to-br from-purple-500 to-indigo-600 shadow-purple-500/30",
@@ -647,10 +653,10 @@ export function HojaDeVidaPanel({
                           "bg-gradient-to-r from-slate-100/90 via-gray-50/90 to-transparent border-l-4 border-slate-400"
                         ];
 
-                        const idx = (obs.user || 'S').split('').reduce((a, c) => a + c.charCodeAt(0), 0) % avatars.length;
+                        const idx = (obs.autor || 'S').split('').reduce((a, c) => a + c.charCodeAt(0), 0) % avatars.length;
                         const themeClass = avatars[idx];
                         const ribbonClass = ribbons[idx];
-                        const initials = (obs.user || 'S').substring(0, 2).toUpperCase();
+                        const initials = (obs.autor || 'S').substring(0, 2).toUpperCase();
 
                         return (
                           <motion.div
@@ -676,14 +682,24 @@ export function HojaDeVidaPanel({
                               {/* Cinta Premium Header */}
                               <div className={`px-4 py-2 flex justify-between items-center ${ribbonClass}`}>
                                 <span className="font-bold text-[11px] text-slate-700 uppercase tracking-wider flex items-center gap-2">
-                                  {obs.user}
+                                  {obs.autor}
                                 </span>
                                 <span className="text-[10px] font-medium text-slate-400 flex items-center gap-1 opacity-80">
-                                  <Clock size={10} /> {obs.date}
+                                  <Clock size={10} /> {(() => {
+                                    const fecha = new Date(obs.creado_en);
+                                    return Number.isNaN(fecha.getTime()) ? obs.creado_en : fecha.toLocaleString('es-CO');
+                                  })()}
                                 </span>
                               </div>
                               <div className="p-4 pt-3">
-                                <p className="text-sm text-slate-600 leading-relaxed font-normal whitespace-pre-wrap">{obs.text}</p>
+                                {obs.confidencial ? (
+                                  <div className="flex items-center gap-2 text-sm font-medium text-amber-700">
+                                    <LockKeyhole size={16} />
+                                    Información confidencial
+                                  </div>
+                                ) : (
+                                  <p className="text-sm text-slate-600 leading-relaxed font-normal whitespace-pre-wrap">{obs.contenido}</p>
+                                )}
                               </div>
                             </div>
                           </motion.div>
