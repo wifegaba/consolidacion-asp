@@ -72,7 +72,6 @@ export function HojaDeVidaPanel({
         if (active) {
           const loadedObservations = data.observaciones ?? [];
           setObservations(loadedObservations);
-          onObservationsCountChange?.(loadedObservations.length);
         }
       })
       .catch(error => {
@@ -84,6 +83,12 @@ export function HojaDeVidaPanel({
       });
     return () => { active = false; };
   }, [row.id, onObservationsCountChange]);
+
+  useEffect(() => {
+    if (!loadingObservations) {
+      onObservationsCountChange?.(observations.length);
+    }
+  }, [loadingObservations, observations.length, onObservationsCountChange]);
 
   async function handleAddObservation() {
     if (!newObs.trim() || saving) return;
@@ -103,11 +108,7 @@ export function HojaDeVidaPanel({
 
       // Esperar a que el avioncito "aterrice" antes de mostrar la observación
       setTimeout(() => {
-        setObservations(current => {
-          const updatedObservations = [result.observacion, ...current];
-          onObservationsCountChange?.(updatedObservations.length);
-          return updatedObservations;
-        });
+        setObservations(current => [result.observacion, ...current]);
       }, 1400); // Sincronizado con el aterrizaje del avioncito (1.6s animation)
 
       setNewObs('');
@@ -164,7 +165,7 @@ export function HojaDeVidaPanel({
         motivo_tratamiento: form.tratamiento_clinico === 'si' ? form.motivo_tratamiento : null, retiros_asistidos: form.retiros_asistidos ?? null,
         recibe_consejeria: form.recibe_consejeria ?? null, motivo_consejeria: form.recibe_consejeria === 'si' ? form.motivo_consejeria : null,
         interviene: form.interviene ?? null, cambios_fisicos: form.cambios_fisicos ?? null, desempeno_clase: form.desempeno_clase ?? null,
-        maestro_encargado: form.maestro_encargado ?? null, promovido: form.promovido ?? null, notas: form.notas ?? null,
+        maestro_encargado: form.maestro_encargado ?? null, promovido: form.promovido ?? null,
         foto_path: form.foto_path ?? null, updated_at: new Date().toISOString(), labora_actualmente: form.labora_actualmente ?? null,
       };
 

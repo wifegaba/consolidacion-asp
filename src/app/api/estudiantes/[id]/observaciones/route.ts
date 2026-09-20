@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import jwt, { type JwtPayload } from 'jsonwebtoken';
+import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'crypto';
 import { getServerSupabase } from '../../../../../lib/supabaseClient';
 
 const SESSION_COOKIES = ['__Host-session', 'session'] as const;
+const OBSERVACION_SEGURA_PREFIX = '__OBSERVACION_SEGURA_V1__:';
 const DIRECTIVOS_AUTORIZADOS = new Set([
   'liliana ibarra camilo',
   'lady hidalgo',
@@ -22,6 +24,13 @@ type ObservacionRespuesta = {
   creado_en: string;
   contenido: string | null;
   confidencial: boolean;
+};
+
+type ObservacionCifrada = {
+  autorId: string;
+  autor: string;
+  creadoEn: string;
+  contenido: string;
 };
 
 function normalizarNombre(nombre: string) {
@@ -65,10 +74,66 @@ function puedeVerContenido(usuario: SessionUser, autor: string) {
   return usuario.puedeVerTodo || normalizarNombre(autor) === normalizarNombre(usuario.nombre);
 }
 
+function tablaSeguraNoDisponible(error: { code?: string; message?: string } | null) {
+  return error?.code === 'PGRST205' || /entrevistas_observaciones.*does not exist/i.test(error?.message ?? '');
+}
+
+function claveDeCifrado() {
+  const secret = process.env.JWT_SECRET;
+  if (!secret) throw new Error('Falta JWT_SECRET');
+  return createHash('sha256').update(secret).digest();
+}
+
+function cifrarObservacion(payload: ObservacionCifrada) {
+  const iv = randomBytes(12);
+  const cipher = createCipheriv('aes-256-gcm', claveDeCifrado(), iv);
+  const encrypted = Buffer.concat([cipher.update(JSON.stringify(payload), 'utf8'), cipher.final()]);
+  const tag = cipher.getAuthTag();
+  return `${OBSERVACION_SEGURA_PREFIX}${iv.toString('base64url')}.${tag.toString('base64url')}.${encrypted.toString('base64url')}`;
+}
+
+function descifrarObservacion(linea: string): ObservacionCifrada | null {
+  if (!linea.startsWith(OBSERVACION_SEGURA_PREFIX)) return null;
+  try {
+    const [ivValue, tagValue, encryptedValue] = linea.slice(OBSERVACION_SEGURA_PREFIX.length).split('.');
+    if (!ivValue || !tagValue || !encryptedValue) return null;
+    const decipher = createDecipheriv('aes-256-gcm', claveDeCifrado(), Buffer.from(ivValue, 'base64url'));
+    decipher.setAuthTag(Buffer.from(tagValue, 'base64url'));
+    const decrypted = Buffer.concat([
+      decipher.update(Buffer.from(encryptedValue, 'base64url')),
+      decipher.final(),
+    ]).toString('utf8');
+    return JSON.parse(decrypted) as ObservacionCifrada;
+  } catch {
+    return null;
+  }
+}
+
 function leerObservacionesLegadas(notas: string | null, usuario: SessionUser): ObservacionRespuesta[] {
   if (!notas) return [];
 
   return notas.split('\n').filter(linea => linea.trim()).map((linea, index) => {
+    if (linea.startsWith(OBSERVACION_SEGURA_PREFIX)) {
+      const observacion = descifrarObservacion(linea);
+      if (!observacion) {
+        return {
+          id: `segura-no-disponible-${index}`,
+          autor: 'Registro confidencial',
+          creado_en: 'Registro protegido',
+          contenido: null,
+          confidencial: true,
+        };
+      }
+      const puedeVer = usuario.puedeVerTodo || observacion.autorId === usuario.servidorId;
+      return {
+        id: `segura-${index}`,
+        autor: observacion.autor,
+        creado_en: observacion.creadoEn,
+        contenido: puedeVer ? observacion.contenido : null,
+        confidencial: !puedeVer,
+      };
+    }
+
     const coincidencia = linea.match(/^\[(.*?)\]\s+(?:\((.*?)\)|([^:]+)):\s*(.*)$/);
     const creado_en = coincidencia?.[1] ?? 'Registro anterior';
     const autor = (coincidencia?.[2] ?? coincidencia?.[3] ?? 'Autor no identificado').trim();
@@ -96,6 +161,43 @@ async function cargarObservacionesLegadas(entrevistaId: string, usuario: Session
   return leerObservacionesLegadas(data?.notas ?? null, usuario);
 }
 
+async function guardarObservacionCifradaEnNotas(
+  entrevistaId: string,
+  usuario: SessionUser,
+  contenido: string,
+): Promise<ObservacionRespuesta> {
+  const supabase = getServerSupabase();
+  const creadoEn = new Date().toISOString();
+  const { data: entrevista, error: readError } = await supabase
+    .from('entrevistas')
+    .select('notas')
+    .eq('id', entrevistaId)
+    .maybeSingle();
+  if (readError || !entrevista) throw readError ?? new Error('Estudiante no encontrado');
+
+  const lineaCifrada = cifrarObservacion({
+    autorId: usuario.servidorId,
+    autor: usuario.nombre,
+    creadoEn,
+    contenido,
+  });
+  const notasActuales = typeof entrevista.notas === 'string' ? entrevista.notas : '';
+  const nuevasNotas = notasActuales ? `${lineaCifrada}\n${notasActuales}` : lineaCifrada;
+  const { error: updateError } = await supabase
+    .from('entrevistas')
+    .update({ notas: nuevasNotas, updated_at: creadoEn })
+    .eq('id', entrevistaId);
+  if (updateError) throw updateError;
+
+  return {
+    id: `segura-${Date.now()}`,
+    autor: usuario.nombre,
+    creado_en: creadoEn,
+    contenido,
+    confidencial: false,
+  };
+}
+
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const usuario = await obtenerUsuario(req);
   if (!usuario) return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
@@ -108,9 +210,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     .eq('entrevista_id', entrevistaId)
     .order('creado_en', { ascending: false });
 
-  // Permite que los historiales existentes sigan disponibles mientras se ejecuta
-  // la migración. Las nuevas observaciones nunca se guardan en este formato.
-  if (error?.code === 'PGRST205' || /entrevistas_observaciones.*does not exist/i.test(error?.message ?? '')) {
+  if (tablaSeguraNoDisponible(error)) {
     try {
       const observaciones = await cargarObservacionesLegadas(entrevistaId, usuario);
       return NextResponse.json(
@@ -123,7 +223,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   }
   if (error) return NextResponse.json({ error: 'No se pudieron consultar las observaciones' }, { status: 500 });
 
-  const observaciones = (data ?? []).map((item: any) => {
+  const observacionesTabla = (data ?? []).map((item: any) => {
     const puedeVer = usuario.puedeVerTodo || item.autor_servidor_id === usuario.servidorId;
     return {
       id: item.id,
@@ -133,6 +233,11 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       confidencial: !puedeVer,
     };
   });
+
+  // Conserva visibles los registros históricos o cifrados en `notas` incluso
+  // después de instalar la tabla segura.
+  const observacionesLegadas = await cargarObservacionesLegadas(entrevistaId, usuario).catch(() => []);
+  const observaciones = [...observacionesTabla, ...observacionesLegadas];
 
   return NextResponse.json(
     { observaciones },
@@ -157,11 +262,16 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     .select('id, creado_en')
     .single();
 
-  if (error?.code === 'PGRST205' || /entrevistas_observaciones.*does not exist/i.test(error?.message ?? '')) {
-    return NextResponse.json(
-      { error: 'La configuración segura de observaciones aún no está instalada. Ejecute la migración de Supabase.' },
-      { status: 503 },
-    );
+  if (tablaSeguraNoDisponible(error)) {
+    try {
+      const observacion = await guardarObservacionCifradaEnNotas(entrevistaId, usuario, contenido);
+      return NextResponse.json(
+        { observacion, almacenamientoCompatible: true },
+        { status: 201, headers: { 'Cache-Control': 'private, no-store' } },
+      );
+    } catch {
+      return NextResponse.json({ error: 'No se pudo guardar la observación' }, { status: 500 });
+    }
   }
   if (error) return NextResponse.json({ error: 'No se pudo guardar la observación' }, { status: 500 });
   return NextResponse.json(
