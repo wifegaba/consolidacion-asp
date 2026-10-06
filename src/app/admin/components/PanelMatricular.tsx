@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../../../lib/supabaseClient';
+import { StudentReturnBadge } from '@/components/StudentReturnDetails';
 import { GlassCard, CardHeader, FormSelect, GLASS_STYLES, ModalTemplate } from '../page';
 import { UserPlus, Search, Plus, ChevronDown, X, AlertTriangle, Check, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence, Variants } from 'framer-motion';
@@ -45,23 +46,9 @@ export default function PanelMatricular({ maestros, cursos, estudiantes, inscrip
     const [search, setSearch] = useState('');
     const [showModal, setShowModal] = useState(false);
 
-    // No longer auto-select a default course, course will be set when student is selected
-    useEffect(() => {
-            // Si no hay curso seleccionado todavía, establecer Restauración 1 por defecto
-        if (!cursoId && cursos.length > 0) {
-            const c = cursos.find(c => c.nombre === 'Restauración 1');
-            if (c) setCursoId(String(c.id));
-        }
-    }, [cursos, cursoId]);
-
     const mDisponibles = useMemo(() => {
         if (!cursoId) return [];
-        const conAsignacion = maestros.filter(m => m.rol === 'Maestro Ptm' && m.asignaciones.some(a => a.curso_id === parseInt(cursoId)));
-        // Si ningún maestro tiene asignación específica en este curso, mostrar todos los maestros Ptm
-        if (conAsignacion.length === 0) {
-            return maestros.filter(m => m.rol === 'Maestro Ptm');
-        }
-        return conAsignacion;
+        return maestros.filter(m => m.activo && m.rol === 'Maestro Ptm' && m.asignaciones.some(a => a.curso_id === parseInt(cursoId)));
     }, [cursoId, maestros]);
 
     // Calcula qué estudiantes están disponibles para matricular:
@@ -102,84 +89,16 @@ export default function PanelMatricular({ maestros, cursos, estudiantes, inscrip
         });
     }, [estudiantesConMetadata, search]);
 
-    // Get allowed courses for selected students
-    const cursosPermitidos = useMemo(() => {
-        const selectedStudents = eDisponibles.filter(e => selectedIds[e.id]);
-        if (selectedStudents.length === 0) {
-            // No students selected, allow all courses (default behavior)
-            return cursos;
-        }
-
-        // Check if all selected students have the same restriction
-        const suspendedCourses = selectedStudents.map(s => s.suspendedCourseId).filter(Boolean);
-
-        if (suspendedCourses.length === 0) {
-            // No suspended students, default to Restauración 1 only
-            return cursos.filter(c => c.nombre === 'Restauración 1');
-        }
-
-        // If all have same suspended course, show only that one
-        const uniqueCourses = [...new Set(suspendedCourses)];
-        if (uniqueCourses.length === 1) {
-            const courseId = uniqueCourses[0];
-            return cursos.filter(c => c.id === courseId);
-        }
-
-        // Mixed: some suspended from different courses - show warning or allow admin choice
-        return cursos.filter(c => suspendedCourses.includes(c.id));
-    }, [selectedIds, eDisponibles, cursos]);
-
-    // Auto-select course when students are selected
-    useEffect(() => {
-        if (cursosPermitidos.length === 1) {
-            const newCursoId = String(cursosPermitidos[0].id);
-            if (newCursoId !== cursoId) {
-                setCursoId(newCursoId);
-                setMaestroId(''); // Solo resetear maestro si el curso realmente cambió
-            }
-        }
-    }, [cursosPermitidos, cursoId]);
-
-    // Check for level conflicts when selecting students
+    // El nivel lo elige el usuario, también cuando existe un nivel anterior recomendado.
+    const cursosPermitidos = cursos;
     const handleStudentToggle = (studentId: string) => {
-        const newSelectedIds = { ...selectedIds, [studentId]: !selectedIds[studentId] };
-
-        // Filter only truly selected ones
-        const selectedStudents = eDisponibles.filter(e => newSelectedIds[e.id]);
-
-        if (selectedStudents.length <= 1) {
-            setSelectedIds(newSelectedIds);
-            return;
-        }
-
-        // Identify target course for each student
-        // If suspended -> suspendedCourseId
-        // If new -> Restauración 1 ID
-        const rest1 = cursos.find(c => c.nombre === 'Restauración 1');
-        const rest1Id = rest1 ? rest1.id : -1;
-
-        const targetCourses = selectedStudents.map(s => s.suspendedCourseId || rest1Id);
-        const uniqueTargets = [...new Set(targetCourses)];
-
-        // If multiple different courses, show warning
-        if (uniqueTargets.length > 1) {
-            const courseNames = uniqueTargets.map(id => cursos.find(c => c.id === id)?.nombre || 'Desconocido').join(', ');
-
-            setAlertData({
-                isOpen: true,
-                title: '⚠️ Niveles Incompatibles',
-                message: `No puedes matricular estudiantes de diferentes niveles simultáneamente.\n\nNiveles detectados: ${courseNames}.\n\nPor favor, selecciona estudiantes que vayan al mismo nivel.`,
-                type: 'warning'
-            });
-            return; // Block selection
-        }
-
-        setSelectedIds(newSelectedIds);
+        setSelectedIds(prev => ({ ...prev, [studentId]: !prev[studentId] }));
     };
 
     const handleMatricular = async () => {
-        setIsSaving(true);
         const ids = Object.keys(selectedIds).filter(k => selectedIds[k]);
+        if (isSaving || !ids.length || !cursoId || !mDisponibles.some(m => m.id === maestroId)) return;
+        setIsSaving(true);
 
         try {
             // Upsert Logic: 
@@ -257,19 +176,20 @@ export default function PanelMatricular({ maestros, cursos, estudiantes, inscrip
                         <label className="hidden text-xs font-bold text-gray-600 uppercase tracking-wider">Configuración</label>
                         <div className="space-y-1.5">
                             <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider ml-1">Nivel / Curso</label>
-                            <div className="px-3 py-2 rounded-lg bg-white/40 border border-white/50 text-sm font-semibold text-gray-700 truncate">
-                                {cursoId ? (cursosPermitidos.find(c => String(c.id) === cursoId)?.nombre || cursos.find(c => String(c.id) === cursoId)?.nombre || 'Cargando...') : 'Seleccione estudiantes'}
-                            </div>
+                            <PremiumSelect label="" value={cursoId}
+                                onChange={value => { setCursoId(value); setMaestroId(''); }}
+                                options={cursosPermitidos.map(c => ({ value: String(c.id), label: c.nombre }))}
+                                placeholder="Seleccionar nivel..." />
                         </div>
                         <PremiumSelect
                             label="Maestro"
                             value={maestroId}
                             onChange={setMaestroId}
-                            options={mDisponibles.map(m => ({ value: m.id, label: m.nombre }))}
+                            options={mDisponibles.map(m => ({ value: m.id, label: m.dia_asignado ? m.nombre + " – " + m.dia_asignado : m.nombre }))}
                             placeholder="Seleccionar..."
                         />
                     </div>
-                    <button onClick={handleMatricular} disabled={isSaving || !maestroId || Object.keys(selectedIds).length === 0} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl shadow-lg shadow-blue-500/30 transition-all disabled:opacity-50 mt-1">
+                    <button onClick={handleMatricular} disabled={isSaving || !cursoId || !maestroId || !Object.values(selectedIds).some(Boolean)} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl shadow-lg shadow-blue-500/30 transition-all disabled:opacity-50 mt-1">
                         {isSaving ? <span className="flex items-center justify-center gap-2"><Loader2 className="animate-spin" size={20} /> Procesando...</span> : "Confirmar Matrícula"}
                     </button>
                 </div>
@@ -288,22 +208,9 @@ export default function PanelMatricular({ maestros, cursos, estudiantes, inscrip
                                 animate="visible"
                             >
                                 {eDisponibles.map(e => {
-                                    // Lógica para determinar el origen a mostrar
-                                    // 1. Buscar si fue promovido de algún curso
-                                    const inscripcionPromovida = inscripciones
-                                        .filter(i => i.entrevista_id === e.id && (i as any).estado === 'promovido')
-                                        // Ordenar para obtener el más reciente (mayor ID)
-                                        .sort((a, b) => b.id - a.id)[0];
-
-                                    // 2. Obtener nombre del curso o usar el campo origen
-                                    const nombreCursoPrevio = inscripcionPromovida
-                                        ? cursos.find(c => c.id === inscripcionPromovida.curso_id)?.nombre
-                                        : null;
-
-                                    // Lógica simplificada solicitada:
-                                    // "simplemente cambia la etiqueta bienvenida por la etiqueta Restauracion 1"
-                                    // Si hay curso previo, úsalo. Si no, asume RESTAURACIÓN 1.
-                                    const labelOrigen = nombreCursoPrevio || 'Restauración 1';
+                                    const previous = inscripciones.filter(i => i.entrevista_id === e.id)
+                                        .sort((a, b) => Date.parse(b.updated_at || b.created_at || '1970-01-01') - Date.parse(a.updated_at || a.created_at || '1970-01-01'))[0];
+                                    const lastCourseName = previous ? cursos.find(c => c.id === previous.curso_id)?.nombre : null;
 
                                     // Helper simple para capitalizar
                                     const formatLabel = (s: string) => s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
@@ -336,11 +243,7 @@ export default function PanelMatricular({ maestros, cursos, estudiantes, inscrip
                                                             {formatLabel(e.dia)}
                                                         </span>
                                                     )}
-                                                    {labelOrigen && (
-                                                        <span className="text-[9px] md:text-[10px] font-bold bg-cyan-100 text-cyan-700 px-1.5 py-0.5 rounded border border-cyan-200 whitespace-nowrap">
-                                                            {formatLabel(labelOrigen)}
-                                                        </span>
-                                                    )}
+                                                    <StudentReturnBadge level={lastCourseName} />
 
                                                     <span className="text-xs text-gray-500 font-medium ml-1">
                                                         {e.telefono || 'Sin teléfono'}
@@ -462,20 +365,29 @@ function ModalNuevoEstudiante({ cursos, maestros, onClose, onSuccess }: { cursos
 
         setLoading(true);
         try {
-            // 1. Verificar o Crear Estudiante en 'entrevistas'
-            const { data: existing } = await supabase.from('entrevistas').select('id').eq('cedula', cedula).maybeSingle();
-            let entrevistaId = existing?.id;
-
-            if (!entrevistaId) {
-                const { data: newStudent, error: errStudent } = await supabase
-                    .from('entrevistas')
-                    .insert({ nombre, cedula, telefono })
-                    .select('id')
-                    .single();
-
-                if (errStudent) throw errStudent;
-                entrevistaId = newStudent.id;
+            const response = await fetch('/api/ingresos', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'detect', nombre, telefono, cedula }),
+            });
+            const detected = await response.json();
+            if (!response.ok) throw new Error(detected.error);
+            if (detected.history.length > 0) {
+                const queued = await fetch('/api/ingresos', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'queue', nombre, cedula,
+                        telefono: telefono || detected.history.find((c: { telefono?: string }) => c.telefono)?.telefono || '',
+                        observaciones: 'Ingreso registrado desde matrículas. Revisar identidad y nivel anterior.' }),
+                });
+                const result = await queued.json();
+                if (!queued.ok) throw new Error(result.error);
+                alert('Historial encontrado. El ingreso quedó en Pendientes para revisar la identidad y elegir el grupo.');
+                onSuccess();
+                return;
             }
+            const { data: newStudent, error: errStudent } = await supabase
+                .from('entrevistas').insert({ nombre, cedula, telefono }).select('id').single();
+            if (errStudent) throw errStudent;
+            const entrevistaId = newStudent.id;
 
             // 2. Matricular (Inscripción)
             const { error: errInsc } = await supabase
@@ -556,7 +468,7 @@ function ModalNuevoEstudiante({ cursos, maestros, onClose, onSuccess }: { cursos
                             label="Maestro"
                             value={maestroId}
                             onChange={setMaestroId}
-                            options={maestrosDisponibles.map(m => ({ value: m.id, label: m.nombre }))}
+                            options={maestrosDisponibles.map(m => ({ value: m.id, label: m.dia_asignado ? m.nombre + " – " + m.dia_asignado : m.nombre }))}
                             placeholder="Seleccionar Maestro..."
                         />
                     </div>

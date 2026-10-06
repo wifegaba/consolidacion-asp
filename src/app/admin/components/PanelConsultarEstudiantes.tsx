@@ -4,6 +4,10 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { ClipboardList, Search, UserX, UserCheck2, UserCog, UserMinus, Check, AlertTriangle, Loader2, Phone, MessageCircle, Trash2, FileText, MessageSquare, ChevronLeft, ChevronRight } from 'lucide-react';
 import { AnimatePresence, motion, Variants } from 'framer-motion';
 import { supabase } from '../../../lib/supabaseClient';
+import IntakePendingPanel from '@/components/IntakePendingPanel';
+import { ReintegrateButton, StudentReturnBadge } from '@/components/StudentReturnDetails';
+import IntakeAssignmentModal from '@/components/IntakeAssignmentModal';
+import type { HistoryCandidate, IntakeGroup } from '@/lib/ingresoHistory';
 import { GlassCard, FormSelect, GLASS_STYLES, ModalTemplate } from '../page';
 import { HojaDeVidaPanel } from '../../restauracion/estudiante/components/HojaDeVidaPanel';
 import type { MaestroConCursos, Curso, Estudiante, Inscripcion, EstudianteInscrito } from '../page';
@@ -56,6 +60,29 @@ export default function PanelConsultarEstudiantes({ maestros, cursos, estudiante
     const [selectedStudent, setSelectedStudent] = useState<EstudianteInscrito | null>(null);
     const [pendingPage, setPendingPage] = useState(1);
     const [enrolledPage, setEnrolledPage] = useState(1);
+    const [reviewPending, setReviewPending] = useState<{ id: string; nombre: string; history: HistoryCandidate[] } | null>(null);
+    const [reviewGroups, setReviewGroups] = useState<IntakeGroup[]>([]);
+    const [reviewError, setReviewError] = useState('');
+    const [reviewLoading, setReviewLoading] = useState(false);
+
+    async function reviewHistory(e: Estudiante) {
+        if (reviewLoading) return;
+        setReviewLoading(true); setReviewError('');
+        try {
+            const response = await fetch('/api/ingresos', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'queue', nombre: e.nombre, telefono: e.telefono || '', cedula: e.cedula }) });
+            const queued = await response.json();
+            if (!response.ok) throw new Error(queued.error);
+            const loaded = await fetch('/api/ingresos', { cache: 'no-store' });
+            const result = await loaded.json();
+            if (!loaded.ok) throw new Error(result.error);
+            const pending = result.pendientes.find((p: { id: string }) => p.id === queued.id);
+            if (!pending) throw new Error('Este ingreso ya fue procesado. Actualiza Pendientes.');
+            setReviewGroups(result.groups);
+            setReviewPending(pending);
+        } catch (error) { setReviewError(error instanceof Error ? error.message : 'No se pudo revisar el historial'); }
+        finally { setReviewLoading(false); }
+    }
 
     const procesados = useMemo(() => {
         const mSet = new Map<string, MaestroConCursos>(maestros.map(m => [m.id, m]));
@@ -81,9 +108,12 @@ export default function PanelConsultarEstudiantes({ maestros, cursos, estudiante
             // If status is 'inactivo', treat as NOT matriculado (so it goes to Pendientes),
             // but keep the suspended course info.
             const isActive = ins && ins.estado === 'activo';
+            const latest = inscripciones.filter(i => i.entrevista_id === e.id)
+                .sort((a, b) => Date.parse(b.updated_at || b.created_at || '1970-01-01') - Date.parse(a.updated_at || a.created_at || '1970-01-01'))[0];
 
             return {
                 ...e,
+                last_course: latest ? cSet.get(latest.curso_id) || null : null,
                 maestro: (isActive && ins.servidor_id) ? mSet.get(ins.servidor_id) || null : null,
                 curso: (ins && ins.curso_id) ? cSet.get(ins.curso_id) || null : null,
                 inscripcion_id: isActive ? ins.id : null,
@@ -189,6 +219,8 @@ export default function PanelConsultarEstudiantes({ maestros, cursos, estudiante
                     </FormSelect>
                 </div>
 
+                <IntakePendingPanel refreshKey={estudiantes} onSuccess={onDataUpdated} />
+                {reviewError && <p role="alert" className="mx-3 mb-2 text-sm text-red-700">{reviewError}</p>}
                 <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 overflow-hidden px-3 pb-3 lg:grid-cols-2">
                     <div className="flex flex-col h-full min-h-0">
                         <div className="mb-1.5 flex shrink-0 items-center gap-2 text-sm font-semibold text-rose-700"><UserX size={17} /> Pendientes ({pendientes.length})</div>
@@ -202,7 +234,8 @@ export default function PanelConsultarEstudiantes({ maestros, cursos, estudiante
                                 >
                                     {visiblePendientes.map(e => (
                                         <motion.div key={e.id} variants={LIST_ITEM_VARIANTS}>
-                                            <EstudianteRow e={e} onClick={() => setSelectedStudent(e)} />
+                                            <EstudianteRow e={e} onClick={() => setSelectedStudent(e)}
+                                                onReview={e.last_course ? () => void reviewHistory(e) : undefined} reviewLoading={reviewLoading} />
                                         </motion.div>
                                     ))}
                                 </motion.div>
@@ -233,6 +266,8 @@ export default function PanelConsultarEstudiantes({ maestros, cursos, estudiante
                     </div>
                 </div>
             </GlassCard>
+            {reviewPending && <IntakeAssignmentModal pending={reviewPending} groups={reviewGroups}
+                onClose={() => setReviewPending(null)} onSuccess={() => { setReviewPending(null); onDataUpdated(); }} />}
 
             <AnimatePresence>
                 {selectedStudent && (
@@ -254,13 +289,17 @@ export default function PanelConsultarEstudiantes({ maestros, cursos, estudiante
 }
 
 // Update EstudianteRow to show suspended tag
-function EstudianteRow({ e, matriculado, fotoUrl, onClick }: { e: EstudianteInscrito & { suspended_course?: Curso | null }, matriculado?: boolean, fotoUrl?: string, onClick: () => void }) {
+function EstudianteRow({ e, matriculado, fotoUrl, onClick, onReview, reviewLoading }: { e: EstudianteInscrito & { suspended_course?: Curso | null; last_course?: Curso | null }, matriculado?: boolean, fotoUrl?: string, onClick: () => void; onReview?: () => void; reviewLoading?: boolean }) {
     const avatar = fotoUrl || generateAvatar(e.nombre);
     return (
         <div onClick={onClick} className={`p-3 flex justify-between items-center cursor-pointer ${GLASS_STYLES.listItem}`}>
             <div className="flex items-center gap-3">
                 {matriculado && <img src={avatar} alt={e.nombre} className="h-10 w-10 rounded-full object-cover border border-white/60 shadow-sm bg-gray-200" />}
                 <div>
+                    {!matriculado && e.last_course && <div className="mb-1.5 flex flex-wrap items-center gap-2">
+                        <StudentReturnBadge level={e.last_course.nombre} />
+                        {onReview && <ReintegrateButton disabled={reviewLoading} onClick={onReview} />}
+                    </div>}
                     <p className="font-medium text-gray-900 text-sm flex items-center gap-2">
                         {e.nombre}
                         {!matriculado && e.suspended_course && (

@@ -55,7 +55,7 @@ export type AsignacionMaestro = { id: string; servidor_id: string; curso_id: num
 export type MaestroDataRaw = Maestro & { asignaciones: AsignacionMaestro[]; observaciones_count: { count: number }[]; servidores_roles: { rol: string }[]; };
 export type MaestroConCursos = Maestro & { asignaciones: AsignacionMaestro[]; obs_count: number; rol: string | null; dia_asignado?: string | null; };
 export type Estudiante = { id: string; nombre: string; cedula: string; telefono?: string | null; foto_path?: string | null; dia?: string; origen?: string; ocupacion?: string | null; };
-export type Inscripcion = { id: number; entrevista_id: string; curso_id: number; servidor_id: string | null; cursos?: Pick<Curso, 'nombre' | 'color'> | null; estado?: string; };
+export type Inscripcion = { id: number; entrevista_id: string; curso_id: number; servidor_id: string | null; cursos?: Pick<Curso, 'nombre' | 'color'> | null; estado?: string; created_at?: string; updated_at?: string; };
 export type EstudianteInscrito = Estudiante & { maestro: MaestroConCursos | null; curso: Curso | null; inscripcion_id: number | null; };
 export type AdminTab = 'bienvenida' | 'dashboard' | 'matricular' | 'maestros' | 'servidores' | 'consultar' | 'promovidos' | 'graduados';
 
@@ -199,7 +199,7 @@ export default function AdminPage() {
         supabase.from('servidores').select(`id, nombre, cedula, telefono, email, activo, foto_url, asignaciones:asignaciones_academia (id, servidor_id, curso_id, cursos ( nombre, color )), observaciones_count:servidores_observaciones!servidor_id(count), servidores_roles ( rol )`).order('nombre', { ascending: true }),
         supabase.from('cursos').select('id, nombre, color, orden').order('orden', { ascending: true }),
         supabase.from('entrevistas').select('*').order('nombre', { ascending: true }),
-        supabase.from('inscripciones').select('id, entrevista_id, curso_id, servidor_id, estado')
+        supabase.from('inscripciones').select('id, entrevista_id, curso_id, servidor_id, estado, created_at, updated_at')
       ]);
 
       // Cargar días asignados de maestros (Primero PTM, luego Academia como fallback)

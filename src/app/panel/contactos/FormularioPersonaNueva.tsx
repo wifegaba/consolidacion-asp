@@ -4,6 +4,9 @@
 import React, { useEffect, useRef, useState, useCallback, memo } from 'react';
 import { Trash2, Phone, FileText, FileSpreadsheet, Edit2 } from "lucide-react";
 import { supabase } from '@/lib/supabaseClient';
+import IntakeAssignmentModal from '@/components/IntakeAssignmentModal';
+import { ReintegrateButton, StudentReturnBadge, returnLevel } from '@/components/StudentReturnDetails';
+import { historyLabel, type HistoryCandidate, type IntakeGroup } from '@/lib/ingresoHistory';
 // MEJORA 1: Eliminados imports estáticos pesados para Lazy Loading
 // import jsPDF from 'jspdf';
 // import autoTable from 'jspdf-autotable';
@@ -28,6 +31,7 @@ type Registro = {
 };
 
 type PendienteItem = {
+    history?: HistoryCandidate[];
     progreso_id?: string;
     persona_id?: string;
     id?: string;
@@ -89,18 +93,6 @@ const toDbEstudio = (arr: string[]): AppEstudioDia =>
                     'Virtual';
 
 const normalizaTelefono = (v: string) => (v || '').replace(/\D+/g, '');
-
-const existePendienteConTelefono = async (tel: string, excluirId?: string | null) => {
-    const query = supabase
-        .from('pendientes')
-        .select('id', { count: 'exact' })
-        .eq('telefono', tel)
-        .limit(1);
-    if (excluirId) query.neq('id', excluirId);
-    const { count, error } = await query;
-    if (error) throw error;
-    return (count || 0) > 0;
-};
 
 const normaliza = (s: string) =>
     s.toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '');
@@ -178,12 +170,16 @@ const PendienteRowItem = memo(({
     row,
     onSelect,
     onDelete,
-    onEdit
+    onEdit,
+    onReview,
+    canAssign
 }: {
     row: PendienteItem;
     onSelect: (p: PendienteItem) => void;
     onDelete: (p: PendienteItem) => void;
     onEdit: (p: PendienteItem) => void;
+    onReview: (p: PendienteItem) => void;
+    canAssign: boolean;
 }) => {
     return (
         <div
@@ -208,6 +204,10 @@ const PendienteRowItem = memo(({
                 <div className="sm:hidden text-sm text-neutral-700 mt-0.5">
                     {row.telefono ?? ""}
                 </div>
+                {row.history?.some(c => c.nivel) && <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                    <StudentReturnBadge level={returnLevel(row.history)} />
+                    {canAssign && <ReintegrateButton onClick={() => onReview(row)} />}
+                </div>}
                 <div className="sm:hidden text-xs text-indigo-600 mt-0.5">
                     Servidor: {row.creado_por_nombre ?? "Sistema"}
                 </div>
@@ -329,7 +329,11 @@ export default function PersonaNueva({ servidorId }: { servidorId: string | null
 
     const [modalPendVisible, setModalPendVisible] = useState(false);
     const [pendLoading, setPendLoading] = useState(false);
+    const [pendHistoryError, setPendHistoryError] = useState('');
     const [pendientesRows, setPendientesRows] = useState<PendienteItem[]>([]);
+    const [intakeGroups, setIntakeGroups] = useState<IntakeGroup[]>([]);
+    const [canAssignIntake, setCanAssignIntake] = useState(false);
+    const [intakeToReview, setIntakeToReview] = useState<PendienteItem | null>(null);
     const [pendPage, setPendPage] = useState(0);
     const [pendienteAEditar, setPendienteAEditar] = useState<PendienteItem | null>(null);
     const PEND_PAGE_SIZE = 7;
@@ -569,74 +573,32 @@ export default function PersonaNueva({ servidorId }: { servidorId: string | null
         if (!validar()) return;
         const p_estudio: AppEstudioDia = toDbEstudio(form.destino);
         try {
+            // A historical match never enters Semilla 1 through the normal intake RPC.
+            const detection = await fetch('/api/ingresos', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'detect', nombre: form.nombre.trim(), telefono: form.telefono.trim() }),
+            });
+            const detected = await detection.json();
+            if (!detection.ok) throw new Error(detected.error);
+            const history: HistoryCandidate[] = detected.history || [];
             if (form.pendienteId) {
-                const p_notas_registro_normal = construirNotasNormales();
-                const { error } = await supabase.rpc('fn_registrar_persona', {
-                    p_nombre: form.nombre.trim(),
-                    p_telefono: form.telefono.trim(),
-                    p_culto: toDbEstudio(form.destino),
-                    p_estudio: toDbEstudio(form.destino),
-                    p_notas: p_notas_registro_normal,
-                });
-                if (error) throw error;
-                const { error: delError } = await supabase.from('pendientes').delete().eq('id', form.pendienteId);
-                if (delError) {
-                    console.error(delError);
-                    toast('Guardado, pero no se pudo eliminar de pendientes');
-                } else {
-                    toast('Persona registrada y eliminada de Pendientes');
-                }
-                setForm(prev => ({ ...prev, pendienteId: null }));
-                if (modalPendVisible) {
-                    try {
-                        const { data } = await supabase.rpc('fn_listar_pendientes');
-                        setPendientesRows((data || []) as PendienteItem[]);
-                    } catch { }
-                }
-                resetForm();
+                toast('Revisa la identidad y confirma el grupo desde Pendientes.');
+                await abrirPendientes();
                 return;
             }
-
-            if (form.destino.includes('PENDIENTES')) {
-                const telNorm = normalizaTelefono(form.telefono);
-                if (telNorm.length < 7) {
-                    setErrores(prev => ({ ...prev, telefono: 'Número inválido o incompleto' }));
-                    toast('Número inválido o incompleto');
-                    return;
-                }
-                const dup = await existePendienteConTelefono(telNorm, form.pendienteId ?? null);
-                if (dup) {
-                    setErrores(prev => ({ ...prev, telefono: 'Ya existe un pendiente con este teléfono' }));
-                    toast('⚠️ Ya existe un pendiente con este teléfono');
-                    return;
-                }
-                if (!servidorId) {
-                    toast('❌ Error: No se pudo identificar al servidor.');
-                    return;
-                }
-                try {
-                    const { error } = await supabase.rpc('fn_registrar_pendiente', {
-                        p_nombre: form.nombre.trim(),
-                        p_telefono: telNorm,
-                        p_destino: 'Pendientes',
-                        p_culto: form.cultoSeleccionado || null,
-                        p_observaciones: (form.observaciones || '').trim() || null,
-                        p_creado_por: servidorId
-                    });
-                    if (error) throw error;
-                    toast('Registro guardado en Pendientes');
-                    if (modalPendVisible) {
-                        try {
-                            const { data } = await supabase.rpc('fn_listar_pendientes');
-                            setPendientesRows((data || []) as PendienteItem[]);
-                        } catch (e) { }
-                    }
-                    resetForm();
-                    return;
-                } catch (e: any) {
-                    toast('❌ Error guardando pendiente: ' + (e?.message ?? e));
-                    return;
-                }
+            if (!modoEdicion && (history.length || form.destino.includes('PENDIENTES'))) {
+                const response = await fetch('/api/ingresos', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'queue', nombre: form.nombre.trim(),
+                        telefono: form.telefono, culto: form.cultoSeleccionado,
+                        observaciones: form.observaciones.trim() || null }),
+                });
+                const result = await response.json();
+                if (!response.ok) throw new Error(result.error);
+                toast(history.length ? historyLabel(history) + '. Guardado en Pendientes para revisión.' : 'Persona nueva guardada en Pendientes');
+                if (modalPendVisible) await abrirPendientes();
+                resetForm();
+                return;
             }
 
             if (form.destino.some(d => ['DOMINGO', 'MARTES', 'VIRTUAL'].includes(d))) {
@@ -999,13 +961,19 @@ export default function PersonaNueva({ servidorId }: { servidorId: string | null
     const abrirPendientes = async () => {
         setModalPendVisible(true);
         setPendLoading(true);
+        setPendHistoryError('');
         try {
-            const { data, error } = await supabase.rpc('fn_listar_pendientes');
-            if (error) throw error;
-            setPendientesRows((data || []) as PendienteItem[]);
+            const response = await fetch('/api/ingresos', { cache: 'no-store' });
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.error);
+            setPendientesRows(result.pendientes);
+            setIntakeGroups(result.groups);
+            setCanAssignIntake(result.canAssign);
             setPendPage(0);
         } catch (e) {
-            toast('Error cargando pendientes');
+            setPendientesRows([]);
+            setPendHistoryError('No se pudo verificar el historial. Vuelve a abrir Pendientes para intentar de nuevo.');
+            toast('No se pudo verificar el historial. Vuelve a abrir Pendientes para intentar de nuevo.');
         } finally {
             setPendLoading(false);
         }
@@ -1083,6 +1051,9 @@ export default function PersonaNueva({ servidorId }: { servidorId: string | null
 
     return (
         <div className="pn-root">
+            {intakeToReview && <IntakeAssignmentModal pending={intakeToReview} groups={intakeGroups}
+                onClose={() => setIntakeToReview(null)}
+                onSuccess={() => { setIntakeToReview(null); toast('Grupo confirmado. Se conservó el historial anterior.'); void abrirPendientes(); }} />}
             <div className="formulario-box" id="formulario1">
                 <div className="form-title" style={{ marginBottom: '6px', fontSize: '1.08rem' }}>Registro Persona Nueva</div>
 
@@ -1377,7 +1348,8 @@ export default function PersonaNueva({ servidorId }: { servidorId: string | null
                                         {pendLoading && (
                                             <div className="text-center text-neutral-600 px-2 py-10">Cargando…</div>
                                         )}
-                                        {!pendLoading && pendientesRows.length === 0 && (
+                                        {!pendLoading && pendHistoryError && <div role="alert" className="px-3 py-6 text-sm text-red-700">{pendHistoryError}</div>}
+                                        {!pendLoading && !pendHistoryError && pendientesRows.length === 0 && (
                                             <div className="text-center text-neutral-600 px-2 py-10">Sin pendientes</div>
                                         )}
 
@@ -1389,9 +1361,18 @@ export default function PersonaNueva({ servidorId }: { servidorId: string | null
                                                     <PendienteRowItem
                                                         key={(row.progreso_id ?? row.persona_id ?? row.id ?? Math.random().toString())}
                                                         row={row}
-                                                        onSelect={selectPendiente}
+                                                        onSelect={p => {
+                                                            if (canAssignIntake) { setIntakeToReview(p); return; }
+                                                            if (p.history?.length) {
+                                                                toast('Revisa este historial desde Pendientes antes de asignar.');
+                                                                return;
+                                                            }
+                                                            selectPendiente(p);
+                                                        }}
                                                         onDelete={handleEliminarPendiente}
                                                         onEdit={setPendienteAEditar}
+                                                        onReview={setIntakeToReview}
+                                                        canAssign={canAssignIntake}
                                                     />
                                                 ))}
                                     </div>
@@ -1479,14 +1460,7 @@ export default function PersonaNueva({ servidorId }: { servidorId: string | null
                                             
                                             if (error) throw error;
                                             
-                                            setPendientesRows(prev => prev.map(p => 
-                                                p.id === pendienteAEditar.id ? { 
-                                                    ...p, 
-                                                    nombre: pendienteAEditar.nombre, 
-                                                    telefono: normalizaTelefono(pendienteAEditar.telefono || ''),
-                                                    observaciones: pendienteAEditar.observaciones
-                                                } : p
-                                            ));
+                                            await abrirPendientes();
                                             toast('✅ Pendiente actualizado exitosamente');
                                             setPendienteAEditar(null);
                                         } catch (e) {
