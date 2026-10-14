@@ -10,6 +10,10 @@ export type IntakeGroup = {
   modulo: number | null; dia: string; cursoId: number | null;
   maestroId: string | null; label: string;
 };
+export function normalizeIntakePhone(value: string | null | undefined): string {
+  const digits = (value || '').replace(/\D/g, '');
+  return digits.length === 12 && digits.startsWith('57') ? digits.slice(2) : digits;
+}
 export function historyLabel(candidates: HistoryCandidate[]): string {
   if (!candidates.length) return 'PERSONA NUEVA';
   if (candidates.length !== 1 || candidates[0].confianza !== 'segura') return 'Posible historial encontrado';

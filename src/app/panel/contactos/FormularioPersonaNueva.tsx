@@ -7,7 +7,7 @@ import { supabase } from '@/lib/supabaseClient';
 import IntakeAssignmentModal from '@/components/IntakeAssignmentModal';
 import IntakeErrorNotice from '@/components/IntakeErrorNotice';
 import { ReintegrateButton, StudentReturnBadge, returnLevel } from '@/components/StudentReturnDetails';
-import { historyLabel, type HistoryCandidate, type IntakeGroup } from '@/lib/ingresoHistory';
+import { historyLabel, normalizeIntakePhone, type HistoryCandidate, type IntakeGroup } from '@/lib/ingresoHistory';
 // MEJORA 1: Eliminados imports estáticos pesados para Lazy Loading
 // import jsPDF from 'jspdf';
 // import autoTable from 'jspdf-autotable';
@@ -609,17 +609,18 @@ export default function PersonaNueva({ servidorId }: { servidorId: string | null
                 let isDup = false;
                 if (count && count > 0) {
                     if (modoEdicion && indiceEdicion) {
-                        const { data: personaData } = await supabase.from('persona').select('id').eq('telefono', telNorm).limit(1);
-                        if (personaData && personaData.length > 0 && personaData[0].id !== indiceEdicion) {
-                            isDup = true;
-                        }
+                        const { data: original, error: originalError } = await supabase.from('persona')
+                            .select('telefono').eq('id', indiceEdicion).single();
+                        if (originalError) throw originalError;
+                        // Un familiar ya confirmado puede conservar su teléfono al editar sus datos.
+                        isDup = normalizeIntakePhone(original.telefono) !== normalizeIntakePhone(telNorm);
                     } else {
                         isDup = true;
                     }
                 }
                 if (isDup) {
-                    setErrores(prev => ({ ...prev, telefono: 'Ya existe una persona con este teléfono' }));
-                    toast('⚠️ Ya existe una persona con este teléfono.');
+                    setErrores(prev => ({ ...prev, telefono: 'Este número ya está registrado. Para agregar a un familiar, crea una persona nueva y confirma el número compartido desde Pendientes.' }));
+                    toast('Este número ya está registrado. Puedes agregar a otra persona desde Pendientes usando la opción de número compartido.');
                     return;
                 }
             }
