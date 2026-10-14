@@ -5,6 +5,7 @@ import React, { useEffect, useRef, useState, useCallback, memo } from 'react';
 import { Trash2, Phone, FileText, FileSpreadsheet, Edit2 } from "lucide-react";
 import { supabase } from '@/lib/supabaseClient';
 import IntakeAssignmentModal from '@/components/IntakeAssignmentModal';
+import IntakeErrorNotice from '@/components/IntakeErrorNotice';
 import { ReintegrateButton, StudentReturnBadge, returnLevel } from '@/components/StudentReturnDetails';
 import { historyLabel, type HistoryCandidate, type IntakeGroup } from '@/lib/ingresoHistory';
 // MEJORA 1: Eliminados imports estáticos pesados para Lazy Loading
@@ -972,8 +973,11 @@ export default function PersonaNueva({ servidorId }: { servidorId: string | null
             setPendPage(0);
         } catch (e) {
             setPendientesRows([]);
-            setPendHistoryError('No se pudo verificar el historial. Vuelve a abrir Pendientes para intentar de nuevo.');
-            toast('No se pudo verificar el historial. Vuelve a abrir Pendientes para intentar de nuevo.');
+            const message = e instanceof Error && !(e instanceof TypeError) && !(e instanceof SyntaxError) && e.message
+                ? e.message
+                : 'No pudimos cargar Pendientes. Revisa tu conexión a internet y vuelve a intentarlo. Si continúa, envía este mensaje al administrador: «Hola, no logro cargar Pendientes después de revisar mi conexión. ¿Puedes ayudarme a verificar el acceso y el servicio? Referencia: PENDIENTES-CONEXION. Gracias».';
+            setPendHistoryError(message);
+            toast(message);
         } finally {
             setPendLoading(false);
         }
@@ -1348,7 +1352,7 @@ export default function PersonaNueva({ servidorId }: { servidorId: string | null
                                         {pendLoading && (
                                             <div className="text-center text-neutral-600 px-2 py-10">Cargando…</div>
                                         )}
-                                        {!pendLoading && pendHistoryError && <div role="alert" className="px-3 py-6 text-sm text-red-700">{pendHistoryError}</div>}
+                                        {!pendLoading && pendHistoryError && <div className="px-3 py-6"><IntakeErrorNotice message={pendHistoryError} /></div>}
                                         {!pendLoading && !pendHistoryError && pendientesRows.length === 0 && (
                                             <div className="text-center text-neutral-600 px-2 py-10">Sin pendientes</div>
                                         )}

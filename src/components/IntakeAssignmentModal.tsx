@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { RotateCcw } from 'lucide-react';
 import IntakeGroupSelect from './IntakeGroupSelect';
+import IntakeErrorNotice from './IntakeErrorNotice';
 import { compatibleGroups, type HistoryCandidate, type IntakeGroup } from '@/lib/ingresoHistory';
 
 export default function IntakeAssignmentModal({ pending, groups, onClose, onSuccess }: {
@@ -96,7 +97,7 @@ export default function IntakeAssignmentModal({ pending, groups, onClose, onSucc
       {available.length === 0 && <p className="mt-2 text-sm text-amber-800">{candidate || !candidates.length || identityKey === 'new'
         ? 'No hay grupos activos compatibles. Puedes elegir otro nivel o dejar el ingreso pendiente.'
         : 'Selecciona y revisa un historial para ver sus grupos compatibles.'}</p>}
-      {error && <p role="alert" className="mt-3 text-sm font-semibold text-red-700 [overflow-wrap:anywhere]">{error}</p>}
+      {error && <div className="mt-3"><IntakeErrorNotice message={error} /></div>}
       </div>
       <div className="grid shrink-0 grid-cols-2 gap-2 border-t border-slate-100 bg-white/95 p-4 shadow-[0_-4px_16px_rgba(15,23,42,0.025)] sm:flex sm:justify-end sm:gap-3 sm:px-6">
         <button disabled={saving} onClick={onClose} className="min-h-11 min-w-0 rounded-xl border border-slate-200 px-2 py-2 text-[13px] font-medium sm:px-4 sm:text-sm">Cancelar</button>
