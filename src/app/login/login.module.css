@@ -1,0 +1,176 @@
+.scene,
+.portalScene {
+  --access-background:
+    radial-gradient(ellipse at 104% 18%, rgba(89, 201, 199, .76), transparent 56%),
+    radial-gradient(ellipse at 92% 104%, rgba(83, 188, 216, .92), transparent 58%),
+    radial-gradient(ellipse at 22% 112%, #0066ba, transparent 62%),
+    linear-gradient(115deg, #050e60 8%, #062376 49%, #087d9c 100%);
+}
+
+.portalScene {
+  background:
+    radial-gradient(ellipse at 100% 0%, rgba(255, 255, 255, .92), transparent 60%),
+    radial-gradient(ellipse at 88% 108%, rgba(244, 252, 255, .8), transparent 59%),
+    var(--access-background);
+}
+
+.scene {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: clamp(12px, 2.5dvh, 24px) 20px;
+  color: #f4f8ff;
+  background: var(--access-background);
+  font-family: Arial, Helvetica, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Luminous glass surfaces, with the existing page background preserved. */
+.card {
+  position: relative;
+  isolation: isolate;
+  width: 100%;
+  max-width: 500px;
+  overflow: hidden;
+  border: 1px solid rgba(226, 246, 255, .65);
+  border-radius: 36px;
+  background:
+    radial-gradient(ellipse at 100% 0, rgba(255, 237, 236, .48), transparent 45%),
+    radial-gradient(ellipse at 0 100%, rgba(158, 175, 255, .3), transparent 55%),
+    linear-gradient(125deg, rgba(81, 164, 239, .27), rgba(72, 114, 210, .28) 48%, rgba(141, 208, 251, .36));
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, .65), inset 0 -1px 1px rgba(202, 234, 255, .35), 0 24px 65px -20px rgba(0, 13, 68, .4);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+}
+.card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  border-radius: inherit;
+  background: linear-gradient(135deg, rgba(91, 214, 255, .15), transparent 26%, transparent 65%, rgba(220, 229, 255, .12));
+}
+.header { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 20px 29px; border-bottom: 1px solid rgba(213, 235, 255, .22); }
+.header h1 { font-size: clamp(28px, 5vw, 39px); font-weight: 700; letter-spacing: -1.2px; line-height: 1.2; text-shadow: 0 1px 2px rgba(13, 54, 122, .12); }
+.logo { display: grid; place-items: center; flex: 0 0 72px; height: 72px; border: 3px solid rgba(225, 234, 255, .85); border-radius: 50%; background: linear-gradient(140deg, #fff, #f4f7ff); box-shadow: 0 0 0 4px rgba(245, 249, 255, .38), 0 5px 20px rgba(39, 78, 150, .12); }
+.logo img { width: 59px; height: 59px; object-fit: contain; }
+.verse {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  height: clamp(164px, calc(100dvh - 450px), 230px);
+  margin: 18px 26px 0;
+  padding: 18px 23px 16px;
+  border: 1px solid rgba(255, 255, 255, .9);
+  border-radius: 22px;
+  background:
+    radial-gradient(ellipse at 90% 0, rgba(255, 255, 255, .88), transparent 75%),
+    linear-gradient(135deg, rgba(224, 239, 250, .87), rgba(240, 243, 250, .93) 48%, rgba(183, 219, 242, .91));
+  box-shadow: inset 0 1px 2px #fff, inset 0 -1px 2px rgba(221, 250, 255, .8), 0 15px 26px -15px rgba(1, 26, 84, .4);
+  text-align: center;
+}
+.verse::before { flex-shrink: 0; content: ''; display: block; width: 39px; height: 3px; margin: 0 auto 12px; border-radius: 4px; background: linear-gradient(90deg, #6caef4, #2d69d4, #8bb9f9); box-shadow: 0 1px 2px rgba(42, 100, 191, .15); }
+.verse p { flex: 1; display: grid; place-items: center; width: 100%; min-height: 0; font-family: Georgia, 'Times New Roman', serif; font-style: italic; font-size: 16px; line-height: 1.8; color: #152d54; }
+.verse cite { flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; gap: 9px; margin-top: 12px; padding: 6px 14px; border: 1px solid rgba(255, 255, 255, .85); border-radius: 30px; background: rgba(225, 241, 255, .55); font-size: 12px; line-height: 1.5; font-style: normal; font-weight: 600; color: #285b9b; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .25); }
+.verse cite svg { flex-shrink: 0; }
+.ministries { margin: 18px 28px 0; }
+.ministryList { display: grid; grid-template-columns: 1fr 1fr; gap: 11px; }
+.ministry { display: flex; align-items: center; gap: 10px; min-width: 0; min-height: 62px; padding: 11px 12px; border: 1px solid rgba(202, 228, 255, .42); border-radius: 15px; background: linear-gradient(135deg, rgba(178, 212, 255, .18), rgba(145, 179, 248, .12)); box-shadow: inset 0 1px 0 rgba(230, 246, 255, .08); }
+.ministryIcon { width: 39px; height: 39px; padding: 9px; border-radius: 14px; flex-shrink: 0; color: #fff; stroke-width: 1.6; background: linear-gradient(135deg, rgba(71, 215, 244, .72), rgba(96, 129, 239, .9)); box-shadow: inset 0 1px 2px rgba(239, 253, 255, .35), 0 4px 12px rgba(29, 77, 175, .23); }
+.ministry:nth-child(2) .ministryIcon { border-radius: 50%; background: linear-gradient(140deg, #a2a0f5, #7963df); }
+.ministryName { font-size: 15px; font-weight: 600; line-height: 1.3; }
+.activeStatus { display: grid; place-items: center; flex-shrink: 0; width: 25px; height: 25px; margin-left: auto; border: 1px solid rgba(138, 228, 255, .65); border-radius: 50%; color: white; background: linear-gradient(135deg, #387eff, #26bde9); box-shadow: inset 0 1px 3px rgba(162, 242, 255, .6), 0 0 10px rgba(52, 174, 255, .25); }
+.activeStatus svg { width: 17px; height: 17px; }
+.kidsInfo { display: flex; flex-direction: column; gap: 4px; }
+.development { display: flex; align-items: center; gap: 4px; white-space: nowrap; color: #dfedff; font-size: 9px; }
+.settingsIcon { flex-shrink: 0; margin-left: auto; color: #d9eaff; stroke-width: 1.5; }
+.form { display: flex; flex-direction: column; gap: 12px; margin: 16px 28px 0; padding-top: 16px; border-top: 1px solid rgba(208, 231, 255, .3); }
+.field { position: relative; }
+.input { display: block; width: 100%; min-height: 51px; padding: 14px 43px; border-radius: 13px; border: 1px solid rgba(255, 255, 255, .95); background: linear-gradient(115deg, #f8fafc, #edf2f9 62%, #dbe9f7); box-shadow: inset 0 2px 4px rgba(52, 62, 101, .15), 0 1px 1px rgba(245, 247, 255, .25); color: #2f3e59; caret-color: #2867db; font-size: 14px; outline: none; transition: border-color .2s, box-shadow .2s; }
+.input::placeholder { color: #616d83; opacity: 1; }
+.input:focus { border-color: #acddff; box-shadow: 0 0 0 3px rgba(128, 216, 255, .25), inset 0 1px 3px rgba(52, 62, 101, .08); }
+.input[aria-invalid='true'] { border-color: #f0b9c6; }
+.fieldIcon { position: absolute; top: 17px; left: 17px; color: #6b778b; pointer-events: none; }
+.field:focus-within .fieldIcon { color: #2867db; }
+.visibility { position: absolute; top: 0; right: 0; display: grid; place-items: center; width: 43px; height: 51px; color: #6b778b; cursor: pointer; border-radius: 12px; }
+.visibility:hover { color: #24549a; }
+.visibility:focus-visible, .submit:focus-visible { outline: 2px solid #c0f6ff; outline-offset: 4px; }
+.submit { position: relative; isolation: isolate; overflow: hidden; display: flex; align-items: center; justify-content: center; gap: 17px; width: 100%; min-height: 50px; border: 1px solid rgba(159, 240, 255, .85); border-radius: 15px; background: linear-gradient(105deg, #1949f4, #247bf5 45%, #40dbed); box-shadow: inset 0 1px 3px rgba(222, 255, 255, .5), 0 0 16px rgba(47, 177, 255, .3), 0 7px 15px rgba(5, 51, 151, .22); color: #fff; font-size: 18px; font-weight: 600; cursor: pointer; transition: filter .2s, box-shadow .2s, transform .2s; }
+.submit > span:not(.submitLight), .submit > svg { position: relative; z-index: 1; }
+.submit svg { width: 21px; height: 21px; }
+.submit:hover { filter: brightness(1.1); box-shadow: inset 0 1px 3px rgba(222, 255, 255, .5), 0 0 21px rgba(47, 177, 255, .4), 0 7px 15px rgba(5, 51, 151, .22); }
+.submit:active { transform: translateY(1px); }
+.submit:disabled { opacity: .55; cursor: wait; }
+.submit[data-loading='true'] { opacity: 1; filter: none; }
+.submitLight {
+  display: none;
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(90deg, rgba(111, 230, 255, .12), rgba(166, 248, 255, .28) 65%, rgba(235, 255, 255, .6) 98%, rgba(255, 255, 255, .9));
+  box-shadow: 3px 0 12px rgba(223, 255, 255, .65);
+  transform: translateX(-103%);
+}
+.submit[data-loading='true'] .submitLight {
+  display: block;
+  animation: submit-light-fill 1.65s cubic-bezier(.22, .61, .36, 1) infinite;
+}
+@keyframes submit-light-fill {
+  0% { transform: translateX(-103%); opacity: .35; }
+  65% { transform: translateX(0); opacity: 1; }
+  82% { transform: translateX(0); opacity: .65; }
+  100% { transform: translateX(0); opacity: 0; }
+}
+.error { font-size: 13px; line-height: 1.5; color: #ffe0e8; }
+.security { display: flex; align-items: center; justify-content: center; gap: 9px; margin: 16px 20px 19px; font-size: 10px; line-height: 1.6; color: #e0edff; }
+.security svg { width: 19px; height: 19px; flex-shrink: 0; color: #c0e2ff; }
+@media (max-width: 420px) {
+  .scene { padding: 14px; }
+  .card { border-radius: 28px; }
+  .header { padding: 18px 21px; }
+  .header h1 { font-size: 29px; }
+  .logo { flex-basis: 68px; height: 68px; }
+  .logo img { width: 55px; height: 55px; }
+  .verse { height: clamp(190px, calc(100dvh - 430px), 230px); margin: 16px 19px 0; padding: 17px; }
+  .verse p { font-size: 14px; line-height: 1.8; }
+  .verse cite { font-size: 11px; }
+  .ministries { margin: 16px 20px 0; }
+  .ministryList { grid-template-columns: .95fr 1.05fr; gap: 8px; }
+  .ministry { padding: 10px 8px; gap: 7px; min-height: 62px; }
+  .ministryIcon { width: 31px; height: 34px; padding: 7px; border-radius: 11px; }
+  .ministryName { font-size: 13px; }
+  .activeStatus { width: 21px; height: 21px; }
+  .development { font-size: 8px; gap: 3px; }
+  .settingsIcon { width: 14px; }
+  .form { margin: 16px 20px 0; }
+  .input { font-size: 13px; padding-left: 39px; }
+  .fieldIcon { left: 14px; }
+  .security { font-size: 9px; margin-inline: 14px; gap: 6px; }
+}
+/* Short desktop windows and landscape: compact spacing before allowing
+   natural page scrolling on exceptionally small screens / open keyboards. */
+@media (max-height: 700px) {
+  .scene { padding-block: 12px; }
+  .header { padding-block: 14px; }
+  .logo { flex-basis: 60px; height: 60px; }
+  .logo img { width: 49px; height: 49px; }
+  .header h1 { font-size: 30px; }
+  .verse { margin-top: 14px; padding-block: 14px; }
+  .verse p { font-size: 14px; line-height: 1.6; }
+  .verse::before { margin-bottom: 8px; }
+  .verse cite { margin-top: 8px; padding-block: 4px; }
+  .ministries { margin-top: 14px; }
+  .ministry { min-height: 56px; padding-block: 8px; }
+  .form { margin-top: 13px; padding-top: 13px; gap: 10px; }
+  .security { margin-block: 13px 15px; }
+}
+@media (max-width: 350px) {
+  .ministryList { grid-template-columns: 1fr; }
+  .ministryIcon { width: 34px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .input, .submit { transition: none; }
+  .submit[data-loading='true'] .submitLight { animation: none; transform: none; opacity: .25; }
+}

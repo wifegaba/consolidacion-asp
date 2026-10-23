@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from 'react';
 import PremiumLoader from '../../components/PremiumLoader';
 import { Student } from '@phosphor-icons/react';
 import Image from 'next/image';
+import loginStyles from '../login.module.css';
 
 type Asignacion = {
     tipo: 'maestro' | 'contacto' | 'logistica' | 'director' | 'administrador' | 'estudiante_ptm' | 'kids_hub';
@@ -786,24 +787,8 @@ export default function PortalClient({ nombre, asignaciones }: { nombre: string,
 
     return (
         <motion.main
-            className="portal-access-shell relative flex min-h-screen flex-col items-center justify-center p-4 py-8 sm:p-6"
-            style={{
-                background: [
-                    'radial-gradient(ellipse 66% 52% at 18% -8%, rgba(158,218,255,.62) 0%,rgba(83,156,216,.24) 44%,transparent 74%)',
-                    'radial-gradient(ellipse 56% 48% at 94% 12%,rgba(255,190,154,.34) 0%,rgba(224,119,102,.13) 46%,transparent 75%)',
-                    'radial-gradient(ellipse 55% 44% at 54% 106%,rgba(91,222,198,.24) 0%,transparent 72%)',
-                    'linear-gradient(145deg,#17334b 0%,#0b2132 48%,#06131f 100%)',
-                ].join(', '),
-            }}
+            className={`${loginStyles.portalScene} portal-access-shell relative flex min-h-screen flex-col items-center justify-center p-4 py-8 sm:p-6`}
         >
-            {/* Luces ambientales suaves, inspiradas en el acabado de vidrio de Apple. */}
-            <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
-                <div className="absolute top-[-16%] left-[8%] h-[520px] w-[520px] rounded-full bg-sky-100/30 blur-[130px]" />
-                <div className="absolute top-[-8%] right-[-10%] h-[500px] w-[500px] rounded-full bg-orange-100/15 blur-[145px]" />
-                <div className="absolute bottom-[-25%] left-[28%] h-[460px] w-[700px] rounded-full bg-teal-200/15 blur-[150px]" />
-                <div className="absolute inset-0 opacity-30 bg-[radial-gradient(circle_at_50%_0%,rgba(255,255,255,.16),transparent_34%)]" />
-            </div>
-
             <div className="w-full max-w-[1400px] z-10 relative px-4 sm:px-6 md:px-8">
                 <header className="mb-8 text-center">
                     <motion.div
@@ -1172,10 +1157,11 @@ export default function PortalClient({ nombre, asignaciones }: { nombre: string,
                 @media (max-width: 767px) {
                     html.portal-access-page,
                     body.portal-access-page {
-                        background: #06131f;
+                        background: #dbeff7;
                     }
                     .portal-access-shell {
-                        min-height: auto !important;
+                        min-height: 100vh;
+                        min-height: 100dvh;
                         justify-content: flex-start;
                         padding-bottom: calc(1rem + env(safe-area-inset-bottom)) !important;
                     }
