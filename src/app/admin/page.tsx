@@ -57,6 +57,18 @@ export type MaestroConCursos = Maestro & { asignaciones: AsignacionMaestro[]; ob
 export type Estudiante = { id: string; nombre: string; cedula: string; telefono?: string | null; foto_path?: string | null; dia?: string; origen?: string; ocupacion?: string | null; };
 export type Inscripcion = { id: number; entrevista_id: string; curso_id: number; servidor_id: string | null; cursos?: Pick<Curso, 'nombre' | 'color'> | null; estado?: string; created_at?: string; updated_at?: string; };
 export type EstudianteInscrito = Estudiante & { maestro: MaestroConCursos | null; curso: Curso | null; inscripcion_id: number | null; };
+
+async function loadAllRows<T>(readPage: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: unknown }>) {
+  const size = 500;
+  const rows: T[] = [];
+  for (let from = 0; ; from += size) {
+    const { data, error } = await readPage(from, from + size - 1);
+    if (error) throw error;
+    if (!data) return rows;
+    rows.push(...data);
+    if (data.length < size) return rows;
+  }
+}
 export type AdminTab = 'bienvenida' | 'dashboard' | 'matricular' | 'maestros' | 'servidores' | 'consultar' | 'promovidos' | 'graduados';
 
 // --- HELPERS ---
@@ -195,11 +207,11 @@ export default function AdminPage() {
   const loadData = useCallback(async () => {
     setIsLoading(true);
     try {
-      const [{ data: mData }, { data: cData }, { data: eData }, { data: iData }] = await Promise.all([
+      const [{ data: mData }, { data: cData }, eData, iData] = await Promise.all([
         supabase.from('servidores').select(`id, nombre, cedula, telefono, email, activo, foto_url, asignaciones:asignaciones_academia (id, servidor_id, curso_id, cursos ( nombre, color )), observaciones_count:servidores_observaciones!servidor_id(count), servidores_roles ( rol )`).order('nombre', { ascending: true }),
         supabase.from('cursos').select('id, nombre, color, orden').order('orden', { ascending: true }),
-        supabase.from('entrevistas').select('*').order('nombre', { ascending: true }),
-        supabase.from('inscripciones').select('id, entrevista_id, curso_id, servidor_id, estado, created_at, updated_at')
+        loadAllRows((from, to) => supabase.from('entrevistas').select('*').order('nombre').order('id').range(from, to)),
+        loadAllRows((from, to) => supabase.from('inscripciones').select('id, entrevista_id, curso_id, servidor_id, estado, created_at, updated_at').order('id').range(from, to))
       ]);
 
       // Cargar días asignados de maestros (Primero PTM, luego Academia como fallback)
@@ -495,7 +507,7 @@ export default function AdminPage() {
                   {activeTab === 'matricular' && (
                     <PanelMatricular
                       maestros={maestros}
-                      cursos={cursos.filter(c => !currentUser.rol || currentUser.rol === 'Director' || !currentUser.cursosAcceso || currentUser.cursosAcceso.length === 0 || currentUser.cursosAcceso.includes(c.nombre))}
+                      cursos={cursos}
                       estudiantes={estudiantes}
                       inscripciones={inscripciones}
                       onMatriculaExitosa={onDataUpdated}

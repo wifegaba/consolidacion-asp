@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../../../lib/supabaseClient';
 import { StudentReturnBadge } from '@/components/StudentReturnDetails';
+import { createStudentMatcher } from '@/lib/studentSearch';
 import { GlassCard, CardHeader, FormSelect, GLASS_STYLES, ModalTemplate } from '../page';
 import { UserPlus, Search, Plus, ChevronDown, X, AlertTriangle, Check, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence, Variants } from 'framer-motion';
@@ -62,35 +63,29 @@ export default function PanelMatricular({ maestros, cursos, estudiantes, inscrip
                 .filter(i => (i as any).estado === 'activo')
                 .map(i => i.entrevista_id)
         );
-        // Mapa de estudiantes suspendidos para mostrar su etiqueta
-        const suspendedMap = new Map<string, number>();
+        const latestByStudent = new Map<string, Inscripcion>();
+        const timestamp = (row: Inscripcion) => Date.parse(row.updated_at || row.created_at || '1970-01-01');
         inscripciones.forEach(i => {
-            if ((i as any).estado === 'inactivo') {
-                suspendedMap.set(i.entrevista_id, i.curso_id);
-            }
+            const previous = latestByStudent.get(i.entrevista_id);
+            if (!previous || timestamp(i) > timestamp(previous)) latestByStudent.set(i.entrevista_id, i);
         });
+        const courseNames = new Map(cursos.map(c => [c.id, c.nombre]));
 
         return estudiantes.map(e => ({
             ...e,
             isActive: activeIds.has(e.id),
-            suspendedCourseId: suspendedMap.get(e.id)
+            lastCourseName: courseNames.get(latestByStudent.get(e.id)?.curso_id ?? -1)
         }));
-    }, [estudiantes, inscripciones]);
+    }, [estudiantes, inscripciones, cursos]);
 
     const eDisponibles = useMemo(() => {
-        return estudiantesConMetadata.filter(e => {
-            // Excluir solo si está activo actualmente
-            if (e.isActive) return false;
-            // Filtro de búsqueda por nombre
-            if (search && !e.nombre.toLowerCase().includes(search.toLowerCase())) {
-                return false;
-            }
-            return true;
-        });
+        const match = createStudentMatcher(search);
+        return estudiantesConMetadata.filter(e => !e.isActive && match(e));
     }, [estudiantesConMetadata, search]);
 
     // El nivel lo elige el usuario, también cuando existe un nivel anterior recomendado.
-    const cursosPermitidos = cursos;
+    const cursosPermitidos = !currentUser.rol || currentUser.rol === 'Director' || !currentUser.cursosAcceso?.length
+        ? cursos : cursos.filter(c => currentUser.cursosAcceso!.includes(c.nombre));
     const handleStudentToggle = (studentId: string) => {
         setSelectedIds(prev => ({ ...prev, [studentId]: !prev[studentId] }));
     };
@@ -208,10 +203,6 @@ export default function PanelMatricular({ maestros, cursos, estudiantes, inscrip
                                 animate="visible"
                             >
                                 {eDisponibles.map(e => {
-                                    const previous = inscripciones.filter(i => i.entrevista_id === e.id)
-                                        .sort((a, b) => Date.parse(b.updated_at || b.created_at || '1970-01-01') - Date.parse(a.updated_at || a.created_at || '1970-01-01'))[0];
-                                    const lastCourseName = previous ? cursos.find(c => c.id === previous.curso_id)?.nombre : null;
-
                                     // Helper simple para capitalizar
                                     const formatLabel = (s: string) => s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
 
@@ -229,11 +220,6 @@ export default function PanelMatricular({ maestros, cursos, estudiantes, inscrip
                                                 <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                                                     <p className="text-base font-bold text-gray-900 mr-1">{e.nombre}</p>
 
-                                                    {e.suspendedCourseId && (
-                                                        <span className="text-[9px] md:text-[10px] font-bold bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded border border-purple-200">
-                                                            {formatLabel(cursos.find(c => c.id === e.suspendedCourseId)?.nombre || '')}
-                                                        </span>
-                                                    )}
                                                     {e.dia && (
                                                         <span className={`text-[9px] md:text-[11px] font-black px-2 py-1 md:px-3 md:py-1.5 rounded-lg md:rounded-xl shadow-sm ${e.dia === 'Domingo' ? 'bg-blue-100 text-blue-700 border border-blue-200' :
                                                             e.dia === 'Martes' ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' :
@@ -243,12 +229,11 @@ export default function PanelMatricular({ maestros, cursos, estudiantes, inscrip
                                                             {formatLabel(e.dia)}
                                                         </span>
                                                     )}
-                                                    <StudentReturnBadge level={lastCourseName} />
-
                                                     <span className="text-xs text-gray-500 font-medium ml-1">
                                                         {e.telefono || 'Sin teléfono'}
                                                     </span>
                                                 </div>
+                                                {e.lastCourseName && <div className="mt-1.5"><StudentReturnBadge level={e.lastCourseName} prefix="Último curso:" /></div>}
                                             </div>
                                         </motion.div>
                                     )
@@ -262,7 +247,7 @@ export default function PanelMatricular({ maestros, cursos, estudiantes, inscrip
             <AnimatePresence>
                 {showModal && (
                     <ModalNuevoEstudiante
-                        cursos={cursos}
+                        cursos={cursosPermitidos}
                         maestros={maestros}
                         onClose={() => setShowModal(false)}
                         onSuccess={() => {

@@ -8,11 +8,11 @@ export function returnLevel(history: HistoryCandidate[] = []) {
     ? history[0].nivel : null;
 }
 
-export function StudentReturnBadge({ level }: { level: string | null | undefined }) {
+export function StudentReturnBadge({ level, prefix = 'Estudiante de' }: { level: string | null | undefined; prefix?: string }) {
   if (!level) return null;
   return <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200/60 bg-emerald-50/80 px-2.5 py-1 text-[11px] font-medium leading-none tracking-normal text-emerald-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)]">
     <span aria-hidden="true" className="h-1 w-1 rounded-full bg-emerald-500/70" />
-    Estudiante de {level}
+    {prefix} {level}
   </span>;
 }
 

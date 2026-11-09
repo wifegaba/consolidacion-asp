@@ -8,6 +8,7 @@ import IntakePendingPanel from '@/components/IntakePendingPanel';
 import { ReintegrateButton, StudentReturnBadge } from '@/components/StudentReturnDetails';
 import IntakeAssignmentModal from '@/components/IntakeAssignmentModal';
 import type { HistoryCandidate, IntakeGroup } from '@/lib/ingresoHistory';
+import { createStudentMatcher } from '@/lib/studentSearch';
 import { GlassCard, FormSelect, GLASS_STYLES, ModalTemplate } from '../page';
 import { HojaDeVidaPanel } from '../../restauracion/estudiante/components/HojaDeVidaPanel';
 import type { MaestroConCursos, Curso, Estudiante, Inscripcion, EstudianteInscrito } from '../page';
@@ -134,8 +135,7 @@ export default function PanelConsultarEstudiantes({ maestros, cursos, estudiante
     }, [procesados, selectedStudent]);
 
     const { pendientes, matriculados } = useMemo(() => {
-        const q = search.toLowerCase();
-        const match = (e: Estudiante) => !q || e.nombre.toLowerCase().includes(q) || e.cedula?.includes(q);
+        const match = createStudentMatcher(search);
 
         const isDirector = !currentUser.rol || currentUser.rol === 'Director';
         const cursosPermitidos = currentUser.cursosAcceso || [];
@@ -219,7 +219,7 @@ export default function PanelConsultarEstudiantes({ maestros, cursos, estudiante
                     </FormSelect>
                 </div>
 
-                <IntakePendingPanel refreshKey={estudiantes} onSuccess={onDataUpdated} />
+                <IntakePendingPanel refreshKey={estudiantes} onSuccess={onDataUpdated} search={search} />
                 {reviewError && <p role="alert" className="mx-3 mb-2 text-sm text-red-700">{reviewError}</p>}
                 <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 overflow-hidden px-3 pb-3 lg:grid-cols-2">
                     <div className="flex flex-col h-full min-h-0">
