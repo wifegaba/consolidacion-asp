@@ -2,7 +2,7 @@
 'use client';
 
 import React, { useEffect, useRef, useState, useCallback, memo } from 'react';
-import { Trash2, Phone, FileText, FileSpreadsheet, Edit2 } from "lucide-react";
+import { Trash2, Phone, FileText, FileSpreadsheet, Edit2, List, Save, Search, UserRound } from "lucide-react";
 import { supabase } from '@/lib/supabaseClient';
 import IntakeAssignmentModal from '@/components/IntakeAssignmentModal';
 import IntakeErrorNotice from '@/components/IntakeErrorNotice';
@@ -189,7 +189,7 @@ const PendienteRowItem = memo(({
         <div
             title="Cargar en el formulario"
             onClick={() => onSelect(row)}
-            className="grid w-full min-w-0 cursor-pointer grid-cols-1 items-center gap-2.5 rounded-[18px] border border-slate-200/80 bg-white/80 px-3.5 py-3 shadow-[0_2px_5px_#0f172a05] transition-colors hover:bg-white sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_4.25rem_minmax(0,1.25fr)_7.5rem] sm:gap-3"
+            className="pn-pending-row grid w-full min-w-0 cursor-pointer grid-cols-1 items-center gap-2.5 rounded-[18px] border border-slate-200/80 bg-white/80 px-3.5 py-3 shadow-[0_2px_5px_#0f172a05] transition-colors hover:bg-white sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_4.25rem_minmax(0,1.25fr)_7.5rem] sm:gap-3"
         >
             <div className="min-w-0">
                 <p className="text-sm leading-snug font-semibold text-slate-900 [overflow-wrap:anywhere]">{row.nombre}</p>
@@ -285,7 +285,8 @@ const SearchResultItem = memo(({
 SearchResultItem.displayName = 'SearchResultItem';
 
 
-export default function PersonaNueva({ servidorId }: { servidorId: string | null }) {
+export default function PersonaNueva({ variant }: { servidorId?: string | null; variant?: 'glass' }) {
+    const glass = variant === 'glass';
     const observacionesRef = useRef<HTMLTextAreaElement | null>(null);
     const inputNombreRef = useRef<HTMLInputElement | null>(null);
     const inputBusquedaModalRef = useRef<HTMLInputElement | null>(null);
@@ -323,7 +324,62 @@ export default function PersonaNueva({ servidorId }: { servidorId: string | null
     const [intakeToReview, setIntakeToReview] = useState<PendienteItem | null>(null);
     const [pendPage, setPendPage] = useState(0);
     const [pendienteAEditar, setPendienteAEditar] = useState<PendienteItem | null>(null);
+    const pendingLoadedAt = useRef(-Infinity);
+    const pendingRequest = useRef<{ controller: AbortController; promise: Promise<void> } | null>(null);
     const PEND_PAGE_SIZE = 7;
+
+    const invalidatePendientes = useCallback(() => {
+        pendingLoadedAt.current = -Infinity;
+        pendingRequest.current?.controller.abort();
+        pendingRequest.current = null;
+    }, []);
+
+    const loadPendientes = useCallback(() => {
+        if (performance.now() - pendingLoadedAt.current < 12_000) return Promise.resolve();
+        if (pendingRequest.current) return pendingRequest.current.promise;
+
+        const controller = new AbortController();
+        setPendLoading(true);
+        setPendHistoryError('');
+        const promise = (async () => {
+            try {
+                const response = await fetch('/api/ingresos', { cache: 'no-store', signal: controller.signal });
+                const result = await response.json();
+                if (controller.signal.aborted) return;
+                if (!response.ok) throw new Error(result.error);
+                setPendientesRows(result.pendientes);
+                setIntakeGroups(result.groups);
+                setCanAssignIntake(result.canAssign);
+                setCanChangeIntakeCourse(result.canChangeCourse === true);
+                pendingLoadedAt.current = performance.now();
+            } catch (error) {
+                if (controller.signal.aborted) return;
+                const message = error instanceof Error && !(error instanceof TypeError) && !(error instanceof SyntaxError) && error.message
+                    ? error.message
+                    : 'No pudimos cargar Pendientes. Revisa tu conexión a internet y vuelve a intentarlo. Si continúa, envía este mensaje al administrador: «Hola, no logro cargar Pendientes después de revisar mi conexión. ¿Puedes ayudarme a verificar el acceso y el servicio? Referencia: PENDIENTES-CONEXION. Gracias».';
+                setPendientesRows([]);
+                setIntakeGroups([]);
+                setCanAssignIntake(false);
+                setCanChangeIntakeCourse(false);
+                setPendHistoryError(message);
+            } finally {
+                if (pendingRequest.current?.controller === controller) {
+                    pendingRequest.current = null;
+                    setPendLoading(false);
+                }
+            }
+        })();
+        pendingRequest.current = { controller, promise };
+        return promise;
+    }, []);
+
+    useEffect(() => {
+        const preload = glass ? window.setTimeout(() => void loadPendientes(), 80) : undefined;
+        return () => {
+            window.clearTimeout(preload);
+            invalidatePendientes();
+        };
+    }, [glass, loadPendientes, invalidatePendientes]);
 
     const [modoListado, setModoListado] = useState(false);
     const [listadoPersonas, setListadoPersonas] = useState<Registro[]>([]);
@@ -507,13 +563,15 @@ export default function PersonaNueva({ servidorId }: { servidorId: string | null
         try {
             const { error } = await supabase.from('pendientes').delete().eq('id', row.id);
             if (error) throw error;
+            invalidatePendientes();
+            setPendLoading(false);
             setPendientesRows(prev => prev.filter(r => r.id !== row.id));
             toast('🗑️ Pendiente eliminado');
         } catch (e) {
             console.error(e);
             toast('❌ Error eliminando pendiente');
         }
-    }, [toast]);
+    }, [toast, invalidatePendientes]);
 
     // Funciones de formulario principales
     const selectDesdePendiente = (row: PendienteItem) => {
@@ -583,7 +641,9 @@ export default function PersonaNueva({ servidorId }: { servidorId: string | null
                 const result = await response.json();
                 if (!response.ok) throw new Error(result.error);
                 toast(history.length ? historyLabel(history) + '. Guardado en Pendientes para revisión.' : 'Persona nueva guardada en Pendientes');
-                if (modalPendVisible) await abrirPendientes();
+                invalidatePendientes();
+                if (modalPendVisible) await loadPendientes();
+                else void loadPendientes();
                 resetForm();
                 return;
             }
@@ -946,29 +1006,10 @@ export default function PersonaNueva({ servidorId }: { servidorId: string | null
         else if (e.key === 'Escape') { setOpenSugs(false); }
     };
 
-    const abrirPendientes = async () => {
+    const abrirPendientes = () => {
         setModalPendVisible(true);
-        setPendLoading(true);
-        setPendHistoryError('');
-        try {
-            const response = await fetch('/api/ingresos', { cache: 'no-store' });
-            const result = await response.json();
-            if (!response.ok) throw new Error(result.error);
-            setPendientesRows(result.pendientes);
-            setIntakeGroups(result.groups);
-            setCanAssignIntake(result.canAssign);
-            setCanChangeIntakeCourse(result.canChangeCourse === true);
-            setPendPage(0);
-        } catch (e) {
-            setPendientesRows([]);
-            const message = e instanceof Error && !(e instanceof TypeError) && !(e instanceof SyntaxError) && e.message
-                ? e.message
-                : 'No pudimos cargar Pendientes. Revisa tu conexión a internet y vuelve a intentarlo. Si continúa, envía este mensaje al administrador: «Hola, no logro cargar Pendientes después de revisar mi conexión. ¿Puedes ayudarme a verificar el acceso y el servicio? Referencia: PENDIENTES-CONEXION. Gracias».';
-            setPendHistoryError(message);
-            toast(message);
-        } finally {
-            setPendLoading(false);
-        }
+        setPendPage(0);
+        return loadPendientes();
     };
 
     const ghost = openSugs && sugs[0] && (sugs[0].nombre ?? '').toLowerCase().startsWith(busqueda.toLowerCase())
@@ -1041,13 +1082,213 @@ export default function PersonaNueva({ servidorId }: { servidorId: string | null
         }
     };
 
+    const pendingDialogs = (<>
+        {modalPendVisible && (
+            <div
+                id="modal-pendientes"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="pend-title"
+                onKeyDown={(e) => e.key === "Escape" && setModalPendVisible(false)}
+                className="fixed inset-0 z-50 flex items-center justify-center bg-black/25 backdrop-blur-md"
+            >
+                <div
+                    tabIndex={-1}
+                    className="pn-pending-sheet w-[calc(100%-1rem)] max-w-4xl overflow-hidden rounded-[26px] border border-white/90 bg-slate-50/95 shadow-2xl backdrop-blur-xl sm:w-[calc(100%-3rem)]"
+                >
+                    <div className="pn-pending-header sticky top-0 flex items-center justify-between py-3.5 px-5 bg-white/70 backdrop-blur-sm border-b border-neutral-300/80">
+                        <div className="flex items-center gap-2">
+                            <button
+                                onClick={handleExportPDF}
+                                disabled={pendLoading}
+                                className="grid place-items-center w-7 h-7 rounded-full text-red-600 bg-red-100/80 transition-all hover:bg-red-200/90"
+                                title="Exportar PDF"
+                            >
+                                <FileText size={15} />
+                            </button>
+                            <button
+                                onClick={handleExportExcel}
+                                disabled={pendLoading}
+                                className="grid place-items-center w-7 h-7 rounded-full text-green-700 bg-green-100/80 transition-all hover:bg-green-200/90"
+                                title="Exportar Excel"
+                            >
+                                <FileSpreadsheet size={15} />
+                            </button>
+                        </div>
+
+                        <h3 id="pend-title" className="font-semibold tracking-tight text-lg text-neutral-900 absolute left-1/2 -translate-x-1/2">
+                            Pendientes
+                        </h3>
+
+                        <button
+                            aria-label="Cerrar"
+                            onClick={() => setModalPendVisible(false)}
+                            className="relative z-10 grid place-items-center w-8 h-8 rounded-full bg-neutral-200/80 text-neutral-600 transition-all hover:bg-neutral-300/90 hover:text-neutral-900"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-4 h-4">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+                    </div>
+
+                    <div className="px-3 pb-3 pt-2">
+                        <div className="w-full text-black">
+                            <div className="hidden grid-cols-[minmax(0,2fr)_minmax(0,1fr)_4.25rem_minmax(0,1.25fr)_7.5rem] gap-3 px-3.5 py-2 text-center text-[10px] font-semibold tracking-wider text-slate-600 uppercase sm:grid">
+                                <span className="text-left">Estudiante</span><span>Teléfono</span><span>Fecha</span><span>Servidor</span><span>Acciones</span>
+                            </div>
+
+                            <div className="list-body max-h-[min(64dvh,38rem)] space-y-2 overflow-y-auto overscroll-contain py-1" aria-busy={pendLoading}>
+                                {pendLoading && (
+                                    <div className="pn-pending-loading px-2 py-4 text-sm text-slate-600" role="status">
+                                        Cargando registros…
+                                        {glass && <div className="pn-pending-placeholder" aria-hidden="true" />}
+                                    </div>
+                                )}
+                                {!pendLoading && pendHistoryError && <div className="px-3 py-6"><IntakeErrorNotice message={pendHistoryError} /></div>}
+                                {!pendLoading && !pendHistoryError && pendientesRows.length === 0 && (
+                                    <div className="text-center text-neutral-600 px-2 py-10">Sin pendientes</div>
+                                )}
+
+                                {!pendLoading &&
+                                    pendientesRows
+                                        .slice(pendPage * PEND_PAGE_SIZE, (pendPage + 1) * PEND_PAGE_SIZE)
+                                        .map((row) => (
+                                            /* MEJORA 2: Uso de componente memoizado */
+                                            <PendienteRowItem
+                                                key={(row.progreso_id ?? row.persona_id ?? row.id ?? Math.random().toString())}
+                                                row={row}
+                                                onSelect={p => {
+                                                    if (canAssignIntake) { setIntakeToReview(p); return; }
+                                                    if (p.history?.length) {
+                                                        toast('Revisa este historial desde Pendientes antes de asignar.');
+                                                        return;
+                                                    }
+                                                    selectPendiente(p);
+                                                }}
+                                                onDelete={handleEliminarPendiente}
+                                                onEdit={setPendienteAEditar}
+                                                onReview={setIntakeToReview}
+                                                canAssign={canAssignIntake}
+                                            />
+                                        ))}
+                            </div>
+                        </div>
+
+                        {!pendLoading && pendientesRows.length > PEND_PAGE_SIZE && (
+                            <div className="mt-2 pt-3 flex items-center justify-between text-neutral-800 border-t border-neutral-300/80">
+                                <button
+                                    onClick={() => setPendPage((p) => Math.max(0, p - 1))}
+                                    disabled={pendPage === 0}
+                                    className="px-2 py-1.5 text-sm font-medium text-blue-600 rounded-lg disabled:text-neutral-400 disabled:cursor-not-allowed transition-colors hover:bg-neutral-100 sm:px-4"
+                                >
+                                    Atrás
+                                </button>
+                                <div className="text-sm text-neutral-600">
+                                    Página {pendPage + 1} de {Math.max(1, Math.ceil(pendientesRows.length / PEND_PAGE_SIZE))}
+                                </div>
+                                <button
+                                    onClick={() =>
+                                        setPendPage((p) =>
+                                            Math.min(Math.ceil(pendientesRows.length / PEND_PAGE_SIZE) - 1, p + 1)
+                                        )
+                                    }
+                                    disabled={pendPage >= Math.ceil(pendientesRows.length / PEND_PAGE_SIZE) - 1}
+                                    className="px-2 py-1.5 text-sm font-medium text-blue-600 rounded-lg disabled:text-neutral-400 disabled:cursor-not-allowed transition-colors hover:bg-neutral-100 sm:px-4"
+                                >
+                                    Siguiente
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </div>
+        )}
+
+        {pendienteAEditar && (
+            <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-sm">
+                <div className="bg-white rounded-2xl p-6 w-[90%] max-w-md shadow-2xl">
+                    <h3 className="text-xl font-bold text-gray-800 mb-4">Editar Pendiente</h3>
+                    <div className="space-y-4">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Nombre</label>
+                            <input
+                                type="text"
+                                value={pendienteAEditar.nombre || ''}
+                                onChange={e => setPendienteAEditar({...pendienteAEditar, nombre: e.target.value})}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-black"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Teléfono</label>
+                            <input
+                                type="text"
+                                value={pendienteAEditar.telefono || ''}
+                                onChange={e => setPendienteAEditar({...pendienteAEditar, telefono: e.target.value})}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-black"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Culto Seleccionado / Observaciones</label>
+                            <textarea
+                                value={pendienteAEditar.observaciones || ''}
+                                onChange={e => setPendienteAEditar({...pendienteAEditar, observaciones: e.target.value})}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-black min-h-[60px]"
+                                placeholder="Ej: Culto de ingreso: Domingo - 9:00 AM"
+                            />
+                        </div>
+                    </div>
+                    <div className="flex justify-end gap-3 mt-6">
+                        <button
+                            onClick={() => setPendienteAEditar(null)}
+                            className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                        >
+                            Cancelar
+                        </button>
+                        <button
+                            onClick={async () => {
+                                if (!pendienteAEditar.id) return;
+                                try {
+                                    const { error } = await supabase.from('pendientes').update({
+                                        nombre: pendienteAEditar.nombre,
+                                        telefono: normalizaTelefono(pendienteAEditar.telefono || ''),
+                                        observaciones: pendienteAEditar.observaciones,
+                                    }).eq('id', pendienteAEditar.id);
+
+                                    if (error) throw error;
+
+                                    invalidatePendientes();
+                                    setPendPage(0);
+                                    await loadPendientes();
+                                    toast('✅ Pendiente actualizado exitosamente');
+                                    setPendienteAEditar(null);
+                                } catch (e) {
+                                    console.error(e);
+                                    toast('❌ Error actualizando pendiente');
+                                }
+                            }}
+                            className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors shadow-sm"
+                        >
+                            Guardar Cambios
+                        </button>
+                    </div>
+                </div>
+            </div>
+        )}
+    </>);
+
     return (
-        <div className="pn-root">
+        <div className={glass ? 'pn-root pn-glass' : 'pn-root'}>
             {intakeToReview && <IntakeAssignmentModal pending={intakeToReview} groups={intakeGroups} canChangeCourse={canChangeIntakeCourse}
                 onClose={() => setIntakeToReview(null)}
-                onSuccess={() => { setIntakeToReview(null); toast('Grupo confirmado. Se conservó el historial anterior.'); void abrirPendientes(); }} />}
+                onSuccess={() => {
+                    setIntakeToReview(null);
+                    toast('Grupo confirmado. Se conservó el historial anterior.');
+                    invalidatePendientes();
+                    setPendPage(0);
+                    void loadPendientes();
+                }} />}
             <div className="formulario-box" id="formulario1">
-                <div className="form-title" style={{ marginBottom: '6px', fontSize: '1.08rem' }}>Registro Persona Nueva</div>
+                <div className="form-title" style={glass ? undefined : { marginBottom: '6px', fontSize: '1.08rem' }}>Registro Persona Nueva</div>
 
                 {modalBuscarVisible && (
                     <div className="modal-buscar2-backdrop fixed inset-0 z-40 bg-[rgba(80,70,229,0.10)] backdrop-blur-md" style={{ overflow: 'hidden' }}></div>
@@ -1175,8 +1416,9 @@ export default function PersonaNueva({ servidorId }: { servidorId: string | null
                     </div>
                 )}
 
-                <div className="form-row first-row" style={{ marginBottom: '4px' }}>
-                    <div>
+                <div className="form-row first-row" style={glass ? undefined : { marginBottom: '4px' }}>
+                    <div className={glass ? 'pn-glass-field' : undefined}>
+                        {glass && <UserRound className="pn-glass-field-icon" size={21} aria-hidden="true" />}
                         <input
                             ref={inputNombreRef}
                             type="text"
@@ -1192,7 +1434,8 @@ export default function PersonaNueva({ servidorId }: { servidorId: string | null
                         {errores.nombre && <div className="error-msg">{errores.nombre}</div>}
                     </div>
 
-                    <div>
+                    <div className={glass ? 'pn-glass-field' : undefined}>
+                        {glass && <Phone className="pn-glass-field-icon" size={21} aria-hidden="true" />}
                         <input
                             type="text"
                             value={form.telefono}
@@ -1208,7 +1451,7 @@ export default function PersonaNueva({ servidorId }: { servidorId: string | null
                     </div>
                 </div>
 
-                <div className="cultos-row" style={{ marginBottom: '4px' }}>
+                <div className="cultos-row" style={glass ? undefined : { marginBottom: '4px' }}>
                     <label className="Label-Culto">Culto:</label>
                     {Object.entries(form.cultos).map(([dia, valorActual]) => (
                         <div key={dia} className={`culto-box ${bloquearCultos && !valorActual.includes(dia) ? 'disabled' : ''}`}>
@@ -1235,8 +1478,8 @@ export default function PersonaNueva({ servidorId }: { servidorId: string | null
                         </div>
                     ))}
                 </div>
-                <div style={{ textAlign: 'left', margin: '18px 0 18px 0' }}>
-                    <label className="Label-Culto" style={{ fontSize: '1.1rem', display: 'block', marginBottom: '14px' }}>
+                <div className={glass ? 'pn-glass-process' : undefined} style={glass ? undefined : { textAlign: 'left', margin: '18px 0 18px 0' }}>
+                    <label className="Label-Culto" style={glass ? undefined : { fontSize: '1.1rem', display: 'block', marginBottom: '14px' }}>
                         Proceso Transformacional:
                     </label>
                 </div>
@@ -1247,8 +1490,8 @@ export default function PersonaNueva({ servidorId }: { servidorId: string | null
                     </div>
                 )}
 
-                <div className="form-group destinos-row" style={{ marginBottom: '4px', marginTop: '12px' }}>
-                    <div className="switch-group" style={{ marginBottom: '24px' }}>
+                <div className="form-group destinos-row" style={glass ? undefined : { marginBottom: '4px', marginTop: '12px' }}>
+                    <div className="switch-group" style={glass ? undefined : { marginBottom: '24px' }}>
                         {['DOMINGO', 'MARTES', 'VIRTUAL', 'PENDIENTES'].map((d) => (
                             <label key={d} className="switch-label">
                                 <input
@@ -1267,7 +1510,8 @@ export default function PersonaNueva({ servidorId }: { servidorId: string | null
                         ))}
                     </div>
 
-                    <div style={{ flex: 1 }}>
+                    <div className={glass ? 'pn-glass-field pn-glass-notes' : undefined} style={glass ? undefined : { flex: 1 }}>
+                        {glass && <Edit2 className="pn-glass-field-icon" size={21} aria-hidden="true" />}
                         <textarea
                             ref={observacionesRef}
                             id="observaciones"
@@ -1275,198 +1519,17 @@ export default function PersonaNueva({ servidorId }: { servidorId: string | null
                             placeholder="Escribe aquí las observaciones..."
                             value={form.observaciones}
                             onChange={(e) => setForm({ ...form, observaciones: e.target.value })}
-                            style={{ minHeight: '48px', maxHeight: '72px', height: '48px', resize: 'vertical', fontSize: '1rem', padding: '4px 8px', marginBottom: '10px' }}
+                            style={glass ? undefined : { minHeight: '48px', maxHeight: '72px', height: '48px', resize: 'vertical', fontSize: '1rem', padding: '4px 8px', marginBottom: '10px' }}
                         />
                     </div>
                 </div>
 
-                {modalPendVisible && (
-                    <div
-                        id="modal-pendientes"
-                        role="dialog"
-                        aria-modal="true"
-                        aria-labelledby="pend-title"
-                        onKeyDown={(e) => e.key === "Escape" && setModalPendVisible(false)}
-                        className="fixed inset-0 z-50 flex items-center justify-center bg-black/25 backdrop-blur-md"
-                    >
-                        <div
-                            tabIndex={-1}
-                            className="w-[calc(100%-1rem)] max-w-4xl overflow-hidden rounded-[26px] border border-white/90 bg-slate-50/95 shadow-2xl backdrop-blur-xl sm:w-[calc(100%-3rem)]"
-                        >
-                            <div className="sticky top-0 flex items-center justify-between py-3.5 px-5 bg-white/70 backdrop-blur-sm border-b border-neutral-300/80">
-                                <div className="flex items-center gap-2">
-                                    <button
-                                        onClick={handleExportPDF}
-                                        className="grid place-items-center w-7 h-7 rounded-full text-red-600 bg-red-100/80 transition-all hover:bg-red-200/90"
-                                        title="Exportar PDF"
-                                    >
-                                        <FileText size={15} />
-                                    </button>
-                                    <button
-                                        onClick={handleExportExcel}
-                                        className="grid place-items-center w-7 h-7 rounded-full text-green-700 bg-green-100/80 transition-all hover:bg-green-200/90"
-                                        title="Exportar Excel"
-                                    >
-                                        <FileSpreadsheet size={15} />
-                                    </button>
-                                </div>
+                {!glass && pendingDialogs}
 
-                                <h3 id="pend-title" className="font-semibold tracking-tight text-lg text-neutral-900 absolute left-1/2 -translate-x-1/2">
-                                    Pendientes
-                                </h3>
-
-                                <button
-                                    aria-label="Cerrar"
-                                    onClick={() => setModalPendVisible(false)}
-                                    className="relative z-10 grid place-items-center w-8 h-8 rounded-full bg-neutral-200/80 text-neutral-600 transition-all hover:bg-neutral-300/90 hover:text-neutral-900"
-                                >
-                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-4 h-4">
-                                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                                    </svg>
-                                </button>
-                            </div>
-
-                            <div className="px-3 pb-3 pt-2">
-                                <div className="w-full text-black">
-                                    <div className="hidden grid-cols-[minmax(0,2fr)_minmax(0,1fr)_4.25rem_minmax(0,1.25fr)_7.5rem] gap-3 px-3.5 py-2 text-center text-[10px] font-semibold tracking-wider text-slate-600 uppercase sm:grid">
-                                        <span className="text-left">Estudiante</span><span>Teléfono</span><span>Fecha</span><span>Servidor</span><span>Acciones</span>
-                                    </div>
-
-                                    <div className="list-body max-h-[min(64dvh,38rem)] space-y-2 overflow-y-auto overscroll-contain py-1">
-                                        {pendLoading && (
-                                            <div className="text-center text-neutral-600 px-2 py-10">Cargando…</div>
-                                        )}
-                                        {!pendLoading && pendHistoryError && <div className="px-3 py-6"><IntakeErrorNotice message={pendHistoryError} /></div>}
-                                        {!pendLoading && !pendHistoryError && pendientesRows.length === 0 && (
-                                            <div className="text-center text-neutral-600 px-2 py-10">Sin pendientes</div>
-                                        )}
-
-                                        {!pendLoading &&
-                                            pendientesRows
-                                                .slice(pendPage * PEND_PAGE_SIZE, (pendPage + 1) * PEND_PAGE_SIZE)
-                                                .map((row) => (
-                                                    /* MEJORA 2: Uso de componente memoizado */
-                                                    <PendienteRowItem
-                                                        key={(row.progreso_id ?? row.persona_id ?? row.id ?? Math.random().toString())}
-                                                        row={row}
-                                                        onSelect={p => {
-                                                            if (canAssignIntake) { setIntakeToReview(p); return; }
-                                                            if (p.history?.length) {
-                                                                toast('Revisa este historial desde Pendientes antes de asignar.');
-                                                                return;
-                                                            }
-                                                            selectPendiente(p);
-                                                        }}
-                                                        onDelete={handleEliminarPendiente}
-                                                        onEdit={setPendienteAEditar}
-                                                        onReview={setIntakeToReview}
-                                                        canAssign={canAssignIntake}
-                                                    />
-                                                ))}
-                                    </div>
-                                </div>
-
-                                {!pendLoading && pendientesRows.length > PEND_PAGE_SIZE && (
-                                    <div className="mt-2 pt-3 flex items-center justify-between text-neutral-800 border-t border-neutral-300/80">
-                                        <button
-                                            onClick={() => setPendPage((p) => Math.max(0, p - 1))}
-                                            disabled={pendPage === 0}
-                                            className="px-2 py-1.5 text-sm font-medium text-blue-600 rounded-lg disabled:text-neutral-400 disabled:cursor-not-allowed transition-colors hover:bg-neutral-100 sm:px-4"
-                                        >
-                                            Atrás
-                                        </button>
-                                        <div className="text-sm text-neutral-600">
-                                            Página {pendPage + 1} de {Math.max(1, Math.ceil(pendientesRows.length / PEND_PAGE_SIZE))}
-                                        </div>
-                                        <button
-                                            onClick={() =>
-                                                setPendPage((p) =>
-                                                    Math.min(Math.ceil(pendientesRows.length / PEND_PAGE_SIZE) - 1, p + 1)
-                                                )
-                                            }
-                                            disabled={pendPage >= Math.ceil(pendientesRows.length / PEND_PAGE_SIZE) - 1}
-                                            className="px-2 py-1.5 text-sm font-medium text-blue-600 rounded-lg disabled:text-neutral-400 disabled:cursor-not-allowed transition-colors hover:bg-neutral-100 sm:px-4"
-                                        >
-                                            Siguiente
-                                        </button>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                    </div>
-                )}
-
-                {pendienteAEditar && (
-                    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-sm">
-                        <div className="bg-white rounded-2xl p-6 w-[90%] max-w-md shadow-2xl">
-                            <h3 className="text-xl font-bold text-gray-800 mb-4">Editar Pendiente</h3>
-                            <div className="space-y-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Nombre</label>
-                                    <input 
-                                        type="text" 
-                                        value={pendienteAEditar.nombre || ''} 
-                                        onChange={e => setPendienteAEditar({...pendienteAEditar, nombre: e.target.value})}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-black"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Teléfono</label>
-                                    <input 
-                                        type="text" 
-                                        value={pendienteAEditar.telefono || ''} 
-                                        onChange={e => setPendienteAEditar({...pendienteAEditar, telefono: e.target.value})}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-black"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Culto Seleccionado / Observaciones</label>
-                                    <textarea 
-                                        value={pendienteAEditar.observaciones || ''} 
-                                        onChange={e => setPendienteAEditar({...pendienteAEditar, observaciones: e.target.value})}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-black min-h-[60px]"
-                                        placeholder="Ej: Culto de ingreso: Domingo - 9:00 AM"
-                                    />
-                                </div>
-                            </div>
-                            <div className="flex justify-end gap-3 mt-6">
-                                <button 
-                                    onClick={() => setPendienteAEditar(null)}
-                                    className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
-                                >
-                                    Cancelar
-                                </button>
-                                <button 
-                                    onClick={async () => {
-                                        if (!pendienteAEditar.id) return;
-                                        try {
-                                            const { error } = await supabase.from('pendientes').update({
-                                                nombre: pendienteAEditar.nombre,
-                                                telefono: normalizaTelefono(pendienteAEditar.telefono || ''),
-                                                observaciones: pendienteAEditar.observaciones,
-                                            }).eq('id', pendienteAEditar.id);
-                                            
-                                            if (error) throw error;
-                                            
-                                            await abrirPendientes();
-                                            toast('✅ Pendiente actualizado exitosamente');
-                                            setPendienteAEditar(null);
-                                        } catch (e) {
-                                            console.error(e);
-                                            toast('❌ Error actualizando pendiente');
-                                        }
-                                    }}
-                                    className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors shadow-sm"
-                                >
-                                    Guardar Cambios
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                )}
-
-                <div className="btn-container" style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: '4px' }}>
-                    <button className="btn-minimal" onClick={handleGuardar} style={{ backgroundColor: (modoEdicion) ? 'orange' : '' }}>
+                <div className="btn-container" style={glass ? undefined : { display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: '4px' }}>
+                    <button className="btn-minimal" onClick={handleGuardar} data-editing={glass && modoEdicion ? true : undefined}
+                        style={glass ? undefined : { backgroundColor: (modoEdicion) ? 'orange' : '' }}>
+                        {glass && <Save size={20} aria-hidden="true" />}
                         {modoEdicion ? 'Actualizar' : 'Guardar'}
                     </button>
 
@@ -1479,15 +1542,17 @@ export default function PersonaNueva({ servidorId }: { servidorId: string | null
                         }}
                         title="Abrir panel de búsqueda"
                     >
-                        Buscar
+                        {glass && <Search size={20} aria-hidden="true" />}Buscar
                     </button>
 
                     <button
                         className="btn-minimal"
                         onClick={abrirPendientes}
+                        onPointerEnter={() => void loadPendientes()}
+                        onFocus={() => void loadPendientes()}
                         title="Ver registros pendientes"
                     >
-                        Pendientes
+                        {glass && <List size={20} aria-hidden="true" />}Pendientes
                     </button>
 
                     <button
@@ -1496,10 +1561,11 @@ export default function PersonaNueva({ servidorId }: { servidorId: string | null
                         onClick={handleEliminar}
                         title={modoEdicion ? 'Eliminar este registro' : 'Selecciona un registro para eliminar'}
                     >
-                        Eliminar
+                        {glass && <Trash2 size={20} aria-hidden="true" />}Eliminar
                     </button>
                 </div>
             </div>
+            {glass && pendingDialogs}
         </div>
     );
 }

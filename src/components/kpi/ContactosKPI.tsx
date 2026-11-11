@@ -2,20 +2,12 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabaseClient';
+import { DashboardMetric } from './DashboardMetric';
 
-// Definimos las props que el componente aceptará
-type ContactosKPIProps = {
-  label: string;
-  initialValue: number;
-  delta?: string;
-  className?: string;
-  [key: string]: any; // Permite pasar cualquier otra prop, como `data-key`
-};
-
-export function ContactosKPI({ label, initialValue, delta, className, ...props }: ContactosKPIProps) {
+export function ContactosKPI({ label, initialValue }: { label: string; initialValue: number }) {
     const [count, setCount] = useState<number>(initialValue);
     const [burst, setBurst] = useState(false);
-    const cardRef = useRef<HTMLDivElement>(null); // Cambiado a HTMLDivElement para el <article>
+    const cardRef = useRef<HTMLButtonElement>(null);
 
     useEffect(() => {
         let mounted = true;
@@ -54,20 +46,5 @@ export function ContactosKPI({ label, initialValue, delta, className, ...props }
         };
     }, [count]); // La dependencia `supabase` se omite si se importa directamente y no es un prop.
 
-    return (
-        <article
-            ref={cardRef}
-            className={`kpi-card ${className || ''}`}
-            aria-label={label}
-            {...props} // Aquí se aplican `data-key` y otras props
-        >
-            <div className="kpi-top">
-                <span className="kpi-label">{label}</span>
-                {delta && <span className="kpi-delta">{delta}</span>}
-            </div>
-            <div className={`kpi-value ${burst ? 'burst' : ''}`}>
-                {count.toLocaleString('es-CO')}
-            </div>
-        </article>
-    );
+    return <DashboardMetric ref={cardRef} tone="contactos" label={label} value={count.toLocaleString('es-CO')} burst={burst} />;
 }

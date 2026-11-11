@@ -1,11 +1,10 @@
-import type { ReactNode } from 'react';
-import Link from 'next/link';
 import Image from 'next/image';
-import { Home, Users, Leaf, BookOpen, Heart, User } from 'lucide-react'; // 🔹 nuevos íconos
+import PanelNavigation from './PanelNavigation';
 
 import './panel.css'; // ← único CSS para todo el panel (sidebar + content)
 import './contactos/contactos.css';
 import './servidores/servidores.css';
+import './consolidation.css';
 
 import { cookies } from 'next/headers';
 import jwt from 'jsonwebtoken';
@@ -40,96 +39,34 @@ export default async function PanelLayout({ children }: { children: React.ReactN
     // ------------------------------------
 
     return (
-        <main className="app-frame">
+        <main className="app-frame consolidation-frame">
             <div className="shell">
-                {/* Sidebar fijo */}
-                <aside className="sidebar" aria-label="Menú">
-
-                    {/* 🔹 Logo ASP circular estampado */}
+                <aside className="sidebar" aria-label="Menú de Consolidación">
                     <div className="sidebar-logo">
-                        <Image
-                            src="/asp-logo.png"   // Ruta pública desde /public
-                            alt="Logo ASP"
-                            width={140}   // 🔹 lo agrandamos un poco
-                            height={140}
-                            className="logo-circular"
-                            priority
-                        />
-                    </div>
-
-                    {/* 🔹 Menú con íconos */}
-                    <nav className="nav">
-                        <Link href="/panel" className="nav-item">
-                            <Home size={18} className="nav-icon" />
-                            <span className="nav-text">Dashboard</span>
-                        </Link>
-
-                        <Link href="/panel/contactos" className="nav-item">
-                            <User size={18} className="nav-icon" />
-                            <span className="nav-text">Nueva Alma</span>
-                        </Link>
-
-                        <Link href="/panel/servidores" className="nav-item">
-                            <Users size={18} className="nav-icon" />
-                            <span className="nav-text">Servidores</span>
-                        </Link>
-
-                        <Link href="/panel/semillas" className="nav-item">
-                            <Leaf size={18} className="nav-icon" />
-                            <span className="nav-text">Semillas</span>
-                        </Link>
-
-                        <Link href="/panel/devocionales" className="nav-item">
-                            <BookOpen size={18} className="nav-icon" />
-                            <span className="nav-text">Devocionales</span>
-                        </Link>
-
-                        <Link href="/panel/restauracion" className="nav-item">
-                            <Heart size={18} className="nav-icon" />
-                            <span className="nav-text">Restauración</span>
-                        </Link>
-
-
-
-
-
-                        {/* --- INICIO CAMBIO: Botón Inteligente --- */}
-                        {/* Pasamos el flag calculado desde el Server Component */}
-                        <LogoutButton isMultiRole={roleCount > 1} />
-                        {/* --- FIN CAMBIO --- */}
-
-                    </nav>
-
-
-
-                    <div className="sidebar-footer">
-                        <div className="user">
-                            <Image
-                                src="/wf-logo.png"   // 🔹 asegúrate que el archivo exista en /public
-                                alt="WF SYSTEM Logo"
-                                width={42}
-                                height={42}
-                                className="avatar-logo"
-                            />
-                            <div className="user-meta">
-                                <span className="user-email">
-                                    © 2025 Designed by <br />
-                                    <strong>WF SYSTEM</strong>
-                                </span>
-                            </div>
-
-
+                        <Image src="/asp-logo.png" alt="ASP" width={36} height={36} className="logo-circular" />
+                        <div className="consolidation-brand nav-text">
+                            <span>ASP</span>
+                            <strong>Consolidación</strong>
                         </div>
                     </div>
-
-
-
+                    <nav className="nav" aria-label="Secciones">
+                        <p className="consolidation-nav-caption nav-text">MENÚ PRINCIPAL</p>
+                        <PanelNavigation />
+                        <div className="consolidation-profile">
+                            <LogoutButton isMultiRole={roleCount > 1} />
+                        </div>
+                    </nav>
+                    <div className="sidebar-footer">
+                        <div className="consolidation-credit">
+                            <Image src="/wf-logo.png" alt="" width={34} height={34} />
+                            <div className="consolidation-credit-meta nav-text">
+                                <span>© 2025 Designed by</span>
+                                <strong>WF SYSTEM</strong>
+                            </div>
+                        </div>
+                    </div>
                 </aside>
-
-                {/* Content (renderiza las páginas hijas) */}
-                <section className="surface">
-                    {children}
-                </section>
+                <section className="surface">{children}</section>
             </div>
         </main>
     );
