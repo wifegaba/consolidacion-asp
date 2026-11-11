@@ -1,0 +1,36 @@
+.sheet {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: #f8fafc;
+  box-shadow: 0 38px 110px -34px #020617a6, 0 8px 32px -12px #0f172a45;
+  animation: settle 260ms cubic-bezier(.18, .85, .28, 1) both;
+}
+
+.sheet::backdrop {
+  background: rgb(15 23 42 / 46%);
+  backdrop-filter: blur(6px);
+}
+
+.hero {
+  background: radial-gradient(ellipse at 95% 0%, #cbdcff 0%, transparent 58%),
+    radial-gradient(ellipse at 4% 96%, #dcf4eb 0%, transparent 64%),
+    linear-gradient(150deg, #ffffff, #edf4ff);
+}
+
+.menu {
+  transform-origin: top center;
+  animation: unfold 190ms cubic-bezier(.2, .78, .25, 1) both;
+}
+
+@keyframes settle {
+  from { opacity: 0; transform: translateY(14px) scale(.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes unfold {
+  from { opacity: 0; transform: translateY(-5px) scale(.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sheet, .menu { animation: none; }
+}

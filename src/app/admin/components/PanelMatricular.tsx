@@ -74,7 +74,8 @@ export default function PanelMatricular({ maestros, cursos, estudiantes, inscrip
         return estudiantes.map(e => ({
             ...e,
             isActive: activeIds.has(e.id),
-            lastCourseName: courseNames.get(latestByStudent.get(e.id)?.curso_id ?? -1)
+            lastCourseName: courseNames.get(latestByStudent.get(e.id)?.curso_id ?? -1),
+            lastCourseStatus: latestByStudent.get(e.id)?.estado
         }));
     }, [estudiantes, inscripciones, cursos]);
 
@@ -233,7 +234,7 @@ export default function PanelMatricular({ maestros, cursos, estudiantes, inscrip
                                                         {e.telefono || 'Sin teléfono'}
                                                     </span>
                                                 </div>
-                                                {e.lastCourseName && <div className="mt-1.5"><StudentReturnBadge level={e.lastCourseName} prefix="Último curso:" /></div>}
+                                                {e.lastCourseName && <div className="mt-1.5"><StudentReturnBadge level={e.lastCourseName} status={e.lastCourseStatus} /></div>}
                                             </div>
                                         </motion.div>
                                     )

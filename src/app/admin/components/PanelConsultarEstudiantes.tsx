@@ -63,6 +63,7 @@ export default function PanelConsultarEstudiantes({ maestros, cursos, estudiante
     const [enrolledPage, setEnrolledPage] = useState(1);
     const [reviewPending, setReviewPending] = useState<{ id: string; nombre: string; history: HistoryCandidate[] } | null>(null);
     const [reviewGroups, setReviewGroups] = useState<IntakeGroup[]>([]);
+    const [canChangeReviewCourse, setCanChangeReviewCourse] = useState(false);
     const [reviewError, setReviewError] = useState('');
     const [reviewLoading, setReviewLoading] = useState(false);
 
@@ -80,6 +81,7 @@ export default function PanelConsultarEstudiantes({ maestros, cursos, estudiante
             const pending = result.pendientes.find((p: { id: string }) => p.id === queued.id);
             if (!pending) throw new Error('Este ingreso ya fue procesado. Actualiza Pendientes.');
             setReviewGroups(result.groups);
+            setCanChangeReviewCourse(result.canChangeCourse === true);
             setReviewPending(pending);
         } catch (error) { setReviewError(error instanceof Error ? error.message : 'No se pudo revisar el historial'); }
         finally { setReviewLoading(false); }
@@ -115,6 +117,7 @@ export default function PanelConsultarEstudiantes({ maestros, cursos, estudiante
             return {
                 ...e,
                 last_course: latest ? cSet.get(latest.curso_id) || null : null,
+                last_course_status: latest?.estado,
                 maestro: (isActive && ins.servidor_id) ? mSet.get(ins.servidor_id) || null : null,
                 curso: (ins && ins.curso_id) ? cSet.get(ins.curso_id) || null : null,
                 inscripcion_id: isActive ? ins.id : null,
@@ -266,7 +269,7 @@ export default function PanelConsultarEstudiantes({ maestros, cursos, estudiante
                     </div>
                 </div>
             </GlassCard>
-            {reviewPending && <IntakeAssignmentModal pending={reviewPending} groups={reviewGroups}
+            {reviewPending && <IntakeAssignmentModal pending={reviewPending} groups={reviewGroups} canChangeCourse={canChangeReviewCourse}
                 onClose={() => setReviewPending(null)} onSuccess={() => { setReviewPending(null); onDataUpdated(); }} />}
 
             <AnimatePresence>
@@ -289,7 +292,7 @@ export default function PanelConsultarEstudiantes({ maestros, cursos, estudiante
 }
 
 // Update EstudianteRow to show suspended tag
-function EstudianteRow({ e, matriculado, fotoUrl, onClick, onReview, reviewLoading }: { e: EstudianteInscrito & { suspended_course?: Curso | null; last_course?: Curso | null }, matriculado?: boolean, fotoUrl?: string, onClick: () => void; onReview?: () => void; reviewLoading?: boolean }) {
+function EstudianteRow({ e, matriculado, fotoUrl, onClick, onReview, reviewLoading }: { e: EstudianteInscrito & { suspended_course?: Curso | null; last_course?: Curso | null; last_course_status?: string }, matriculado?: boolean, fotoUrl?: string, onClick: () => void; onReview?: () => void; reviewLoading?: boolean }) {
     const avatar = fotoUrl || generateAvatar(e.nombre);
     return (
         <div onClick={onClick} className={`p-3 flex justify-between items-center cursor-pointer ${GLASS_STYLES.listItem}`}>
@@ -297,7 +300,7 @@ function EstudianteRow({ e, matriculado, fotoUrl, onClick, onReview, reviewLoadi
                 {matriculado && <img src={avatar} alt={e.nombre} className="h-10 w-10 rounded-full object-cover border border-white/60 shadow-sm bg-gray-200" />}
                 <div>
                     {!matriculado && e.last_course && <div className="mb-1.5 flex flex-wrap items-center gap-2">
-                        <StudentReturnBadge level={e.last_course.nombre} />
+                        <StudentReturnBadge level={e.last_course.nombre} status={e.last_course_status} />
                         {onReview && <ReintegrateButton disabled={reviewLoading} onClick={onReview} />}
                     </div>}
                     <p className="font-medium text-gray-900 text-sm flex items-center gap-2">

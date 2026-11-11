@@ -6,7 +6,7 @@ import { Trash2, Phone, FileText, FileSpreadsheet, Edit2 } from "lucide-react";
 import { supabase } from '@/lib/supabaseClient';
 import IntakeAssignmentModal from '@/components/IntakeAssignmentModal';
 import IntakeErrorNotice from '@/components/IntakeErrorNotice';
-import { ReintegrateButton, StudentReturnBadge, returnLevel } from '@/components/StudentReturnDetails';
+import { ReintegrateButton, StudentReturnBadge, returnCourse } from '@/components/StudentReturnDetails';
 import { historyLabel, normalizeIntakePhone, type HistoryCandidate, type IntakeGroup } from '@/lib/ingresoHistory';
 // MEJORA 1: Eliminados imports estáticos pesados para Lazy Loading
 // import jsPDF from 'jspdf';
@@ -182,48 +182,33 @@ const PendienteRowItem = memo(({
     onReview: (p: PendienteItem) => void;
     canAssign: boolean;
 }) => {
+    const course = returnCourse(row.history);
+    const server = row.creado_por_nombre || 'Sistema';
+    const date = soloFecha(row.creado_en ?? row.created_at ?? row.fecha ?? '');
     return (
         <div
             title="Cargar en el formulario"
             onClick={() => onSelect(row)}
-            className="flex items-center w-full cursor-pointer transition-colors hover:bg-neutral-600/5 border-b border-neutral-200/70"
+            className="grid w-full min-w-0 cursor-pointer grid-cols-1 items-center gap-2.5 rounded-[18px] border border-slate-200/80 bg-white/80 px-3.5 py-3 shadow-[0_2px_5px_#0f172a05] transition-colors hover:bg-white sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_4.25rem_minmax(0,1.25fr)_7.5rem] sm:gap-3"
         >
-            <div className="flex-1 px-3 py-3">
-                <div className="hidden sm:flex items-center justify-between">
-                    <span className="text-sm font-medium text-neutral-800">
-                        {row.nombre ?? ""}
-                    </span>
+            <div className="min-w-0">
+                <p className="text-sm leading-snug font-semibold text-slate-900 [overflow-wrap:anywhere]">{row.nombre}</p>
+                <div className="mt-1 flex flex-wrap items-center gap-x-2 text-xs text-slate-600 sm:hidden">
+                    {row.telefono && <span className="tabular-nums">{row.telefono}</span>}
+                    {row.telefono && date && <span aria-hidden="true" className="size-1 rounded-full bg-slate-300" />}
+                    {date && <span className="tabular-nums">{date}</span>}
                 </div>
-                <div className="flex sm:hidden items-center justify-between">
-                    <span className="text-sm font-medium text-neutral-800">
-                        {row.nombre ?? ""}
-                    </span>
-                    <span className="text-xs text-neutral-600 ml-2 flex-shrink-0">
-                        {soloFecha(row.creado_en ?? row.created_at ?? row.fecha ?? "")}
-                    </span>
-                </div>
-                <div className="sm:hidden text-sm text-neutral-700 mt-0.5">
-                    {row.telefono ?? ""}
-                </div>
-                {row.history?.some(c => c.nivel) && <div className="mt-1.5 flex flex-wrap items-center gap-2">
-                    <StudentReturnBadge level={returnLevel(row.history)} />
+                {row.history?.some(c => c.nivel) && <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                    <StudentReturnBadge level={course?.nivel} status={course?.estado} />
                     {canAssign && <ReintegrateButton onClick={() => onReview(row)} />}
                 </div>}
-                <div className="sm:hidden text-xs text-indigo-600 mt-0.5">
-                    Servidor: {row.creado_por_nombre ?? "Sistema"}
-                </div>
             </div>
-
-            <div className="hidden sm:block px-4 py-3 text-sm text-neutral-700 text-center">
-                {row.telefono ?? ""}
+            <div className="hidden min-w-0 truncate text-center text-xs tabular-nums text-slate-700 sm:block">{row.telefono}</div>
+            <div className="hidden text-center text-xs tabular-nums text-slate-600 sm:block">{date}</div>
+            <div className="min-w-0 overflow-x-auto text-xs whitespace-nowrap text-slate-700 [scrollbar-width:none] sm:text-center" title={server}>
+                <span className="mr-1 font-medium text-slate-500 sm:hidden">Servidor:</span><span className="font-medium">{server}</span>
             </div>
-            <div className="hidden sm:block px-4 py-3 text-sm text-neutral-600 text-center">
-                {soloFecha(row.creado_en ?? row.created_at ?? row.fecha ?? "")}
-            </div>
-            <div className="hidden sm:block px-4 py-3 text-sm text-neutral-700 text-center" title={row.creado_por_nombre ?? ''}>
-                {row.creado_por_nombre ?? "Sistema"}
-            </div>
-            <div className="px-4 py-3 text-center flex items-center justify-end gap-1">
+            <div className="flex items-center justify-end gap-1.5 border-t border-slate-100 pt-2 sm:border-0 sm:pt-0">
                 <a
                     href={`tel:${normalizaTelefono(row.telefono ?? '')}`}
                     onClick={(e) => {
@@ -231,7 +216,7 @@ const PendienteRowItem = memo(({
                         e.stopPropagation();
                     }}
                     title={`Llamar a ${row.nombre ?? ''}`}
-                    className={`grid place-items-center w-7 h-7 rounded-full text-white transition-all hover:scale-110 shadow-sm ${row.telefono ? 'bg-blue-500 hover:bg-blue-600' : 'bg-neutral-400 cursor-not-allowed'
+                    className={`grid place-items-center size-9 shrink-0 rounded-full sm:size-8 text-white transition-all hover:scale-110 shadow-sm ${row.telefono ? 'bg-blue-500 hover:bg-blue-600' : 'bg-neutral-400 cursor-not-allowed'
                         }`}
                 >
                     <Phone size={13} strokeWidth={2.5} />
@@ -240,7 +225,7 @@ const PendienteRowItem = memo(({
                     aria-label="Editar pendiente"
                     title="Editar pendiente"
                     onClick={(e) => { e.stopPropagation(); onEdit(row); }}
-                    className="inline-grid place-items-center w-7 h-7 rounded-full transition-all hover:scale-105 bg-white shadow-sm hover:bg-gray-50 border border-gray-100"
+                    className="inline-grid place-items-center size-9 shrink-0 rounded-full sm:size-8 transition-all hover:scale-105 bg-white shadow-sm hover:bg-gray-50 border border-gray-100"
                 >
                     <Edit2 size={14} className="text-amber-600" />
                 </button>
@@ -248,7 +233,7 @@ const PendienteRowItem = memo(({
                     aria-label="Eliminar pendiente"
                     title="Eliminar pendiente"
                     onClick={(e) => { e.stopPropagation(); onDelete(row); }}
-                    className="inline-grid place-items-center w-7 h-7 rounded-full transition-all hover:scale-105 bg-red-100/80 hover:bg-red-200/90"
+                    className="inline-grid place-items-center size-9 shrink-0 rounded-full sm:size-8 transition-all hover:scale-105 bg-red-100/80 hover:bg-red-200/90"
                 >
                     <Trash2 size={15} className="text-red-600" />
                 </button>
@@ -334,6 +319,7 @@ export default function PersonaNueva({ servidorId }: { servidorId: string | null
     const [pendientesRows, setPendientesRows] = useState<PendienteItem[]>([]);
     const [intakeGroups, setIntakeGroups] = useState<IntakeGroup[]>([]);
     const [canAssignIntake, setCanAssignIntake] = useState(false);
+    const [canChangeIntakeCourse, setCanChangeIntakeCourse] = useState(false);
     const [intakeToReview, setIntakeToReview] = useState<PendienteItem | null>(null);
     const [pendPage, setPendPage] = useState(0);
     const [pendienteAEditar, setPendienteAEditar] = useState<PendienteItem | null>(null);
@@ -971,6 +957,7 @@ export default function PersonaNueva({ servidorId }: { servidorId: string | null
             setPendientesRows(result.pendientes);
             setIntakeGroups(result.groups);
             setCanAssignIntake(result.canAssign);
+            setCanChangeIntakeCourse(result.canChangeCourse === true);
             setPendPage(0);
         } catch (e) {
             setPendientesRows([]);
@@ -1056,7 +1043,7 @@ export default function PersonaNueva({ servidorId }: { servidorId: string | null
 
     return (
         <div className="pn-root">
-            {intakeToReview && <IntakeAssignmentModal pending={intakeToReview} groups={intakeGroups}
+            {intakeToReview && <IntakeAssignmentModal pending={intakeToReview} groups={intakeGroups} canChangeCourse={canChangeIntakeCourse}
                 onClose={() => setIntakeToReview(null)}
                 onSuccess={() => { setIntakeToReview(null); toast('Grupo confirmado. Se conservó el historial anterior.'); void abrirPendientes(); }} />}
             <div className="formulario-box" id="formulario1">
@@ -1304,7 +1291,7 @@ export default function PersonaNueva({ servidorId }: { servidorId: string | null
                     >
                         <div
                             tabIndex={-1}
-                            className="w-auto max-w-[90vw] lg:max-w-5xl rounded-[20px] overflow-hidden border border-neutral-200/50 shadow-2xl bg-white/90 backdrop-blur-xl"
+                            className="w-[calc(100%-1rem)] max-w-4xl overflow-hidden rounded-[26px] border border-white/90 bg-slate-50/95 shadow-2xl backdrop-blur-xl sm:w-[calc(100%-3rem)]"
                         >
                             <div className="sticky top-0 flex items-center justify-between py-3.5 px-5 bg-white/70 backdrop-blur-sm border-b border-neutral-300/80">
                                 <div className="flex items-center gap-2">
@@ -1341,15 +1328,11 @@ export default function PersonaNueva({ servidorId }: { servidorId: string | null
 
                             <div className="px-3 pb-3 pt-2">
                                 <div className="w-full text-black">
-                                    <div className="flex w-full border-b border-neutral-300/80 px-3 py-2 bg-neutral-100/70">
-                                        <div className="flex-1 text-left text-xs font-semibold text-neutral-600 uppercase tracking-wider">Nombre</div>
-                                        <div className="hidden sm:block px-4 text-center text-xs font-semibold text-neutral-600 uppercase tracking-wider">Teléfono</div>
-                                        <div className="hidden sm:block px-4 text-center text-xs font-semibold text-neutral-600 uppercase tracking-wider">Día</div>
-                                        <div className="hidden sm:block px-4 text-center text-xs font-semibold text-neutral-600 uppercase tracking-wider">Creado por</div>
-                                        <div className="px-4 text-center text-xs font-semibold text-neutral-600 uppercase tracking-wider">Acciones</div>
+                                    <div className="hidden grid-cols-[minmax(0,2fr)_minmax(0,1fr)_4.25rem_minmax(0,1.25fr)_7.5rem] gap-3 px-3.5 py-2 text-center text-[10px] font-semibold tracking-wider text-slate-600 uppercase sm:grid">
+                                        <span className="text-left">Estudiante</span><span>Teléfono</span><span>Fecha</span><span>Servidor</span><span>Acciones</span>
                                     </div>
 
-                                    <div className="list-body max-h-[60vh] overflow-y-auto">
+                                    <div className="list-body max-h-[min(64dvh,38rem)] space-y-2 overflow-y-auto overscroll-contain py-1">
                                         {pendLoading && (
                                             <div className="text-center text-neutral-600 px-2 py-10">Cargando…</div>
                                         )}

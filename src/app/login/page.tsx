@@ -149,7 +149,11 @@ export default function LoginPage() {
         </header>
 
         <blockquote className={styles.verse} aria-label="Versículo del día">
-          <p>{verse ? `“${verse.text}”` : ''}</p>
+          <div className={styles.verseEmblem} aria-hidden="true"><span><BookOpen size={21} strokeWidth={1.6} /></span></div>
+          <div className={styles.verseReading}>
+            <p className={styles.verseText}>{verse && <><span aria-hidden="true">“</span>{verse.text}<span aria-hidden="true">”</span></>}</p>
+            <svg className={styles.verseFlourish} width="140" height="12" viewBox="0 0 140 12" aria-hidden="true"><path d="M0 11C39 0 96-3 140 7 91 2 40 6 0 11Z" fill="currentColor" /></svg>
+          </div>
           <cite style={{ visibility: verse ? 'visible' : 'hidden' }}><BookOpen size={16} strokeWidth={1.7} aria-hidden="true" />{verse?.reference || '\u00a0'}</cite>
         </blockquote>
 

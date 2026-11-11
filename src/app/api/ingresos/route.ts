@@ -5,6 +5,7 @@ import { getServerSupabase } from '@/lib/supabaseClient';
 export const dynamic = 'force-dynamic';
 const permissionMessage = 'No encontramos una cuenta activa para tu sesión. Envía este mensaje al administrador: «Hola, no puedo abrir Pendientes. ¿Puedes revisar si mi cuenta está activa? Referencia: PENDIENTES-ACCESO. Gracias». Cuando te confirme el ajuste, cierra sesión y vuelve a ingresar.';
 const systemMessage = 'Por el momento, el sistema no pudo cargar Pendientes. Intenta de nuevo en unos minutos. Si continúa, envía este mensaje al administrador: «Hola, al abrir Pendientes aparece una falla del sistema. ¿Puedes revisar el servicio? Referencia: PENDIENTES-CONSULTA. Gracias».';
+const assignmentUnavailable = 'Puedes consultar Pendientes, pero por ahora no podemos verificar los permisos para asignar. Intenta de nuevo en unos minutos.';
 async function user(req: NextRequest) {
   const token = req.cookies.get('__Host-session')?.value ?? req.cookies.get('session')?.value;
   const expired = () => NextResponse.json({ error: 'Tu sesión terminó o no es válida. Vuelve a iniciar sesión para consultar Pendientes.' }, { status: 401 });
@@ -36,11 +37,13 @@ export async function GET(req: NextRequest) {
   if (session instanceof NextResponse) return session;
   try {
     const db = getServerSupabase();
-    const [{ data: rows, error }, { data: groups, error: groupError }] = await Promise.all([
+    const [{ data: rows, error }, { data: groups, error: groupError }, { data: canChangeCourse, error: permissionError }] = await Promise.all([
       db.rpc('fn_pendientes_ingreso'), db.rpc('fn_grupos_ingreso'),
+      db.rpc('fn_puede_cambiar_curso_ingreso', { p_usuario: session.id }),
     ]);
     if (error || groupError) throw error || groupError;
-    return NextResponse.json({ pendientes: rows, groups, canAssign: session.canAssign });
+    if (permissionError) console.error('[ingresos] No se pudo comprobar el permiso de cambio de curso:', permissionError);
+    return NextResponse.json({ pendientes: rows, groups, canAssign: session.canAssign && !permissionError, canChangeCourse: canChangeCourse === true });
   } catch (error) {
     console.error('[ingresos] Error al consultar pendientes:', error);
     return NextResponse.json({ error: systemMessage }, { status: 503 });
@@ -83,6 +86,11 @@ export async function POST(req: NextRequest) {
       || (body.identityId && (!uuid.test(body.identityId) || !['persona','entrevista'].includes(body.identitySource)))) {
       return NextResponse.json({ error: 'Datos de asignación inválidos' }, { status: 400 });
     }
+    const { error: permissionError } = await db.rpc('fn_puede_cambiar_curso_ingreso', { p_usuario: session.id });
+    if (permissionError) {
+      console.error('[ingresos] No se pudo verificar el permiso antes de asignar:', permissionError);
+      return NextResponse.json({ error: assignmentUnavailable }, { status: 503 });
+    }
     const { error } = await db.rpc('fn_asignar_ingreso', {
       p_pendiente: body.pendienteId, p_usuario: session.id,
       p_identidad_fuente: body.identitySource || null, p_identidad: body.identityId || null,
@@ -90,6 +98,9 @@ export async function POST(req: NextRequest) {
       p_descartar_historial: body.distinctPerson === true,
     });
     if (error) {
+      if (error.code === 'PT403' && error.message === 'CAMBIO_CURSO_RESTRINGIDO') {
+        return NextResponse.json({ code: 'CAMBIO_CURSO_RESTRINGIDO', error: 'Para cambiar de curso, comunícate con la hermana Shirley o Diana Ramírez.' }, { status: 403 });
+      }
       if (error.code === 'P0001') {
         return NextResponse.json({ error: error.message === 'El usuario no tiene acceso al panel de Pendientes'
           ? permissionMessage : error.message }, { status: error.message === 'El usuario no tiene acceso al panel de Pendientes' ? 403 : 409 });

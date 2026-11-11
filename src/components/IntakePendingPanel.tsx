@@ -5,12 +5,13 @@ import IntakeAssignmentModal from './IntakeAssignmentModal';
 import IntakeErrorNotice from './IntakeErrorNotice';
 import { type HistoryCandidate, type IntakeGroup } from '@/lib/ingresoHistory';
 import { createStudentMatcher } from '@/lib/studentSearch';
-import { ReintegrateButton, StudentReturnBadge, returnLevel } from './StudentReturnDetails';
+import { ReintegrateButton, StudentReturnBadge, returnCourse } from './StudentReturnDetails';
 
 type Pending = { id: string; nombre: string; cedula?: string | null; telefono?: string | null; history: HistoryCandidate[] };
 export default function IntakePendingPanel({ refreshKey, onSuccess, search }: { refreshKey: unknown; onSuccess: () => void; search: string }) {
   const [rows, setRows] = useState<Pending[]>([]);
   const [groups, setGroups] = useState<IntakeGroup[]>([]);
+  const [canChangeCourse, setCanChangeCourse] = useState(false);
   const [selected, setSelected] = useState<Pending | null>(null);
   const [error, setError] = useState('');
   const [version, setVersion] = useState(0);
@@ -21,7 +22,7 @@ export default function IntakePendingPanel({ refreshKey, onSuccess, search }: { 
         const response = await fetch('/api/ingresos', { cache: 'no-store', signal: controller.signal });
         const result = await response.json();
         if (!response.ok) throw new Error(result.error);
-        setRows(result.pendientes); setGroups(result.groups); setError('');
+        setRows(result.pendientes); setGroups(result.groups); setCanChangeCourse(result.canChangeCourse === true); setError('');
       } catch (e) {
         if (!controller.signal.aborted) { setRows([]); setError(e instanceof Error ? e.message : 'Error al consultar ingresos'); }
       }
@@ -36,14 +37,17 @@ export default function IntakePendingPanel({ refreshKey, onSuccess, search }: { 
     {error && <div className="mt-2"><IntakeErrorNotice message={error} /></div>}
     <div className="max-h-48 overflow-y-auto">
       {!error && rows.length > 0 && visibleRows.length === 0 && <p className="mt-2 text-sm text-slate-600">No hay ingresos pendientes que coincidan.</p>}
-      {visibleRows.map(row => <div key={row.id} className="mt-2 flex flex-wrap items-center justify-between gap-2 border-t border-indigo-100 pt-2">
-        <div><button type="button" onClick={() => setSelected(row)} className="text-left text-sm font-semibold text-slate-800 hover:text-emerald-700 focus-visible:rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/50">{row.nombre}</button>
-          {returnLevel(row.history) && <div className="mt-1.5"><StudentReturnBadge level={returnLevel(row.history)} /></div>}
-        </div>
-        {row.history.some(c => c.nivel) && <ReintegrateButton onClick={() => setSelected(row)} />}
-      </div>)}
+      {visibleRows.map(row => {
+        const course = returnCourse(row.history);
+        return <div key={row.id} className="mt-2 flex flex-wrap items-center justify-between gap-2 border-t border-indigo-100 pt-2">
+          <div className="min-w-0"><button type="button" onClick={() => setSelected(row)} className="text-left text-sm font-semibold text-slate-800 hover:text-emerald-700 focus-visible:rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/50">{row.nombre}</button>
+            {course?.nivel && <div className="mt-1.5"><StudentReturnBadge level={course.nivel} status={course.estado} /></div>}
+          </div>
+          {row.history.some(c => c.nivel) && <ReintegrateButton onClick={() => setSelected(row)} />}
+        </div>;
+      })}
     </div>
-    {selected && <IntakeAssignmentModal pending={selected} groups={groups} onClose={() => setSelected(null)}
+    {selected && <IntakeAssignmentModal pending={selected} groups={groups} canChangeCourse={canChangeCourse} onClose={() => setSelected(null)}
       onSuccess={() => { setSelected(null); setVersion(v => v + 1); onSuccess(); }} />}
   </div>;
 }
