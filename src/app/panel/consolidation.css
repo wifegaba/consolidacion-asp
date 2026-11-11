@@ -437,12 +437,7 @@
 @keyframes consolidation-bar { from { transform: scaleX(0); } to { transform: scaleX(1); } }
 @keyframes consolidation-fade { from { opacity: 0; } to { opacity: 1; } }
 
-@keyframes cardIn {
-  0% { opacity: 0; transform: translateY(14px) scale(.98); filter: blur(3px); }
-  60% { opacity: 1; transform: translateY(-2px) scale(1.01); filter: blur(0); }
-  100% { opacity: 1; transform: translateY(0) scale(1); }
-}
-.animate-cardIn { animation: cardIn .48s cubic-bezier(.22,1,.36,1) both; }
+.animate-cardIn { animation: var(--panel-card-entrance); }
 @media (max-width: 1150px) {
   .consolidation-dashboard .kpi-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }

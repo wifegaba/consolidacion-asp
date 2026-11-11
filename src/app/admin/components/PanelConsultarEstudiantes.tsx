@@ -6,8 +6,6 @@ import { AnimatePresence, motion, Variants } from 'framer-motion';
 import { supabase } from '../../../lib/supabaseClient';
 import IntakePendingPanel from '@/components/IntakePendingPanel';
 import { ReintegrateButton, StudentReturnBadge } from '@/components/StudentReturnDetails';
-import IntakeAssignmentModal from '@/components/IntakeAssignmentModal';
-import type { HistoryCandidate, IntakeGroup } from '@/lib/ingresoHistory';
 import { createStudentMatcher } from '@/lib/studentSearch';
 import { GlassCard, FormSelect, GLASS_STYLES, ModalTemplate } from '../page';
 import { HojaDeVidaPanel } from '../../restauracion/estudiante/components/HojaDeVidaPanel';
@@ -51,42 +49,17 @@ interface PanelConsultarProps {
     loading: boolean;
     fotoUrls: Record<string, string>;
     onDataUpdated: () => void;
+    onReenroll: (student: Pick<Estudiante, 'id' | 'nombre'>) => void;
     currentUser: { rol?: string; diaAcceso?: string; cursosAcceso?: string[] };
 }
 
-export default function PanelConsultarEstudiantes({ maestros, cursos, estudiantes, inscripciones, loading, fotoUrls, onDataUpdated, currentUser }: PanelConsultarProps) {
+export default function PanelConsultarEstudiantes({ maestros, cursos, estudiantes, inscripciones, loading, fotoUrls, onDataUpdated, onReenroll, currentUser }: PanelConsultarProps) {
     const [search, setSearch] = useState('');
     const [selectedMaestroId, setSelectedMaestroId] = useState('');
     const [selectedCourseId, setSelectedCourseId] = useState('');
     const [selectedStudent, setSelectedStudent] = useState<EstudianteInscrito | null>(null);
     const [pendingPage, setPendingPage] = useState(1);
     const [enrolledPage, setEnrolledPage] = useState(1);
-    const [reviewPending, setReviewPending] = useState<{ id: string; nombre: string; history: HistoryCandidate[] } | null>(null);
-    const [reviewGroups, setReviewGroups] = useState<IntakeGroup[]>([]);
-    const [canChangeReviewCourse, setCanChangeReviewCourse] = useState(false);
-    const [reviewError, setReviewError] = useState('');
-    const [reviewLoading, setReviewLoading] = useState(false);
-
-    async function reviewHistory(e: Estudiante) {
-        if (reviewLoading) return;
-        setReviewLoading(true); setReviewError('');
-        try {
-            const response = await fetch('/api/ingresos', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'queue', nombre: e.nombre, telefono: e.telefono || '', cedula: e.cedula }) });
-            const queued = await response.json();
-            if (!response.ok) throw new Error(queued.error);
-            const loaded = await fetch('/api/ingresos', { cache: 'no-store' });
-            const result = await loaded.json();
-            if (!loaded.ok) throw new Error(result.error);
-            const pending = result.pendientes.find((p: { id: string }) => p.id === queued.id);
-            if (!pending) throw new Error('Este ingreso ya fue procesado. Actualiza Pendientes.');
-            setReviewGroups(result.groups);
-            setCanChangeReviewCourse(result.canChangeCourse === true);
-            setReviewPending(pending);
-        } catch (error) { setReviewError(error instanceof Error ? error.message : 'No se pudo revisar el historial'); }
-        finally { setReviewLoading(false); }
-    }
-
     const procesados = useMemo(() => {
         const mSet = new Map<string, MaestroConCursos>(maestros.map(m => [m.id, m]));
         const cSet = new Map<number, Curso>(cursos.map(c => [c.id, c]));
@@ -223,12 +196,11 @@ export default function PanelConsultarEstudiantes({ maestros, cursos, estudiante
                 </div>
 
                 <IntakePendingPanel refreshKey={estudiantes} onSuccess={onDataUpdated} search={search} />
-                {reviewError && <p role="alert" className="mx-3 mb-2 text-sm text-red-700">{reviewError}</p>}
                 <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 overflow-hidden px-3 pb-3 lg:grid-cols-2">
                     <div className="flex flex-col h-full min-h-0">
-                        <div className="mb-1.5 flex shrink-0 items-center gap-2 text-sm font-semibold text-rose-700"><UserX size={17} /> Pendientes ({pendientes.length})</div>
+                        <div className="mb-1.5 flex shrink-0 items-center gap-2 text-sm font-semibold text-rose-700"><UserX size={17} /> Sin matrícula activa ({pendientes.length})</div>
                         <div className={`flex-1 overflow-hidden rounded-xl ${GLASS_STYLES.input} p-0 border-2 border-white/50`}>
-                            {loading ? <div className="p-4 text-center">Cargando...</div> : pendientes.length === 0 ? <div className="p-8 text-center text-gray-500">No hay pendientes</div> : (
+                            {loading ? <div className="p-4 text-center">Cargando...</div> : pendientes.length === 0 ? <div className="p-8 text-center text-gray-500">No hay estudiantes sin matrícula activa</div> : (
                                 <motion.div
                                     key={`pendientes-${search}-${pendientes.length}-${pendingPage}`}
                                     variants={LIST_WRAPPER_VARIANTS}
@@ -238,7 +210,7 @@ export default function PanelConsultarEstudiantes({ maestros, cursos, estudiante
                                     {visiblePendientes.map(e => (
                                         <motion.div key={e.id} variants={LIST_ITEM_VARIANTS}>
                                             <EstudianteRow e={e} onClick={() => setSelectedStudent(e)}
-                                                onReview={e.last_course ? () => void reviewHistory(e) : undefined} reviewLoading={reviewLoading} />
+                                                onReview={e.last_course ? () => onReenroll(e) : undefined} />
                                         </motion.div>
                                     ))}
                                 </motion.div>
@@ -269,9 +241,6 @@ export default function PanelConsultarEstudiantes({ maestros, cursos, estudiante
                     </div>
                 </div>
             </GlassCard>
-            {reviewPending && <IntakeAssignmentModal pending={reviewPending} groups={reviewGroups} canChangeCourse={canChangeReviewCourse}
-                onClose={() => setReviewPending(null)} onSuccess={() => { setReviewPending(null); onDataUpdated(); }} />}
-
             <AnimatePresence>
                 {selectedStudent && (
                     <ModalDetalleEstudiante
@@ -292,7 +261,7 @@ export default function PanelConsultarEstudiantes({ maestros, cursos, estudiante
 }
 
 // Update EstudianteRow to show suspended tag
-function EstudianteRow({ e, matriculado, fotoUrl, onClick, onReview, reviewLoading }: { e: EstudianteInscrito & { suspended_course?: Curso | null; last_course?: Curso | null; last_course_status?: string }, matriculado?: boolean, fotoUrl?: string, onClick: () => void; onReview?: () => void; reviewLoading?: boolean }) {
+function EstudianteRow({ e, matriculado, fotoUrl, onClick, onReview }: { e: EstudianteInscrito & { suspended_course?: Curso | null; last_course?: Curso | null; last_course_status?: string }, matriculado?: boolean, fotoUrl?: string, onClick: () => void; onReview?: () => void }) {
     const avatar = fotoUrl || generateAvatar(e.nombre);
     return (
         <div onClick={onClick} className={`p-3 flex justify-between items-center cursor-pointer ${GLASS_STYLES.listItem}`}>
@@ -301,7 +270,7 @@ function EstudianteRow({ e, matriculado, fotoUrl, onClick, onReview, reviewLoadi
                 <div>
                     {!matriculado && e.last_course && <div className="mb-1.5 flex flex-wrap items-center gap-2">
                         <StudentReturnBadge level={e.last_course.nombre} status={e.last_course_status} />
-                        {onReview && <ReintegrateButton disabled={reviewLoading} onClick={onReview} />}
+                        {onReview && <ReintegrateButton onClick={onReview} />}
                     </div>}
                     <p className="font-medium text-gray-900 text-sm flex items-center gap-2">
                         {e.nombre}
@@ -410,7 +379,7 @@ function ModalDetalleEstudiante({ estudiante, maestros, fotoUrl, onClose, onSucc
             setConfirmData({
                 isOpen: true,
                 title: 'Desactivar Matrícula',
-                message: "¿Desea desactivar la matrícula de este estudiante? Pasará a 'Pendientes'.",
+                message: "¿Desea desactivar la matrícula de este estudiante? Aparecerá en «Sin matrícula activa».",
                 onConfirm: async () => {
                     setLoading(true);
                     try {

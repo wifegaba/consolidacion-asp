@@ -117,12 +117,16 @@ const LIST_ITEM_VARIANTS: Variants = {
 // --- COMPONENTE PRINCIPAL ---
 export default function AdminPage() {
   const [activeTab, setActiveTab] = useState<AdminTab>('bienvenida');
+  const [studentToEnroll, setStudentToEnroll] = useState<Pick<Estudiante, 'id' | 'nombre'> | null>(null);
   const [maestros, setMaestros] = useState<MaestroConCursos[]>([]);
   const [cursos, setCursos] = useState<Curso[]>([]);
   const [estudiantes, setEstudiantes] = useState<Estudiante[]>([]);
   const [inscripciones, setInscripciones] = useState<Inscripcion[]>([]);
   const [fotoUrls, setFotoUrls] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(true);
+  useEffect(() => {
+    if (activeTab !== 'matricular') setStudentToEnroll(null);
+  }, [activeTab]);
 
   // Modales
   const [modalMaestro, setModalMaestro] = useState<MaestroConCursos | 'new' | null>(null);
@@ -506,6 +510,7 @@ export default function AdminPage() {
                   {/* NOTA: La pestaña Servidores está oculta - se gestiona desde /panel/servidores */}
                   {activeTab === 'matricular' && (
                     <PanelMatricular
+                      initialStudent={studentToEnroll}
                       maestros={maestros}
                       cursos={cursos}
                       estudiantes={estudiantes}
@@ -559,6 +564,10 @@ export default function AdminPage() {
                   )}
                   {activeTab === 'consultar' && (
                     <PanelConsultarEstudiantes
+                      onReenroll={student => {
+                        setStudentToEnroll(student);
+                        setActiveTab('matricular');
+                      }}
                       maestros={maestros.filter(m => {
                         const isMaestro = m.rol === 'Maestro Ptm';
                         if (!isMaestro) return false;

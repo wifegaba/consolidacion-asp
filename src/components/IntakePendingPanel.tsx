@@ -11,7 +11,6 @@ type Pending = { id: string; nombre: string; cedula?: string | null; telefono?: 
 export default function IntakePendingPanel({ refreshKey, onSuccess, search }: { refreshKey: unknown; onSuccess: () => void; search: string }) {
   const [rows, setRows] = useState<Pending[]>([]);
   const [groups, setGroups] = useState<IntakeGroup[]>([]);
-  const [canChangeCourse, setCanChangeCourse] = useState(false);
   const [selected, setSelected] = useState<Pending | null>(null);
   const [error, setError] = useState('');
   const [version, setVersion] = useState(0);
@@ -22,7 +21,7 @@ export default function IntakePendingPanel({ refreshKey, onSuccess, search }: { 
         const response = await fetch('/api/ingresos', { cache: 'no-store', signal: controller.signal });
         const result = await response.json();
         if (!response.ok) throw new Error(result.error);
-        setRows(result.pendientes); setGroups(result.groups); setCanChangeCourse(result.canChangeCourse === true); setError('');
+        setRows(result.pendientes); setGroups(result.groups); setError('');
       } catch (e) {
         if (!controller.signal.aborted) { setRows([]); setError(e instanceof Error ? e.message : 'Error al consultar ingresos'); }
       }
@@ -47,7 +46,7 @@ export default function IntakePendingPanel({ refreshKey, onSuccess, search }: { 
         </div>;
       })}
     </div>
-    {selected && <IntakeAssignmentModal pending={selected} groups={groups} canChangeCourse={canChangeCourse} onClose={() => setSelected(null)}
+    {selected && <IntakeAssignmentModal pending={selected} groups={groups} onClose={() => setSelected(null)}
       onSuccess={() => { setSelected(null); setVersion(v => v + 1); onSuccess(); }} />}
   </div>;
 }

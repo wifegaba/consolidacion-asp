@@ -36,15 +36,16 @@ interface PanelMatricularProps {
     onMatriculaExitosa: () => void;
     loading: boolean;
     currentUser: { rol?: string; diaAcceso?: string; cursosAcceso?: string[] };
+    initialStudent?: Pick<Estudiante, 'id' | 'nombre'> | null;
 }
 
-export default function PanelMatricular({ maestros, cursos, estudiantes, inscripciones, onMatriculaExitosa, loading, currentUser }: PanelMatricularProps) {
+export default function PanelMatricular({ maestros, cursos, estudiantes, inscripciones, onMatriculaExitosa, loading, currentUser, initialStudent }: PanelMatricularProps) {
     const [cursoId, setCursoId] = useState('');
     const [maestroId, setMaestroId] = useState('');
-    const [selectedIds, setSelectedIds] = useState<Record<string, boolean>>({});
+    const [selectedIds, setSelectedIds] = useState<Record<string, boolean>>(() => initialStudent ? { [initialStudent.id]: true } : {});
     const [isSaving, setIsSaving] = useState(false);
     const [alertData, setAlertData] = useState<{ isOpen: boolean; title: string; message: string; type: 'error' | 'info' | 'success' | 'warning' } | null>(null);
-    const [search, setSearch] = useState('');
+    const [search, setSearch] = useState(initialStudent?.nombre ?? '');
     const [showModal, setShowModal] = useState(false);
 
     const mDisponibles = useMemo(() => {
@@ -92,7 +93,7 @@ export default function PanelMatricular({ maestros, cursos, estudiantes, inscrip
     };
 
     const handleMatricular = async () => {
-        const ids = Object.keys(selectedIds).filter(k => selectedIds[k]);
+        const ids = estudiantesConMetadata.filter(student => selectedIds[student.id] && !student.isActive).map(student => student.id);
         if (isSaving || !ids.length || !cursoId || !mDisponibles.some(m => m.id === maestroId)) return;
         setIsSaving(true);
 
@@ -358,16 +359,7 @@ function ModalNuevoEstudiante({ cursos, maestros, onClose, onSuccess }: { cursos
             const detected = await response.json();
             if (!response.ok) throw new Error(detected.error);
             if (detected.history.length > 0) {
-                const queued = await fetch('/api/ingresos', {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ action: 'queue', nombre, cedula,
-                        telefono: telefono || detected.history.find((c: { telefono?: string }) => c.telefono)?.telefono || '',
-                        observaciones: 'Ingreso registrado desde matrículas. Revisar identidad y nivel anterior.' }),
-                });
-                const result = await queued.json();
-                if (!queued.ok) throw new Error(result.error);
-                alert('Historial encontrado. El ingreso quedó en Pendientes para revisar la identidad y elegir el grupo.');
-                onSuccess();
+                alert('Encontramos un posible registro existente. Revisa la identidad en Estudiantes y, si corresponde a la misma persona, selecciona su registro en Matricular Estudiantes.');
                 return;
             }
             const { data: newStudent, error: errStudent } = await supabase

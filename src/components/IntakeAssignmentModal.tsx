@@ -2,15 +2,15 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { ArrowRight, Route, ShieldCheck, UsersRound, X } from 'lucide-react';
+import { ArrowRight, Route, UsersRound, X } from 'lucide-react';
 import IntakeGroupSelect, { IntakePicker } from './IntakeGroupSelect';
 import styles from './IntakeAssignment.module.css';
 import IntakeErrorNotice from './IntakeErrorNotice';
-import { courseKey as getCourseKey, intakeCourses, lastCourseLabel, normalizeIntakePhone, type HistoryCandidate, type IntakeGroup } from '@/lib/ingresoHistory';
+import { intakeCourses, lastCourseLabel, normalizeIntakePhone, type HistoryCandidate, type IntakeGroup } from '@/lib/ingresoHistory';
 
-export default function IntakeAssignmentModal({ pending, groups, canChangeCourse, onClose, onSuccess }: {
+export default function IntakeAssignmentModal({ pending, groups, onClose, onSuccess }: {
   pending: { id?: string; nombre: string | null; telefono?: string | null; cedula?: string | null; email?: string | null; history?: HistoryCandidate[] };
-  groups: IntakeGroup[]; canChangeCourse: boolean; onClose: () => void; onSuccess: () => void;
+  groups: IntakeGroup[]; onClose: () => void; onSuccess: () => void;
 }) {
   const candidates = pending.history || [];
   const certainCandidate = candidates.length === 1 && candidates[0].confianza === 'segura' ? candidates[0] : null;
@@ -24,7 +24,6 @@ export default function IntakeAssignmentModal({ pending, groups, canChangeCourse
   const [groupKey, setGroupKey] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
-  const [showRestriction, setShowRestriction] = useState(false);
   const [mounted, setMounted] = useState(false);
   useEffect(() => { setMounted(true); }, []);
   useEffect(() => {
@@ -58,10 +57,6 @@ export default function IntakeAssignmentModal({ pending, groups, canChangeCourse
           distinctPerson: identityKey === 'new' }),
       });
       const result = await response.json();
-      if (response.status === 403 && result.code === 'CAMBIO_CURSO_RESTRINGIDO') {
-        setShowRestriction(true);
-        return;
-      }
       if (!response.ok) throw new Error(result.error);
       onSuccess();
     } catch (e) { setError(e instanceof Error ? e.message : 'Error al asignar'); }
@@ -110,16 +105,13 @@ export default function IntakeAssignmentModal({ pending, groups, canChangeCourse
         <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
           <label htmlFor="intake-course" className="text-sm font-semibold">01 · Curso de destino</label>
           {hasPath && !showOther && courses.some(c => c.kind === 'other') && <button type="button" disabled={saving || candidate?.activo}
-            onClick={() => setShowOther(true)} className="rounded-full px-2 py-1.5 text-xs font-semibold text-blue-700 hover:bg-blue-50">Ver otros cursos</button>}
+            onClick={() => setShowOther(true)}
+            className="rounded-full px-2 py-1.5 text-xs font-semibold text-blue-700 hover:bg-blue-50">Ver otros cursos</button>}
         </div>
         <IntakePicker key={identityKey} id="intake-course" course placeholder="Seleccionar curso…" value={courseKey}
           options={options.map(c => ({ ...c, detail: c.groups.length ? c.detail : c.detail + ' · Sin grupos activos' }))}
           disabled={saving || !readyToChoose || candidate?.activo}
           onChange={key => {
-            if (!canChangeCourse && candidate?.nivel && key !== getCourseKey(candidate.fuente, candidate)) {
-              setShowRestriction(true);
-              return;
-            }
             setCourseKey(key); setGroupKey(''); setError('');
           }} />
         {!readyToChoose && <p className="mt-2 text-xs text-slate-600">Elige primero a la persona del historial o crea un registro independiente.</p>}
@@ -140,30 +132,5 @@ export default function IntakeAssignmentModal({ pending, groups, canChangeCourse
           className="inline-flex min-h-11 min-w-0 items-center justify-center gap-1.5 rounded-xl bg-blue-700 px-2 py-2 text-[13px] font-semibold text-white transition hover:bg-blue-800 disabled:opacity-40 sm:px-4 sm:text-sm">{saving ? 'Guardando…' : 'Confirmar grupo'}{!saving && <ArrowRight size={15} aria-hidden="true" />}</button>
       </div>
     </dialog>
-    {showRestriction && <CourseChangeNotice onClose={() => setShowRestriction(false)} />}
   </>, document.body);
-}
-
-function CourseChangeNotice({ onClose }: { onClose: () => void }) {
-  const dialog = useRef<HTMLDialogElement>(null);
-  useEffect(() => {
-    const sheet = dialog.current;
-    sheet?.showModal();
-    return () => sheet?.close();
-  }, []);
-
-  return <dialog ref={dialog} aria-labelledby="course-change-title" aria-describedby="course-change-description"
-    onCancel={event => { event.preventDefault(); onClose(); }}
-    className={`${styles.sheet} fixed inset-0 m-auto max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-[25rem] overflow-y-auto rounded-[28px] border border-white/90 p-0 text-slate-900`}>
-    <div className={`${styles.hero} border-b border-white px-5 pt-5 pb-4 sm:px-6`}>
-      <div className="grid size-12 place-items-center rounded-[17px] border border-white bg-white/85 text-blue-700 shadow-sm"><ShieldCheck size={24} strokeWidth={1.7} aria-hidden="true" /></div>
-      <p className="mt-3 text-[10px] font-bold tracking-[0.14em] text-blue-800 uppercase">Matrículas</p>
-      <h2 id="course-change-title" className="mt-1 text-xl leading-tight font-semibold tracking-tight">Cambio de curso restringido</h2>
-    </div>
-    <div className="space-y-4 px-5 py-4 sm:px-6">
-      <p id="course-change-description" className="text-sm leading-relaxed text-slate-700">Para asignar a esta persona a un curso diferente, comunícate con <strong>la hermana Shirley</strong> o con <strong>Diana Ramírez</strong>. Ellas pueden revisar el historial y confirmar el curso y el grupo adecuados.</p>
-      <p className="text-xs text-slate-600">El registro seguirá en Pendientes hasta que se confirme la asignación.</p>
-      <button type="button" autoFocus onClick={onClose} className="min-h-11 w-full rounded-full bg-blue-700 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-700">Entendido</button>
-    </div>
-  </dialog>;
 }

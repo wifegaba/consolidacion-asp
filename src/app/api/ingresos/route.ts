@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import jwt, { type JwtPayload } from 'jsonwebtoken';
 import { getServerSupabase } from '@/lib/supabaseClient';
+import { isPersonaNuevaCulto } from '@/lib/ingresoHistory';
 
 export const dynamic = 'force-dynamic';
 const permissionMessage = 'No encontramos una cuenta activa para tu sesión. Envía este mensaje al administrador: «Hola, no puedo abrir Pendientes. ¿Puedes revisar si mi cuenta está activa? Referencia: PENDIENTES-ACCESO. Gracias». Cuando te confirme el ajuste, cierra sesión y vuelve a ingresar.';
 const systemMessage = 'Por el momento, el sistema no pudo cargar Pendientes. Intenta de nuevo en unos minutos. Si continúa, envía este mensaje al administrador: «Hola, al abrir Pendientes aparece una falla del sistema. ¿Puedes revisar el servicio? Referencia: PENDIENTES-CONSULTA. Gracias».';
-const assignmentUnavailable = 'Puedes consultar Pendientes, pero por ahora no podemos verificar los permisos para asignar. Intenta de nuevo en unos minutos.';
 async function user(req: NextRequest) {
   const token = req.cookies.get('__Host-session')?.value ?? req.cookies.get('session')?.value;
   const expired = () => NextResponse.json({ error: 'Tu sesión terminó o no es válida. Vuelve a iniciar sesión para consultar Pendientes.' }, { status: 401 });
@@ -37,25 +37,26 @@ export async function GET(req: NextRequest) {
   if (session instanceof NextResponse) return session;
   try {
     const db = getServerSupabase();
-    if (req.nextUrl.searchParams.get('vista') === 'lista') {
+    const view = req.nextUrl.searchParams.get('vista');
+    if (view === 'lista') {
       const { data, error } = await db.from('pendientes')
-        .select('id,nombre,telefono,creado_en,servidor:servidores!creado_por(nombre)')
+        .select('id,nombre,telefono,creado_en,culto_seleccionado,servidor:servidores!creado_por(nombre)')
+        .like('culto_seleccionado', '% - %')
         .order('creado_en', { ascending: false })
         .limit(7)
-        .returns<{ id: string; nombre: string | null; telefono: string | null; creado_en: string | null; servidor: { nombre: string | null } | null }[]>();
+        .returns<{ id: string; nombre: string | null; telefono: string | null; creado_en: string | null; culto_seleccionado: string; servidor: { nombre: string | null } | null }[]>();
       if (error) throw error;
-      return NextResponse.json({ pendientes: (data ?? []).map(({ servidor, ...row }) => ({
+      return NextResponse.json({ pendientes: (data ?? []).filter(row => isPersonaNuevaCulto(row.culto_seleccionado)).map(({ servidor, ...row }) => ({
         ...row,
         creado_por_nombre: servidor?.nombre ?? 'Sistema',
       })) });
     }
-    const [{ data: rows, error }, { data: groups, error: groupError }, { data: canChangeCourse, error: permissionError }] = await Promise.all([
+    const [{ data: rows, error }, { data: groups, error: groupError }] = await Promise.all([
       db.rpc('fn_pendientes_ingreso'), db.rpc('fn_grupos_ingreso'),
-      db.rpc('fn_puede_cambiar_curso_ingreso', { p_usuario: session.id }),
     ]);
     if (error || groupError) throw error || groupError;
-    if (permissionError) console.error('[ingresos] No se pudo comprobar el permiso de cambio de curso:', permissionError);
-    return NextResponse.json({ pendientes: rows, groups, canAssign: session.canAssign && !permissionError, canChangeCourse: canChangeCourse === true });
+    const pendientes = ((rows ?? []) as { culto_seleccionado?: unknown }[]).filter(row => isPersonaNuevaCulto(row.culto_seleccionado));
+    return NextResponse.json({ pendientes, groups, canAssign: session.canAssign });
   } catch (error) {
     console.error('[ingresos] Error al consultar pendientes:', error);
     return NextResponse.json({ error: systemMessage }, { status: 503 });
@@ -71,6 +72,9 @@ export async function POST(req: NextRequest) {
       if (typeof body.nombre !== 'string' || typeof body.telefono !== 'string') {
         return NextResponse.json({ error: 'Datos inválidos' }, { status: 400 });
       }
+      if (body.action === 'queue' && !isPersonaNuevaCulto(body.culto)) {
+        return NextResponse.json({ error: 'Los ingresos pendientes se registran desde Persona Nueva con su culto de ingreso.' }, { status: 400 });
+      }
       const { data, error } = await db.rpc('fn_historial_ingreso', {
         p_nombre: body.nombre, p_telefono: body.telefono,
         p_cedula: body.cedula || null, p_email: body.email || null,
@@ -81,11 +85,16 @@ export async function POST(req: NextRequest) {
           return NextResponse.json({ error: 'Nombre y un teléfono, documento o correo válido requeridos' }, { status: 400 });
         }
         const { data: id, error: queueError } = await db.rpc('fn_encolar_ingreso', {
-          p_nombre: body.nombre, p_telefono: body.telefono, p_culto: body.culto || null,
+          p_nombre: body.nombre, p_telefono: body.telefono, p_culto: body.culto.trim(),
           p_observaciones: body.observaciones || null, p_creado_por: session.id,
           p_cedula: body.cedula || null, p_email: body.email || null,
         });
         if (queueError) throw queueError;
+        // If the queue deduplicated an old Matrículas entry, this submission supplies its missing origin data.
+        const { error: sourceError } = await db.from('pendientes')
+          .update({ culto_seleccionado: body.culto.trim() })
+          .eq('id', id).is('culto_seleccionado', null);
+        if (sourceError) throw sourceError;
         return NextResponse.json({ history: data, id });
       }
       return NextResponse.json({ history: data });
@@ -98,10 +107,12 @@ export async function POST(req: NextRequest) {
       || (body.identityId && (!uuid.test(body.identityId) || !['persona','entrevista'].includes(body.identitySource)))) {
       return NextResponse.json({ error: 'Datos de asignación inválidos' }, { status: 400 });
     }
-    const { error: permissionError } = await db.rpc('fn_puede_cambiar_curso_ingreso', { p_usuario: session.id });
-    if (permissionError) {
-      console.error('[ingresos] No se pudo verificar el permiso antes de asignar:', permissionError);
-      return NextResponse.json({ error: assignmentUnavailable }, { status: 503 });
+    const { data: pending, error: pendingError } = await db.from('pendientes')
+      .select('culto_seleccionado').eq('id', body.pendienteId).maybeSingle();
+    if (pendingError) throw pendingError;
+    if (!pending) return NextResponse.json({ error: 'Este pendiente ya fue procesado' }, { status: 409 });
+    if (!isPersonaNuevaCulto(pending.culto_seleccionado)) {
+      return NextResponse.json({ error: 'Este registro debe gestionarse desde Matrículas.' }, { status: 409 });
     }
     const { error } = await db.rpc('fn_asignar_ingreso', {
       p_pendiente: body.pendienteId, p_usuario: session.id,
@@ -110,9 +121,6 @@ export async function POST(req: NextRequest) {
       p_descartar_historial: body.distinctPerson === true,
     });
     if (error) {
-      if (error.code === 'PT403' && error.message === 'CAMBIO_CURSO_RESTRINGIDO') {
-        return NextResponse.json({ code: 'CAMBIO_CURSO_RESTRINGIDO', error: 'Para cambiar de curso, comunícate con la hermana Shirley o Diana Ramírez.' }, { status: 403 });
-      }
       if (error.code === 'P0001') {
         return NextResponse.json({ error: error.message === 'El usuario no tiene acceso al panel de Pendientes'
           ? permissionMessage : error.message }, { status: error.message === 'El usuario no tiene acceso al panel de Pendientes' ? 403 : 409 });
