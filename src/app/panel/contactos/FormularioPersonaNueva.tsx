@@ -173,7 +173,8 @@ const PendienteRowItem = memo(({
     onDelete,
     onEdit,
     onReview,
-    canAssign
+    canAssign,
+    previewOnly = false,
 }: {
     row: PendienteItem;
     onSelect: (p: PendienteItem) => void;
@@ -181,15 +182,16 @@ const PendienteRowItem = memo(({
     onEdit: (p: PendienteItem) => void;
     onReview: (p: PendienteItem) => void;
     canAssign: boolean;
+    previewOnly?: boolean;
 }) => {
     const course = returnCourse(row.history);
     const server = row.creado_por_nombre || 'Sistema';
     const date = soloFecha(row.creado_en ?? row.created_at ?? row.fecha ?? '');
     return (
         <div
-            title="Cargar en el formulario"
-            onClick={() => onSelect(row)}
-            className="pn-pending-row grid w-full min-w-0 cursor-pointer grid-cols-1 items-center gap-2.5 rounded-[18px] border border-slate-200/80 bg-white/80 px-3.5 py-3 shadow-[0_2px_5px_#0f172a05] transition-colors hover:bg-white sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_4.25rem_minmax(0,1.25fr)_7.5rem] sm:gap-3"
+            title={previewOnly ? undefined : 'Cargar en el formulario'}
+            onClick={previewOnly ? undefined : () => onSelect(row)}
+            className={`pn-pending-row grid w-full min-w-0 grid-cols-1 items-center gap-2.5 rounded-[18px] border border-slate-200/80 bg-white/80 px-3.5 py-3 shadow-[0_2px_5px_#0f172a05] transition-colors hover:bg-white sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_4.25rem_minmax(0,1.25fr)_7.5rem] sm:gap-3 ${previewOnly ? '' : 'cursor-pointer'}`}
         >
             <div className="min-w-0">
                 <p className="text-sm leading-snug font-semibold text-slate-900 [overflow-wrap:anywhere]">{row.nombre}</p>
@@ -223,6 +225,7 @@ const PendienteRowItem = memo(({
                 </a>
                 <button
                     aria-label="Editar pendiente"
+                    disabled={previewOnly}
                     title="Editar pendiente"
                     onClick={(e) => { e.stopPropagation(); onEdit(row); }}
                     className="inline-grid place-items-center size-9 shrink-0 rounded-full sm:size-8 transition-all hover:scale-105 bg-white shadow-sm hover:bg-gray-50 border border-gray-100"
@@ -231,6 +234,7 @@ const PendienteRowItem = memo(({
                 </button>
                 <button
                     aria-label="Eliminar pendiente"
+                    disabled={previewOnly}
                     title="Eliminar pendiente"
                     onClick={(e) => { e.stopPropagation(); onDelete(row); }}
                     className="inline-grid place-items-center size-9 shrink-0 rounded-full sm:size-8 transition-all hover:scale-105 bg-red-100/80 hover:bg-red-200/90"
@@ -318,6 +322,7 @@ export default function PersonaNueva({ variant }: { servidorId?: string | null; 
     const [pendLoading, setPendLoading] = useState(false);
     const [pendHistoryError, setPendHistoryError] = useState('');
     const [pendientesRows, setPendientesRows] = useState<PendienteItem[]>([]);
+    const [pendingPreview, setPendingPreview] = useState<PendienteItem[] | null>(null);
     const [intakeGroups, setIntakeGroups] = useState<IntakeGroup[]>([]);
     const [canAssignIntake, setCanAssignIntake] = useState(false);
     const [canChangeIntakeCourse, setCanChangeIntakeCourse] = useState(false);
@@ -341,6 +346,16 @@ export default function PersonaNueva({ variant }: { servidorId?: string | null; 
         const controller = new AbortController();
         setPendLoading(true);
         setPendHistoryError('');
+        setPendingPreview(null);
+        if (glass) {
+            void fetch('/api/ingresos?vista=lista', { cache: 'no-store', signal: controller.signal })
+                .then(async response => {
+                    if (!response.ok) return;
+                    const { pendientes } = await response.json();
+                    if (pendingRequest.current?.controller === controller) setPendingPreview(pendientes);
+                })
+                .catch(() => { /* The full request handles errors and can still supply the list. */ });
+        }
         const promise = (async () => {
             try {
                 const response = await fetch('/api/ingresos', { cache: 'no-store', signal: controller.signal });
@@ -365,13 +380,15 @@ export default function PersonaNueva({ variant }: { servidorId?: string | null; 
             } finally {
                 if (pendingRequest.current?.controller === controller) {
                     pendingRequest.current = null;
+                    controller.abort();
+                    setPendingPreview(null);
                     setPendLoading(false);
                 }
             }
         })();
         pendingRequest.current = { controller, promise };
         return promise;
-    }, []);
+    }, [glass]);
 
     useEffect(() => {
         const preload = glass ? window.setTimeout(() => void loadPendientes(), 80) : undefined;
@@ -1082,6 +1099,7 @@ export default function PersonaNueva({ variant }: { servidorId?: string | null; 
         }
     };
 
+    const pendingPageRows = pendLoading ? pendingPreview ?? [] : pendientesRows.slice(pendPage * PEND_PAGE_SIZE, (pendPage + 1) * PEND_PAGE_SIZE);
     const pendingDialogs = (<>
         {modalPendVisible && (
             <div
@@ -1138,21 +1156,18 @@ export default function PersonaNueva({ variant }: { servidorId?: string | null; 
                             </div>
 
                             <div className="list-body max-h-[min(64dvh,38rem)] space-y-2 overflow-y-auto overscroll-contain py-1" aria-busy={pendLoading}>
-                                {pendLoading && (
+                                {pendLoading && pendingPreview === null && (
                                     <div className="pn-pending-loading px-2 py-4 text-sm text-slate-600" role="status">
                                         Cargando registros…
                                         {glass && <div className="pn-pending-placeholder" aria-hidden="true" />}
                                     </div>
                                 )}
                                 {!pendLoading && pendHistoryError && <div className="px-3 py-6"><IntakeErrorNotice message={pendHistoryError} /></div>}
-                                {!pendLoading && !pendHistoryError && pendientesRows.length === 0 && (
+                                {!pendHistoryError && (pendLoading ? pendingPreview?.length === 0 : pendientesRows.length === 0) && (
                                     <div className="text-center text-neutral-600 px-2 py-10">Sin pendientes</div>
                                 )}
 
-                                {!pendLoading &&
-                                    pendientesRows
-                                        .slice(pendPage * PEND_PAGE_SIZE, (pendPage + 1) * PEND_PAGE_SIZE)
-                                        .map((row) => (
+                                {pendingPageRows.map((row) => (
                                             /* MEJORA 2: Uso de componente memoizado */
                                             <PendienteRowItem
                                                 key={(row.progreso_id ?? row.persona_id ?? row.id ?? Math.random().toString())}
@@ -1169,9 +1184,11 @@ export default function PersonaNueva({ variant }: { servidorId?: string | null; 
                                                 onEdit={setPendienteAEditar}
                                                 onReview={setIntakeToReview}
                                                 canAssign={canAssignIntake}
+                                                previewOnly={pendLoading}
                                             />
                                         ))}
                             </div>
+                            {pendLoading && Boolean(pendingPreview?.length) && <p className="pn-pending-sync" role="status">Verificando historial…</p>}
                         </div>
 
                         {!pendLoading && pendientesRows.length > PEND_PAGE_SIZE && (

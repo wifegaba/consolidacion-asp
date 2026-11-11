@@ -1217,13 +1217,6 @@ export default function PageSemillas() {
 
             {/* Estilos locales */}
             <style jsx global>{`
-                @keyframes cardIn {
-                    0% { opacity: 0; transform: translateY(14px) scale(0.98); filter: blur(3px); }
-                    60% { opacity: 1; transform: translateY(-2px) scale(1.01); filter: blur(0); }
-                    100% { opacity: 1; transform: translateY(0) scale(1); }
-                }
-                .animate-cardIn { animation: cardIn 0.48s cubic-bezier(0.22,1,0.36,1) both; }
-
                 .accent-line {
                     background-size: 200% 100%;
                     animation: accentMove 3.2s ease-in-out infinite;

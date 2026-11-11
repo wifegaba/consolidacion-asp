@@ -229,6 +229,8 @@
     box-shadow: inset 0 1px #ffffffbb, 0 2px 4px #334d7521;
 }
 .pn-glass .pn-pending-header button:disabled { opacity: .5; cursor: wait; }
+.pn-glass .pn-pending-row button:disabled { opacity: .45; cursor: wait; }
+.pn-glass .pn-pending-sync { padding: 2px 5px 4px; color: #506688; font-size: 11px; }
 .pn-glass .pn-pending-loading { min-height: 112px; }
 .pn-glass .pn-pending-placeholder {
     height: 35px;
@@ -262,7 +264,7 @@
 }
 
 @media (prefers-reduced-motion: no-preference) {
-    .pn-glass .pn-pending-sheet { animation: pn-pending-spring .28s cubic-bezier(.22,.76,.32,1.16); }
+    .pn-glass .pn-pending-sheet { animation: cardIn .48s cubic-bezier(.22,1,.36,1) both; }
 }
 @media (prefers-reduced-motion: no-preference) and (hover: hover) and (pointer: fine) {
     .pn-glass .pn-pending-row {
@@ -273,10 +275,6 @@
         transition-timing-function: cubic-bezier(.2,.76,.3,1);
         transition-duration: .2s;
     }
-}
-@keyframes pn-pending-spring {
-    from { opacity: 0; transform: translateY(10px) scale(.975); }
-    to { opacity: 1; transform: none; }
 }
 @media (prefers-reduced-transparency: reduce) {
     .pn-glass > #modal-pendientes { backdrop-filter: none; }

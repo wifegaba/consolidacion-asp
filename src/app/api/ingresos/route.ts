@@ -37,6 +37,18 @@ export async function GET(req: NextRequest) {
   if (session instanceof NextResponse) return session;
   try {
     const db = getServerSupabase();
+    if (req.nextUrl.searchParams.get('vista') === 'lista') {
+      const { data, error } = await db.from('pendientes')
+        .select('id,nombre,telefono,creado_en,servidor:servidores!creado_por(nombre)')
+        .order('creado_en', { ascending: false })
+        .limit(7)
+        .returns<{ id: string; nombre: string | null; telefono: string | null; creado_en: string | null; servidor: { nombre: string | null } | null }[]>();
+      if (error) throw error;
+      return NextResponse.json({ pendientes: (data ?? []).map(({ servidor, ...row }) => ({
+        ...row,
+        creado_por_nombre: servidor?.nombre ?? 'Sistema',
+      })) });
+    }
     const [{ data: rows, error }, { data: groups, error: groupError }, { data: canChangeCourse, error: permissionError }] = await Promise.all([
       db.rpc('fn_pendientes_ingreso'), db.rpc('fn_grupos_ingreso'),
       db.rpc('fn_puede_cambiar_curso_ingreso', { p_usuario: session.id }),
