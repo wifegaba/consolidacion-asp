@@ -73,32 +73,6 @@ export default function KidsEquipoPage() {
       .finally(() => setLoading(false))
   }, [router])
 
-  useEffect(() => {
-    const ensureKidsMenuFullscreen = () => {
-      if (document.hidden || document.fullscreenElement || !document.documentElement.requestFullscreen) return
-      void document.documentElement.requestFullscreen().catch(() => {
-        // Algunos navegadores requieren un gesto; se reintenta con la siguiente interacción.
-      })
-    }
-
-    const onVisibilityChange = () => {
-      if (!document.hidden) ensureKidsMenuFullscreen()
-    }
-
-    ensureKidsMenuFullscreen()
-    document.addEventListener('fullscreenchange', ensureKidsMenuFullscreen)
-    document.addEventListener('visibilitychange', onVisibilityChange)
-    window.addEventListener('pageshow', ensureKidsMenuFullscreen)
-    window.addEventListener('pointerdown', ensureKidsMenuFullscreen, { passive: true })
-
-    return () => {
-      document.removeEventListener('fullscreenchange', ensureKidsMenuFullscreen)
-      document.removeEventListener('visibilitychange', onVisibilityChange)
-      window.removeEventListener('pageshow', ensureKidsMenuFullscreen)
-      window.removeEventListener('pointerdown', ensureKidsMenuFullscreen)
-    }
-  }, [])
-
   async function logout() {
     await Promise.allSettled([
       fetch('/api/kids/equipo/logout', { method: 'POST' }),

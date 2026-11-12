@@ -173,7 +173,13 @@ export default function KidsAdminPage() {
   const [servidorLaunchOrigin, setServidorLaunchOrigin] = useState<ServerLaunchOrigin | null>(null)
   const [deletingServidorId, setDeletingServidorId] = useState<string | null>(null)
   const newServidorButtonRef = useRef<HTMLButtonElement>(null)
-  const fullscreenRequestPendingRef = useRef(false)
+  const workspaceRootRef = useRef<HTMLDivElement>(null)
+  const [workspaceExpanded, setWorkspaceExpanded] = useState(false)
+
+  useEffect(() => {
+    const button = workspaceRootRef.current?.querySelector('.lgx-window__fullscreen')
+    button?.setAttribute('aria-pressed', String(workspaceExpanded))
+  }, [usuario, workspaceExpanded])
 
   // ── Shared ───────────────────────────────────────────────────────────────
   const [activeNav,      setActiveNav]      = useState<string>('ninos')
@@ -315,47 +321,24 @@ export default function KidsAdminPage() {
     router.replace('/kids/login')
   }
 
-  function ensureFullscreenFromDock() {
-    if (typeof document === 'undefined' || fullscreenRequestPendingRef.current) return
+  function toggleWorkspaceExpanded() {
+    setWorkspaceExpanded(expanded => !expanded)
+  }
 
-    const fullscreenDocument = document as Document & {
-      webkitFullscreenElement?: Element | null
-    }
-    if (document.fullscreenElement || fullscreenDocument.webkitFullscreenElement) return
-
-    const root = document.documentElement as HTMLElement & {
-      webkitRequestFullscreen?: () => Promise<void> | void
-    }
-    const requestFullscreen = root.requestFullscreen
-      ? () => root.requestFullscreen({ navigationUI: 'hide' })
-      : root.webkitRequestFullscreen
-        ? () => root.webkitRequestFullscreen?.()
-        : null
-
-    if (!requestFullscreen) return
-
-    fullscreenRequestPendingRef.current = true
-    try {
-      const request = requestFullscreen()
-      if (request && typeof request.finally === 'function') {
-        void request
-          .catch(() => {
-            // Algunos navegadores o políticas corporativas bloquean fullscreen.
-            // La navegación del dock debe continuar normalmente.
-          })
-          .finally(() => {
-            fullscreenRequestPendingRef.current = false
-          })
-      } else {
-        fullscreenRequestPendingRef.current = false
-      }
-    } catch {
-      fullscreenRequestPendingRef.current = false
+  function handleWorkspaceClick(event: React.MouseEvent<HTMLDivElement>) {
+    if (!(event.target instanceof Element)) return
+    const button = event.target.closest('.lgx-window__bar button')
+    if (!button) return
+    if (button.matches('.lgx-window__fullscreen')) {
+      // Keep the library's button, but expand the workspace within the page.
+      event.stopPropagation()
+      toggleWorkspaceExpanded()
+    } else {
+      setWorkspaceExpanded(false)
     }
   }
 
   function handleNavClick(section: string) {
-    ensureFullscreenFromDock()
     if (section === activeNav) { setSidebarOpen(false); return }
     setSidebarOpen(false)
     setActiveNav(section)
@@ -575,11 +558,22 @@ export default function KidsAdminPage() {
           display: none !important;
         }
       }
+      .kids-workspace-expanded .lgx-window {
+        inset: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left) !important;
+        border-radius: 0 !important;
+      }
+      .kids-workspace-expanded .lgx-dock {
+        visibility: hidden;
+      }
     `}</style>
-    <div style={{
+    <div
+      ref={workspaceRootRef}
+      className={workspaceExpanded ? 'kids-workspace-expanded' : undefined}
+      onClickCapture={handleWorkspaceClick}
+      style={{
       fontFamily:    "'Segoe UI',system-ui,sans-serif",
-      height:        '100vh',
-      maxHeight:     '100vh',
+      height:        '100dvh',
+      maxHeight:     '100dvh',
       background:    '#0c0b74',
       display:       'flex',
       alignItems:    'stretch',
@@ -606,8 +600,8 @@ export default function KidsAdminPage() {
         borderRadius: 0,
         overflow:     'visible',
         boxShadow:    'none',
-        height:       '100vh',
-        maxHeight:    '100vh',
+        height:       '100dvh',
+        maxHeight:    '100dvh',
         position:     'relative',
         zIndex:       1,
         /* gradient visible inside the shell — what the sidebar blurs */
@@ -760,7 +754,6 @@ export default function KidsAdminPage() {
           items={liquidDockItems}
           activeId={displayNav}
           onActiveChange={handleNavClick}
-          defaultFullscreen
           windowLabel="Administración ASP Kids"
         >
         <main style={{
@@ -871,7 +864,12 @@ export default function KidsAdminPage() {
                 animation:'ninosShimmerFade 0.75s cubic-bezier(.4,0,.2,1) both',
                 borderRadius:'inherit',
               }}/>
-              <AgendaSection servidores={servidores} isMobile={isMobile} />
+              <AgendaSection
+                servidores={servidores}
+                isMobile={isMobile}
+                expanded={workspaceExpanded}
+                onToggleExpanded={toggleWorkspaceExpanded}
+              />
             </div>
           )}
 

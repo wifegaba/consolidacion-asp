@@ -35,39 +35,14 @@ export default function LoginPage() {
     setShowPassword(prev => !prev);
   };
 
-  // Se ejecuta solamente al interactuar con el campo; no hay intervalos ni
-  // sondeo continuo del navegador, por lo que no afecta el rendimiento.
-  const ensureFullscreen = () => {
-    if (window.matchMedia('(pointer: coarse)').matches) {
-      if (document.fullscreenElement) void document.exitFullscreen?.();
-      return;
-    }
-    if (document.fullscreenElement || !document.documentElement.requestFullscreen) return;
-    void document.documentElement.requestFullscreen().catch(() => {
-      // Algunos navegadores pueden requerir un gesto adicional o bloquearlo.
-      // El inicio de sesión sigue funcionando normalmente en ese caso.
-    });
-  };
-
   const handleCredentialFocus = () => {
-    ensureFullscreen();
     window.setTimeout(() => {
       cedulaInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }, 80);
   };
 
-  const enterFullscreenForPortal = () => {
-    if (!window.matchMedia('(pointer: coarse)').matches) return;
-    if (document.fullscreenElement || !document.documentElement.requestFullscreen) return;
-    void document.documentElement.requestFullscreen().catch(() => {
-      // Algunos navegadores solo permiten pantalla completa tras un gesto
-      // adicional; la navegación al portal continúa sin interrupciones.
-    });
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    enterFullscreenForPortal();
     await submitCedula();
   };
 

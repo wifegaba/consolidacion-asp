@@ -583,33 +583,6 @@ export default function PortalClient({ nombre, asignaciones }: { nombre: string,
     }, [mobileStageToReveal]);
 
     useEffect(() => {
-        const ensurePortalFullscreen = () => {
-            if (document.hidden || document.fullscreenElement || !document.documentElement.requestFullscreen) return;
-            void document.documentElement.requestFullscreen().catch(() => {
-                // Algunos navegadores requieren un gesto del usuario; el
-                // listener pointerdown lo reintentará en el siguiente clic.
-            });
-        };
-
-        const onVisibilityChange = () => {
-            if (!document.hidden) ensurePortalFullscreen();
-        };
-
-        ensurePortalFullscreen();
-        document.addEventListener('fullscreenchange', ensurePortalFullscreen);
-        document.addEventListener('visibilitychange', onVisibilityChange);
-        window.addEventListener('pageshow', ensurePortalFullscreen);
-        window.addEventListener('pointerdown', ensurePortalFullscreen, { passive: true });
-
-        return () => {
-            document.removeEventListener('fullscreenchange', ensurePortalFullscreen);
-            document.removeEventListener('visibilitychange', onVisibilityChange);
-            window.removeEventListener('pageshow', ensurePortalFullscreen);
-            window.removeEventListener('pointerdown', ensurePortalFullscreen);
-        };
-    }, []);
-
-    useEffect(() => {
         const returningKey = window.sessionStorage.getItem('portal-return-key')
             ?? new URLSearchParams(window.location.search).get('return');
         if (!returningKey) return;

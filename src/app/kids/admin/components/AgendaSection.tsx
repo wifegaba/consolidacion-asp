@@ -22,7 +22,17 @@ const GROUP_HEADER_COLORS: Record<string, { bg: string; text: string; border: st
 
 const DEFAULT_GROUP_HEADER = { bg: '#f8fafc', text: '#475569', border: '#e2e8f0', dot: '#64748b', badgeBg: '#f1f5f9' }
 
-export default function AgendaSection({ servidores = [], isMobile: isMobileProp = false }: { servidores?: any[]; isMobile?: boolean }) {
+export default function AgendaSection({
+  servidores = [],
+  isMobile: isMobileProp = false,
+  expanded,
+  onToggleExpanded,
+}: {
+  servidores?: any[];
+  isMobile?: boolean;
+  expanded: boolean;
+  onToggleExpanded: () => void;
+}) {
   const [isMobile, setIsMobile] = useState(isMobileProp)
   const [isCompact, setIsCompact] = useState(false)
 
@@ -215,20 +225,6 @@ export default function AgendaSection({ servidores = [], isMobile: isMobileProp 
     }))
   }
 
-  const [isFullscreen, setIsFullscreen] = useState(false)
-
-  const toggleFullscreen = () => {
-    if (!document.fullscreenElement) {
-      document.documentElement.requestFullscreen().catch(() => {})
-      setIsFullscreen(true)
-    } else {
-      if (document.exitFullscreen) {
-        document.exitFullscreen()
-        setIsFullscreen(false)
-      }
-    }
-  }
-
   const agendaGroupsSummary = gruposEdades.map(grupo => {
     const data = getGroupData(grupo)
     const assigned = [data.coordinador, ...data.maestros, ...data.auxiliares, ...data.timoteos].filter(Boolean).length
@@ -284,21 +280,23 @@ export default function AgendaSection({ servidores = [], isMobile: isMobileProp 
         </div>
         
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          {/* Fullscreen Button Liquid Glass Icon-Only */}
           <button
-            onClick={toggleFullscreen}
-            title={isFullscreen ? 'Salir de pantalla completa' : 'Pantalla completa'}
+            type="button"
+            onClick={onToggleExpanded}
+            aria-label="Vista ampliada de Agenda"
+            aria-pressed={expanded}
+            title={expanded ? 'Restaurar vista de Agenda' : 'Ampliar vista de Agenda'}
             style={{
               position: 'relative', overflow: 'hidden',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               width: isCompact ? 26 : 28, height: isCompact ? 26 : 28, borderRadius: '50%',
               border: '1px solid rgba(255,255,255,.95)',
-              background: isFullscreen 
+              background: expanded
                 ? 'linear-gradient(145deg, rgba(224,242,254,.95), rgba(186,230,253,.75))' 
                 : 'linear-gradient(145deg, rgba(255,255,255,.90), rgba(230,240,252,.60))',
               boxShadow: 'inset 0 1px 0 rgba(255,255,255,1), 0 2px 6px rgba(96,116,147,.08)',
               backdropFilter: 'blur(20px) saturate(140%)',
-              color: isFullscreen ? '#0284c7' : '#0f172a',
+              color: expanded ? '#0284c7' : '#0f172a',
               cursor: 'pointer',
               transition: 'all 0.2s ease'
             }}
@@ -314,7 +312,7 @@ export default function AgendaSection({ servidores = [], isMobile: isMobileProp 
             }}
           >
             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4">
-              {isFullscreen ? (
+              {expanded ? (
                 <path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3"/>
               ) : (
                 <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>
