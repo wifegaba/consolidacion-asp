@@ -1,25 +1,88 @@
-import { BookOpen } from 'lucide-react';
+import { BookOpen, Cloud, CloudFog, CloudDrizzle, CloudLightning, CloudMoon, CloudRain, CloudSnow, CloudSun, Moon, Sun } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { CALI_WEATHER_REFRESH_MS, isCurrentCaliWeather, type CaliWeather } from '@/lib/caliWeather';
 import styles from './login.module.css';
+import weatherStyles from './LoginWeather.module.css';
 
 const landscapes = {
   morning: '/login-verse-sunrise.webp',
   midday: '/login-verse-midday.webp',
   night: '/login-verse-night.webp',
+  cloudy: '/login-verse-cloudy.webp',
+  'cloudy-night': '/login-verse-cloudy.webp',
+  rain: '/login-verse-rain.webp',
+  'rain-night': '/login-verse-rain.webp',
 };
 
-type Period = keyof typeof landscapes;
-type Scene = { current: Period; previous?: Period };
+type Landscape = keyof typeof landscapes;
+type Scene = { current: Landscape; previous?: Landscape };
+
+const conditions = {
+  clear: { label: 'Despejado', icon: Sun, nightIcon: Moon, landscape: undefined },
+  partlyCloudy: { label: 'Parcialmente nublado', icon: CloudSun, nightIcon: CloudMoon, landscape: undefined },
+  cloudy: { label: 'Nublado', icon: Cloud, landscape: 'cloudy' },
+  fog: { label: 'Niebla', icon: CloudFog, landscape: 'cloudy' },
+  drizzle: { label: 'Llovizna', icon: CloudDrizzle, landscape: 'rain' },
+  rain: { label: 'Lluvia', icon: CloudRain, landscape: 'rain' },
+  storm: { label: 'Tormenta', icon: CloudLightning, landscape: 'rain' },
+  snow: { label: 'Nieve', icon: CloudSnow, landscape: 'cloudy' },
+} as const;
 
 const HOUR_MS = 60 * 60 * 1000;
 const COLOMBIA_OFFSET_MS = -5 * HOUR_MS;
 
+function useCaliWeather() {
+  const [weather, setWeather] = useState<CaliWeather>();
+
+  useEffect(() => {
+    let request: AbortController | undefined;
+    let lastCheck = -Infinity;
+
+    const refresh = async () => {
+      if (document.visibilityState !== 'visible' || request) return;
+      setWeather(previous => previous && isCurrentCaliWeather(previous.observedAt) ? previous : undefined);
+      if (Date.now() - lastCheck < CALI_WEATHER_REFRESH_MS) return;
+      lastCheck = Date.now();
+      const controller = new AbortController();
+      request = controller;
+      try {
+        const response = await fetch('/api/login/weather', { signal: controller.signal });
+        if (!response.ok) return;
+        const result: CaliWeather = await response.json();
+        if (!controller.signal.aborted && isCurrentCaliWeather(result.observedAt)) setWeather(result);
+      } catch {
+        // Weather is optional. The hour-based landscape is always available.
+      } finally {
+        request = undefined;
+      }
+    };
+
+    void refresh();
+    const timer = window.setInterval(refresh, CALI_WEATHER_REFRESH_MS);
+    document.addEventListener('visibilitychange', refresh);
+    window.addEventListener('pageshow', refresh);
+    return () => {
+      request?.abort();
+      window.clearInterval(timer);
+      document.removeEventListener('visibilitychange', refresh);
+      window.removeEventListener('pageshow', refresh);
+    };
+  }, []);
+
+  return weather;
+}
+
 export default function LoginVerseCard() {
+  const weather = useCaliWeather();
   const [scene, setScene] = useState<Scene>();
+  const condition = weather && conditions[weather.condition];
+  const weatherLandscape = condition?.landscape;
+  const isNight = scene?.current === 'night' || scene?.current.endsWith('-night');
+  const WeatherIcon = condition && isNight && 'nightIcon' in condition ? condition.nightIcon : condition?.icon;
 
   useEffect(() => {
     let timer: number;
-    let requested: Period | undefined;
+    let requested: Landscape | undefined;
     let disposed = false;
 
     const updateLandscape = () => {
@@ -28,21 +91,24 @@ export default function LoginVerseCard() {
       const localTime = new Date(now + COLOMBIA_OFFSET_MS);
       const hour = localTime.getUTCHours();
       const period = hour < 6 || hour >= 18 ? 'night' : hour < 12 ? 'morning' : 'midday';
+      const landscape = weatherLandscape
+        ? period === 'night' ? `${weatherLandscape}-night` as const : weatherLandscape
+        : period;
       const nextHour = hour < 6 ? 6 : hour < 12 ? 12 : hour < 18 ? 18 : 30;
       const nextBoundary = localTime.setUTCHours(nextHour, 0, 0, 0);
       timer = window.setTimeout(updateLandscape, nextBoundary - now - COLOMBIA_OFFSET_MS);
 
-      if (period === requested) return;
-      requested = period;
+      if (landscape === requested) return;
+      requested = landscape;
       const image = new window.Image();
-      image.src = landscapes[period];
+      image.src = landscapes[landscape];
       void image.decode().then(() => {
-        if (disposed || requested !== period) return;
-        setScene(previous => previous?.current === period
+        if (disposed || requested !== landscape) return;
+        setScene(previous => previous?.current === landscape
           ? previous
-          : { current: period, previous: previous?.current });
+          : { current: landscape, previous: previous?.current });
       }).catch(() => {
-        if (requested === period) requested = undefined;
+        if (requested === landscape) requested = undefined;
       });
     };
 
@@ -58,22 +124,40 @@ export default function LoginVerseCard() {
       document.removeEventListener('visibilitychange', updateWhenVisible);
       window.removeEventListener('pageshow', updateWhenVisible);
     };
-  }, []);
+  }, [weatherLandscape]);
 
   return (
     <blockquote className={styles.verse} aria-label="Versículo">
       <div className={styles.verseLandscape} data-transition={Boolean(scene?.previous)} aria-hidden="true">
-        {scene && [scene.previous, scene.current].map(period => period && (
+        {scene && [scene.previous, scene.current].map(landscape => landscape && (
           <span
-            key={period}
-            className={styles.verseLandscapeLayer}
-            data-landscape={period}
-            data-current={period === scene.current}
-            style={{ backgroundImage: `url(${landscapes[period]})` }}
+            key={landscape}
+            className={landscape.endsWith('-night') ? `${styles.verseLandscapeLayer} ${weatherStyles.night}` : styles.verseLandscapeLayer}
+            data-landscape={landscape}
+            data-current={landscape === scene.current}
+            style={{ backgroundImage: `url(${landscapes[landscape]})` }}
           />
         ))}
       </div>
-      <div className={styles.verseEmblem} aria-hidden="true"><span><BookOpen size={21} strokeWidth={1.6} /></span></div>
+      <div className={weatherStyles.header}>
+        <div className={styles.verseEmblem} aria-hidden="true"><span><BookOpen size={21} strokeWidth={1.6} /></span></div>
+        {weather && condition && WeatherIcon && (
+          <a
+            className={weatherStyles.badge}
+            href="https://open-meteo.com/"
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label={`Cali, ${weather.temperature} grados Celsius. ${condition.label}. Datos de Open-Meteo.`}
+            title={`${condition.label} en Cali · Datos de Open-Meteo`}
+          >
+            <span className={weatherStyles.temperature}>
+              <WeatherIcon size={16} strokeWidth={1.65} aria-hidden="true" />
+              {weather.temperature}°C
+            </span>
+            <span className={weatherStyles.source}>Cali · Open-Meteo</span>
+          </a>
+        )}
+      </div>
       <div className={styles.verseReading}>
         <p className={styles.verseText}>
           <span aria-hidden="true">“</span>El hombre planea su futuro, pero Dios le marca el rumbo.<span aria-hidden="true">”</span>
