@@ -65,6 +65,7 @@
 .logo img { width: 59px; height: 59px; object-fit: contain; }
 .verse {
   position: relative;
+  isolation: isolate;
   display: grid;
   grid-template-rows: auto 1fr auto;
   justify-items: center;
@@ -74,13 +75,29 @@
   padding: 16px 25px 13px;
   border: 1px solid #b6f0ff;
   border-radius: 26px;
-  background:
-    radial-gradient(ellipse at 49% 52%, rgb(3 33 66 / 68%), rgb(8 43 81 / 22%) 68%, transparent 100%),
-    linear-gradient(0deg, rgb(2 25 58 / 28%), transparent 70%),
-    url('/login-verse-sunrise.webp') center / cover no-repeat #113c63;
+  background: #113c63;
   box-shadow: inset 0 0 0 1px rgb(241 253 255 / 38%), inset 0 0 12px rgb(117 221 255 / 40%), 0 0 10px rgb(93 217 255 / 38%), 0 14px 25px -14px #021f4e;
   color: #fff;
   text-align: center;
+}
+.verseLandscape, .verseLandscapeLayer, .verseLandscape::after {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+}
+.verseLandscape { z-index: -1; overflow: hidden; }
+.verseLandscapeLayer { background: center / cover no-repeat; }
+.verseLandscape[data-transition='true'] .verseLandscapeLayer[data-current='true'] {
+  animation: verse-landscape-in 650ms ease-in-out both;
+}
+@keyframes verse-landscape-in { from { opacity: 0; } to { opacity: 1; } }
+.verseLandscape::after {
+  content: '';
+  background:
+    radial-gradient(ellipse at 49% 52%, rgb(3 33 66 / 68%), rgb(8 43 81 / 22%) 68%, transparent 100%),
+    linear-gradient(0deg, rgb(2 25 58 / 28%), transparent 70%);
+  box-shadow: inset 0 0 0 1px rgb(241 253 255 / 38%), inset 0 0 12px rgb(117 221 255 / 40%);
 }
 .verseEmblem { display: flex; align-items: center; justify-content: center; gap: 8px; width: min(100%, 192px); }
 .verseEmblem::before, .verseEmblem::after { content: ''; flex: 1; height: 1px; border-radius: 4px; background: linear-gradient(90deg, transparent, #cbf6ff); box-shadow: 0 0 5px #7cdcf980; }
@@ -162,7 +179,8 @@
   .header h1 { font-size: 29px; }
   .logo { flex-basis: 68px; height: 68px; }
   .logo img { width: 55px; height: 55px; }
-  .verse { margin: 12px 10px 0; padding-inline: 14px; border-radius: 22px; background-size: auto, auto, 100% 100%; }
+  .verse { margin: 12px 10px 0; padding-inline: 14px; border-radius: 22px; }
+  .verseLandscapeLayer { background-size: 100% 100%; }
   .verse cite { font-size: 12px; }
   .ministries { margin: 16px 20px 0; }
   .ministryList { grid-template-columns: .95fr 1.05fr; gap: 8px; }
@@ -196,6 +214,7 @@
   .ministryIcon { width: 34px; }
 }
 @media (prefers-reduced-motion: reduce) {
+  .verseLandscape[data-transition='true'] .verseLandscapeLayer[data-current='true'] { animation: none; }
   .input, .submit { transition: none; }
   .submit[data-loading='true'] .submitLight { animation: none; transform: none; opacity: .25; }
 }

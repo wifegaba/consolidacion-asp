@@ -3,8 +3,8 @@
 import Image from 'next/image';
 import { BookOpen, Check, Smile, Settings, CalendarDays, ShieldCheck, ArrowRight, LockKeyhole } from 'lucide-react';
 import styles from './login.module.css';
-import { getDailyLoginVerse, millisecondsToNextVerse, type LoginVerse } from '@/lib/loginVerses';
-import { useState, useRef, useEffect } from 'react';
+import LoginVerseCard from './LoginVerseCard';
+import { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 
 // IMPORTACIÓN SIMULADA DE ÍCONOS MODERNOS
@@ -24,7 +24,6 @@ export default function LoginPage() {
   const router = useRouter();
   const [cedula, setCedula] = useState('');
   const [loading, setLoading] = useState(false);
-  const [verse, setVerse] = useState<LoginVerse | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const cedulaInputRef = useRef<HTMLInputElement>(null);
   const pendingRef = useRef(false); // evita doble submit rápido
@@ -65,24 +64,6 @@ export default function LoginPage() {
       // adicional; la navegación al portal continúa sin interrupciones.
     });
   };
-
-  useEffect(() => {
-    let midnightTimer: ReturnType<typeof setTimeout>;
-    const updateVerse = () => {
-      clearTimeout(midnightTimer);
-      setVerse(getDailyLoginVerse());
-      midnightTimer = setTimeout(updateVerse, millisecondsToNextVerse() + 100);
-    };
-    const onVisible = () => {
-      if (document.visibilityState === 'visible') updateVerse();
-    };
-    updateVerse();
-    document.addEventListener('visibilitychange', onVisible);
-    return () => {
-      clearTimeout(midnightTimer);
-      document.removeEventListener('visibilitychange', onVisible);
-    };
-  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -148,14 +129,7 @@ export default function LoginPage() {
           </div>
         </header>
 
-        <blockquote className={styles.verse} aria-label="Versículo del día">
-          <div className={styles.verseEmblem} aria-hidden="true"><span><BookOpen size={21} strokeWidth={1.6} /></span></div>
-          <div className={styles.verseReading}>
-            <p className={styles.verseText}>{verse && <><span aria-hidden="true">“</span>{verse.text}<span aria-hidden="true">”</span></>}</p>
-            <svg className={styles.verseFlourish} width="140" height="12" viewBox="0 0 140 12" aria-hidden="true"><path d="M0 11C39 0 96-3 140 7 91 2 40 6 0 11Z" fill="currentColor" /></svg>
-          </div>
-          <cite style={{ visibility: verse ? 'visible' : 'hidden' }}><BookOpen size={16} strokeWidth={1.7} aria-hidden="true" />{verse?.reference || '\u00a0'}</cite>
-        </blockquote>
+        <LoginVerseCard />
 
         <section className={styles.ministries} aria-label="Ministerios">
           <div className={styles.ministryList}>
