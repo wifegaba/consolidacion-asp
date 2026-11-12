@@ -1,19 +1,14 @@
 .header {
-  display: grid;
-  grid-template-columns: minmax(84px, 1fr) minmax(53px, 192px) minmax(84px, 1fr);
+  display: flex;
+  justify-content: flex-end;
   align-items: center;
-  justify-items: center;
   width: 100%;
   min-height: 41px;
 }
 
-.header > :first-child { grid-column: 2; }
-
 .badge {
-  grid-column: 3;
   display: grid;
   justify-items: center;
-  justify-self: end;
   gap: 2px;
   padding: 5px 8px;
   border: 1px solid rgb(196 243 255 / 78%);

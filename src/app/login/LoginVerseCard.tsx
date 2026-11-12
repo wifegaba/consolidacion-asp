@@ -1,13 +1,14 @@
 import { BookOpen, Cloud, CloudFog, CloudDrizzle, CloudLightning, CloudMoon, CloudRain, CloudSnow, CloudSun, Moon, Sun } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { CALI_WEATHER_REFRESH_MS, isCurrentCaliWeather, type CaliWeather } from '@/lib/caliWeather';
+import LoginMoon from './LoginMoon';
 import styles from './login.module.css';
 import weatherStyles from './LoginWeather.module.css';
 
 const landscapes = {
   morning: '/login-verse-sunrise.webp',
   midday: '/login-verse-midday.webp',
-  night: '/login-verse-night.webp',
+  night: '/login-verse-night-sky.webp',
   cloudy: '/login-verse-cloudy.webp',
   'cloudy-night': '/login-verse-cloudy.webp',
   rain: '/login-verse-rain.webp',
@@ -36,13 +37,20 @@ function useCaliWeather() {
 
   useEffect(() => {
     let request: AbortController | undefined;
-    let lastCheck = -Infinity;
+    let timer: number | undefined;
+    let nextCheck = 0;
 
     const refresh = async () => {
+      window.clearTimeout(timer);
       if (document.visibilityState !== 'visible' || request) return;
       setWeather(previous => previous && isCurrentCaliWeather(previous.observedAt) ? previous : undefined);
-      if (Date.now() - lastCheck < CALI_WEATHER_REFRESH_MS) return;
-      lastCheck = Date.now();
+      const now = Date.now();
+      if (now < nextCheck) {
+        timer = window.setTimeout(refresh, nextCheck - now);
+        return;
+      }
+
+      nextCheck = now + CALI_WEATHER_REFRESH_MS;
       const controller = new AbortController();
       request = controller;
       try {
@@ -54,16 +62,18 @@ function useCaliWeather() {
         // Weather is optional. The hour-based landscape is always available.
       } finally {
         request = undefined;
+        if (!controller.signal.aborted && document.visibilityState === 'visible') {
+          timer = window.setTimeout(refresh, Math.max(0, nextCheck - Date.now()));
+        }
       }
     };
 
     void refresh();
-    const timer = window.setInterval(refresh, CALI_WEATHER_REFRESH_MS);
     document.addEventListener('visibilitychange', refresh);
     window.addEventListener('pageshow', refresh);
     return () => {
       request?.abort();
-      window.clearInterval(timer);
+      window.clearTimeout(timer);
       document.removeEventListener('visibilitychange', refresh);
       window.removeEventListener('pageshow', refresh);
     };
@@ -128,19 +138,21 @@ export default function LoginVerseCard() {
 
   return (
     <blockquote className={styles.verse} aria-label="Versículo">
-      <div className={styles.verseLandscape} data-transition={Boolean(scene?.previous)} aria-hidden="true">
+      <div className={styles.verseLandscape} data-transition={Boolean(scene?.previous)}>
         {scene && [scene.previous, scene.current].map(landscape => landscape && (
           <span
             key={landscape}
             className={landscape.endsWith('-night') ? `${styles.verseLandscapeLayer} ${weatherStyles.night}` : styles.verseLandscapeLayer}
             data-landscape={landscape}
             data-current={landscape === scene.current}
+            aria-hidden={landscape !== scene.current}
             style={{ backgroundImage: `url(${landscapes[landscape]})` }}
-          />
+          >
+            {landscape === 'night' && <LoginMoon />}
+          </span>
         ))}
       </div>
       <div className={weatherStyles.header}>
-        <div className={styles.verseEmblem} aria-hidden="true"><span><BookOpen size={21} strokeWidth={1.6} /></span></div>
         {weather && condition && WeatherIcon && (
           <a
             className={weatherStyles.badge}
@@ -148,13 +160,13 @@ export default function LoginVerseCard() {
             target="_blank"
             rel="noopener noreferrer"
             aria-label={`Cali, ${weather.temperature} grados Celsius. ${condition.label}. Datos de Open-Meteo.`}
-            title={`${condition.label} en Cali · Datos de Open-Meteo`}
+            title={`${condition.label} en Cali`}
           >
             <span className={weatherStyles.temperature}>
               <WeatherIcon size={16} strokeWidth={1.65} aria-hidden="true" />
               {weather.temperature}°C
             </span>
-            <span className={weatherStyles.source}>Cali · Open-Meteo</span>
+            <span className={weatherStyles.source}>Cali</span>
           </a>
         )}
       </div>

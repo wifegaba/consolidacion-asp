@@ -1,0 +1,31 @@
+.moon {
+  position: absolute;
+  top: 22%;
+  left: 74%;
+  width: clamp(22px, 7%, 32px);
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%);
+}
+
+.disk, .disk::before, .light {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+}
+
+.disk::before, .light {
+  background: url('/login-verse-night.webp') 85.7% 15.3% / 1600% 800% no-repeat;
+}
+
+.disk::before {
+  content: '';
+  filter: brightness(.31) saturate(.6);
+  opacity: .25;
+}
+
+.light { filter: saturate(.72) brightness(1.2); }
+.disk { filter: drop-shadow(0 0 5px rgb(166 214 255 / 44%)); }
+
+@media (max-width: 520px) {
+  .moon { top: 18%; left: 18%; }
+}

@@ -16,6 +16,7 @@
     "@phosphor-icons/react": "^2.1.10",
     "@supabase/supabase-js": "^2.57.0",
     "aos": "^2.3.4",
+    "astronomy-engine": "2.1.19",
     "bcryptjs": "^3.0.2",
     "canvas-confetti": "^1.9.4",
     "d3": "^7.9.0",
