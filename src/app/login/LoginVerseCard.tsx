@@ -9,11 +9,18 @@ const landscapes = {
   morning: '/login-verse-sunrise.webp',
   midday: '/login-verse-midday.webp',
   night: '/login-verse-night-sky.webp',
-  cloudy: '/login-verse-cloudy.webp',
+  cloudy: '/login-verse-cloudy-day.webp',
   'cloudy-night': '/login-verse-cloudy.webp',
-  rain: '/login-verse-rain.webp',
+  drizzle: '/login-verse-drizzle-day.webp',
+  rain: '/login-verse-rain-day.webp',
   'rain-night': '/login-verse-rain.webp',
 };
+
+const nightWeatherLandscapes = {
+  cloudy: 'cloudy-night',
+  drizzle: 'rain-night',
+  rain: 'rain-night',
+} as const;
 
 type Landscape = keyof typeof landscapes;
 type Scene = { current: Landscape; previous?: Landscape };
@@ -23,7 +30,7 @@ const conditions = {
   partlyCloudy: { label: 'Parcialmente nublado', icon: CloudSun, nightIcon: CloudMoon, landscape: undefined },
   cloudy: { label: 'Nublado', icon: Cloud, landscape: 'cloudy' },
   fog: { label: 'Niebla', icon: CloudFog, landscape: 'cloudy' },
-  drizzle: { label: 'Llovizna', icon: CloudDrizzle, landscape: 'rain' },
+  drizzle: { label: 'Llovizna', icon: CloudDrizzle, landscape: 'drizzle' },
   rain: { label: 'Lluvia', icon: CloudRain, landscape: 'rain' },
   storm: { label: 'Tormenta', icon: CloudLightning, landscape: 'rain' },
   snow: { label: 'Nieve', icon: CloudSnow, landscape: 'cloudy' },
@@ -102,7 +109,7 @@ export default function LoginVerseCard() {
       const hour = localTime.getUTCHours();
       const period = hour < 6 || hour >= 18 ? 'night' : hour < 12 ? 'morning' : 'midday';
       const landscape = weatherLandscape
-        ? period === 'night' ? `${weatherLandscape}-night` as const : weatherLandscape
+        ? period === 'night' ? nightWeatherLandscapes[weatherLandscape] : weatherLandscape
         : period;
       const nextHour = hour < 6 ? 6 : hour < 12 ? 12 : hour < 18 ? 18 : 30;
       const nextBoundary = localTime.setUTCHours(nextHour, 0, 0, 0);

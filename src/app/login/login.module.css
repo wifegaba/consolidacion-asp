@@ -98,7 +98,7 @@
     radial-gradient(ellipse at 49% 52%, rgb(3 33 66 / 68%), rgb(8 43 81 / 22%) 68%, transparent 100%),
     linear-gradient(0deg, rgb(2 25 58 / 28%), transparent 70%);
 }
-.verseLandscapeLayer[data-landscape='midday']::after {
+.verseLandscapeLayer:is([data-landscape='midday'], [data-landscape='cloudy'], [data-landscape='drizzle'], [data-landscape='rain'])::after {
   background:
     radial-gradient(ellipse 54% 32% at 50% 52%, rgb(4 27 48 / 59%) 23%, rgb(4 27 48 / 49%) 55%, transparent 100%),
     linear-gradient(0deg, rgb(2 25 38 / 20%), transparent 35%);
