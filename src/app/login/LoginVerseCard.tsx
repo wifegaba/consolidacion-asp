@@ -1,6 +1,7 @@
 import { BookOpen, Cloud, CloudFog, CloudDrizzle, CloudLightning, CloudMoon, CloudRain, CloudSnow, CloudSun, Moon, Sun } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { CALI_WEATHER_REFRESH_MS, isCurrentCaliWeather, type CaliWeather } from '@/lib/caliWeather';
+import { getDailyLoginVerse, millisecondsToNextVerse, type LoginVerse } from '@/lib/loginVerses';
 import LoginMoon from './LoginMoon';
 import styles from './login.module.css';
 import weatherStyles from './LoginWeather.module.css';
@@ -91,11 +92,34 @@ function useCaliWeather() {
 
 export default function LoginVerseCard() {
   const weather = useCaliWeather();
+  const [verse, setVerse] = useState<LoginVerse>();
   const [scene, setScene] = useState<Scene>();
   const condition = weather && conditions[weather.condition];
   const weatherLandscape = condition?.landscape;
   const isNight = scene?.current === 'night' || scene?.current.endsWith('-night');
   const WeatherIcon = condition && isNight && 'nightIcon' in condition ? condition.nightIcon : condition?.icon;
+
+  useEffect(() => {
+    let timer: number;
+    const updateVerse = () => {
+      window.clearTimeout(timer);
+      const now = new Date();
+      setVerse(getDailyLoginVerse(now));
+      timer = window.setTimeout(updateVerse, millisecondsToNextVerse(now));
+    };
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === 'visible') updateVerse();
+    };
+
+    updateVerse();
+    document.addEventListener('visibilitychange', refreshWhenVisible);
+    window.addEventListener('pageshow', refreshWhenVisible);
+    return () => {
+      window.clearTimeout(timer);
+      document.removeEventListener('visibilitychange', refreshWhenVisible);
+      window.removeEventListener('pageshow', refreshWhenVisible);
+    };
+  }, []);
 
   useEffect(() => {
     let timer: number;
@@ -144,7 +168,7 @@ export default function LoginVerseCard() {
   }, [weatherLandscape]);
 
   return (
-    <blockquote className={styles.verse} aria-label="Versículo">
+    <blockquote className={styles.verse} aria-label="Versículo del día">
       <div className={styles.verseLandscape} data-transition={Boolean(scene?.previous)}>
         {scene && [scene.previous, scene.current].map(landscape => landscape && (
           <span
@@ -179,11 +203,14 @@ export default function LoginVerseCard() {
       </div>
       <div className={styles.verseReading}>
         <p className={styles.verseText}>
-          <span aria-hidden="true">“</span>El hombre planea su futuro, pero Dios le marca el rumbo.<span aria-hidden="true">”</span>
+          {verse && <><span aria-hidden="true">“</span>{verse.text}<span aria-hidden="true">”</span></>}
         </p>
         <svg className={styles.verseFlourish} width="140" height="12" viewBox="0 0 140 12" aria-hidden="true"><path d="M0 11C39 0 96-3 140 7 91 2 40 6 0 11Z" fill="currentColor" /></svg>
       </div>
-      <cite><BookOpen size={16} strokeWidth={1.7} aria-hidden="true" />Proverbios 16:9 · TLA</cite>
+      <cite style={{ visibility: verse ? 'visible' : 'hidden' }}>
+        <BookOpen size={16} strokeWidth={1.7} aria-hidden="true" />
+        {verse ? `${verse.reference} · ${verse.translation ?? 'RV 1858'}` : '\u00a0'}
+      </cite>
     </blockquote>
   );
 }

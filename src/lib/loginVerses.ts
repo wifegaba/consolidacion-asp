@@ -1,7 +1,7 @@
-// Bundled scripture: getBible rv1858 Spanish text (public domain).
+// The rotating catalog uses getBible rv1858 (public domain) unless marked otherwise.
 // Source: https://api.getbible.net/v2/rv1858/19.json and /20.json.
 // Kept locally so the login never depends on a scripture API.
-export type LoginVerse = { reference: string; text: string };
+export type LoginVerse = { reference: string; text: string; translation?: 'TLA' };
 
 export const LOGIN_VERSES: readonly LoginVerse[] = [
   {
@@ -130,7 +130,8 @@ export const LOGIN_VERSES: readonly LoginVerse[] = [
   },
   {
     "reference": "Proverbios 16:9",
-    "text": "El corazón del hombre piensa su camino: mas Jehová endereza sus pasos."
+    "text": "El hombre planea su futuro, pero Dios le marca el rumbo.",
+    "translation": "TLA"
   },
   {
     "reference": "Proverbios 16:24",
